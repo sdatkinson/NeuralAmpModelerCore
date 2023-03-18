@@ -23,6 +23,7 @@ public:
   ImpulseResponse(const WDL_String &fileName);
   ImpulseResponse(const std::vector<float> &rawAudio,
                   const double rawAudioSampleRate);
+  dsp::wav::LoadReturnCode GetWavState() const { return this->mWavState; };
   iplug::sample **Process(iplug::sample **inputs, const size_t numChannels,
                           const size_t numFrames) override;
   void SetSampleRate(const double sampleRate);
