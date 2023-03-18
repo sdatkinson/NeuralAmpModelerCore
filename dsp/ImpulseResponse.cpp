@@ -13,7 +13,7 @@
 dsp::ImpulseResponse::ImpulseResponse(const WDL_String& fileName) : mSampleRate(0.0)
 {
   // Try to load the WAV
-    if (dsp::wav::Load(fileName, this->mRawAudio, this->mRawAudioSampleRate) != dsp::wav::RET_SUCCESS) {
+    if (dsp::wav::Load(fileName, this->mRawAudio, this->mRawAudioSampleRate) != dsp::wav::LoadReturnCode::SUCCESS) {
         std::stringstream ss;
         ss << "Failed to load IR at " << fileName.Get() << std::endl;
         throw std::runtime_error(ss.str());
