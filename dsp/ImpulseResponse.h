@@ -44,8 +44,6 @@ private:
   // The weights
   Eigen::VectorXf mWeight;
 };
-// Default IR:
-std::unique_ptr<ImpulseResponse> get_default_ir();
 }; // namespace dsp
 
 #endif /* ImpulseResponse_h */
