@@ -301,9 +301,6 @@ std::unique_ptr<DSP> get_dsp(const std::filesystem::path model_file);
 // Legacy loader for directory-type DSPs
 std::unique_ptr<DSP> get_dsp_legacy(const std::filesystem::path dirname);
 
-// Hard-coded model:
-std::unique_ptr<DSP> get_hard_dsp();
-
 // Version 2 DSP abstraction ==================================================
 
 namespace dsp {

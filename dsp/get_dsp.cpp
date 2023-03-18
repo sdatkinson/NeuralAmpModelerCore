@@ -100,17 +100,3 @@ std::unique_ptr<DSP> get_dsp(const std::filesystem::path config_filename) {
     throw std::runtime_error("Unrecognized architecture");
   }
 }
-
-std::unique_ptr<DSP> get_hard_dsp() {
-  // Values are defined in HardCodedModel.h
-  verify_config_version(std::string(PYTHON_MODEL_VERSION));
-
-  // Uncomment the line that corresponds to the model type that you're using.
-
-  // return std::make_unique<convnet::ConvNet>(CHANNELS, DILATIONS, BATCHNORM,
-  // ACTIVATION, PARAMS); return
-  // std::make_unique<wavenet::WaveNet>(LAYER_ARRAY_PARAMS, HEAD_SCALE,
-  // WITH_HEAD, PARAMETRIC, PARAMS);
-  return std::make_unique<lstm::LSTM>(NUM_LAYERS, INPUT_SIZE, HIDDEN_SIZE,
-                                      PARAMS, PARAMETRIC);
-}
