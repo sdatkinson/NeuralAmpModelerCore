@@ -10,18 +10,20 @@
 
 #include "ImpulseResponse.h"
 
-dsp::ImpulseResponse::ImpulseResponse(const WDL_String &fileName,
-                                      const double sampleRate)
-    : mWavState(dsp::wav::LoadReturnCode::ERROR_OTHER) {
-  // Try to load the WAV
+dsp::ImpulseResponse::ImpulseResponse(const WDL_String &fileName)
+    : mSampleRate(0.0), mWavState(dsp::wav::LoadReturnCode::ERROR_OTHER) {
   this->mWavState =
       dsp::wav::Load(fileName, this->mRawAudio, this->mRawAudioSampleRate);
-  if (this->mWavState != dsp::wav::LoadReturnCode::SUCCESS) {
-    std::stringstream ss;
-    ss << "Failed to load IR at " << fileName.Get() << std::endl;
-  } else
-    // Set the weights based on the raw audio.
-    this->_SetWeights(sampleRate);
+}
+
+dsp::ImpulseResponse::ImpulseResponse(const std::vector<float> &rawAudio,
+                                      const double rawAudioSampleRate)
+    : mSampleRate(0.0), mWavState(dsp::wav::LoadReturnCode::ERROR_OTHER) {
+  this->mRawAudio.resize(rawAudio.size());
+  for (auto i = 0; i < rawAudio.size(); i++)
+    this->mRawAudio[i] = rawAudio[i];
+  this->mRawAudioSampleRate = rawAudioSampleRate;
+  this->mWavState = dsp::wav::LoadReturnCode::SUCCESS
 }
 
 iplug::sample **dsp::ImpulseResponse::Process(iplug::sample **inputs,
@@ -45,8 +47,15 @@ iplug::sample **dsp::ImpulseResponse::Process(iplug::sample **inputs,
   return this->_GetPointers();
 }
 
+void dsp::ImpulseResponse::SetSampleRate(const double sampleRate) {
+  if (sampleRate != this->mSampleRate)
+    // Set the weights based on the raw audio.
+    this->_SetWeights(sampleRate);
+}
+
 void dsp::ImpulseResponse::_SetWeights(const double sampleRate) {
   if (this->mRawAudioSampleRate == sampleRate) {
+    // Simple implementation w/ no resample...
     this->mResampled.resize(this->mRawAudio.size());
     memcpy(this->mResampled.data(), this->mRawAudio.data(),
            this->mResampled.size());
@@ -60,10 +69,11 @@ void dsp::ImpulseResponse::_SetWeights(const double sampleRate) {
     dsp::ResampleCubic<float>(padded, this->mRawAudioSampleRate, sampleRate,
                               0.0, this->mResampled);
   }
-  // Simple implementation w/ no resample...
   const size_t irLength = std::min(this->mResampled.size(), this->mMaxLength);
   this->mWeight.resize(irLength);
   for (size_t i = 0, j = irLength - 1; i < irLength; i++, j--)
     this->mWeight[j] = this->mResampled[i];
   this->mHistoryRequired = irLength - 1;
+  // And remember for the future
+  this->mSampleRate = sampleRate;
 }

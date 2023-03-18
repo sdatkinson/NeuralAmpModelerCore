@@ -15,17 +15,17 @@
 
 #include "IPlugConstants.h" // sample
 #include "dsp.h"
-#include "wav.h"
 #include "wdlstring.h" // WDL_String
 
 namespace dsp {
 class ImpulseResponse : public History {
 public:
-  ImpulseResponse(const WDL_String &fileName, const double sampleRate);
+  ImpulseResponse(const WDL_String &fileName);
+  ImpulseResponse(const std::vector<float> &rawAudio,
+                  const double rawAudioSampleRate);
   iplug::sample **Process(iplug::sample **inputs, const size_t numChannels,
                           const size_t numFrames) override;
-  // TODO states for the IR class
-  dsp::wav::LoadReturnCode GetWavState() const { return this->mWavState; };
+  void SetSampleRate(const double sampleRate);
 
 private:
   // Set the weights, given that the plugin is running at the provided sample
@@ -39,6 +39,8 @@ private:
   double mRawAudioSampleRate;
   // Resampled to the required sample rate.
   std::vector<float> mResampled;
+  // Sample rate it was resampled to.
+  double mSampleRate;
 
   const size_t mMaxLength = 8192;
   // The weights
