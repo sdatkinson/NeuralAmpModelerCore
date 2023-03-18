@@ -23,7 +23,7 @@ dsp::ImpulseResponse::ImpulseResponse(const std::vector<float> &rawAudio,
   for (auto i = 0; i < rawAudio.size(); i++)
     this->mRawAudio[i] = rawAudio[i];
   this->mRawAudioSampleRate = rawAudioSampleRate;
-  this->mWavState = dsp::wav::LoadReturnCode::SUCCESS
+  this->mWavState = dsp::wav::LoadReturnCode::SUCCESS;
 }
 
 iplug::sample **dsp::ImpulseResponse::Process(iplug::sample **inputs,
