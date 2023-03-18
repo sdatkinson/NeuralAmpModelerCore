@@ -15,6 +15,7 @@
 
 #include "IPlugConstants.h" // sample
 #include "dsp.h"
+#include "wav.h"
 #include "wdlstring.h" // WDL_String
 
 namespace dsp {
