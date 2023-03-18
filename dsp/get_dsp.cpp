@@ -1,7 +1,6 @@
 #include <fstream>
 #include <unordered_set>
 
-#include "HardCodedModel.h"
 #include "dsp.h"
 #include "json.hpp"
 #include "lstm.h"
