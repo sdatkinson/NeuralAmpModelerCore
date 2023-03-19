@@ -7,12 +7,13 @@
 #include <Eigen/Dense>
 
 #include "dsp.h"
+#include "wavenet.h"  // For _DialtedConv
 
 namespace wavenet {
 // Rework the initialization API slightly. Merge w/ dsp.h later.
-class _DilatedConv : public Conv1D {
+class DilatedConv : public Conv1D {
 public:
-  _DilatedConv(const int in_channels, const int out_channels,
+  DilatedConv(const int in_channels, const int out_channels,
                const int kernel_size, const int bias, const int dilation);
 };
 
@@ -38,7 +39,7 @@ public:
 
 private:
   // The dilated convolution at the front of the block
-  _DilatedConv _conv;
+  DilatedConv _conv;
   // Input mixin
   Conv1x1 _input_mixin;
   // The post-activation 1x1 convolution

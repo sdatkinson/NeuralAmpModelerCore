@@ -71,8 +71,12 @@ std::unique_ptr<DSP> get_dsp(const std::filesystem::path config_filename) {
     const int num_layers = config["num_layers"];
     const int input_size = config["input_size"];
     const int hidden_size = config["hidden_size"];
+    const bool have_pre_conv = config.find("pre_conv") != config.end();
+    const int pre_conv_in_channels = have_pre_conv ? config["pre_conv"]["in_channels"];
+    const int pre_conv_out_channels = have_pre_conv ? config["pre_conv"]["out_channels"];
+    const int pre_conv_kernel_size = have_pre_conv ? config["pre_conv"]["kernel_size"];
     return std::make_unique<lstm::LSTM>(num_layers, input_size, hidden_size,
-                                        params, config["parametric"]);
+                                        params, config["parametric"], have_pre_conv, pre_conv_in_channels, pre_conv_out_channels, pre_conv_kernel_size);
   } else if (architecture == "WaveNet" || architecture == "CatWaveNet") {
     std::vector<wavenet::LayerArrayParams> layer_array_params;
     for (int i = 0; i < config["layers"].size(); i++) {

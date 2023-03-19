@@ -1,5 +1,5 @@
 #pragma once
-// LSTM implementation
+// LSTM interface
 
 #include <map>
 #include <vector>
@@ -8,6 +8,8 @@
 
 #include "dsp.h"
 #include "json.hpp"
+#include "wavenet.h"
+
 
 namespace lstm {
 // A Single LSTM cell
@@ -51,16 +53,41 @@ private:
 // The multi-layer LSTM model
 class LSTM : public DSP {
 public:
+  // Old-style init with no pre-conv possible
   LSTM(const int num_layers, const int input_size, const int hidden_size,
        std::vector<float> &params, nlohmann::json &parametric);
+  // Init with pre-conv
+  LSTM(const int num_layers, const int input_size, const int hidden_size,
+      std::vector<float>& params, nlohmann::json& parametric, const bool have_pre_conv, const int pre_conv_in_channels, const int pre_conv_out_channels, const int pre_conv_kernel_size);
 
 protected:
-  Eigen::VectorXf _head_weight;
-  float _head_bias;
+  long _get_num_params() const { return this->_input_and_params.size() - 1; };
+  long _get_receptive_field() const { return this->_pre_conv.get_kernel_size(); };
+  // Allocates arrays
+  void _prepare_pre_conv_for_frames(const size_t num_frames);
+
+  // Checks if a pre-conv exists, and uses it if so.
+  // Output is always available in this->_pre_conv_output
+  void _process_pre_conv_();
   void _process_core_() override;
+  void _rewind_buffer_();
+
+  bool _have_pre_conv;
+  Eigen::MatrixXf _pre_conv_input_buffer;
+  long _pre_conv_index;
+  Eigen::MatrixXf _pre_conv_output;
+  wavenet::DilatedConv _pre_conv;
+
   std::vector<LSTMCell> _layers;
 
-  float _process_sample(const float x);
+  Eigen::VectorXf _head_weight;
+  float _head_bias;
+
+  // LSTM processing with a single sample.
+  // Used when no pre-conv
+  float _process_lstm_sample(const float x);
+  // LSTM processing on vectors coming out of the pre-conv
+  float _process_lstm_vector(const Eigen::VectorXf& x);
 
   // Initialize the parametric map
   void _init_parametric(nlohmann::json &parametric);
