@@ -6,7 +6,7 @@
 
 #include "wavenet.h"
 
-wavenet::_DilatedConv::_DilatedConv(const int in_channels,
+wavenet::DilatedConv::DilatedConv(const int in_channels,
                                     const int out_channels,
                                     const int kernel_size, const int bias,
                                     const int dilation) {

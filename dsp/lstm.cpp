@@ -1,9 +1,14 @@
+// LSTM implementation
+
 #include <algorithm>
 #include <string>
 #include <vector>
 
 #include "activations.h"
 #include "lstm.h"
+
+// Used by pre-conv
+const size_t BUFFER_SIZE = 65536;
 
 lstm::LSTMCell::LSTMCell(const int input_size, const int hidden_size,
                          std::vector<float>::iterator &params) {
@@ -51,10 +56,20 @@ void lstm::LSTMCell::process_(const Eigen::VectorXf &x) {
 }
 
 lstm::LSTM::LSTM(const int num_layers, const int input_size,
-                 const int hidden_size, std::vector<float> &params,
-                 nlohmann::json &parametric) {
+    const int hidden_size, std::vector<float>& params,
+    nlohmann::json& parametric) : lstm::LSTM::LSTM(num_layers, input_size, hidden_size, params, parametric, false, 0, 0, 0)
+{}
+
+lstm::LSTM::LSTM(const int num_layers, const int input_size, const int hidden_size,
+    std::vector<float>& params, nlohmann::json& parametric, const bool have_pre_conv, const int pre_conv_in_channels, const int pre_conv_out_channels, const int pre_conv_kernel_size) :
+    _pre_conv(pre_conv_in_channels, pre_conv_out_channels, pre_conv_kernel_size, true, 1),
+    _have_pre_conv(have_pre_conv)
+{
   this->_init_parametric(parametric);
   std::vector<float>::iterator it = params.begin();
+  if (this->_have_pre_conv)
+      this->_pre_conv.set_params_(it);
+  this->_pre_conv_index = this->_pre_conv.get_kernel_size() - 1;
   for (int i = 0; i < num_layers; i++)
     this->_layers.push_back(
         LSTMCell(i == 0 ? input_size : hidden_size, hidden_size, it));
@@ -80,31 +95,81 @@ void lstm::LSTM::_init_parametric(nlohmann::json &parametric) {
   }
 
   this->_input_and_params.resize(1 + parametric.size()); // TODO amp parameters
+  if (this->_have_pre_conv) {
+      this->_pre_conv_input_buffer.resize(this->_input_and_params.size(), BUFFER_SIZE);
+      this->_pre_conv_input_buffer.fill(0.0f);
+  }
+}
+
+void lstm::LSTM::_prepare_pre_conv_for_frames(const size_t num_frames) {
+    if (this->_pre_conv_index + num_frames >= this->_pre_conv_input_buffer.cols())
+        this->_rewind_buffer_();
+    this->_pre_conv_output.resize(this->_pre_conv.get_out_channels(), num_frames);
 }
 
 void lstm::LSTM::_process_core_() {
   // Get params into the input vector before starting
-  if (this->_stale_params) {
-    for (std::unordered_map<std::string, double>::iterator it =
+    const size_t num_frames = this->_input_post_gain.size();
+    if (this->_stale_params) {
+        for (std::unordered_map<std::string, double>::iterator it =
              this->_params.begin();
          it != this->_params.end(); ++it)
-      this->_input_and_params[this->_parametric_map[it->first]] = it->second;
+        this->_input_and_params[this->_parametric_map[it->first]] = it->second;
     this->_stale_params = false;
-  }
-  // Process samples, placing results in the required output location
-  for (int i = 0; i < this->_input_post_gain.size(); i++)
-    this->_core_dsp_output[i] =
-        this->_process_sample(this->_input_post_gain[i]);
+    }
+
+    if (!this->_have_pre_conv)
+        for (int i = 0; i < num_frames; i++)
+            this->_core_dsp_output[i] =
+            this->_process_lstm_sample(this->_input_post_gain[i]);
+    else {
+        this->_process_pre_conv_();
+        for (long i = 0; i < num_frames; i++)
+            this->_core_dsp_output[i] = this->_process_lstm_vector(this->_pre_conv_output.col(i));
+    }
 }
 
-float lstm::LSTM::_process_sample(const float x) {
+void lstm::LSTM::_process_pre_conv_()
+{
+    const size_t num_frames = this->_input_post_gain.size();
+    const size_t num_params = this->_get_num_params();
+    // Check for rewind
+    this->_prepare_pre_conv_for_frames(num_frames);
+    // Copy signal
+    for (long i = 0; i < num_frames; i++)
+        this->_pre_conv_input_buffer(0, i + this->_pre_conv_index) = this->_input_post_gain[i];
+    // Copy params
+    this->_pre_conv_input_buffer.block(1, this->_pre_conv_index, num_params, num_frames).colwise() = this->_input_and_params.bottomRows(num_params);
+    // And do the conv
+    this->_pre_conv.process_(this->_pre_conv_input_buffer, 
+        this->_pre_conv_output, 
+        this->_pre_conv_index, 
+        num_frames, 
+        0);
+
+}
+
+float lstm::LSTM::_process_lstm_sample(const float x) {
   if (this->_layers.size() == 0)
     return x;
   this->_input_and_params(0) = x;
-  this->_layers[0].process_(this->_input_and_params);
-  for (int i = 1; i < this->_layers.size(); i++)
-    this->_layers[i].process_(this->_layers[i - 1].get_hidden_state());
-  return this->_head_weight.dot(
-             this->_layers[this->_layers.size() - 1].get_hidden_state()) +
-         this->_head_bias;
+  return this->_process_lstm_vector(this->_input_and_params);
+}
+
+float lstm::LSTM::_process_lstm_vector(const Eigen::VectorXf& x)
+{
+    this->_layers[0].process_(x);
+    for (int i = 1; i < this->_layers.size(); i++)
+        this->_layers[i].process_(this->_layers[i - 1].get_hidden_state());
+    return this->_head_weight.dot(
+        this->_layers[this->_layers.size() - 1].get_hidden_state()) +
+        this->_head_bias;
+}
+
+void lstm::LSTM::_rewind_buffer_()
+{
+    const long n = this->_pre_conv.get_kernel_size()-1;
+    this->_pre_conv_input_buffer.leftCols(n) =
+        this->_pre_conv_input_buffer.middleCols(this->_pre_conv_index - n, n);
+    this->_pre_conv_index = n;
 }

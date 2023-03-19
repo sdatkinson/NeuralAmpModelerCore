@@ -8,7 +8,7 @@
 #include "wavenet.h"
 
 void verify_config_version(const std::string version) {
-  const std::unordered_set<std::string> supported_versions({"0.5.0"});
+  const std::unordered_set<std::string> supported_versions({"0.5.0", "0.5.1"});
   if (supported_versions.find(version) == supported_versions.end()) {
     std::stringstream ss;
     ss << "Model config is an unsupported version " << version
@@ -71,8 +71,12 @@ std::unique_ptr<DSP> get_dsp(const std::filesystem::path config_filename) {
     const int num_layers = config["num_layers"];
     const int input_size = config["input_size"];
     const int hidden_size = config["hidden_size"];
+    const bool have_pre_conv = config.find("pre_conv") != config.end();
+    const int pre_conv_in_channels = have_pre_conv ? config["pre_conv"]["in_channels"] : 0;
+    const int pre_conv_out_channels = have_pre_conv ? config["pre_conv"]["out_channels"] : 0;
+    const int pre_conv_kernel_size = have_pre_conv ? config["pre_conv"]["kernel_size"] : 0;
     return std::make_unique<lstm::LSTM>(num_layers, input_size, hidden_size,
-                                        params, config["parametric"]);
+                                        params, config["parametric"], have_pre_conv, pre_conv_in_channels, pre_conv_out_channels, pre_conv_kernel_size);
   } else if (architecture == "WaveNet" || architecture == "CatWaveNet") {
     std::vector<wavenet::LayerArrayParams> layer_array_params;
     for (int i = 0; i < config["layers"].size(); i++) {
