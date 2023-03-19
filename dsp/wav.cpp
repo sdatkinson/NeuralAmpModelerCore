@@ -9,6 +9,7 @@
 #include <fstream>
 #include <iostream>
 #include <vector>
+#include <unordered_set>
 
 #include "wav.h"
 
@@ -77,15 +78,19 @@ dsp::wav::LoadReturnCode dsp::wav::Load(const WDL_String &fileName,
 
   int subchunk1Size;
   wavFile.read(reinterpret_cast<char *>(&subchunk1Size), 4);
+  if (subchunk1Size < 16) {
+      std::cerr << "WAV chunk 1 size is " << subchunk1Size << ", which is smaller than the requried 16 to fit the expected information." << std::endl;
+      return dsp::wav::LoadReturnCode::ERROR_INVALID_FILE;
+  }
 
   unsigned short audioFormat;
   wavFile.read(reinterpret_cast<char *>(&audioFormat), 2);
-  if (audioFormat != 1) {
-    std::cerr << "Error: Only PCM format is supported.";
+  const short AUDIO_FORMAT_PCM = 1;
+  const short AUDIO_FORMAT_IEEE = 3;
+  std::unordered_set<short> supportedFormats{ AUDIO_FORMAT_PCM, AUDIO_FORMAT_IEEE };
+  if (supportedFormats.find(audioFormat) == supportedFormats.end()) {
+    std::cerr << "Error: Unsupported WAV format detected. ";
     switch (audioFormat) {
-    case 3:
-      std::cerr << "(Got: IEEE float)" << std::endl;
-      return dsp::wav::LoadReturnCode::ERROR_UNSUPPORTED_FORMAT_IEEE_FLOAT;
     case 6:
       std::cerr << "(Got: A-law)" << std::endl;
       return dsp::wav::LoadReturnCode::ERROR_UNSUPPORTED_FORMAT_ALAW;
@@ -123,6 +128,17 @@ dsp::wav::LoadReturnCode dsp::wav::Load(const WDL_String &fileName,
   short bitsPerSample;
   wavFile.read(reinterpret_cast<char *>(&bitsPerSample), 2);
 
+  // The default is for there to be 16 bytes in the fmt chunk, but sometimes it's different.
+  if (subchunk1Size > 16) {
+      const int extraBytes = subchunk1Size - 16;
+      const int skipChars = extraBytes / 4;
+      wavFile.ignore(skipChars);
+      const int remainder = extraBytes % 4;
+      int junk;
+      wavFile.read(reinterpret_cast<char*>(&byteRate), remainder);
+  }
+
+
   // Read the data chunk
   char subchunk2Id[4];
   ReadChunkAndSkipJunk(wavFile, subchunk2Id);
@@ -135,16 +151,27 @@ dsp::wav::LoadReturnCode dsp::wav::Load(const WDL_String &fileName,
   int subchunk2Size;
   wavFile.read(reinterpret_cast<char *>(&subchunk2Size), 4);
 
-  if (bitsPerSample == 16)
-    dsp::wav::_LoadSamples16(wavFile, subchunk2Size, audio);
-  else if (bitsPerSample == 24)
-    dsp::wav::_LoadSamples24(wavFile, subchunk2Size, audio);
-  else if (bitsPerSample == 32)
-    dsp::wav::_LoadSamples32(wavFile, subchunk2Size, audio);
-  else {
-    std::cerr << "Error: Unsupported bits per sample: " << bitsPerSample
+  if (audioFormat == AUDIO_FORMAT_IEEE) {
+      if (bitsPerSample == 32)
+          dsp::wav::_LoadSamples32(wavFile, subchunk2Size, audio);
+      else {
+          std::cerr << "Error: Unsupported bits per sample for IEEE files: " << bitsPerSample
               << std::endl;
-    return dsp::wav::LoadReturnCode::ERROR_UNSUPPORTED_BITS_PER_SAMPLE;
+          return dsp::wav::LoadReturnCode::ERROR_UNSUPPORTED_BITS_PER_SAMPLE;
+      }
+  }
+  else if (audioFormat == AUDIO_FORMAT_PCM) {
+      if (bitsPerSample == 16)
+          dsp::wav::_LoadSamples16(wavFile, subchunk2Size, audio);
+      else if (bitsPerSample == 24)
+          dsp::wav::_LoadSamples24(wavFile, subchunk2Size, audio);
+      else if (bitsPerSample == 32)
+          dsp::wav::_LoadSamples32(wavFile, subchunk2Size, audio);
+      else {
+          std::cerr << "Error: Unsupported bits per sample for PCM files: " << bitsPerSample
+              << std::endl;
+          return dsp::wav::LoadReturnCode::ERROR_UNSUPPORTED_BITS_PER_SAMPLE;
+      }
   }
 
   // Close the WAV file
