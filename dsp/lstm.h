@@ -60,6 +60,12 @@ public:
   LSTM(const int num_layers, const int input_size, const int hidden_size,
       std::vector<float>& params, nlohmann::json& parametric, const bool have_pre_conv, const int pre_conv_in_channels, const int pre_conv_out_channels, const int pre_conv_kernel_size);
 
+  void finalize_(const int num_frames) override {
+      DSP::finalize_(num_frames);
+      if (this->_have_pre_conv)
+          this->_pre_conv_index += num_frames;
+  }
+
 protected:
   long _get_num_params() const { return this->_input_and_params.size() - 1; };
   long _get_receptive_field() const { return this->_pre_conv.get_kernel_size(); };

@@ -69,6 +69,7 @@ lstm::LSTM::LSTM(const int num_layers, const int input_size, const int hidden_si
   std::vector<float>::iterator it = params.begin();
   if (this->_have_pre_conv)
       this->_pre_conv.set_params_(it);
+  this->_pre_conv_index = this->_pre_conv.get_kernel_size() - 1;
   for (int i = 0; i < num_layers; i++)
     this->_layers.push_back(
         LSTMCell(i == 0 ? input_size : hidden_size, hidden_size, it));
@@ -135,14 +136,15 @@ void lstm::LSTM::_process_pre_conv_()
     // Check for rewind
     this->_prepare_pre_conv_for_frames(num_frames);
     // Copy signal
-    this->_pre_conv_input_buffer.block(0, this->_pre_conv_index, 1, num_frames) = 
+    for (long i = 0; i < num_frames; i++)
+        this->_pre_conv_input_buffer(0, i + this->_pre_conv_index) = this->_input_post_gain[i];
     // Copy params
     this->_pre_conv_input_buffer.block(1, this->_pre_conv_index, num_params, num_frames).colwise() = this->_input_and_params.bottomRows(num_params);
     // And do the conv
     this->_pre_conv.process_(this->_pre_conv_input_buffer, 
         this->_pre_conv_output, 
         this->_pre_conv_index, 
-        this->_pre_conv_index + num_frames, 
+        num_frames, 
         0);
 
 }
