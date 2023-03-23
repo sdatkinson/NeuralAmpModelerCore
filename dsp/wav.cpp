@@ -8,18 +8,19 @@
 #include <cmath> // pow
 #include <fstream>
 #include <iostream>
+#include <string>
 #include <vector>
 #include <unordered_set>
 
 #include "wav.h"
 
 bool idIsJunk(char *id) {
-  return (strncmp(id, "junk", 4) == 0) || (strncmp(id, "JUNK", 4) == 0);
+    return strncmp(id, "junk", 4) == 0 || strncmp(id, "JUNK", 4) == 0 || strncmp(id, "smpl", 4) == 0 || strncmp(id, "LIST", 4) == 0;
 }
 
-void ReadChunkAndSkipJunk(std::ifstream &file, char *chunkID) {
+bool ReadChunkAndSkipJunk(std::ifstream &file, char *chunkID) {
   file.read(chunkID, 4);
-  if (idIsJunk(chunkID)) {
+  while (idIsJunk(chunkID) && file.good()) {
     int junkSize;
     file.read(reinterpret_cast<char *>(&junkSize), 4);
     file.ignore(junkSize);
@@ -29,8 +30,7 @@ void ReadChunkAndSkipJunk(std::ifstream &file, char *chunkID) {
     // And now we should be ready for data...
     file.read(chunkID, 4);
   }
-  if (idIsJunk(chunkID))
-    throw std::runtime_error("Found more than 1 junk chunk");
+  return file.good();
 }
 
 dsp::wav::LoadReturnCode dsp::wav::Load(const WDL_String &fileName,
@@ -49,7 +49,12 @@ dsp::wav::LoadReturnCode dsp::wav::Load(const WDL_String &fileName,
   // WAV file has 3 "chunks": RIFF ("RIFF"), format ("fmt ") and data ("data").
   // Read the WAV file header
   char chunkId[4];
-  ReadChunkAndSkipJunk(wavFile, chunkId);
+  if (!ReadChunkAndSkipJunk(wavFile, chunkId)) {
+      std::cerr << "Error while reading for next chunk." << std::endl;
+      return dsp::wav::LoadReturnCode::ERROR_INVALID_FILE;
+  }
+      
+    
   if (strncmp(chunkId, "RIFF", 4) != 0) {
     std::cerr << "Error: File does not start with expected RIFF chunk. Got"
               << chunkId << " instead." << std::endl;
@@ -69,7 +74,10 @@ dsp::wav::LoadReturnCode dsp::wav::Load(const WDL_String &fileName,
 
   // Read the format chunk
   char subchunk1Id[4];
-  ReadChunkAndSkipJunk(wavFile, subchunk1Id);
+  if (!ReadChunkAndSkipJunk(wavFile, subchunk1Id)) {
+      std::cerr << "Error while reading for next chunk." << std::endl;
+      return dsp::wav::LoadReturnCode::ERROR_INVALID_FILE;
+  }
   if (strncmp(subchunk1Id, "fmt ", 4) != 0) {
     std::cerr << "Error: Invalid WAV file missing expected fmt section; got "
               << subchunk1Id << " instead." << std::endl;
@@ -141,7 +149,10 @@ dsp::wav::LoadReturnCode dsp::wav::Load(const WDL_String &fileName,
 
   // Read the data chunk
   char subchunk2Id[4];
-  ReadChunkAndSkipJunk(wavFile, subchunk2Id);
+  if (!ReadChunkAndSkipJunk(wavFile, subchunk2Id)) {
+      std::cerr << "Error while reading for next chunk." << std::endl;
+      return dsp::wav::LoadReturnCode::ERROR_INVALID_FILE;
+  }
   if (strncmp(subchunk2Id, "data", 4) != 0) {
     std::cerr << "Error: Invalid WAV file" << std::endl;
     return dsp::wav::LoadReturnCode::ERROR_INVALID_FILE;
