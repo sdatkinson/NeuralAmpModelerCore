@@ -8,17 +8,21 @@
 #include <cmath> // pow
 #include <fstream>
 #include <iostream>
+#include <string>
+#include <unordered_set>
 #include <vector>
 
 #include "wav.h"
 
 bool idIsJunk(char *id) {
-  return (strncmp(id, "junk", 4) == 0) || (strncmp(id, "JUNK", 4) == 0);
+  return strncmp(id, "junk", 4) == 0 || strncmp(id, "JUNK", 4) == 0 ||
+         strncmp(id, "smpl", 4) == 0 || strncmp(id, "LIST", 4) == 0 ||
+         strncmp(id, "bext", 4) == 0;
 }
 
-void ReadChunkAndSkipJunk(std::ifstream &file, char *chunkID) {
+bool ReadChunkAndSkipJunk(std::ifstream &file, char *chunkID) {
   file.read(chunkID, 4);
-  if (idIsJunk(chunkID)) {
+  while (idIsJunk(chunkID) && file.good()) {
     int junkSize;
     file.read(reinterpret_cast<char *>(&junkSize), 4);
     file.ignore(junkSize);
@@ -28,8 +32,7 @@ void ReadChunkAndSkipJunk(std::ifstream &file, char *chunkID) {
     // And now we should be ready for data...
     file.read(chunkID, 4);
   }
-  if (idIsJunk(chunkID))
-    throw std::runtime_error("Found more than 1 junk chunk");
+  return file.good();
 }
 
 dsp::wav::LoadReturnCode dsp::wav::Load(const WDL_String &fileName,
@@ -48,7 +51,11 @@ dsp::wav::LoadReturnCode dsp::wav::Load(const WDL_String &fileName,
   // WAV file has 3 "chunks": RIFF ("RIFF"), format ("fmt ") and data ("data").
   // Read the WAV file header
   char chunkId[4];
-  ReadChunkAndSkipJunk(wavFile, chunkId);
+  if (!ReadChunkAndSkipJunk(wavFile, chunkId)) {
+    std::cerr << "Error while reading for next chunk." << std::endl;
+    return dsp::wav::LoadReturnCode::ERROR_INVALID_FILE;
+  }
+
   if (strncmp(chunkId, "RIFF", 4) != 0) {
     std::cerr << "Error: File does not start with expected RIFF chunk. Got"
               << chunkId << " instead." << std::endl;
@@ -68,7 +75,10 @@ dsp::wav::LoadReturnCode dsp::wav::Load(const WDL_String &fileName,
 
   // Read the format chunk
   char subchunk1Id[4];
-  ReadChunkAndSkipJunk(wavFile, subchunk1Id);
+  if (!ReadChunkAndSkipJunk(wavFile, subchunk1Id)) {
+    std::cerr << "Error while reading for next chunk." << std::endl;
+    return dsp::wav::LoadReturnCode::ERROR_INVALID_FILE;
+  }
   if (strncmp(subchunk1Id, "fmt ", 4) != 0) {
     std::cerr << "Error: Invalid WAV file missing expected fmt section; got "
               << subchunk1Id << " instead." << std::endl;
@@ -77,15 +87,23 @@ dsp::wav::LoadReturnCode dsp::wav::Load(const WDL_String &fileName,
 
   int subchunk1Size;
   wavFile.read(reinterpret_cast<char *>(&subchunk1Size), 4);
+  if (subchunk1Size < 16) {
+    std::cerr << "WAV chunk 1 size is " << subchunk1Size
+              << ", which is smaller than the requried 16 to fit the expected "
+                 "information."
+              << std::endl;
+    return dsp::wav::LoadReturnCode::ERROR_INVALID_FILE;
+  }
 
   unsigned short audioFormat;
   wavFile.read(reinterpret_cast<char *>(&audioFormat), 2);
-  if (audioFormat != 1) {
-    std::cerr << "Error: Only PCM format is supported.";
+  const short AUDIO_FORMAT_PCM = 1;
+  const short AUDIO_FORMAT_IEEE = 3;
+  std::unordered_set<short> supportedFormats{AUDIO_FORMAT_PCM,
+                                             AUDIO_FORMAT_IEEE};
+  if (supportedFormats.find(audioFormat) == supportedFormats.end()) {
+    std::cerr << "Error: Unsupported WAV format detected. ";
     switch (audioFormat) {
-    case 3:
-      std::cerr << "(Got: IEEE float)" << std::endl;
-      return dsp::wav::LoadReturnCode::ERROR_UNSUPPORTED_FORMAT_IEEE_FLOAT;
     case 6:
       std::cerr << "(Got: A-law)" << std::endl;
       return dsp::wav::LoadReturnCode::ERROR_UNSUPPORTED_FORMAT_ALAW;
@@ -123,9 +141,22 @@ dsp::wav::LoadReturnCode dsp::wav::Load(const WDL_String &fileName,
   short bitsPerSample;
   wavFile.read(reinterpret_cast<char *>(&bitsPerSample), 2);
 
+  // The default is for there to be 16 bytes in the fmt chunk, but sometimes
+  // it's different.
+  if (subchunk1Size > 16) {
+    const int extraBytes = subchunk1Size - 16;
+    const int skipChars = extraBytes / 4;
+    wavFile.ignore(skipChars);
+    const int remainder = extraBytes % 4;
+    wavFile.read(reinterpret_cast<char *>(&byteRate), remainder);
+  }
+
   // Read the data chunk
   char subchunk2Id[4];
-  ReadChunkAndSkipJunk(wavFile, subchunk2Id);
+  if (!ReadChunkAndSkipJunk(wavFile, subchunk2Id)) {
+    std::cerr << "Error while reading for next chunk." << std::endl;
+    return dsp::wav::LoadReturnCode::ERROR_INVALID_FILE;
+  }
   if (strncmp(subchunk2Id, "data", 4) != 0) {
     std::cerr << "Error: Invalid WAV file" << std::endl;
     return dsp::wav::LoadReturnCode::ERROR_INVALID_FILE;
@@ -135,16 +166,26 @@ dsp::wav::LoadReturnCode dsp::wav::Load(const WDL_String &fileName,
   int subchunk2Size;
   wavFile.read(reinterpret_cast<char *>(&subchunk2Size), 4);
 
-  if (bitsPerSample == 16)
-    dsp::wav::_LoadSamples16(wavFile, subchunk2Size, audio);
-  else if (bitsPerSample == 24)
-    dsp::wav::_LoadSamples24(wavFile, subchunk2Size, audio);
-  else if (bitsPerSample == 32)
-    dsp::wav::_LoadSamples32(wavFile, subchunk2Size, audio);
-  else {
-    std::cerr << "Error: Unsupported bits per sample: " << bitsPerSample
-              << std::endl;
-    return dsp::wav::LoadReturnCode::ERROR_UNSUPPORTED_BITS_PER_SAMPLE;
+  if (audioFormat == AUDIO_FORMAT_IEEE) {
+    if (bitsPerSample == 32)
+      dsp::wav::_LoadSamples32(wavFile, subchunk2Size, audio);
+    else {
+      std::cerr << "Error: Unsupported bits per sample for IEEE files: "
+                << bitsPerSample << std::endl;
+      return dsp::wav::LoadReturnCode::ERROR_UNSUPPORTED_BITS_PER_SAMPLE;
+    }
+  } else if (audioFormat == AUDIO_FORMAT_PCM) {
+    if (bitsPerSample == 16)
+      dsp::wav::_LoadSamples16(wavFile, subchunk2Size, audio);
+    else if (bitsPerSample == 24)
+      dsp::wav::_LoadSamples24(wavFile, subchunk2Size, audio);
+    else if (bitsPerSample == 32)
+      dsp::wav::_LoadSamples32(wavFile, subchunk2Size, audio);
+    else {
+      std::cerr << "Error: Unsupported bits per sample for PCM files: "
+                << bitsPerSample << std::endl;
+      return dsp::wav::LoadReturnCode::ERROR_UNSUPPORTED_BITS_PER_SAMPLE;
+    }
   }
 
   // Close the WAV file

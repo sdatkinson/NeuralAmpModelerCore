@@ -71,8 +71,12 @@ void dsp::ImpulseResponse::_SetWeights(const double sampleRate) {
   }
   const size_t irLength = std::min(this->mResampled.size(), this->mMaxLength);
   this->mWeight.resize(irLength);
+  // Gain reduction.
+  // https://github.com/sdatkinson/NeuralAmpModelerPlugin/issues/100#issuecomment-1455273839
+  // Add sample rate-dependence
+  const float gain = pow(10, -18 * 0.05) * 48000 / sampleRate;
   for (size_t i = 0, j = irLength - 1; i < irLength; i++, j--)
-    this->mWeight[j] = this->mResampled[i];
+    this->mWeight[j] = gain * this->mResampled[i];
   this->mHistoryRequired = irLength - 1;
   // And remember for the future
   this->mSampleRate = sampleRate;
