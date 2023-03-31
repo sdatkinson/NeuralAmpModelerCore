@@ -205,6 +205,11 @@ inline float fast_tanh_(const float x) {
            (2.44506634652299f + x2) * fabs(x + 0.814642734961073f * x * ax)));
 }
 
+inline float hard_tanh_(const float x) {
+    const float t = x < -1 ? -1 : x;
+    return t > 1 ? 1 : t;
+}
+
 void tanh_(Eigen::MatrixXf &x, const long i_start, const long i_end,
            const long j_start, const long j_end) {
   for (long j = j_start; j < j_end; j++)
@@ -225,6 +230,27 @@ void tanh_(Eigen::MatrixXf &x) {
   for (long pos = 0; pos < size; pos++) {
     ptr[pos] = tanh_impl_(ptr[pos]);
   }
+}
+
+void hard_tanh_(Eigen::MatrixXf& x, const long i_start, const long i_end,
+    const long j_start, const long j_end) {
+    for (long j = j_start; j < j_end; j++)
+        for (long i = i_start; i < i_end; i++)
+            x(i, j) = hard_tanh_(x(i, j));
+}
+
+void hard_tanh_(Eigen::MatrixXf& x, const long j_start, const long j_end) {
+    hard_tanh_(x, 0, x.rows(), j_start, j_end);
+}
+
+void hard_tanh_(Eigen::MatrixXf& x) {
+    float* ptr = x.data();
+
+    long size = x.rows() * x.cols();
+
+    for (long pos = 0; pos < size; pos++) {
+        ptr[pos] = hard_tanh_(ptr[pos]);
+    }
 }
 
 void Conv1D::set_params_(std::vector<float>::iterator &params) {
