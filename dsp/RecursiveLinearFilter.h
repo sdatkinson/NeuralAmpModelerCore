@@ -6,8 +6,7 @@
 //
 // Recursive linear filters (LPF, HPF, Peaking, Shelving)
 
-#ifndef RecursiveLinearFilter_h
-#define RecursiveLinearFilter_h
+#pragma once
 
 #include "dsp.h"
 #include <cmath> // pow, sin
@@ -121,5 +120,3 @@ public:
   void SetParams(const BiquadParams &params) override;
 };
 }; // namespace recursive_linear_filter
-
-#endif /* RecursiveLinearFilter_h */

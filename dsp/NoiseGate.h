@@ -5,8 +5,7 @@
 //  Created by Steven Atkinson on 2/5/23.
 //
 
-#ifndef NoiseGate_h
-#define NoiseGate_h
+#pragma once
 
 #include <cmath>
 #include <unordered_set>
@@ -136,5 +135,3 @@ private:
 
 }; // namespace noise_gate
 }; // namespace dsp
-
-#endif /* NoiseGate_h */

@@ -6,8 +6,7 @@
 //
 // Impulse response processing
 
-#ifndef ImpulseResponse_h
-#define ImpulseResponse_h
+#pragma once
 
 #include <filesystem>
 
@@ -43,5 +42,3 @@ private:
   Eigen::VectorXf mWeight;
 };
 }; // namespace dsp
-
-#endif /* ImpulseResponse_h */

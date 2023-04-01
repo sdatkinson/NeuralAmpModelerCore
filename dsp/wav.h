@@ -5,9 +5,7 @@
 //  Created by Steven Atkinson on 12/31/22.
 //
 
-#ifndef wav_h
-#define wav_h
-
+#pragma once
 
 namespace dsp {
 namespace wav {
@@ -46,5 +44,3 @@ void _LoadSamples32(std::ifstream &wavFile, const int chunkSize,
 int _ReadSigned24BitInt(std::ifstream &stream);
 }; // namespace wav
 }; // namespace dsp
-
-#endif /* wav_h */
