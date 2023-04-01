@@ -20,9 +20,9 @@ recursive_linear_filter::Base::Base(const size_t inputDegree,
   this->mOutputCoefficients.resize(outputDegree);
 }
 
-iplug::sample **recursive_linear_filter::Base::Process(iplug::sample **inputs,
-                                                       const size_t numChannels,
-                                                       const size_t numFrames) {
+float **recursive_linear_filter::Base::Process(float **inputs,
+                                               const size_t numChannels,
+                                               const size_t numFrames) {
   this->_PrepareBuffers(numChannels, numFrames);
   long inputStart = 0;
   long outputStart = 0;

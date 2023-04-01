@@ -19,9 +19,9 @@ constexpr auto _INPUT_BUFFER_SAFETY_FACTOR = 32;
 
 DSP::DSP() { this->_stale_params = true; }
 
-void DSP::process(iplug::sample **inputs, iplug::sample **outputs,
-                  const int num_channels, const int num_frames,
-                  const double input_gain, const double output_gain,
+void DSP::process(float **inputs, float **outputs, const int num_channels,
+                  const int num_frames, const double input_gain,
+                  const double output_gain,
                   const std::unordered_map<std::string, double> &params) {
   this->_get_params_(params);
   this->_apply_input_level_(inputs, num_channels, num_frames, input_gain);
@@ -46,7 +46,7 @@ void DSP::_get_params_(
   }
 }
 
-void DSP::_apply_input_level_(iplug::sample **inputs, const int num_channels,
+void DSP::_apply_input_level_(float **inputs, const int num_channels,
                               const int num_frames, const double gain) {
   // Must match exactly; we're going to use the size of _input_post_gain later
   // for num_frames.
@@ -69,7 +69,7 @@ void DSP::_process_core_() {
     this->_core_dsp_output[i] = this->_input_post_gain[i];
 }
 
-void DSP::_apply_output_level_(iplug::sample **outputs, const int num_channels,
+void DSP::_apply_output_level_(float **outputs, const int num_channels,
                                const int num_frames, const double gain) {
   for (int c = 0; c < num_channels; c++)
     for (int s = 0; s < num_frames; s++)
@@ -206,8 +206,8 @@ inline float fast_tanh_(const float x) {
 }
 
 inline float hard_tanh_(const float x) {
-    const float t = x < -1 ? -1 : x;
-    return t > 1 ? 1 : t;
+  const float t = x < -1 ? -1 : x;
+  return t > 1 ? 1 : t;
 }
 
 void tanh_(Eigen::MatrixXf &x, const long i_start, const long i_end,
@@ -232,25 +232,25 @@ void tanh_(Eigen::MatrixXf &x) {
   }
 }
 
-void hard_tanh_(Eigen::MatrixXf& x, const long i_start, const long i_end,
-    const long j_start, const long j_end) {
-    for (long j = j_start; j < j_end; j++)
-        for (long i = i_start; i < i_end; i++)
-            x(i, j) = hard_tanh_(x(i, j));
+void hard_tanh_(Eigen::MatrixXf &x, const long i_start, const long i_end,
+                const long j_start, const long j_end) {
+  for (long j = j_start; j < j_end; j++)
+    for (long i = i_start; i < i_end; i++)
+      x(i, j) = hard_tanh_(x(i, j));
 }
 
-void hard_tanh_(Eigen::MatrixXf& x, const long j_start, const long j_end) {
-    hard_tanh_(x, 0, x.rows(), j_start, j_end);
+void hard_tanh_(Eigen::MatrixXf &x, const long j_start, const long j_end) {
+  hard_tanh_(x, 0, x.rows(), j_start, j_end);
 }
 
-void hard_tanh_(Eigen::MatrixXf& x) {
-    float* ptr = x.data();
+void hard_tanh_(Eigen::MatrixXf &x) {
+  float *ptr = x.data();
 
-    long size = x.rows() * x.cols();
+  long size = x.rows() * x.cols();
 
-    for (long pos = 0; pos < size; pos++) {
-        ptr[pos] = hard_tanh_(ptr[pos]);
-    }
+  for (long pos = 0; pos < size; pos++) {
+    ptr[pos] = hard_tanh_(ptr[pos]);
+  }
 }
 
 void Conv1D::set_params_(std::vector<float>::iterator &params) {
@@ -534,7 +534,7 @@ void dsp::DSP::_AllocateOutputPointers(const size_t numChannels) {
   if (this->mOutputPointers != nullptr)
     throw std::runtime_error(
         "Tried to re-allocate over non-null mOutputPointers");
-  this->mOutputPointers = new iplug::sample *[numChannels];
+  this->mOutputPointers = new float *[numChannels];
   if (this->mOutputPointers == nullptr)
     throw std::runtime_error("Failed to allocate pointer to output buffer!\n");
   this->mOutputPointersSize = numChannels;
@@ -550,7 +550,7 @@ void dsp::DSP::_DeallocateOutputPointers() {
   this->mOutputPointersSize = 0;
 }
 
-iplug::sample **dsp::DSP::_GetPointers() {
+float **dsp::DSP::_GetPointers() {
   for (auto c = 0; c < this->_GetNumChannels(); c++)
     this->mOutputPointers[c] = this->mOutputs[c].data();
   return this->mOutputPointers;
@@ -605,8 +605,7 @@ void dsp::History::_RewindHistory() {
   this->mHistoryIndex = this->mHistoryRequired;
 }
 
-void dsp::History::_UpdateHistory(iplug::sample **inputs,
-                                  const size_t numChannels,
+void dsp::History::_UpdateHistory(float **inputs, const size_t numChannels,
                                   const size_t numFrames) {
   this->_EnsureHistorySize(numFrames);
   if (numChannels < 1)

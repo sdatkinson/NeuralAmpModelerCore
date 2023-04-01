@@ -33,8 +33,8 @@ const double MINIMUM_LOUDNESS_POWER = pow(10.0, MINIMUM_LOUDNESS_DB / 10.0);
 // The class that applies the gain reductions calculated by a trigger instance.
 class Gain : public DSP {
 public:
-  iplug::sample **Process(iplug::sample **inputs, const size_t numChannels,
-                          const size_t numFrames) override;
+  float **Process(float **inputs, const size_t numChannels,
+                  const size_t numFrames) override;
 
   void SetGainReductionDB(std::vector<std::vector<double>> &gainReductionDB) {
     this->mGainReductionDB = gainReductionDB;
@@ -82,8 +82,8 @@ class Trigger : public DSP {
 public:
   Trigger();
 
-  iplug::sample **Process(iplug::sample **inputs, const size_t numChannels,
-                          const size_t numFrames) override;
+  float **Process(float **inputs, const size_t numChannels,
+                  const size_t numFrames) override;
   std::vector<std::vector<double>> GetGainReduction() const {
     return this->mGainReductionDB;
   };
