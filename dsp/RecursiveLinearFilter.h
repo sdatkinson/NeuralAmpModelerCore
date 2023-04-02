@@ -6,10 +6,8 @@
 //
 // Recursive linear filters (LPF, HPF, Peaking, Shelving)
 
-#ifndef RecursiveLinearFilter_h
-#define RecursiveLinearFilter_h
+#pragma once
 
-#include "IPlugConstants.h" // sample
 #include "dsp.h"
 #include <cmath> // pow, sin
 #include <vector>
@@ -22,8 +20,8 @@ namespace recursive_linear_filter {
 class Base : public dsp::DSP {
 public:
   Base(const size_t inputDegree, const size_t outputDegree);
-  iplug::sample **Process(iplug::sample **inputs, const size_t numChannels,
-                          const size_t numFrames) override;
+  double **Process(double **inputs, const size_t numChannels,
+                  const size_t numFrames) override;
 
 protected:
   // Methods
@@ -41,8 +39,8 @@ protected:
   // First index is channel
   // Second index, [0] is the current input/output, [1] is the previous, [2] is
   // before that, etc.
-  std::vector<std::vector<iplug::sample>> mInputHistory;
-  std::vector<std::vector<iplug::sample>> mOutputHistory;
+  std::vector<std::vector<double>> mInputHistory;
+  std::vector<std::vector<double>> mOutputHistory;
   // Indices for history.
   // Designates which index is currently "0". Use modulus to wrap around.
   long mInputStart;
@@ -122,5 +120,3 @@ public:
   void SetParams(const BiquadParams &params) override;
 };
 }; // namespace recursive_linear_filter
-
-#endif /* RecursiveLinearFilter_h */

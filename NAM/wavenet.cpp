@@ -31,7 +31,7 @@ void wavenet::_Layer::process_(const Eigen::MatrixXf &input,
   // Mix-in condition
   this->_z += this->_input_mixin.process(condition);
   if (this->_activation == "Hardtanh")
-      hard_tanh_(this->_z);
+    hard_tanh_(this->_z);
   else if (this->_activation == "Tanh")
     tanh_(this->_z);
   else if (this->_activation == "ReLU")

@@ -17,7 +17,7 @@
 bool idIsJunk(char *id) {
   return strncmp(id, "junk", 4) == 0 || strncmp(id, "JUNK", 4) == 0 ||
          strncmp(id, "smpl", 4) == 0 || strncmp(id, "LIST", 4) == 0 ||
-         strncmp(id, "bext", 4) == 0;
+         strncmp(id, "bext", 4) == 0 || strncmp(id, "PAD ", 4) == 0;
 }
 
 bool ReadChunkAndSkipJunk(std::ifstream &file, char *chunkID) {
@@ -35,12 +35,12 @@ bool ReadChunkAndSkipJunk(std::ifstream &file, char *chunkID) {
   return file.good();
 }
 
-dsp::wav::LoadReturnCode dsp::wav::Load(const WDL_String &fileName,
+dsp::wav::LoadReturnCode dsp::wav::Load(const char *fileName,
                                         std::vector<float> &audio,
                                         double &sampleRate) {
   // FYI: https://www.mmsp.ece.mcgill.ca/Documents/AudioFormats/WAVE/WAVE.html
   // Open the WAV file for reading
-  std::ifstream wavFile(fileName.Get(), std::ios::binary);
+  std::ifstream wavFile(fileName, std::ios::binary);
 
   // Check if the file was opened successfully
   if (!wavFile.is_open()) {

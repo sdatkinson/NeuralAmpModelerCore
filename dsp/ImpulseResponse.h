@@ -6,24 +6,21 @@
 //
 // Impulse response processing
 
-#ifndef ImpulseResponse_h
-#define ImpulseResponse_h
+#pragma once
 
 #include <filesystem>
 
 #include <Eigen/Dense>
 
-#include "IPlugConstants.h" // sample
 #include "dsp.h"
 #include "wav.h"
-#include "wdlstring.h" // WDL_String
 
 namespace dsp {
 class ImpulseResponse : public History {
 public:
-  ImpulseResponse(const WDL_String &fileName, const double sampleRate);
-  iplug::sample **Process(iplug::sample **inputs, const size_t numChannels,
-                          const size_t numFrames) override;
+  ImpulseResponse(const char* fileName, const double sampleRate);
+  double **Process(double **inputs, const size_t numChannels,
+                  const size_t numFrames) override;
   // TODO states for the IR class
   dsp::wav::LoadReturnCode GetWavState() const { return this->mWavState; };
 
@@ -45,5 +42,3 @@ private:
   Eigen::VectorXf mWeight;
 };
 }; // namespace dsp
-
-#endif /* ImpulseResponse_h */

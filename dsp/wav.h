@@ -5,10 +5,7 @@
 //  Created by Steven Atkinson on 12/31/22.
 //
 
-#ifndef wav_h
-#define wav_h
-
-#include "wdlstring.h" // WDL_String
+#pragma once
 
 namespace dsp {
 namespace wav {
@@ -30,7 +27,7 @@ enum class LoadReturnCode {
 // And note the sample rate.
 //
 // Returns: as per return cases above
-LoadReturnCode Load(const WDL_String &fileName, std::vector<float> &audio,
+LoadReturnCode Load(const char *fileName, std::vector<float> &audio,
                     double &sampleRate);
 
 // Load samples, 16-bit
@@ -47,5 +44,3 @@ void _LoadSamples32(std::ifstream &wavFile, const int chunkSize,
 int _ReadSigned24BitInt(std::ifstream &stream);
 }; // namespace wav
 }; // namespace dsp
-
-#endif /* wav_h */
