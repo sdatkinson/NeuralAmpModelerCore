@@ -17,9 +17,9 @@
 
 constexpr const long _INPUT_BUFFER_SAFETY_FACTOR = 32;
 
-DSP::DSP() : mLoudness(TARGET_DSP_LOUDNESS), _stale_params(true) {}
+DSP::DSP() : mLoudness(TARGET_DSP_LOUDNESS), mNormalizeOutputLoudness(false), _stale_params(true) {}
 
-DSP::DSP(const double loudness) : mLoudness(loudness), _stale_params(true) {}
+DSP::DSP(const double loudness) : mLoudness(loudness), mNormalizeOutputLoudness(false), _stale_params(true) {}
 
 void DSP::process(iplug::sample **inputs, iplug::sample **outputs,
                   const int num_channels, const int num_frames,
@@ -73,9 +73,11 @@ void DSP::_process_core_() {
 
 void DSP::_apply_output_level_(iplug::sample **outputs, const int num_channels,
                                const int num_frames, const double gain) {
-  for (int c = 0; c < num_channels; c++)
+    const double loudnessGain = pow(10.0, -(this->mLoudness - TARGET_DSP_LOUDNESS) / 20.0);
+    const double finalGain = this->mNormalizeOutputLoudness ? gain * loudnessGain : gain;
+    for (int c = 0; c < num_channels; c++)
     for (int s = 0; s < num_frames; s++)
-      outputs[c][s] = double(gain * this->_core_dsp_output[s]);
+      outputs[c][s] = double(finalGain * this->_core_dsp_output[s]);
 }
 
 // Buffer =====================================================================

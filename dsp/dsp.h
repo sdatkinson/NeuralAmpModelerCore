@@ -58,6 +58,7 @@ public:
   //   that actually uses them, which varies depends on the particulars of the
   //   DSP subclass implementation.
   virtual void finalize_(const int num_frames);
+  void SetNormalize(const bool normalize) { this->mNormalizeOutputLoudness = normalize; };
 
 protected:
   // How loud is the model?
