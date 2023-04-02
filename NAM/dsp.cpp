@@ -9,7 +9,6 @@
 
 #include "dsp.h"
 #include "json.hpp"
-#include "numpy_util.h"
 #include "util.h"
 
 #define tanh_impl_ std::tanh
