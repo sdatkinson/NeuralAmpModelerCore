@@ -49,7 +49,7 @@ std::unique_ptr<DSP> get_dsp(const std::filesystem::path config_filename) {
   bool haveLoudness = false;
   double loudness = TARGET_DSP_LOUDNESS;
   if (j.find("metadata") != j.end()) {
-      if (j["metadata"].find("loudness") != j.end()) {
+      if (j["metadata"].find("loudness") != j["metadata"].end()) {
           loudness = j["metadata"]["loudness"];
           haveLoudness = true;
       }
