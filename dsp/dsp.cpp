@@ -15,9 +15,11 @@
 #define tanh_impl_ std::tanh
 // #define tanh_impl_ fast_tanh_
 
-constexpr auto _INPUT_BUFFER_SAFETY_FACTOR = 32;
+constexpr const long _INPUT_BUFFER_SAFETY_FACTOR = 32;
 
-DSP::DSP() { this->_stale_params = true; }
+DSP::DSP() : mLoudness(TARGET_DSP_LOUDNESS), _stale_params(true) {}
+
+DSP::DSP(const double loudness) : mLoudness(loudness), _stale_params(true) {}
 
 void DSP::process(iplug::sample **inputs, iplug::sample **outputs,
                   const int num_channels, const int num_frames,
@@ -78,7 +80,9 @@ void DSP::_apply_output_level_(iplug::sample **outputs, const int num_channels,
 
 // Buffer =====================================================================
 
-Buffer::Buffer(const int receptive_field) : DSP() {
+Buffer::Buffer(const int receptive_field) : Buffer(TARGET_DSP_LOUDNESS, receptive_field) {}
+
+Buffer::Buffer(const double loudness, const int receptive_field) : DSP(loudness) {
   this->_set_receptive_field(receptive_field);
 }
 
@@ -146,8 +150,13 @@ void Buffer::finalize_(const int num_frames) {
 // Linear =====================================================================
 
 Linear::Linear(const int receptive_field, const bool _bias,
-               const std::vector<float> &params)
-    : Buffer(receptive_field) {
+    const std::vector<float>& params) : Linear(TARGET_DSP_LOUDNESS, receptive_field, _bias, params)
+{}
+
+Linear::Linear(const double loudness, const int receptive_field, const bool _bias,
+    const std::vector<float>& params)
+    : Buffer(loudness, receptive_field) 
+{
   if (params.size() != (receptive_field + (_bias ? 1 : 0)))
     throw std::runtime_error("Params vector does not match expected size based "
                              "on architecture parameters");
@@ -426,10 +435,14 @@ void convnet::_Head::process_(const Eigen::MatrixXf &input,
     output(i) = this->_bias + input.col(j).dot(this->_weight);
 }
 
-convnet::ConvNet::ConvNet(const int channels, const std::vector<int> &dilations,
+convnet::ConvNet::ConvNet(const int channels, const std::vector<int>& dilations,
+    const bool batchnorm, const std::string activation,
+    std::vector<float>& params) : ConvNet(TARGET_DSP_LOUDNESS, channels, dilations, batchnorm, activation, params) {}
+
+convnet::ConvNet::ConvNet(const double loudness, const int channels, const std::vector<int> &dilations,
                           const bool batchnorm, const std::string activation,
                           std::vector<float> &params)
-    : Buffer(*std::max_element(dilations.begin(), dilations.end())) {
+    : Buffer(loudness, *std::max_element(dilations.begin(), dilations.end())) {
   this->_verify_params(channels, dilations, batchnorm, params.size());
   this->_blocks.resize(dilations.size());
   std::vector<float>::iterator it = params.begin();

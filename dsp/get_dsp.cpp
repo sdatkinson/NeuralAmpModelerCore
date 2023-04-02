@@ -46,11 +46,20 @@ std::unique_ptr<DSP> get_dsp(const std::filesystem::path config_filename) {
   auto architecture = j["architecture"];
   nlohmann::json config = j["config"];
   std::vector<float> params = _get_weights(j, config_filename);
+  bool haveLoudness = false;
+  double loudness = TARGET_DSP_LOUDNESS;
+  if (j.find("metadata") != j.end()) {
+      if (j["metadata"].find("loudness") != j.end()) {
+          loudness = j["metadata"]["loudness"];
+          haveLoudness = true;
+      }
+  }
+
 
   if (architecture == "Linear") {
     const int receptive_field = config["receptive_field"];
     const bool _bias = config["bias"];
-    return std::make_unique<Linear>(receptive_field, _bias, params);
+    return std::make_unique<Linear>(loudness, receptive_field, _bias, params);
   } else if (architecture == "ConvNet") {
     const int channels = config["channels"];
     const bool batchnorm = config["batchnorm"];
@@ -58,20 +67,20 @@ std::unique_ptr<DSP> get_dsp(const std::filesystem::path config_filename) {
     for (int i = 0; i < config["dilations"].size(); i++)
       dilations.push_back(config["dilations"][i]);
     const std::string activation = config["activation"];
-    return std::make_unique<convnet::ConvNet>(channels, dilations, batchnorm,
+    return std::make_unique<convnet::ConvNet>(loudness, channels, dilations, batchnorm,
                                               activation, params);
   } else if (architecture == "LSTM") {
     const int num_layers = config["num_layers"];
     const int input_size = config["input_size"];
     const int hidden_size = config["hidden_size"];
     auto json = nlohmann::json{};
-    return std::make_unique<lstm::LSTM>(num_layers, input_size, hidden_size,
+    return std::make_unique<lstm::LSTM>(loudness, num_layers, input_size, hidden_size,
                                         params, json);
   } else if (architecture == "CatLSTM") {
     const int num_layers = config["num_layers"];
     const int input_size = config["input_size"];
     const int hidden_size = config["hidden_size"];
-    return std::make_unique<lstm::LSTM>(num_layers, input_size, hidden_size,
+    return std::make_unique<lstm::LSTM>(loudness, num_layers, input_size, hidden_size,
                                         params, config["parametric"]);
   } else if (architecture == "WaveNet" || architecture == "CatWaveNet") {
     std::vector<wavenet::LayerArrayParams> layer_array_params;
@@ -94,7 +103,7 @@ std::unique_ptr<DSP> get_dsp(const std::filesystem::path config_filename) {
     auto parametric_json =
         architecture == "CatWaveNet" ? config["parametric"] : nlohmann::json{};
     return std::make_unique<wavenet::WaveNet>(
-        layer_array_params, head_scale, with_head, parametric_json, params);
+        loudness, layer_array_params, head_scale, with_head, parametric_json, params);
   } else {
     throw std::runtime_error("Unrecognized architecture");
   }

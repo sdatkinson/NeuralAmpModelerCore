@@ -227,10 +227,16 @@ void wavenet::_Head::_apply_activation_(Eigen::MatrixXf &x) {
 // WaveNet ====================================================================
 
 wavenet::WaveNet::WaveNet(
+    const std::vector<wavenet::LayerArrayParams>& layer_array_params,
+    const float head_scale, const bool with_head, nlohmann::json parametric,
+    std::vector<float> params) : WaveNet(TARGET_DSP_LOUDNESS, layer_array_params, head_scale, with_head, parametric, params) {}
+
+wavenet::WaveNet::WaveNet(
+    const double loudness,
     const std::vector<wavenet::LayerArrayParams> &layer_array_params,
     const float head_scale, const bool with_head, nlohmann::json parametric,
     std::vector<float> params)
-    : //_head(channels, head_layers, head_channels, head_activation),
+    : DSP(loudness),
       _num_frames(0), _head_scale(head_scale) {
   if (with_head)
     throw std::runtime_error("Head not implemented!");

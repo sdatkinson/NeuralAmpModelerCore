@@ -164,6 +164,9 @@ public:
   WaveNet(const std::vector<LayerArrayParams> &layer_array_params,
           const float head_scale, const bool with_head,
           nlohmann::json parametric, std::vector<float> params);
+  WaveNet(const double loudness, const std::vector<LayerArrayParams>& layer_array_params,
+      const float head_scale, const bool with_head,
+      nlohmann::json parametric, std::vector<float> params);
 
   //    WaveNet(WaveNet&&) = default;
   //    WaveNet& operator=(WaveNet&&) = default;
