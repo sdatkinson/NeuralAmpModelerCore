@@ -232,11 +232,11 @@ void sigmoid_(Eigen::MatrixXf& x, const long i_start, const long i_end, const lo
 
 inline float fast_tanh_(const float x)
 {
-  const float ax = fabs(x);
+  const float ax = fabsf(x);
   const float x2 = x * x;
 
   return (x * (2.45550750702956f + 2.45550750702956f * ax + (0.893229853513558f + 0.821226666969744f * ax) * x2)
-          / (2.44506634652299f + (2.44506634652299f + x2) * fabs(x + 0.814642734961073f * x * ax)));
+          / (2.44506634652299f + (2.44506634652299f + x2) * fabsf(x + 0.814642734961073f * x * ax)));
 }
 
 inline float hard_tanh_(const float x)
