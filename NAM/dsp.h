@@ -150,6 +150,14 @@ void tanh_(Eigen::MatrixXf &x, const long i_start, const long i_end);
 
 void tanh_(Eigen::MatrixXf &x);
 
+// In-place Hardtanh on (N,M) array
+void hard_tanh_(Eigen::MatrixXf& x, const long i_start, const long i_end,
+    const long j_start, const long j_end);
+// Subset of the columns
+void hard_tanh_(Eigen::MatrixXf& x, const long i_start, const long i_end);
+
+void hard_tanh_(Eigen::MatrixXf& x);
+
 class Conv1D {
 public:
   Conv1D() { this->_dilation = 1; };

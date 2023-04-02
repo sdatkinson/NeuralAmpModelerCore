@@ -8,7 +8,7 @@
 #include "wavenet.h"
 
 void verify_config_version(const std::string version) {
-  const std::unordered_set<std::string> supported_versions({"0.5.0"});
+  const std::unordered_set<std::string> supported_versions({"0.5.0", "0.5.1"});
   if (supported_versions.find(version) == supported_versions.end()) {
     std::stringstream ss;
     ss << "Model config is an unsupported version " << version
