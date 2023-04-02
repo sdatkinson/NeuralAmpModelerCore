@@ -28,9 +28,13 @@ public:
 };
 // And the params shall be provided as a std::vector<DSPParam>.
 
+// How loud do we want the models to be? in dB
+#define TARGET_DSP_LOUDNESS -18.0
+
 class DSP {
 public:
-  DSP();
+    DSP();
+    DSP(const double loudness);
   // process() does all of the processing requried to take `inputs` array and
   // fill in the required values on `outputs`.
   // To do this:
@@ -51,8 +55,13 @@ public:
   //   that actually uses them, which varies depends on the particulars of the
   //   DSP subclass implementation.
   virtual void finalize_(const int num_frames);
+  void SetNormalize(const bool normalize) { this->mNormalizeOutputLoudness = normalize; };
 
 protected:
+  // How loud is the model?
+  double mLoudness;
+  // Should we normalize according to this loudness?
+  bool mNormalizeOutputLoudness;
   // Parameters (aka "knobs")
   std::unordered_map<std::string, double> _params;
   // If the params have changed since the last buffer was processed:
@@ -94,6 +103,7 @@ protected:
 class Buffer : public DSP {
 public:
   Buffer(const int receptive_field);
+  Buffer(const double loudness, const int receptive_field);
   void finalize_(const int num_frames);
 
 protected:
@@ -119,6 +129,8 @@ class Linear : public Buffer {
 public:
   Linear(const int receptive_field, const bool _bias,
          const std::vector<float> &params);
+  Linear(const double loudness, const int receptive_field, const bool _bias,
+      const std::vector<float>& params);
   void _process_core_() override;
 
 protected:
@@ -270,6 +282,9 @@ public:
   ConvNet(const int channels, const std::vector<int> &dilations,
           const bool batchnorm, const std::string activation,
           std::vector<float> &params);
+  ConvNet(const double loudness, const int channels, const std::vector<int>& dilations,
+      const bool batchnorm, const std::string activation,
+      std::vector<float>& params);
 
 protected:
   std::vector<ConvNetBlock> _blocks;
