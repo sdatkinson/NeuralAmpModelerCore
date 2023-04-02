@@ -32,7 +32,7 @@ public:
 // And the params shall be provided as a std::vector<DSPParam>.
 
 // How loud do we want the models to be? in dB
-#define TARGET_DSP_LOUDNESS -10.0
+#define TARGET_DSP_LOUDNESS -18.0
 
 class DSP {
 public:
