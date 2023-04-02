@@ -7,22 +7,23 @@
 // See: https://webaudio.github.io/Audio-EQ-Cookbook/audio-eq-cookbook.html
 
 #include <algorithm> // std::fill
-#include <cmath>     // isnan
+#include <cmath> // isnan
 #include <stdexcept>
 
 #include "RecursiveLinearFilter.h"
 
-recursive_linear_filter::Base::Base(const size_t inputDegree,
-                                    const size_t outputDegree)
-    : dsp::DSP(), mInputStart(inputDegree), // 1 is subtracted before first use
-      mOutputStart(outputDegree) {
+recursive_linear_filter::Base::Base(const size_t inputDegree, const size_t outputDegree)
+: dsp::DSP()
+, mInputStart(inputDegree)
+, // 1 is subtracted before first use
+mOutputStart(outputDegree)
+{
   this->mInputCoefficients.resize(inputDegree);
   this->mOutputCoefficients.resize(outputDegree);
 }
 
-double **recursive_linear_filter::Base::Process(double **inputs,
-                                               const size_t numChannels,
-                                               const size_t numFrames) {
+double** recursive_linear_filter::Base::Process(double** inputs, const size_t numChannels, const size_t numFrames)
+{
   this->_PrepareBuffers(numChannels, numFrames);
   long inputStart = 0;
   long outputStart = 0;
@@ -33,10 +34,12 @@ double **recursive_linear_filter::Base::Process(double **inputs,
   //  0,2,3,... are fine.
   const size_t inputDegree = this->_GetInputDegree();
   const size_t outputDegree = this->_GetOutputDegree();
-  for (auto c = 0; c < numChannels; c++) {
+  for (auto c = 0; c < numChannels; c++)
+  {
     inputStart = this->mInputStart; // Should be plenty fine
     outputStart = this->mOutputStart;
-    for (auto s = 0; s < numFrames; s++) {
+    for (auto s = 0; s < numFrames; s++)
+    {
       double out = 0.0;
       // Compute input terms
       inputStart -= 1;
@@ -44,16 +47,14 @@ double **recursive_linear_filter::Base::Process(double **inputs,
         inputStart = inputDegree - 1;
       this->mInputHistory[c][inputStart] = inputs[c][s]; // Store current input
       for (auto i = 0; i < inputDegree; i++)
-        out += this->mInputCoefficients[i] *
-               this->mInputHistory[c][(inputStart + i) % inputDegree];
+        out += this->mInputCoefficients[i] * this->mInputHistory[c][(inputStart + i) % inputDegree];
 
       // Output terms
       outputStart -= 1;
       if (outputStart < 0)
         outputStart = outputDegree - 1;
       for (auto i = 1; i < outputDegree; i++)
-        out += this->mOutputCoefficients[i] *
-               this->mOutputHistory[c][(outputStart + i) % outputDegree];
+        out += this->mOutputCoefficients[i] * this->mOutputHistory[c][(outputStart + i) % outputDegree];
       // Prevent a NaN from jamming the filter!
       if (isnan(out))
         out = 0.0;
@@ -68,31 +69,31 @@ double **recursive_linear_filter::Base::Process(double **inputs,
   return this->_GetPointers();
 }
 
-void recursive_linear_filter::Base::_PrepareBuffers(const size_t numChannels,
-                                                    const size_t numFrames) {
+void recursive_linear_filter::Base::_PrepareBuffers(const size_t numChannels, const size_t numFrames)
+{
   // Check for new channel count *before* parent class ensures they match!
   const bool newChannels = this->_GetNumChannels() != numChannels;
   // Parent implementation takes care of mOutputs and mOutputPointers
   this->dsp::DSP::_PrepareBuffers(numChannels, numFrames);
-  if (newChannels) {
+  if (newChannels)
+  {
     this->mInputHistory.resize(numChannels);
     this->mOutputHistory.resize(numChannels);
     const size_t inputDegree = this->_GetInputDegree();
     const size_t outputDegree = this->_GetOutputDegree();
-    for (auto c = 0; c < numChannels; c++) {
+    for (auto c = 0; c < numChannels; c++)
+    {
       this->mInputHistory[c].resize(inputDegree);
       this->mOutputHistory[c].resize(outputDegree);
-      std::fill(this->mInputHistory[c].begin(), this->mInputHistory[c].end(),
-                0.0);
-      std::fill(this->mOutputHistory[c].begin(), this->mOutputHistory[c].end(),
-                0.0);
+      std::fill(this->mInputHistory[c].begin(), this->mInputHistory[c].end(), 0.0);
+      std::fill(this->mOutputHistory[c].begin(), this->mOutputHistory[c].end(), 0.0);
     }
   }
 }
 
-void recursive_linear_filter::Biquad::_AssignCoefficients(
-    const double a0, const double a1, const double a2, const double b0,
-    const double b1, const double b2) {
+void recursive_linear_filter::Biquad::_AssignCoefficients(const double a0, const double a1, const double a2,
+                                                          const double b0, const double b1, const double b2)
+{
   this->mInputCoefficients[0] = b0 / a0;
   this->mInputCoefficients[1] = b1 / a0;
   this->mInputCoefficients[2] = b2 / a0;
@@ -102,8 +103,8 @@ void recursive_linear_filter::Biquad::_AssignCoefficients(
   this->mOutputCoefficients[2] = -a2 / a0;
 }
 
-void recursive_linear_filter::LowShelf::SetParams(
-    const recursive_linear_filter::BiquadParams &params) {
+void recursive_linear_filter::LowShelf::SetParams(const recursive_linear_filter::BiquadParams& params)
+{
   const double a = params.GetA();
   const double omega_0 = params.GetOmega0();
   const double alpha = params.GetAlpha(omega_0);
@@ -123,8 +124,8 @@ void recursive_linear_filter::LowShelf::SetParams(
   this->_AssignCoefficients(a0, a1, a2, b0, b1, b2);
 }
 
-void recursive_linear_filter::Peaking::SetParams(
-    const recursive_linear_filter::BiquadParams &params) {
+void recursive_linear_filter::Peaking::SetParams(const recursive_linear_filter::BiquadParams& params)
+{
   const double a = params.GetA();
   const double omega_0 = params.GetOmega0();
   const double alpha = params.GetAlpha(omega_0);
@@ -140,8 +141,8 @@ void recursive_linear_filter::Peaking::SetParams(
   this->_AssignCoefficients(a0, a1, a2, b0, b1, b2);
 }
 
-void recursive_linear_filter::HighShelf::SetParams(
-    const recursive_linear_filter::BiquadParams &params) {
+void recursive_linear_filter::HighShelf::SetParams(const recursive_linear_filter::BiquadParams& params)
+{
   const double a = params.GetA();
   const double omega_0 = params.GetOmega0();
   const double alpha = params.GetAlpha(omega_0);

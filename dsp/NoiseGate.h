@@ -13,8 +13,10 @@
 
 #include "dsp.h"
 
-namespace dsp {
-namespace noise_gate {
+namespace dsp
+{
+namespace noise_gate
+{
 // Disclaimer: No one told me how noise gates work. I'm just going to try
 // and have fun with it and see if I like what I get! :D
 
@@ -30,12 +32,13 @@ const double MINIMUM_LOUDNESS_POWER = pow(10.0, MINIMUM_LOUDNESS_DB / 10.0);
 // forward declaration.
 
 // The class that applies the gain reductions calculated by a trigger instance.
-class Gain : public DSP {
+class Gain : public DSP
+{
 public:
-  double **Process(double **inputs, const size_t numChannels,
-                  const size_t numFrames) override;
+  double** Process(double** inputs, const size_t numChannels, const size_t numFrames) override;
 
-  void SetGainReductionDB(std::vector<std::vector<double>> &gainReductionDB) {
+  void SetGainReductionDB(std::vector<std::vector<double>>& gainReductionDB)
+  {
     this->mGainReductionDB = gainReductionDB;
   }
 
@@ -47,13 +50,17 @@ private:
 // This listens to a stream of incoming audio and determines how much gain
 // to apply based on the loudness of the signal.
 
-class TriggerParams {
+class TriggerParams
+{
 public:
-  TriggerParams(const double time, const double threshold, const double ratio,
-                const double openTime, const double holdTime,
-                const double closeTime)
-      : mTime(time), mThreshold(threshold), mRatio(ratio), mOpenTime(openTime),
-        mHoldTime(holdTime), mCloseTime(closeTime){};
+  TriggerParams(const double time, const double threshold, const double ratio, const double openTime,
+                const double holdTime, const double closeTime)
+  : mTime(time)
+  , mThreshold(threshold)
+  , mRatio(ratio)
+  , mOpenTime(openTime)
+  , mHoldTime(holdTime)
+  , mCloseTime(closeTime){};
 
   double GetTime() const { return this->mTime; };
   double GetThreshold() const { return this->mThreshold; };
@@ -77,45 +84,39 @@ private:
   double mCloseTime;
 };
 
-class Trigger : public DSP {
+class Trigger : public DSP
+{
 public:
   Trigger();
 
-  double **Process(double **inputs, const size_t numChannels,
-                  const size_t numFrames) override;
-  std::vector<std::vector<double>> GetGainReduction() const {
-    return this->mGainReductionDB;
-  };
-  void SetParams(const TriggerParams &params) { this->mParams = params; };
-  void SetSampleRate(const double sampleRate) {
-    this->mSampleRate = sampleRate;
-  }
-  std::vector<std::vector<double>> GetGainReductionDB() const {
-    return this->mGainReductionDB;
-  };
+  double** Process(double** inputs, const size_t numChannels, const size_t numFrames) override;
+  std::vector<std::vector<double>> GetGainReduction() const { return this->mGainReductionDB; };
+  void SetParams(const TriggerParams& params) { this->mParams = params; };
+  void SetSampleRate(const double sampleRate) { this->mSampleRate = sampleRate; }
+  std::vector<std::vector<double>> GetGainReductionDB() const { return this->mGainReductionDB; };
 
-  void AddListener(Gain *gain) {
+  void AddListener(Gain* gain)
+  {
     // This might be risky dropping a raw pointer, but I don't think that the
     // gain would be destructed, so probably ok.
     this->mGainListeners.insert(gain);
   }
 
 private:
-  enum class State { MOVING = 0, HOLDING };
+  enum class State
+  {
+    MOVING = 0,
+    HOLDING
+  };
 
-  double _GetGainReduction(const double levelDB) const {
+  double _GetGainReduction(const double levelDB) const
+  {
     const double threshold = this->mParams.GetThreshold();
     // Quadratic gain reduction? :)
-    return levelDB < threshold
-               ? -(this->mParams.GetRatio()) * (levelDB - threshold) *
-                     (levelDB - threshold)
-               : 0.0;
+    return levelDB < threshold ? -(this->mParams.GetRatio()) * (levelDB - threshold) * (levelDB - threshold) : 0.0;
   }
-  double _GetMaxGainReduction() const {
-    return this->_GetGainReduction(MINIMUM_LOUDNESS_DB);
-  }
-  virtual void _PrepareBuffers(const size_t numChannels,
-                               const size_t numFrames) override;
+  double _GetMaxGainReduction() const { return this->_GetGainReduction(MINIMUM_LOUDNESS_DB); }
+  virtual void _PrepareBuffers(const size_t numChannels, const size_t numFrames) override;
 
   TriggerParams mParams;
   std::vector<State> mState; // One per channel
@@ -130,7 +131,7 @@ private:
   // How long we've been holding
   std::vector<double> mTimeHeld;
 
-  std::unordered_set<Gain *> mGainListeners;
+  std::unordered_set<Gain*> mGainListeners;
 };
 
 }; // namespace noise_gate

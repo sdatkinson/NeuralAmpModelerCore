@@ -15,12 +15,13 @@
 #include "dsp.h"
 #include "wav.h"
 
-namespace dsp {
-class ImpulseResponse : public History {
+namespace dsp
+{
+class ImpulseResponse : public History
+{
 public:
   ImpulseResponse(const char* fileName, const double sampleRate);
-  double **Process(double **inputs, const size_t numChannels,
-                  const size_t numFrames) override;
+  double** Process(double** inputs, const size_t numChannels, const size_t numFrames) override;
   // TODO states for the IR class
   dsp::wav::LoadReturnCode GetWavState() const { return this->mWavState; };
 
