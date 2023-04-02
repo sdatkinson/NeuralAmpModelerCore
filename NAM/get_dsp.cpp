@@ -4,6 +4,7 @@
 #include "dsp.h"
 #include "json.hpp"
 #include "lstm.h"
+#include "convnet.h"
 #include "wavenet.h"
 
 void verify_config_version(const std::string version)
