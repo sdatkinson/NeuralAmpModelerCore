@@ -7,8 +7,6 @@
 #include <unordered_map>
 #include <vector>
 
-#include "IPlugConstants.h"
-
 // Version 2 DSP abstraction ==================================================
 
 namespace dsp {
@@ -24,9 +22,8 @@ public:
   // The output shall be a pointer-to-pointers of matching size.
   // This object instance will own the data referenced by the pointers and be
   // responsible for its allocation and deallocation.
-  virtual iplug::sample **Process(iplug::sample **inputs,
-                                  const size_t numChannels,
-                                  const size_t numFrames) = 0;
+  virtual double **Process(double **inputs, const size_t numChannels,
+                          const size_t numFrames) = 0;
   // Update the parameters of the DSP object according to the provided params.
   // Not declaring a pure virtual bc there's no concrete definition that can
   // use Params.
@@ -48,7 +45,7 @@ protected:
   }
   // Return a pointer-to-pointers for the DSP's output buffers (all channels)
   // Assumes that ._PrepareBuffers()  was called recently enough.
-  iplug::sample **_GetPointers();
+  double **_GetPointers();
   // Resize mOutputs to (numChannels, numFrames) and ensure that the raw
   // pointers are also keeping up.
   virtual void _PrepareBuffers(const size_t numChannels,
@@ -61,11 +58,11 @@ protected:
   // The output array into which the DSP module's calculations will be written.
   // Pointers to this member's data will be returned by .Process(), and std
   // Will ensure proper allocation.
-  std::vector<std::vector<iplug::sample>> mOutputs;
+  std::vector<std::vector<double>> mOutputs;
   // A pointer to pointers of which copies will be given out as the output of
   // .Process(). This object will ensure proper allocation and deallocation of
   // the first level; The second level points to .data() from mOutputs.
-  iplug::sample **mOutputPointers;
+  double **mOutputPointers;
   size_t mOutputPointersSize;
 };
 
@@ -85,7 +82,7 @@ protected:
   void _AdvanceHistoryIndex(const size_t bufferSize);
   // Drop the new samples into the history array.
   // Manages history array size
-  void _UpdateHistory(iplug::sample **inputs, const size_t numChannels,
+  void _UpdateHistory(double **inputs, const size_t numChannels,
                       const size_t numFrames);
 
   // The history array that's used for DSP calculations.

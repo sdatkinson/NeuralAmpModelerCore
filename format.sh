@@ -2,7 +2,7 @@
 # Apply project formatting (i.e. clang-format with LLVM style)
 #
 # Usage:
-# $ bash format.bash
+# $ ./format.sh
 
 echo "Formatting..."
 

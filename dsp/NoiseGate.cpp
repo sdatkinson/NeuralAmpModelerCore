@@ -18,9 +18,9 @@ dsp::noise_gate::Trigger::Trigger()
 
 double signum(const double val) { return (0.0 < val) - (val < 0.0); }
 
-iplug::sample **dsp::noise_gate::Trigger::Process(iplug::sample **inputs,
-                                                  const size_t numChannels,
-                                                  const size_t numFrames) {
+double **dsp::noise_gate::Trigger::Process(double **inputs,
+                                          const size_t numChannels,
+                                          const size_t numFrames) {
   this->_PrepareBuffers(numChannels, numFrames);
 
   // A bunch of numbers we'll use a few times.
@@ -87,8 +87,7 @@ iplug::sample **dsp::noise_gate::Trigger::Process(iplug::sample **inputs,
 
   // Copy input to output
   for (auto c = 0; c < numChannels; c++)
-    memcpy(this->mOutputs[c].data(), inputs[c],
-           numFrames * sizeof(iplug::sample));
+    memcpy(this->mOutputs[c].data(), inputs[c], numFrames * sizeof(double));
   return this->_GetPointers();
 }
 
@@ -129,9 +128,8 @@ void dsp::noise_gate::Trigger::_PrepareBuffers(const size_t numChannels,
 
 // Gain========================================================================
 
-iplug::sample **dsp::noise_gate::Gain::Process(iplug::sample **inputs,
-                                               const size_t numChannels,
-                                               const size_t numFrames) {
+double **dsp::noise_gate::Gain::Process(double **inputs, const size_t numChannels,
+                                       const size_t numFrames) {
   // Assume that SetGainReductionDB() was just called to get data from a
   // trigger. Could use listeners...
   this->_PrepareBuffers(numChannels, numFrames);

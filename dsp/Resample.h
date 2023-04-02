@@ -5,8 +5,7 @@
 //  Created by Steven Atkinson on 1/2/23.
 //
 
-#ifndef Resample_h
-#define Resample_h
+#pragma once
 
 #include <cmath>
 #include <stdexcept>
@@ -83,5 +82,3 @@ void dsp::ResampleCubic(const std::vector<T> &inputs,
     time += resampledTimeIncrement;
   }
 }
-
-#endif /* Resample_h */
