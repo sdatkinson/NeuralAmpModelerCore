@@ -18,7 +18,7 @@ dsp::noise_gate::Trigger::Trigger()
 
 double signum(const double val) { return (0.0 < val) - (val < 0.0); }
 
-float **dsp::noise_gate::Trigger::Process(float **inputs,
+double **dsp::noise_gate::Trigger::Process(double **inputs,
                                           const size_t numChannels,
                                           const size_t numFrames) {
   this->_PrepareBuffers(numChannels, numFrames);
@@ -87,7 +87,7 @@ float **dsp::noise_gate::Trigger::Process(float **inputs,
 
   // Copy input to output
   for (auto c = 0; c < numChannels; c++)
-    memcpy(this->mOutputs[c].data(), inputs[c], numFrames * sizeof(float));
+    memcpy(this->mOutputs[c].data(), inputs[c], numFrames * sizeof(double));
   return this->_GetPointers();
 }
 
@@ -128,7 +128,7 @@ void dsp::noise_gate::Trigger::_PrepareBuffers(const size_t numChannels,
 
 // Gain========================================================================
 
-float **dsp::noise_gate::Gain::Process(float **inputs, const size_t numChannels,
+double **dsp::noise_gate::Gain::Process(double **inputs, const size_t numChannels,
                                        const size_t numFrames) {
   // Assume that SetGainReductionDB() was just called to get data from a
   // trigger. Could use listeners...

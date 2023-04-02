@@ -20,7 +20,7 @@ namespace recursive_linear_filter {
 class Base : public dsp::DSP {
 public:
   Base(const size_t inputDegree, const size_t outputDegree);
-  float **Process(float **inputs, const size_t numChannels,
+  double **Process(double **inputs, const size_t numChannels,
                   const size_t numFrames) override;
 
 protected:
@@ -39,8 +39,8 @@ protected:
   // First index is channel
   // Second index, [0] is the current input/output, [1] is the previous, [2] is
   // before that, etc.
-  std::vector<std::vector<float>> mInputHistory;
-  std::vector<std::vector<float>> mOutputHistory;
+  std::vector<std::vector<double>> mInputHistory;
+  std::vector<std::vector<double>> mOutputHistory;
   // Indices for history.
   // Designates which index is currently "0". Use modulus to wrap around.
   long mInputStart;

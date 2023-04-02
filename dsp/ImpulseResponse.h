@@ -19,7 +19,7 @@ namespace dsp {
 class ImpulseResponse : public History {
 public:
   ImpulseResponse(const char* fileName, const double sampleRate);
-  float **Process(float **inputs, const size_t numChannels,
+  double **Process(double **inputs, const size_t numChannels,
                   const size_t numFrames) override;
   // TODO states for the IR class
   dsp::wav::LoadReturnCode GetWavState() const { return this->mWavState; };

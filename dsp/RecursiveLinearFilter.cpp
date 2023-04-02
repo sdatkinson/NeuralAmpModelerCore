@@ -20,7 +20,7 @@ recursive_linear_filter::Base::Base(const size_t inputDegree,
   this->mOutputCoefficients.resize(outputDegree);
 }
 
-float **recursive_linear_filter::Base::Process(float **inputs,
+double **recursive_linear_filter::Base::Process(double **inputs,
                                                const size_t numChannels,
                                                const size_t numFrames) {
   this->_PrepareBuffers(numChannels, numFrames);

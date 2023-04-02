@@ -24,7 +24,7 @@ dsp::ImpulseResponse::ImpulseResponse(const char* fileName,
     this->_SetWeights(sampleRate);
 }
 
-float **dsp::ImpulseResponse::Process(float **inputs, const size_t numChannels,
+double **dsp::ImpulseResponse::Process(double **inputs, const size_t numChannels,
                                       const size_t numFrames) {
   this->_PrepareBuffers(numChannels, numFrames);
   this->_UpdateHistory(inputs, numChannels, numFrames);
