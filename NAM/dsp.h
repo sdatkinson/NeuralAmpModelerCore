@@ -9,7 +9,8 @@
 
 #include <Eigen/Dense>
 
-enum EArchitectures {
+enum EArchitectures
+{
   kLinear = 0,
   kConvNet,
   kLSTM,
@@ -21,9 +22,10 @@ enum EArchitectures {
 
 // Class for providing params from the plugin to the DSP module
 // For now, we'll work with doubles. Later, we'll add other types.
-class DSPParam {
+class DSPParam
+{
 public:
-  const char *name;
+  const char* name;
   const double val;
 };
 // And the params shall be provided as a std::vector<DSPParam>.
@@ -31,10 +33,11 @@ public:
 // How loud do we want the models to be? in dB
 #define TARGET_DSP_LOUDNESS -18.0
 
-class DSP {
+class DSP
+{
 public:
-    DSP();
-    DSP(const double loudness);
+  DSP();
+  DSP(const double loudness);
   // process() does all of the processing requried to take `inputs` array and
   // fill in the required values on `outputs`.
   // To do this:
@@ -44,10 +47,9 @@ public:
   // 3. The core DSP algorithm is run (This is what should probably be
   //    overridden in subclasses).
   // 4. The output level is applied and the result stored to `output`.
-  virtual void process(double **inputs, double **outputs,
-                       const int num_channels, const int num_frames,
+  virtual void process(double** inputs, double** outputs, const int num_channels, const int num_frames,
                        const double input_gain, const double output_gain,
-                       const std::unordered_map<std::string, double> &params);
+                       const std::unordered_map<std::string, double>& params);
   // Anything to take care of before next buffer comes in.
   // For example:
   // * Move the buffer index forward
@@ -76,13 +78,11 @@ protected:
   // Copy the parameters to the DSP module.
   // If anything has changed, then set this->_stale_params to true.
   // (TODO use "listener" approach)
-  void
-  _get_params_(const std::unordered_map<std::string, double> &input_params);
+  void _get_params_(const std::unordered_map<std::string, double>& input_params);
 
   // Apply the input gain
   // Result populates this->_input_post_gain
-  void _apply_input_level_(double **inputs, const int num_channels,
-                           const int num_frames, const double gain);
+  void _apply_input_level_(double** inputs, const int num_channels, const int num_frames, const double gain);
 
   // i.e. ensure the size is correct.
   void _ensure_core_dsp_output_ready_();
@@ -93,14 +93,14 @@ protected:
   virtual void _process_core_();
 
   // Copy this->_core_dsp_output to output and apply the output volume
-  void _apply_output_level_(double **outputs, const int num_channels,
-                            const int num_frames, const double gain);
+  void _apply_output_level_(double** outputs, const int num_channels, const int num_frames, const double gain);
 };
 
 // Class where an input buffer is kept so that long-time effects can be
 // captured. (e.g. conv nets or impulse responses, where we need history that's
 // longer than the sample buffer that's coming in.)
-class Buffer : public DSP {
+class Buffer : public DSP
+{
 public:
   Buffer(const int receptive_field);
   Buffer(const double loudness, const int receptive_field);
@@ -115,8 +115,7 @@ protected:
   std::vector<float> _input_buffer;
   std::vector<float> _output_buffer;
 
-  void _set_receptive_field(const int new_receptive_field,
-                            const int input_buffer_size);
+  void _set_receptive_field(const int new_receptive_field, const int input_buffer_size);
   void _set_receptive_field(const int new_receptive_field);
   void _reset_input_buffer();
   // Use this->_input_post_gain
@@ -125,12 +124,11 @@ protected:
 };
 
 // Basic linear model (an IR!)
-class Linear : public Buffer {
+class Linear : public Buffer
+{
 public:
-  Linear(const int receptive_field, const bool _bias,
-         const std::vector<float> &params);
-  Linear(const double loudness, const int receptive_field, const bool _bias,
-      const std::vector<float>& params);
+  Linear(const int receptive_field, const bool _bias, const std::vector<float>& params);
+  Linear(const double loudness, const int receptive_field, const bool _bias, const std::vector<float>& params);
   void _process_core_() override;
 
 protected:
@@ -143,57 +141,47 @@ protected:
 // Activations
 
 // In-place ReLU on (N,M) array
-void relu_(Eigen::MatrixXf &x, const long i_start, const long i_end,
-           const long j_start, const long j_end);
+void relu_(Eigen::MatrixXf& x, const long i_start, const long i_end, const long j_start, const long j_end);
 // Subset of the columns
-void relu_(Eigen::MatrixXf &x, const long j_start, const long j_end);
-void relu_(Eigen::MatrixXf &x);
+void relu_(Eigen::MatrixXf& x, const long j_start, const long j_end);
+void relu_(Eigen::MatrixXf& x);
 
 // In-place sigmoid
-void sigmoid_(Eigen::MatrixXf &x, const long i_start, const long i_end,
-              const long j_start, const long j_end);
-void sigmoid_(Eigen::MatrixXf &x);
+void sigmoid_(Eigen::MatrixXf& x, const long i_start, const long i_end, const long j_start, const long j_end);
+void sigmoid_(Eigen::MatrixXf& x);
 
 // In-place Tanh on (N,M) array
-void tanh_(Eigen::MatrixXf &x, const long i_start, const long i_end,
-           const long j_start, const long j_end);
+void tanh_(Eigen::MatrixXf& x, const long i_start, const long i_end, const long j_start, const long j_end);
 // Subset of the columns
-void tanh_(Eigen::MatrixXf &x, const long i_start, const long i_end);
+void tanh_(Eigen::MatrixXf& x, const long i_start, const long i_end);
 
-void tanh_(Eigen::MatrixXf &x);
+void tanh_(Eigen::MatrixXf& x);
 
 // In-place Hardtanh on (N,M) array
-void hard_tanh_(Eigen::MatrixXf& x, const long i_start, const long i_end,
-    const long j_start, const long j_end);
+void hard_tanh_(Eigen::MatrixXf& x, const long i_start, const long i_end, const long j_start, const long j_end);
 // Subset of the columns
 void hard_tanh_(Eigen::MatrixXf& x, const long i_start, const long i_end);
 
 void hard_tanh_(Eigen::MatrixXf& x);
 
-class Conv1D {
+class Conv1D
+{
 public:
   Conv1D() { this->_dilation = 1; };
-  void set_params_(std::vector<float>::iterator &params);
-  void set_size_(const int in_channels, const int out_channels,
-                 const int kernel_size, const bool do_bias,
+  void set_params_(std::vector<float>::iterator& params);
+  void set_size_(const int in_channels, const int out_channels, const int kernel_size, const bool do_bias,
                  const int _dilation);
-  void set_size_and_params_(const int in_channels, const int out_channels,
-                            const int kernel_size, const int _dilation,
-                            const bool do_bias,
-                            std::vector<float>::iterator &params);
+  void set_size_and_params_(const int in_channels, const int out_channels, const int kernel_size, const int _dilation,
+                            const bool do_bias, std::vector<float>::iterator& params);
   // Process from input to output
   //  Rightmost indices of input go from i_start to i_end,
   //  Indices on output for from j_start (to j_start + i_end - i_start)
-  void process_(const Eigen::MatrixXf &input, Eigen::MatrixXf &output,
-                const long i_start, const long i_end, const long j_start) const;
-  long get_in_channels() const {
-    return this->_weight.size() > 0 ? this->_weight[0].cols() : 0;
-  };
+  void process_(const Eigen::MatrixXf& input, Eigen::MatrixXf& output, const long i_start, const long i_end,
+                const long j_start) const;
+  long get_in_channels() const { return this->_weight.size() > 0 ? this->_weight[0].cols() : 0; };
   long get_kernel_size() const { return this->_weight.size(); };
   long get_num_params() const;
-  long get_out_channels() const {
-    return this->_weight.size() > 0 ? this->_weight[0].rows() : 0;
-  };
+  long get_out_channels() const { return this->_weight.size() > 0 ? this->_weight[0].rows() : 0; };
   int get_dilation() const { return this->_dilation; };
 
 private:
@@ -205,13 +193,14 @@ private:
 };
 
 // Really just a linear layer
-class Conv1x1 {
+class Conv1x1
+{
 public:
   Conv1x1(const int in_channels, const int out_channels, const bool _bias);
-  void set_params_(std::vector<float>::iterator &params);
+  void set_params_(std::vector<float>::iterator& params);
   // :param input: (N,Cin) or (Cin,)
   // :return: (N,Cout) or (Cout,), respectively
-  Eigen::MatrixXf process(const Eigen::MatrixXf &input) const;
+  Eigen::MatrixXf process(const Eigen::MatrixXf& input) const;
 
   long get_out_channels() const { return this->_weight.rows(); };
 
@@ -223,19 +212,20 @@ private:
 
 // ConvNet ====================================================================
 
-namespace convnet {
+namespace convnet
+{
 // Custom Conv that avoids re-computing on pieces of the input and trusts
 // that the corresponding outputs are where they need to be.
 // Beware: this is clever!
 
 // Batch normalization
 // In prod mode, so really just an elementwise affine layer.
-class BatchNorm {
+class BatchNorm
+{
 public:
   BatchNorm(){};
-  BatchNorm(const int dim, std::vector<float>::iterator &params);
-  void process_(Eigen::MatrixXf &input, const long i_start,
-                const long i_end) const;
+  BatchNorm(const int dim, std::vector<float>::iterator& params);
+  void process_(Eigen::MatrixXf& input, const long i_start, const long i_end) const;
 
 private:
   // TODO simplify to just ax+b
@@ -247,15 +237,13 @@ private:
   Eigen::VectorXf loc;
 };
 
-class ConvNetBlock {
+class ConvNetBlock
+{
 public:
   ConvNetBlock() { this->_batchnorm = false; };
-  void set_params_(const int in_channels, const int out_channels,
-                   const int _dilation, const bool batchnorm,
-                   const std::string activation,
-                   std::vector<float>::iterator &params);
-  void process_(const Eigen::MatrixXf &input, Eigen::MatrixXf &output,
-                const long i_start, const long i_end) const;
+  void set_params_(const int in_channels, const int out_channels, const int _dilation, const bool batchnorm,
+                   const std::string activation, std::vector<float>::iterator& params);
+  void process_(const Eigen::MatrixXf& input, Eigen::MatrixXf& output, const long i_start, const long i_end) const;
   long get_out_channels() const;
   Conv1D conv;
 
@@ -265,34 +253,33 @@ private:
   std::string activation;
 };
 
-class _Head {
+class _Head
+{
 public:
   _Head() { this->_bias = (float)0.0; };
-  _Head(const int channels, std::vector<float>::iterator &params);
-  void process_(const Eigen::MatrixXf &input, Eigen::VectorXf &output,
-                const long i_start, const long i_end) const;
+  _Head(const int channels, std::vector<float>::iterator& params);
+  void process_(const Eigen::MatrixXf& input, Eigen::VectorXf& output, const long i_start, const long i_end) const;
 
 private:
   Eigen::VectorXf _weight;
   float _bias;
 };
 
-class ConvNet : public Buffer {
+class ConvNet : public Buffer
+{
 public:
-  ConvNet(const int channels, const std::vector<int> &dilations,
-          const bool batchnorm, const std::string activation,
-          std::vector<float> &params);
-  ConvNet(const double loudness, const int channels, const std::vector<int>& dilations,
-      const bool batchnorm, const std::string activation,
-      std::vector<float>& params);
+  ConvNet(const int channels, const std::vector<int>& dilations, const bool batchnorm, const std::string activation,
+          std::vector<float>& params);
+  ConvNet(const double loudness, const int channels, const std::vector<int>& dilations, const bool batchnorm,
+          const std::string activation, std::vector<float>& params);
 
 protected:
   std::vector<ConvNetBlock> _blocks;
   std::vector<Eigen::MatrixXf> _block_vals;
   Eigen::VectorXf _head_output;
   _Head _head;
-  void _verify_params(const int channels, const std::vector<int> &dilations,
-                      const bool batchnorm, const size_t actual_params);
+  void _verify_params(const int channels, const std::vector<int>& dilations, const bool batchnorm,
+                      const size_t actual_params);
   void _update_buffers_() override;
   void _rewind_buffers_() override;
 

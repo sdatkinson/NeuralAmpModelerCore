@@ -9,10 +9,14 @@
 
 // Version 2 DSP abstraction ==================================================
 
-namespace dsp {
-class Params {};
+namespace dsp
+{
+class Params
+{
+};
 
-class DSP {
+class DSP
+{
 public:
   DSP();
   ~DSP();
@@ -22,8 +26,7 @@ public:
   // The output shall be a pointer-to-pointers of matching size.
   // This object instance will own the data referenced by the pointers and be
   // responsible for its allocation and deallocation.
-  virtual double **Process(double **inputs, const size_t numChannels,
-                          const size_t numFrames) = 0;
+  virtual double** Process(double** inputs, const size_t numChannels, const size_t numFrames) = 0;
   // Update the parameters of the DSP object according to the provided params.
   // Not declaring a pure virtual bc there's no concrete definition that can
   // use Params.
@@ -40,16 +43,13 @@ protected:
   void _DeallocateOutputPointers();
 
   size_t _GetNumChannels() const { return this->mOutputs.size(); };
-  size_t _GetNumFrames() const {
-    return this->_GetNumChannels() > 0 ? this->mOutputs[0].size() : 0;
-  }
+  size_t _GetNumFrames() const { return this->_GetNumChannels() > 0 ? this->mOutputs[0].size() : 0; }
   // Return a pointer-to-pointers for the DSP's output buffers (all channels)
   // Assumes that ._PrepareBuffers()  was called recently enough.
-  double **_GetPointers();
+  double** _GetPointers();
   // Resize mOutputs to (numChannels, numFrames) and ensure that the raw
   // pointers are also keeping up.
-  virtual void _PrepareBuffers(const size_t numChannels,
-                               const size_t numFrames);
+  virtual void _PrepareBuffers(const size_t numChannels, const size_t numFrames);
   // Resize the pointer-to-pointers for the vector-of-vectors.
   void _ResizePointers(const size_t numChannels);
 
@@ -62,7 +62,7 @@ protected:
   // A pointer to pointers of which copies will be given out as the output of
   // .Process(). This object will ensure proper allocation and deallocation of
   // the first level; The second level points to .data() from mOutputs.
-  double **mOutputPointers;
+  double** mOutputPointers;
   size_t mOutputPointersSize;
 };
 
@@ -72,7 +72,8 @@ protected:
 // Hacky stuff:
 // * Mono
 // * Single-precision floats.
-class History : public DSP {
+class History : public DSP
+{
 public:
   History();
 
@@ -82,8 +83,7 @@ protected:
   void _AdvanceHistoryIndex(const size_t bufferSize);
   // Drop the new samples into the history array.
   // Manages history array size
-  void _UpdateHistory(double **inputs, const size_t numChannels,
-                      const size_t numFrames);
+  void _UpdateHistory(double** inputs, const size_t numChannels, const size_t numFrames);
 
   // The history array that's used for DSP calculations.
   std::vector<float> mHistory;

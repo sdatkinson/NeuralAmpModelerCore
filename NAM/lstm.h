@@ -9,7 +9,8 @@
 #include "dsp.h"
 #include "json.hpp"
 
-namespace lstm {
+namespace lstm
+{
 // A Single LSTM cell
 // i input
 // f forget
@@ -17,14 +18,12 @@ namespace lstm {
 // o output
 // c cell state
 // h hidden state
-class LSTMCell {
+class LSTMCell
+{
 public:
-  LSTMCell(const int input_size, const int hidden_size,
-           std::vector<float>::iterator &params);
-  Eigen::VectorXf get_hidden_state() const {
-    return this->_xh(Eigen::placeholders::lastN(this->_get_hidden_size()));
-  };
-  void process_(const Eigen::VectorXf &x);
+  LSTMCell(const int input_size, const int hidden_size, std::vector<float>::iterator& params);
+  Eigen::VectorXf get_hidden_state() const { return this->_xh(Eigen::placeholders::lastN(this->_get_hidden_size())); };
+  void process_(const Eigen::VectorXf& x);
 
 private:
   // Parameters
@@ -43,18 +42,17 @@ private:
   Eigen::VectorXf _c;
 
   long _get_hidden_size() const { return this->_b.size() / 4; };
-  long _get_input_size() const {
-    return this->_xh.size() - this->_get_hidden_size();
-  };
+  long _get_input_size() const { return this->_xh.size() - this->_get_hidden_size(); };
 };
 
 // The multi-layer LSTM model
-class LSTM : public DSP {
+class LSTM : public DSP
+{
 public:
-  LSTM(const int num_layers, const int input_size, const int hidden_size,
-       std::vector<float> &params, nlohmann::json &parametric);
+  LSTM(const int num_layers, const int input_size, const int hidden_size, std::vector<float>& params,
+       nlohmann::json& parametric);
   LSTM(const double loudness, const int num_layers, const int input_size, const int hidden_size,
-      std::vector<float>& params, nlohmann::json& parametric);
+       std::vector<float>& params, nlohmann::json& parametric);
 
 protected:
   Eigen::VectorXf _head_weight;
@@ -65,7 +63,7 @@ protected:
   float _process_sample(const float x);
 
   // Initialize the parametric map
-  void _init_parametric(nlohmann::json &parametric);
+  void _init_parametric(nlohmann::json& parametric);
 
   // Mapping from param name to index in _input_and_params:
   std::map<std::string, int> _parametric_map;
