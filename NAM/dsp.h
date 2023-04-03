@@ -140,11 +140,6 @@ protected:
 
 // NN modules =================================================================
 
-// Activations
-
-// In-place sigmoid
-void sigmoid_(Eigen::MatrixXf& x, const long i_start, const long i_end, const long j_start, const long j_end);
-
 class Conv1D
 {
 public:

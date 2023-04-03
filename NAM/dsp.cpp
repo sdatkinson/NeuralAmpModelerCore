@@ -206,13 +206,6 @@ void Linear::_process_core_()
 
 // NN modules =================================================================
 
-void sigmoid_(Eigen::MatrixXf& x, const long i_start, const long i_end, const long j_start, const long j_end)
-{
-  for (long j = j_start; j < j_end; j++)
-    for (long i = i_start; i < i_end; i++)
-      x(i, j) = 1.0 / (1.0 + expf(-x(i, j)));
-}
-
 void Conv1D::set_params_(std::vector<float>::iterator& params)
 {
   if (this->_weight.size() > 0)

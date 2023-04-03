@@ -34,7 +34,8 @@ void wavenet::_Layer::process_(const Eigen::MatrixXf& input, const Eigen::Matrix
 
   if (this->_gated)
   {
-    sigmoid_(this->_z, channels, 2 * channels, 0, this->_z.cols());
+    activations::Activation::get_activation("Sigmoid")->apply(this->_z.block(channels, 2 * channels, 0, this->_z.cols()));
+
     this->_z.topRows(channels).array() *= this->_z.bottomRows(channels).array();
     // this->_z.topRows(channels) = this->_z.topRows(channels).cwiseProduct(
     //   this->_z.bottomRows(channels)
