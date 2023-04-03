@@ -9,6 +9,8 @@
 
 #include <Eigen/Dense>
 
+#include "activations.h"
+
 enum EArchitectures
 {
   kLinear = 0,
