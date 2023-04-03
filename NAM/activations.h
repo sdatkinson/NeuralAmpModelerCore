@@ -38,13 +38,10 @@ public:
 Activation(){};
   virtual void apply(Eigen::MatrixXf& matrix) { apply(matrix.middleCols(0, matrix.cols())); }
   virtual void apply(Eigen::Block<Eigen::MatrixXf, -1, -1, true> block) {}
-  static Activation* get_activation(const std::string name)
-  { 
-    if (_activations.find(name) == _activations.end())
-      return nullptr;
 
-    return _activations[name];
-  }
+  static Activation* get_activation(const std::string name);
+  static void enable_fast_tanh();
+  static void disable_fast_tanh();
 
   protected:
     static std::unordered_map<std::string, Activation *> _activations;
