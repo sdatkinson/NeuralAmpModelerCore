@@ -1,5 +1,3 @@
-#pragma once
-
 #include "activations.h"
 
 std::unordered_map<std::string, activations::Activation*> activations::Activation::_activations = {
