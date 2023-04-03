@@ -36,8 +36,19 @@ class Activation
 {
 public:
 Activation(){};
-  virtual void apply(Eigen::MatrixXf& matrix) { apply(matrix.middleCols(0, matrix.cols())); }
-  virtual void apply(Eigen::Block<Eigen::MatrixXf, -1, -1, true> block) {}
+  virtual void apply(Eigen::MatrixXf& matrix)
+  {
+    apply(matrix.middleCols(0, matrix.cols()).data(), matrix.rows() * matrix.cols());
+  }
+  virtual void apply(Eigen::Block<Eigen::MatrixXf> block)
+  {
+    apply(block.data(), block.rows() * block.cols());
+  }
+  virtual void apply(Eigen::Block<Eigen::MatrixXf, -1, -1, true> block)
+  {
+    apply(block.data(), block.rows() * block.cols());
+  }
+  virtual void apply(float* data, long size) {}
 
   static Activation* get_activation(const std::string name);
   static void enable_fast_tanh();
@@ -50,15 +61,11 @@ Activation(){};
 class ActivationTanh : public Activation
 {
   public:
-    void apply(Eigen::Block<Eigen::MatrixXf, -1, -1, true> block) override
+    void apply(float *data, long size) override
     {
-      float* ptr = block.data();
-
-      long size = block.rows() * block.cols();
-
       for (long pos = 0; pos < size; pos++)
       {
-        ptr[pos] = std::tanh(ptr[pos]);
+        data[pos] = std::tanh(data[pos]);
       }
     }
 };
@@ -67,15 +74,11 @@ class ActivationHardTanh : public Activation
 {
   public:
     ActivationHardTanh(){};
-    void apply(Eigen::Block<Eigen::MatrixXf, -1, -1, true> block) override
+    void apply(float* data, long size) override
     {
-      float* ptr = block.data();
-
-      long size = block.rows() * block.cols();
-
       for (long pos = 0; pos < size; pos++)
       {
-        ptr[pos] = hard_tanh(ptr[pos]);
+        data[pos] = hard_tanh(data[pos]);
       }
     }
 };
@@ -84,15 +87,11 @@ class ActivationFastTanh : public Activation
 {
   public:
     ActivationFastTanh(){};
-    void apply(Eigen::Block<Eigen::MatrixXf, -1, -1, true> block) override
+    void apply(float* data, long size) override
     {
-      float* ptr = block.data();
-
-      long size = block.rows() * block.cols();
-
       for (long pos = 0; pos < size; pos++)
       {
-        ptr[pos] = fast_tanh(ptr[pos]);
+        data[pos] = fast_tanh(data[pos]);
       }
     }
 };
@@ -101,15 +100,11 @@ class ActivationReLU : public Activation
 {
   public:
     ActivationReLU(){};
-    void apply(Eigen::Block<Eigen::MatrixXf, -1, -1, true> block) override
+    void apply(float* data, long size) override
     {
-      float* ptr = block.data();
-
-      long size = block.rows() * block.cols();
-
       for (long pos = 0; pos < size; pos++)
       {
-        ptr[pos] = relu(ptr[pos]);
+        data[pos] = relu(data[pos]);
       }
     }
 };
@@ -118,15 +113,11 @@ class ActivationSigmoid : public Activation
 {
   public:
     ActivationSigmoid(){};
-    void apply(Eigen::Block<Eigen::MatrixXf, -1, -1, true> block) override
+    void apply(float* data, long size) override
     {
-      float* ptr = block.data();
-
-      long size = block.rows() * block.cols();
-
       for (long pos = 0; pos < size; pos++)
       {
-        ptr[pos] = sigmoid(ptr[pos]);
+        data[pos] = sigmoid(data[pos]);
       }
     }
 };
