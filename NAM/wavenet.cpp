@@ -32,15 +32,6 @@ void wavenet::_Layer::process_(const Eigen::MatrixXf& input, const Eigen::Matrix
   
   this->_activation->apply(this->_z);
 
-  //if (this->_activation == "Hardtanh")
-  //  hard_tanh_(this->_z);
-  //else if (this->_activation == "Tanh")
-  //  tanh_(this->_z);
-  //else if (this->_activation == "ReLU")
-  //  relu_(this->_z, 0, channels, 0, this->_z.cols());
-  //else
-  //  throw std::runtime_error("Unrecognized activation.");
-
   if (this->_gated)
   {
     sigmoid_(this->_z, channels, 2 * channels, 0, this->_z.cols());
@@ -225,12 +216,6 @@ void wavenet::_Head::set_num_frames_(const long num_frames)
 void wavenet::_Head::_apply_activation_(Eigen::MatrixXf& x)
 {
   this->_activation->apply(x);
-  //if (this->_activation == "Tanh")
-  //  tanh_(x);
-  //else if (this->_activation == "ReLU")
-  //  relu_(x);
-  //else
-  //  throw std::runtime_error("Unrecognized activation.");
 }
 
 // WaveNet ====================================================================

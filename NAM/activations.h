@@ -36,8 +36,8 @@ class Activation
 {
 public:
 Activation(){};
-  virtual void apply(Eigen::MatrixXf& matrix) { apply(matrix.block(0, 0, matrix.rows(), matrix.cols())); }
-  virtual void apply(Eigen::Block<Eigen::MatrixXf> block) {}
+  virtual void apply(Eigen::MatrixXf& matrix) { apply(matrix.middleCols(0, matrix.cols())); }
+  virtual void apply(Eigen::Block<Eigen::MatrixXf, -1, -1, true> block) {}
   static Activation* get_activation(const std::string name)
   { 
     if (_activations.find(name) == _activations.end())
@@ -53,7 +53,7 @@ Activation(){};
 class ActivationTanh : public Activation
 {
   public:
-    void apply(Eigen::Block<Eigen::MatrixXf> block) override
+    void apply(Eigen::Block<Eigen::MatrixXf, -1, -1, true> block) override
     {
       float* ptr = block.data();
 
@@ -70,7 +70,7 @@ class ActivationHardTanh : public Activation
 {
   public:
     ActivationHardTanh(){};
-    void apply(Eigen::Block<Eigen::MatrixXf> block) override
+    void apply(Eigen::Block<Eigen::MatrixXf, -1, -1, true> block) override
     {
       float* ptr = block.data();
 
@@ -87,7 +87,7 @@ class ActivationFastTanh : public Activation
 {
   public:
     ActivationFastTanh(){};
-    void apply(Eigen::Block<Eigen::MatrixXf> block) override
+    void apply(Eigen::Block<Eigen::MatrixXf, -1, -1, true> block) override
     {
       float* ptr = block.data();
 
@@ -104,7 +104,7 @@ class ActivationReLU : public Activation
 {
   public:
     ActivationReLU(){};
-    void apply(Eigen::Block<Eigen::MatrixXf> block) override
+    void apply(Eigen::Block<Eigen::MatrixXf, -1, -1, true> block) override
     {
       float* ptr = block.data();
 
@@ -121,7 +121,7 @@ class ActivationSigmoid : public Activation
 {
   public:
     ActivationSigmoid(){};
-    void apply(Eigen::Block<Eigen::MatrixXf> block) override
+    void apply(Eigen::Block<Eigen::MatrixXf, -1, -1, true> block) override
     {
       float* ptr = block.data();
 
