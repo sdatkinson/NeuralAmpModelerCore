@@ -53,7 +53,7 @@ Activation(){};
 class ActivationTanh : public Activation
 {
   public:
-    void Apply(Eigen::Block<Eigen::MatrixXf> block)
+    void apply(Eigen::Block<Eigen::MatrixXf> block) override
     {
       float* ptr = block.data();
 
@@ -70,7 +70,7 @@ class ActivationHardTanh : public Activation
 {
   public:
     ActivationHardTanh(){};
-    void Apply(Eigen::Block<Eigen::MatrixXf> block)
+    void apply(Eigen::Block<Eigen::MatrixXf> block) override
     {
       float* ptr = block.data();
 
@@ -87,7 +87,7 @@ class ActivationFastTanh : public Activation
 {
   public:
     ActivationFastTanh(){};
-    void Apply(Eigen::Block<Eigen::MatrixXf> block)
+    void apply(Eigen::Block<Eigen::MatrixXf> block) override
     {
       float* ptr = block.data();
 
@@ -104,7 +104,7 @@ class ActivationReLU : public Activation
 {
   public:
     ActivationReLU(){};
-    void Apply(Eigen::Block<Eigen::MatrixXf> block)
+    void apply(Eigen::Block<Eigen::MatrixXf> block) override
     {
       float* ptr = block.data();
 
@@ -121,7 +121,7 @@ class ActivationSigmoid : public Activation
 {
   public:
     ActivationSigmoid(){};
-    void Apply(Eigen::Block<Eigen::MatrixXf> block)
+    void apply(Eigen::Block<Eigen::MatrixXf> block) override
     {
       float* ptr = block.data();
 
