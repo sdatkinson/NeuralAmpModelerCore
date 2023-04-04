@@ -38,7 +38,7 @@ public:
 Activation(){};
   virtual void apply(Eigen::MatrixXf& matrix)
   {
-    apply(matrix.middleCols(0, matrix.cols()).data(), matrix.rows() * matrix.cols());
+    apply(matrix.data(), matrix.rows() * matrix.cols());
   }
   virtual void apply(Eigen::Block<Eigen::MatrixXf> block)
   {
