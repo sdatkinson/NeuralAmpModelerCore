@@ -6,6 +6,7 @@
 //
 
 #include <cmath> // pow
+#include <sstream>
 
 #include "NoiseGate.h"
 
