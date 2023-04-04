@@ -6,27 +6,24 @@
 //
 // Impulse response processing
 
-#ifndef ImpulseResponse_h
-#define ImpulseResponse_h
+#pragma once
 
 #include <filesystem>
 
 #include <Eigen/Dense>
 
-#include "IPlugConstants.h" // sample
 #include "dsp.h"
 #include "wav.h"
-#include "wdlstring.h" // WDL_String
 
-namespace dsp {
-class ImpulseResponse : public History {
+namespace dsp
+{
+class ImpulseResponse : public History
+{
 public:
-  ImpulseResponse(const WDL_String &fileName);
-  ImpulseResponse(const std::vector<float> &rawAudio,
-                  const double rawAudioSampleRate);
+  ImpulseResponse(const char* fileName);
+  ImpulseResponse(const std::vector<float>& rawAudio, const double rawAudioSampleRate);
   dsp::wav::LoadReturnCode GetWavState() const { return this->mWavState; };
-  iplug::sample **Process(iplug::sample **inputs, const size_t numChannels,
-                          const size_t numFrames) override;
+  double** Process(double** inputs, const size_t numChannels, const size_t numFrames) override;
   void SetSampleRate(const double sampleRate);
 
 private:
@@ -49,5 +46,3 @@ private:
   Eigen::VectorXf mWeight;
 };
 }; // namespace dsp
-
-#endif /* ImpulseResponse_h */

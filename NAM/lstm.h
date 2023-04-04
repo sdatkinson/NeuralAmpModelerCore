@@ -11,7 +11,8 @@
 #include "wavenet.h"
 
 
-namespace lstm {
+namespace lstm
+{
 // A Single LSTM cell
 // i input
 // f forget
@@ -19,14 +20,12 @@ namespace lstm {
 // o output
 // c cell state
 // h hidden state
-class LSTMCell {
+class LSTMCell
+{
 public:
-  LSTMCell(const int input_size, const int hidden_size,
-           std::vector<float>::iterator &params);
-  Eigen::VectorXf get_hidden_state() const {
-    return this->_xh(Eigen::placeholders::lastN(this->_get_hidden_size()));
-  };
-  void process_(const Eigen::VectorXf &x);
+  LSTMCell(const int input_size, const int hidden_size, std::vector<float>::iterator& params);
+  Eigen::VectorXf get_hidden_state() const { return this->_xh(Eigen::placeholders::lastN(this->_get_hidden_size())); };
+  void process_(const Eigen::VectorXf& x);
 
 private:
   // Parameters
@@ -45,25 +44,35 @@ private:
   Eigen::VectorXf _c;
 
   long _get_hidden_size() const { return this->_b.size() / 4; };
-  long _get_input_size() const {
-    return this->_xh.size() - this->_get_hidden_size();
-  };
+  long _get_input_size() const { return this->_xh.size() - this->_get_hidden_size(); };
 };
 
 // The multi-layer LSTM model
-class LSTM : public DSP {
+class LSTM : public DSP
+{
 public:
-  // Old-style init with no pre-conv possible
-  LSTM(const int num_layers, const int input_size, const int hidden_size,
-       std::vector<float> &params, nlohmann::json &parametric);
-  // Init with pre-conv
-  LSTM(const int num_layers, const int input_size, const int hidden_size,
-      std::vector<float>& params, nlohmann::json& parametric, const bool have_pre_conv, const int pre_conv_in_channels, const int pre_conv_out_channels, const int pre_conv_kernel_size);
+  // Loudness, pre-conv
+  // No, no
+  LSTM(const int num_layers, const int input_size, const int hidden_size, std::vector<float>& params,
+       nlohmann::json& parametric);
+  // No, yes
+  LSTM(const int num_layers, const int input_size, const int hidden_size, std::vector<float>& params,
+       nlohmann::json& parametric, const bool have_pre_conv, const int pre_conv_in_channels,
+       const int pre_conv_out_channels, const int pre_conv_kernel_size);
+  // Yes, no
+  LSTM(const double loudness, const int num_layers, const int input_size, const int hidden_size,
+       std::vector<float>& params, nlohmann::json& parametric);
+  // Yes, yes
+  LSTM(const double loudness, const int num_layers, const int input_size, const int hidden_size,
+       std::vector<float>& params, nlohmann::json& parametric, const bool have_pre_conv, const int pre_conv_in_channels,
+       const int pre_conv_out_channels, const int pre_conv_kernel_size);
 
-  void finalize_(const int num_frames) override {
-      DSP::finalize_(num_frames);
-      if (this->_have_pre_conv)
-          this->_pre_conv_index += num_frames;
+
+  void finalize_(const int num_frames) override
+  {
+    DSP::finalize_(num_frames);
+    if (this->_have_pre_conv)
+      this->_pre_conv_index += num_frames;
   }
 
 protected:
@@ -96,7 +105,7 @@ protected:
   float _process_lstm_vector(const Eigen::VectorXf& x);
 
   // Initialize the parametric map
-  void _init_parametric(nlohmann::json &parametric);
+  void _init_parametric(nlohmann::json& parametric);
 
   // Mapping from param name to index in _input_and_params:
   std::map<std::string, int> _parametric_map;

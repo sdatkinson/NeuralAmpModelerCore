@@ -6,10 +6,8 @@
 //
 // Recursive linear filters (LPF, HPF, Peaking, Shelving)
 
-#ifndef RecursiveLinearFilter_h
-#define RecursiveLinearFilter_h
+#pragma once
 
-#include "IPlugConstants.h" // sample
 #include "dsp.h"
 #include <cmath> // pow, sin
 #include <vector>
@@ -18,20 +16,20 @@
 
 // TODO refactor base DSP into a common abstraction.
 
-namespace recursive_linear_filter {
-class Base : public dsp::DSP {
+namespace recursive_linear_filter
+{
+class Base : public dsp::DSP
+{
 public:
   Base(const size_t inputDegree, const size_t outputDegree);
-  iplug::sample **Process(iplug::sample **inputs, const size_t numChannels,
-                          const size_t numFrames) override;
+  double** Process(double** inputs, const size_t numChannels, const size_t numFrames) override;
 
 protected:
   // Methods
   size_t _GetInputDegree() const { return this->mInputCoefficients.size(); };
   size_t _GetOutputDegree() const { return this->mOutputCoefficients.size(); };
   // Additionally prepares mInputHistory and mOutputHistory.
-  void _PrepareBuffers(const size_t numChannels,
-                       const size_t numFrames) override;
+  void _PrepareBuffers(const size_t numChannels, const size_t numFrames) override;
 
   // Coefficients for the DSP filter
   std::vector<double> mInputCoefficients;
@@ -41,17 +39,20 @@ protected:
   // First index is channel
   // Second index, [0] is the current input/output, [1] is the previous, [2] is
   // before that, etc.
-  std::vector<std::vector<iplug::sample>> mInputHistory;
-  std::vector<std::vector<iplug::sample>> mOutputHistory;
+  std::vector<std::vector<double>> mInputHistory;
+  std::vector<std::vector<double>> mOutputHistory;
   // Indices for history.
   // Designates which index is currently "0". Use modulus to wrap around.
   long mInputStart;
   long mOutputStart;
 };
 
-class LevelParams : public dsp::Params {
+class LevelParams : public dsp::Params
+{
 public:
-  LevelParams(const double gain) : Params(), mGain(gain){};
+  LevelParams(const double gain)
+  : Params()
+  , mGain(gain){};
   double GetGain() const { return this->mGain; };
 
 private:
@@ -59,35 +60,34 @@ private:
   double mGain;
 };
 
-class Level : public Base {
+class Level : public Base
+{
 public:
-  Level() : Base(1, 0){};
+  Level()
+  : Base(1, 0){};
   // Invalid usage: require a pointer to recursive_linear_filter::Params so
   // that SetCoefficients() is defined.
-  void SetParams(const LevelParams &params) {
-    this->mInputCoefficients[0] = params.GetGain();
-  };
+  void SetParams(const LevelParams& params) { this->mInputCoefficients[0] = params.GetGain(); };
   ;
 };
 
 // The same 3 params (frequency, quality, gain) describe a bunch of filters.
 // (Low shelf, high shelf, peaking)
-class BiquadParams : public dsp::Params {
+class BiquadParams : public dsp::Params
+{
 public:
-  BiquadParams(const double sampleRate, const double frequency,
-               const double quality, const double gainDB)
-      : dsp::Params(), mFrequency(frequency), mGainDB(gainDB),
-        mQuality(quality), mSampleRate(sampleRate){};
+  BiquadParams(const double sampleRate, const double frequency, const double quality, const double gainDB)
+  : dsp::Params()
+  , mFrequency(frequency)
+  , mGainDB(gainDB)
+  , mQuality(quality)
+  , mSampleRate(sampleRate){};
 
   // Parameters defined in
   // https://webaudio.github.io/Audio-EQ-Cookbook/audio-eq-cookbook.html
   double GetA() const { return pow(10.0, this->mGainDB / 40.0); };
-  double GetOmega0() const {
-    return 2.0 * MATH_PI * this->mFrequency / this->mSampleRate;
-  };
-  double GetAlpha(const double omega_0) const {
-    return sin(omega_0) / (2.0 * this->mQuality);
-  };
+  double GetOmega0() const { return 2.0 * MATH_PI * this->mFrequency / this->mSampleRate; };
+  double GetAlpha(const double omega_0) const { return sin(omega_0) / (2.0 * this->mQuality); };
   double GetCosW(const double omega_0) const { return cos(omega_0); };
 
 private:
@@ -97,30 +97,33 @@ private:
   double mSampleRate;
 };
 
-class Biquad : public Base {
+class Biquad : public Base
+{
 public:
-  Biquad() : Base(3, 3){};
-  virtual void SetParams(const BiquadParams &params) = 0;
+  Biquad()
+  : Base(3, 3){};
+  virtual void SetParams(const BiquadParams& params) = 0;
 
 protected:
-  void _AssignCoefficients(const double a0, const double a1, const double a2,
-                           const double b0, const double b1, const double b2);
+  void _AssignCoefficients(const double a0, const double a1, const double a2, const double b0, const double b1,
+                           const double b2);
 };
 
-class LowShelf : public Biquad {
+class LowShelf : public Biquad
+{
 public:
-  void SetParams(const BiquadParams &params) override;
+  void SetParams(const BiquadParams& params) override;
 };
 
-class Peaking : public Biquad {
+class Peaking : public Biquad
+{
 public:
-  void SetParams(const BiquadParams &params) override;
+  void SetParams(const BiquadParams& params) override;
 };
 
-class HighShelf : public Biquad {
+class HighShelf : public Biquad
+{
 public:
-  void SetParams(const BiquadParams &params) override;
+  void SetParams(const BiquadParams& params) override;
 };
 }; // namespace recursive_linear_filter
-
-#endif /* RecursiveLinearFilter_h */
