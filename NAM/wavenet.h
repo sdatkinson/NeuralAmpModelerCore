@@ -23,7 +23,7 @@ class _Layer
 public:
   _Layer(const int condition_size, const int channels, const int kernel_size, const int dilation,
          const std::string activation, const bool gated)
-  : _activation(activation)
+  : _activation(activations::Activation::get_activation(activation))
   , _gated(gated)
   , _conv(channels, gated ? 2 * channels : channels, kernel_size, true, dilation)
   , _input_mixin(condition_size, gated ? 2 * channels : channels, false)
@@ -48,7 +48,7 @@ private:
   // The internal state
   Eigen::MatrixXf _z;
 
-  const std::string _activation;
+  activations::Activation *_activation;
   const bool _gated;
 };
 
@@ -152,7 +152,7 @@ private:
   int _channels;
   std::vector<Conv1x1> _layers;
   Conv1x1 _head;
-  std::string _activation;
+  activations::Activation *_activation;
 
   // Stores the outputs of the convs *except* the last one, which goes in
   // The array `outputs` provided to .process_()

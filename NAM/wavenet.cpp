@@ -29,17 +29,13 @@ void wavenet::_Layer::process_(const Eigen::MatrixXf& input, const Eigen::Matrix
   this->_conv.process_(input, this->_z, i_start, ncols, 0);
   // Mix-in condition
   this->_z += this->_input_mixin.process(condition);
-  if (this->_activation == "Hardtanh")
-    hard_tanh_(this->_z);
-  else if (this->_activation == "Tanh")
-    tanh_(this->_z);
-  else if (this->_activation == "ReLU")
-    relu_(this->_z, 0, channels, 0, this->_z.cols());
-  else
-    throw std::runtime_error("Unrecognized activation.");
+  
+  this->_activation->apply(this->_z);
+
   if (this->_gated)
   {
-    sigmoid_(this->_z, channels, 2 * channels, 0, this->_z.cols());
+    activations::Activation::get_activation("Sigmoid")->apply(this->_z.block(channels, 0, channels, this->_z.cols()));
+
     this->_z.topRows(channels).array() *= this->_z.bottomRows(channels).array();
     // this->_z.topRows(channels) = this->_z.topRows(channels).cwiseProduct(
     //   this->_z.bottomRows(channels)
@@ -172,7 +168,7 @@ void wavenet::_LayerArray::_rewind_buffers_()
 
 wavenet::_Head::_Head(const int input_size, const int num_layers, const int channels, const std::string activation)
 : _channels(channels)
-, _activation(activation)
+, _activation(activations::Activation::get_activation(activation))
 , _head(num_layers > 0 ? channels : input_size, 1, true)
 {
   assert(num_layers > 0);
@@ -220,12 +216,7 @@ void wavenet::_Head::set_num_frames_(const long num_frames)
 
 void wavenet::_Head::_apply_activation_(Eigen::MatrixXf& x)
 {
-  if (this->_activation == "Tanh")
-    tanh_(x);
-  else if (this->_activation == "ReLU")
-    relu_(x);
-  else
-    throw std::runtime_error("Unrecognized activation.");
+  this->_activation->apply(x);
 }
 
 // WaveNet ====================================================================

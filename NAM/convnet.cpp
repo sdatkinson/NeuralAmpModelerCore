@@ -57,7 +57,7 @@ void convnet::ConvNetBlock::set_params_(const int in_channels, const int out_cha
   this->conv.set_size_and_params_(in_channels, out_channels, 2, _dilation, !batchnorm, params);
   if (this->_batchnorm)
     this->batchnorm = BatchNorm(out_channels, params);
-  this->activation = activation;
+  this->activation = activations::Activation::get_activation(activation);
 }
 
 void convnet::ConvNetBlock::process_(const Eigen::MatrixXf& input, Eigen::MatrixXf& output, const long i_start,
@@ -67,12 +67,8 @@ void convnet::ConvNetBlock::process_(const Eigen::MatrixXf& input, Eigen::Matrix
   this->conv.process_(input, output, i_start, ncols, i_start);
   if (this->_batchnorm)
     this->batchnorm.process_(output, i_start, i_end);
-  if (this->activation == "Tanh")
-    tanh_(output, i_start, i_end);
-  else if (this->activation == "ReLU")
-    relu_(output, i_start, i_end);
-  else
-    throw std::runtime_error("Unrecognized activation");
+
+  this->activation->apply(output.middleCols(i_start, ncols));
 }
 
 long convnet::ConvNetBlock::get_out_channels() const

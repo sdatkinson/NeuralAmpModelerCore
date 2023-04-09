@@ -4,7 +4,6 @@
 #include <string>
 #include <vector>
 
-#include "activations.h"
 #include "lstm.h"
 
 // Used by pre-conv
