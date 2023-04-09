@@ -98,6 +98,13 @@ protected:
   Eigen::VectorXf _head_weight;
   float _head_bias;
 
+  // Parameter interpolation
+  Eigen::VectorXf _current_buffer_params;
+  Eigen::VectorXf _param_interp_from;
+  Eigen::VectorXf _param_interp_to;
+  const long _param_interp_n = 4096;
+  long _param_interp_i;
+
   // LSTM processing with a single sample.
   // Used when no pre-conv
   float _process_lstm_sample(const float x);

@@ -78,6 +78,7 @@ lstm::LSTM::LSTM(const double loudness, const int num_layers, const int input_si
 : DSP(loudness)
 , _pre_conv(pre_conv_in_channels, pre_conv_out_channels, pre_conv_kernel_size, true, 1)
 , _have_pre_conv(have_pre_conv)
+, _param_interp_i(0)
 {
   this->_init_parametric(parametric);
   std::vector<float>::iterator it = params.begin();
@@ -106,13 +107,21 @@ void lstm::LSTM::_init_parametric(nlohmann::json& parametric)
     for (std::vector<std::string>::iterator it = parametric_names.begin(); it != parametric_names.end(); ++it, i++)
       this->_parametric_map[*it] = i;
   }
-
-  this->_input_and_params.resize(1 + parametric.size()); // TODO amp parameters
+  
+  const size_t num_params = parametric.size();
+  this->_current_buffer_params.resize(num_params);
+  this->_input_and_params.resize(1 + num_params);
   if (this->_have_pre_conv)
   {
     this->_pre_conv_input_buffer.resize(this->_input_and_params.size(), BUFFER_SIZE);
     this->_pre_conv_input_buffer.fill(0.0f);
   }
+
+  // Parameter interpolation
+  this->_param_interp_from.resize(num_params);
+  this->_param_interp_to.resize(num_params);
+  this->_param_interp_from.fill(0.0f);
+  this->_param_interp_to.fill(0.0f);
 }
 
 void lstm::LSTM::_prepare_pre_conv_for_frames(const size_t num_frames)
@@ -128,8 +137,14 @@ void lstm::LSTM::_process_core_()
   const size_t num_frames = this->_input_post_gain.size();
   if (this->_stale_params)
   {
-    for (std::unordered_map<std::string, double>::iterator it = this->_params.begin(); it != this->_params.end(); ++it)
-      this->_input_and_params[this->_parametric_map[it->first]] = it->second;
+    // TODO cleanup bc interpolation on non-preconv...
+    const size_t num_params = this->_parametric_map.size();
+    for (std::map<std::string, int>::iterator it = this->_parametric_map.begin(); it != this->_parametric_map.end(); ++it) {
+      const float val = this->_params[it->first];
+      this->_current_buffer_params((it->second) - 1) = val;
+    }
+      
+    this->_input_and_params.bottomRows(num_params) = this->_current_buffer_params;
     this->_stale_params = false;
   }
 
@@ -154,8 +169,16 @@ void lstm::LSTM::_process_pre_conv_()
   for (long i = 0; i < num_frames; i++)
     this->_pre_conv_input_buffer(0, i + this->_pre_conv_index) = this->_input_post_gain[i];
   // Copy params
-  this->_pre_conv_input_buffer.block(1, this->_pre_conv_index, num_params, num_frames).colwise() =
-    this->_input_and_params.bottomRows(num_params);
+  for (long i = 0; i < num_frames; i++) {
+      if (this->_param_interp_i == this->_param_interp_n) {  // next target
+          this->_param_interp_from = this->_param_interp_to;
+          this->_param_interp_to = this->_current_buffer_params;
+          this->_param_interp_i = 0;
+      }
+      const float alpha = (float) this->_param_interp_i / (float) this->_param_interp_n;
+      this->_pre_conv_input_buffer.block(1, this->_pre_conv_index + i, num_params, 1) = (1.0f - alpha) * this->_param_interp_from + alpha * this->_param_interp_to;
+      this->_param_interp_i++;
+  }
   // And do the conv
   this->_pre_conv.process_(this->_pre_conv_input_buffer, this->_pre_conv_output, this->_pre_conv_index, num_frames, 0);
 }
