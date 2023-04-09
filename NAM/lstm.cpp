@@ -2,7 +2,6 @@
 #include <string>
 #include <vector>
 
-#include "activations.h"
 #include "lstm.h"
 
 lstm::LSTMCell::LSTMCell(const int input_size, const int hidden_size, std::vector<float>::iterator& params)
