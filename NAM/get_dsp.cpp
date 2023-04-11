@@ -37,10 +37,17 @@ std::vector<float> _get_weights(nlohmann::json const& j, const std::filesystem::
 std::unique_ptr<DSP> get_dsp_legacy(const std::filesystem::path model_dir)
 {
   auto config_filename = model_dir / std::filesystem::path("config.json");
-  return get_dsp(config_filename);
+  dspData temp;
+  return get_dsp(config_filename, temp);
 }
 
 std::unique_ptr<DSP> get_dsp(const std::filesystem::path config_filename)
+{
+  dspData temp;
+  return get_dsp(config_filename, temp);
+}
+
+std::unique_ptr<DSP> get_dsp(const std::filesystem::path config_filename, dspData& returnedConfig)
 {
   if (!std::filesystem::exists(config_filename))
     throw std::runtime_error("Config JSON doesn't exist!\n");
@@ -52,13 +59,37 @@ std::unique_ptr<DSP> get_dsp(const std::filesystem::path config_filename)
   auto architecture = j["architecture"];
   nlohmann::json config = j["config"];
   std::vector<float> params = _get_weights(j, config_filename);
+
+  returnedConfig.version = j["version"];
+  returnedConfig.architecture = j["architecture"];
+  returnedConfig.config = j["config"];
+  returnedConfig.metadata = j["metadata"];
+  returnedConfig.params = params;
+
+  /*Copy to a new dsp_config object for get_dsp below,
+  since not sure if params actually get modified as being non-const references on some
+  model constructors inside get_dsp(dsp_config& conf).
+  We need to return unmodified version of dsp_config via returnedConfig.*/
+  dspData conf = returnedConfig;
+
+  return get_dsp(conf);
+}
+
+std::unique_ptr<DSP> get_dsp(dspData& conf)
+{
+  verify_config_version(conf.version);
+
+  auto &architecture = conf.architecture;
+  nlohmann::json &config = conf.config;
+  std::vector<float> &params = conf.params;
   bool haveLoudness = false;
   double loudness = TARGET_DSP_LOUDNESS;
-  if (j.find("metadata") != j.end())
+
+  if (!conf.metadata.is_null())
   {
-    if (j["metadata"].find("loudness") != j["metadata"].end())
+    if (conf.metadata.find("loudness") != conf.metadata.end())
     {
-      loudness = j["metadata"]["loudness"];
+      loudness = conf.metadata["loudness"];
       haveLoudness = true;
     }
   }

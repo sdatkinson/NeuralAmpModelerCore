@@ -10,6 +10,7 @@
 #include <Eigen/Dense>
 
 #include "activations.h"
+#include "json.hpp"
 
 enum EArchitectures
 {
@@ -189,11 +190,24 @@ private:
 // Utilities ==================================================================
 // Implemented in get_dsp.cpp
 
+struct dspData
+{
+  std::string version;
+  std::string architecture;
+  nlohmann::json config;
+  nlohmann::json metadata;
+  std::vector<float> params;
+};
+
 // Verify that the config that we are building our model from is supported by
 // this plugin version.
 void verify_config_version(const std::string version);
 
 // Takes the model file and uses it to instantiate an instance of DSP.
 std::unique_ptr<DSP> get_dsp(const std::filesystem::path model_file);
+// Creates an instance of DSP. Also returns a dspData struct that holds the data of the model.
+std::unique_ptr<DSP> get_dsp(const std::filesystem::path model_file, dspData& returnedConfig);
+// Instantiates a DSP object from dsp_config struct.
+std::unique_ptr<DSP> get_dsp(dspData& conf);
 // Legacy loader for directory-type DSPs
 std::unique_ptr<DSP> get_dsp_legacy(const std::filesystem::path dirname);
