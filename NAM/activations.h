@@ -74,7 +74,6 @@ class ActivationTanh : public Activation
 class ActivationHardTanh : public Activation
 {
   public:
-    ActivationHardTanh(){};
     void apply(float* data, long size) override
     {
       for (long pos = 0; pos < size; pos++)
@@ -87,7 +86,6 @@ class ActivationHardTanh : public Activation
 class ActivationFastTanh : public Activation
 {
   public:
-    ActivationFastTanh(){};
     void apply(float* data, long size) override
     {
       for (long pos = 0; pos < size; pos++)
@@ -100,7 +98,6 @@ class ActivationFastTanh : public Activation
 class ActivationReLU : public Activation
 {
   public:
-    ActivationReLU(){};
     void apply(float* data, long size) override
     {
       for (long pos = 0; pos < size; pos++)
@@ -113,7 +110,6 @@ class ActivationReLU : public Activation
 class ActivationSigmoid : public Activation
 {
   public:
-    ActivationSigmoid(){};
     void apply(float* data, long size) override
     {
       for (long pos = 0; pos < size; pos++)
