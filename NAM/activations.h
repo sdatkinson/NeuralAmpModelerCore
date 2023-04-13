@@ -35,7 +35,8 @@ return (x * (2.45550750702956f + 2.45550750702956f * ax + (0.893229853513558f + 
 class Activation
 {
 public:
-Activation(){};
+  Activation() = default;
+  virtual ~Activation() = default;
   virtual void apply(Eigen::MatrixXf& matrix)
   {
     apply(matrix.data(), matrix.rows() * matrix.cols());
