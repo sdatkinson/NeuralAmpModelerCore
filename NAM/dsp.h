@@ -60,6 +60,7 @@ public:
   //   DSP subclass implementation.
   virtual void finalize_(const int num_frames);
   void SetNormalize(const bool normalize) { this->mNormalizeOutputLoudness = normalize; };
+  bool HasLoudness() { return mLoudness != TARGET_DSP_LOUDNESS; };
 
 protected:
   // How loud is the model?
