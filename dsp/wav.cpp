@@ -17,7 +17,8 @@
 bool idIsJunk(char* id)
 {
   return strncmp(id, "junk", 4) == 0 || strncmp(id, "JUNK", 4) == 0 || strncmp(id, "smpl", 4) == 0
-         || strncmp(id, "LIST", 4) == 0 || strncmp(id, "bext", 4) == 0 || strncmp(id, "PAD ", 4) == 0;
+         || strncmp(id, "LIST", 4) == 0 || strncmp(id, "bext", 4) == 0 || strncmp(id, "PAD ", 4) == 0
+         || strncmp(id, "fact", 4) == 0;
 }
 
 bool ReadChunkAndSkipJunk(std::ifstream& file, char* chunkID)
