@@ -35,7 +35,8 @@ return (x * (2.45550750702956f + 2.45550750702956f * ax + (0.893229853513558f + 
 class Activation
 {
 public:
-Activation(){};
+  Activation() = default;
+  virtual ~Activation() = default;
   virtual void apply(Eigen::MatrixXf& matrix)
   {
     apply(matrix.data(), matrix.rows() * matrix.cols());
@@ -73,7 +74,6 @@ class ActivationTanh : public Activation
 class ActivationHardTanh : public Activation
 {
   public:
-    ActivationHardTanh(){};
     void apply(float* data, long size) override
     {
       for (long pos = 0; pos < size; pos++)
@@ -86,7 +86,6 @@ class ActivationHardTanh : public Activation
 class ActivationFastTanh : public Activation
 {
   public:
-    ActivationFastTanh(){};
     void apply(float* data, long size) override
     {
       for (long pos = 0; pos < size; pos++)
@@ -99,7 +98,6 @@ class ActivationFastTanh : public Activation
 class ActivationReLU : public Activation
 {
   public:
-    ActivationReLU(){};
     void apply(float* data, long size) override
     {
       for (long pos = 0; pos < size; pos++)
@@ -112,7 +110,6 @@ class ActivationReLU : public Activation
 class ActivationSigmoid : public Activation
 {
   public:
-    ActivationSigmoid(){};
     void apply(float* data, long size) override
     {
       for (long pos = 0; pos < size; pos++)
