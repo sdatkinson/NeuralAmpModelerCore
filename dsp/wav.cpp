@@ -14,17 +14,16 @@
 
 #include "wav.h"
 
-bool idIsJunk(char* id)
+bool idIsNotJunk(char* id)
 {
-  return strncmp(id, "junk", 4) == 0 || strncmp(id, "JUNK", 4) == 0 || strncmp(id, "smpl", 4) == 0
-         || strncmp(id, "LIST", 4) == 0 || strncmp(id, "bext", 4) == 0 || strncmp(id, "PAD ", 4) == 0
-         || strncmp(id, "fact", 4) == 0;
+  return strncmp(id, "RIFF", 4) == 0 || strncmp(id, "WAVE", 4) == 0 || strncmp(id, "fmt ", 4) == 0
+         || strncmp(id, "data", 4) == 0;
 }
 
 bool ReadChunkAndSkipJunk(std::ifstream& file, char* chunkID)
 {
   file.read(chunkID, 4);
-  while (idIsJunk(chunkID) && file.good())
+  while (!idIsNotJunk(chunkID) && file.good())
   {
     int junkSize;
     file.read(reinterpret_cast<char*>(&junkSize), 4);
