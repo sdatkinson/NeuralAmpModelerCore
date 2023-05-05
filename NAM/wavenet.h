@@ -48,7 +48,7 @@ private:
   // The internal state
   Eigen::MatrixXf _z;
 
-  activations::Activation *_activation;
+  activations::Activation* _activation;
   const bool _gated;
 };
 
@@ -152,7 +152,7 @@ private:
   int _channels;
   std::vector<Conv1x1> _layers;
   Conv1x1 _head;
-  activations::Activation *_activation;
+  activations::Activation* _activation;
 
   // Stores the outputs of the convs *except* the last one, which goes in
   // The array `outputs` provided to .process_()

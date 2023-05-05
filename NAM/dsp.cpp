@@ -292,4 +292,3 @@ Eigen::MatrixXf Conv1x1::process(const Eigen::MatrixXf& input) const
   else
     return this->_weight * input;
 }
-

@@ -29,7 +29,7 @@ void wavenet::_Layer::process_(const Eigen::MatrixXf& input, const Eigen::Matrix
   this->_conv.process_(input, this->_z, i_start, ncols, 0);
   // Mix-in condition
   this->_z += this->_input_mixin.process(condition);
-  
+
   this->_activation->apply(this->_z);
 
   if (this->_gated)

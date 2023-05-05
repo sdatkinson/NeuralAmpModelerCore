@@ -47,7 +47,7 @@ public:
 private:
   BatchNorm batchnorm;
   bool _batchnorm;
-  activations::Activation *activation;
+  activations::Activation* activation;
 };
 
 class _Head

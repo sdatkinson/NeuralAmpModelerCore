@@ -9,37 +9,43 @@
 #include "convnet.h"
 #include "wavenet.h"
 
-struct Version {
+struct Version
+{
   int major;
   int minor;
   int patch;
 };
 
-Version ParseVersion(const std::string& versionStr) {
+Version ParseVersion(const std::string& versionStr)
+{
   Version version;
-  
+
   // Split the version string into major, minor, and patch components
   std::stringstream ss(versionStr);
   std::string majorStr, minorStr, patchStr;
   std::getline(ss, majorStr, '.');
   std::getline(ss, minorStr, '.');
   std::getline(ss, patchStr);
-  
+
   // Parse the components as integers and assign them to the version struct
-  try {
+  try
+  {
     version.major = std::stoi(majorStr);
     version.minor = std::stoi(minorStr);
     version.patch = std::stoi(patchStr);
   }
-  catch (const std::invalid_argument&) {
+  catch (const std::invalid_argument&)
+  {
     throw std::invalid_argument("Invalid version string: " + versionStr);
   }
-  catch (const std::out_of_range&) {
+  catch (const std::out_of_range&)
+  {
     throw std::out_of_range("Version string out of range: " + versionStr);
   }
-  
+
   // Validate the semver components
-  if (version.major < 0 || version.minor < 0 || version.patch < 0) {
+  if (version.major < 0 || version.minor < 0 || version.patch < 0)
+  {
     throw std::invalid_argument("Negative version component: " + versionStr);
   }
   return version;
