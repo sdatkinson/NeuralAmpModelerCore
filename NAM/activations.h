@@ -32,6 +32,12 @@ inline float fast_tanh(const float x)
           / (2.44506634652299f + (2.44506634652299f + x2) * fabsf(x + 0.814642734961073f * x * ax)));
 }
 
+inline float fast_sigmoid(const float x)
+{
+  return 0.5f * (fast_tanh(x * 0.5f) + 1.0f);
+}
+
+
 class Activation
 {
 public:
@@ -48,6 +54,7 @@ public:
   static Activation* get_activation(const std::string name);
   static void enable_fast_tanh();
   static void disable_fast_tanh();
+  static bool using_fast_tanh;
 
 protected:
   static std::unordered_map<std::string, Activation*> _activations;

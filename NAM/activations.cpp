@@ -6,6 +6,8 @@ activations::ActivationHardTanh _HARD_TANH = activations::ActivationHardTanh();
 activations::ActivationReLU _RELU = activations::ActivationReLU();
 activations::ActivationSigmoid _SIGMOID = activations::ActivationSigmoid();
 
+bool activations::Activation::using_fast_tanh = false;
+
 std::unordered_map<std::string, activations::Activation*> activations::Activation::_activations =
   {{"Tanh", &_TANH}, {"Hardtanh", &_HARD_TANH}, {"Fasttanh", &_FAST_TANH}, {"ReLU", &_RELU}, {"Sigmoid", &_SIGMOID}};
 
@@ -21,6 +23,8 @@ activations::Activation* activations::Activation::get_activation(const std::stri
 
 void activations::Activation::enable_fast_tanh()
 {
+  activations::Activation::using_fast_tanh = true;
+
   if (_activations["Tanh"] != _activations["Fasttanh"])
   {
     tanh_bak = _activations["Tanh"];
@@ -30,6 +34,8 @@ void activations::Activation::enable_fast_tanh()
 
 void activations::Activation::disable_fast_tanh()
 {
+  activations::Activation::using_fast_tanh = false;
+
   if (_activations["Tanh"] == _activations["Fasttanh"])
   {
     _activations["Tanh"] = tanh_bak;

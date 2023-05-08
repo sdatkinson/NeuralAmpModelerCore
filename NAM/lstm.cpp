@@ -39,12 +39,28 @@ void lstm::LSTMCell::process_(const Eigen::VectorXf& x)
   const long f_offset = hidden_size;
   const long g_offset = 2 * hidden_size;
   const long o_offset = 3 * hidden_size;
-  for (auto i = 0; i < hidden_size; i++)
-    this->_c[i] = activations::sigmoid(this->_ifgo[i + f_offset]) * this->_c[i]
-                  + activations::sigmoid(this->_ifgo[i + i_offset]) * tanhf(this->_ifgo[i + g_offset]);
   const long h_offset = input_size;
-  for (int i = 0; i < hidden_size; i++)
-    this->_xh[i + h_offset] = activations::sigmoid(this->_ifgo[i + o_offset]) * tanhf(this->_c[i]);
+
+  if (activations::Activation::using_fast_tanh)
+  {
+    for (auto i = 0; i < hidden_size; i++)
+      this->_c[i] =
+        activations::fast_sigmoid(this->_ifgo[i + f_offset]) * this->_c[i]
+        + activations::fast_sigmoid(this->_ifgo[i + i_offset]) * activations::fast_tanh(this->_ifgo[i + g_offset]);
+
+    for (int i = 0; i < hidden_size; i++)
+      this->_xh[i + h_offset] =
+        activations::fast_sigmoid(this->_ifgo[i + o_offset]) * activations::fast_tanh(this->_c[i]);
+  }
+  else
+  {
+    for (auto i = 0; i < hidden_size; i++)
+      this->_c[i] = activations::sigmoid(this->_ifgo[i + f_offset]) * this->_c[i]
+                    + activations::sigmoid(this->_ifgo[i + i_offset]) * tanhf(this->_ifgo[i + g_offset]);
+
+    for (int i = 0; i < hidden_size; i++)
+      this->_xh[i + h_offset] = activations::sigmoid(this->_ifgo[i + o_offset]) * tanhf(this->_c[i]);
+  }
 }
 
 lstm::LSTM::LSTM(const int num_layers, const int input_size, const int hidden_size, std::vector<float>& params,
