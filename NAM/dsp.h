@@ -12,6 +12,8 @@
 #include "activations.h"
 #include "json.hpp"
 
+#include "ghc/fs_std_fwd.hpp"
+
 enum EArchitectures
 {
   kLinear = 0,
@@ -22,6 +24,8 @@ enum EArchitectures
   kCatWaveNet,
   kNumModels
 };
+
+using sample = float;
 
 // Class for providing params from the plugin to the DSP module
 // For now, we'll work with doubles. Later, we'll add other types.
@@ -51,7 +55,7 @@ public:
   // 3. The core DSP algorithm is run (This is what should probably be
   //    overridden in subclasses).
   // 4. The output level is applied and the result stored to `output`.
-  virtual void process(double** inputs, double** outputs, const int num_channels, const int num_frames,
+  virtual void process(sample** inputs, sample** outputs, const int num_channels, const int num_frames,
                        const double input_gain, const double output_gain,
                        const std::unordered_map<std::string, double>& params);
   // Anything to take care of before next buffer comes in.
@@ -70,7 +74,7 @@ protected:
   // Should we normalize according to this loudness?
   bool mNormalizeOutputLoudness;
   // Parameters (aka "knobs")
-  std::unordered_map<std::string, double> _params;
+  std::unordered_map<std::string, sample> _params;
   // If the params have changed since the last buffer was processed:
   bool _stale_params;
   // Where to store the samples after applying input gain
@@ -87,7 +91,7 @@ protected:
 
   // Apply the input gain
   // Result populates this->_input_post_gain
-  void _apply_input_level_(double** inputs, const int num_channels, const int num_frames, const double gain);
+  void _apply_input_level_(sample** inputs, const int num_channels, const int num_frames, const double gain);
 
   // i.e. ensure the size is correct.
   void _ensure_core_dsp_output_ready_();
@@ -98,7 +102,7 @@ protected:
   virtual void _process_core_();
 
   // Copy this->_core_dsp_output to output and apply the output volume
-  void _apply_output_level_(double** outputs, const int num_channels, const int num_frames, const double gain);
+  void _apply_output_level_(sample** outputs, const int num_channels, const int num_frames, const double gain);
 };
 
 // Class where an input buffer is kept so that long-time effects can be
@@ -206,10 +210,10 @@ struct dspData
 void verify_config_version(const std::string version);
 
 // Takes the model file and uses it to instantiate an instance of DSP.
-std::unique_ptr<DSP> get_dsp(const std::filesystem::path model_file);
+std::unique_ptr<DSP> get_dsp(const fs::path model_file);
 // Creates an instance of DSP. Also returns a dspData struct that holds the data of the model.
-std::unique_ptr<DSP> get_dsp(const std::filesystem::path model_file, dspData& returnedConfig);
+std::unique_ptr<DSP> get_dsp(const fs::path model_file, dspData& returnedConfig);
 // Instantiates a DSP object from dsp_config struct.
 std::unique_ptr<DSP> get_dsp(dspData& conf);
 // Legacy loader for directory-type DSPs
-std::unique_ptr<DSP> get_dsp_legacy(const std::filesystem::path dirname);
+std::unique_ptr<DSP> get_dsp_legacy(const fs::path dirname);

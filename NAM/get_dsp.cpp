@@ -9,6 +9,8 @@
 #include "convnet.h"
 #include "wavenet.h"
 
+#include "ghc/fs_std_impl.hpp"
+
 struct Version
 {
   int major;
@@ -64,7 +66,7 @@ void verify_config_version(const std::string versionStr)
   }
 }
 
-std::vector<float> GetWeights(nlohmann::json const& j, const std::filesystem::path config_path)
+std::vector<float> GetWeights(nlohmann::json const& j, const fs::path config_path)
 {
   if (j.find("weights") != j.end())
   {
@@ -78,22 +80,22 @@ std::vector<float> GetWeights(nlohmann::json const& j, const std::filesystem::pa
     throw std::runtime_error("Corrupted model file is missing weights.");
 }
 
-std::unique_ptr<DSP> get_dsp_legacy(const std::filesystem::path model_dir)
+std::unique_ptr<DSP> get_dsp_legacy(const fs::path model_dir)
 {
-  auto config_filename = model_dir / std::filesystem::path("config.json");
+  auto config_filename = model_dir / fs::path("config.json");
   dspData temp;
   return get_dsp(config_filename, temp);
 }
 
-std::unique_ptr<DSP> get_dsp(const std::filesystem::path config_filename)
+std::unique_ptr<DSP> get_dsp(const fs::path config_filename)
 {
   dspData temp;
   return get_dsp(config_filename, temp);
 }
 
-std::unique_ptr<DSP> get_dsp(const std::filesystem::path config_filename, dspData& returnedConfig)
+std::unique_ptr<DSP> get_dsp(const fs::path config_filename, dspData& returnedConfig)
 {
-  if (!std::filesystem::exists(config_filename))
+  if (!fs::exists(config_filename))
     throw std::runtime_error("Config JSON doesn't exist!\n");
   std::ifstream i(config_filename);
   nlohmann::json j;
@@ -105,8 +107,8 @@ std::unique_ptr<DSP> get_dsp(const std::filesystem::path config_filename, dspDat
 
   std::vector<float> params = GetWeights(j, config_filename);
 
-  returnedConfig.version = j["version"];
-  returnedConfig.architecture = j["architecture"];
+  returnedConfig.version = j["version"].get<std::string>();
+  returnedConfig.architecture = j["architecture"].get<std::string>();
   returnedConfig.config = j["config"];
   returnedConfig.metadata = j["metadata"];
   returnedConfig.params = params;

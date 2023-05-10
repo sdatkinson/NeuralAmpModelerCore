@@ -90,7 +90,7 @@ void lstm::LSTM::_process_core_()
   // Get params into the input vector before starting
   if (this->_stale_params)
   {
-    for (std::unordered_map<std::string, double>::iterator it = this->_params.begin(); it != this->_params.end(); ++it)
+    for (std::unordered_map<std::string, sample>::iterator it = this->_params.begin(); it != this->_params.end(); ++it)
       this->_input_and_params[this->_parametric_map[it->first]] = it->second;
     this->_stale_params = false;
   }
