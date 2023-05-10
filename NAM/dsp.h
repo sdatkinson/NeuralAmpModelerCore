@@ -41,6 +41,7 @@ class DSP
 public:
   DSP();
   DSP(const double loudness);
+  virtual ~DSP() = default;
   // process() does all of the processing requried to take `inputs` array and
   // fill in the required values on `outputs`.
   // To do this:
@@ -61,6 +62,7 @@ public:
   //   DSP subclass implementation.
   virtual void finalize_(const int num_frames);
   void SetNormalize(const bool normalize) { this->mNormalizeOutputLoudness = normalize; };
+  bool HasLoudness() { return mLoudness != TARGET_DSP_LOUDNESS; };
 
 protected:
   // How loud is the model?

@@ -6,12 +6,8 @@ activations::ActivationHardTanh _HARD_TANH = activations::ActivationHardTanh();
 activations::ActivationReLU _RELU = activations::ActivationReLU();
 activations::ActivationSigmoid _SIGMOID = activations::ActivationSigmoid();
 
-std::unordered_map<std::string, activations::Activation*> activations::Activation::_activations = {
-  {"Tanh", &_TANH},
-  {"Hardtanh", &_HARD_TANH},
-  {"Fasttanh", &_FAST_TANH},
-  {"ReLU", &_RELU},
-  {"Sigmoid", &_SIGMOID}};
+std::unordered_map<std::string, activations::Activation*> activations::Activation::_activations =
+  {{"Tanh", &_TANH}, {"Hardtanh", &_HARD_TANH}, {"Fasttanh", &_FAST_TANH}, {"ReLU", &_RELU}, {"Sigmoid", &_SIGMOID}};
 
 activations::Activation* tanh_bak = nullptr;
 

@@ -7,6 +7,10 @@
 
 #pragma once
 
+#include <fstream>
+#include <string>
+#include <vector>
+
 namespace dsp
 {
 namespace wav
@@ -26,6 +30,10 @@ enum class LoadReturnCode
   ERROR_NOT_MONO,
   ERROR_OTHER
 };
+
+// Get a string describing the error
+std::string GetMsgForLoadReturnCode(LoadReturnCode rc);
+
 // Load a WAV file into a provided array of doubles,
 // And note the sample rate.
 //

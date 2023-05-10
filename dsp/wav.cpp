@@ -9,21 +9,22 @@
 #include <fstream>
 #include <iostream>
 #include <string>
+#include <sstream>
 #include <unordered_set>
 #include <vector>
 
 #include "wav.h"
 
-bool idIsJunk(char* id)
+bool idIsNotJunk(char* id)
 {
-  return strncmp(id, "junk", 4) == 0 || strncmp(id, "JUNK", 4) == 0 || strncmp(id, "smpl", 4) == 0
-         || strncmp(id, "LIST", 4) == 0 || strncmp(id, "bext", 4) == 0 || strncmp(id, "PAD ", 4) == 0;
+  return strncmp(id, "RIFF", 4) == 0 || strncmp(id, "WAVE", 4) == 0 || strncmp(id, "fmt ", 4) == 0
+         || strncmp(id, "data", 4) == 0;
 }
 
 bool ReadChunkAndSkipJunk(std::ifstream& file, char* chunkID)
 {
   file.read(chunkID, 4);
-  while (idIsJunk(chunkID) && file.good())
+  while (!idIsNotJunk(chunkID) && file.good())
   {
     int junkSize;
     file.read(reinterpret_cast<char*>(&junkSize), 4);
@@ -35,6 +36,42 @@ bool ReadChunkAndSkipJunk(std::ifstream& file, char* chunkID)
     file.read(chunkID, 4);
   }
   return file.good();
+}
+
+std::string dsp::wav::GetMsgForLoadReturnCode(LoadReturnCode retCode)
+{
+  std::stringstream message;
+
+  switch (retCode)
+  {
+    case (LoadReturnCode::ERROR_OPENING):
+      message << "Failed to open file (is it being used by another "
+      "program?)";
+      break;
+    case (LoadReturnCode::ERROR_NOT_RIFF): message << "File is not a WAV file."; break;
+    case (LoadReturnCode::ERROR_NOT_WAVE): message << "File is not a WAV file."; break;
+    case (LoadReturnCode::ERROR_MISSING_FMT):
+      message << "File is missing expected format chunk.";
+      break;
+    case (LoadReturnCode::ERROR_INVALID_FILE): message << "WAV file contents are invalid."; break;
+    case (LoadReturnCode::ERROR_UNSUPPORTED_FORMAT_ALAW):
+      message << "Unsupported file format \"A-law\"";
+      break;
+    case (LoadReturnCode::ERROR_UNSUPPORTED_FORMAT_MULAW):
+      message << "Unsupported file format \"mu-law\"";
+      break;
+    case (LoadReturnCode::ERROR_UNSUPPORTED_FORMAT_EXTENSIBLE):
+      message << "Unsupported file format \"extensible\"";
+      break;
+    case (LoadReturnCode::ERROR_NOT_MONO): message << "File is not mono."; break;
+    case (LoadReturnCode::ERROR_UNSUPPORTED_BITS_PER_SAMPLE):
+      message << "Unsupported bits per sample";
+      break;
+    case (dsp::wav::LoadReturnCode::ERROR_OTHER): message << "???"; break;
+    default: message << "???"; break;
+  }
+  
+  return message.str();
 }
 
 dsp::wav::LoadReturnCode dsp::wav::Load(const char* fileName, std::vector<float>& audio, double& sampleRate)
