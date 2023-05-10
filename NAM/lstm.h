@@ -53,6 +53,7 @@ public:
        nlohmann::json& parametric);
   LSTM(const double loudness, const int num_layers, const int input_size, const int hidden_size,
        std::vector<float>& params, nlohmann::json& parametric);
+  ~LSTM() = default;
 
 protected:
   Eigen::VectorXf _head_weight;

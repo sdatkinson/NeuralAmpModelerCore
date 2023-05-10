@@ -174,7 +174,7 @@ public:
 
   //    WaveNet(WaveNet&&) = default;
   //    WaveNet& operator=(WaveNet&&) = default;
-  //    ~WaveNet() = default;
+  ~WaveNet() = default;
 
   void finalize_(const int num_frames) override;
   void set_params_(std::vector<float>& params);

@@ -40,6 +40,7 @@ class DSP
 public:
   DSP();
   DSP(const double loudness);
+  virtual ~DSP() = default;
   // process() does all of the processing requried to take `inputs` array and
   // fill in the required values on `outputs`.
   // To do this:
