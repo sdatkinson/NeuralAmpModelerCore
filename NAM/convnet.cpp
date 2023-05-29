@@ -99,7 +99,7 @@ convnet::ConvNet::ConvNet(const int channels, const std::vector<int>& dilations,
 {
 }
 
-convnet::ConvNet::ConvNet(const double loudness, const int channels, const std::vector<int>& dilations,
+convnet::ConvNet::ConvNet(const NAM_SAMPLE loudness, const int channels, const std::vector<int>& dilations,
                           const bool batchnorm, const std::string activation, std::vector<float>& params)
 : Buffer(loudness, *std::max_element(dilations.begin(), dilations.end()))
 {

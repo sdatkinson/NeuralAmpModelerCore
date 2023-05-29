@@ -227,7 +227,7 @@ wavenet::WaveNet::WaveNet(const std::vector<wavenet::LayerArrayParams>& layer_ar
 {
 }
 
-wavenet::WaveNet::WaveNet(const double loudness, const std::vector<wavenet::LayerArrayParams>& layer_array_params,
+wavenet::WaveNet::WaveNet(const NAM_SAMPLE loudness, const std::vector<wavenet::LayerArrayParams>& layer_array_params,
                           const float head_scale, const bool with_head, nlohmann::json parametric,
                           std::vector<float> params)
 : DSP(loudness)
