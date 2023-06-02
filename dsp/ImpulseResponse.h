@@ -20,8 +20,11 @@ namespace dsp
 class ImpulseResponse : public History
 {
 public:
+  struct IRData;
   ImpulseResponse(const char* fileName, const double sampleRate);
+  ImpulseResponse(const IRData& irData, const double sampleRate);
   double** Process(double** inputs, const size_t numChannels, const size_t numFrames) override;
+  IRData GetData();
   // TODO states for the IR class
   dsp::wav::LoadReturnCode GetWavState() const { return this->mWavState; };
 
@@ -42,4 +45,11 @@ private:
   // The weights
   Eigen::VectorXf mWeight;
 };
+
+struct dsp::ImpulseResponse::IRData
+{
+  std::vector<float> mRawAudio;
+  double mRawAudioSampleRate;
+};
+
 }; // namespace dsp
