@@ -5,6 +5,7 @@
 //  Created by Steven Atkinson on 12/31/22.
 //
 
+#include <cstring> // strncmp
 #include <cmath> // pow
 #include <fstream>
 #include <iostream>

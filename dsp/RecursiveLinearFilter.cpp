@@ -56,7 +56,7 @@ double** recursive_linear_filter::Base::Process(double** inputs, const size_t nu
       for (auto i = 1; i < outputDegree; i++)
         out += this->mOutputCoefficients[i] * this->mOutputHistory[c][(outputStart + i) % outputDegree];
       // Prevent a NaN from jamming the filter!
-      if (isnan(out))
+      if (std::isnan(out))
         out = 0.0;
       // Store the output!
       if (outputDegree >= 1)
