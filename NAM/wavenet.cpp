@@ -53,7 +53,7 @@ void wavenet::_Layer::set_num_frames_(const long num_frames)
     return;  // Already has correct size
 
   this->_z.resize(this->_conv.get_out_channels(), num_frames);
-  util::init_matrix(this->_z);
+  this->_z.setZero();
 }
 
 // LayerArray =================================================================
@@ -220,7 +220,7 @@ void wavenet::_Head::set_num_frames_(const long num_frames)
     if (this->_buffers[i].rows() == this->_channels && this->_buffers[i].cols() == num_frames)
       continue;  // Already has correct size
     this->_buffers[i].resize(this->_channels, num_frames);
-    util::init_matrix(this->_buffers[i]);
+    this->_buffers[i].setZero();
   }
 }
 
@@ -380,7 +380,7 @@ void wavenet::WaveNet::_set_num_frames_(const long num_frames)
   for (int i = 0; i < this->_layer_array_outputs.size(); i++)
     this->_layer_array_outputs[i].resize(this->_layer_array_outputs[i].rows(), num_frames);
   this->_head_output.resize(this->_head_output.rows(), num_frames);
-  util::init_matrix(this->_head_output);
+  this->_head_output.setZero();
 
   for (int i = 0; i < this->_layer_arrays.size(); i++)
     this->_layer_arrays[i].set_num_frames_(num_frames);

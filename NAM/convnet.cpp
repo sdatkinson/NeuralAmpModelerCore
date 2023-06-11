@@ -110,7 +110,7 @@ convnet::ConvNet::ConvNet(const double loudness, const int channels, const std::
     this->_blocks[i].set_params_(i == 0 ? 1 : channels, channels, dilations[i], batchnorm, activation, it);
   this->_block_vals.resize(this->_blocks.size() + 1);
   for (auto& matrix : this->_block_vals)
-    util::init_matrix(matrix);
+    matrix.setZero();
   std::fill(this->_input_buffer.begin(), this->_input_buffer.end(), 0.0f);
   this->_head = _Head(channels, it);
   if (it != params.end())
@@ -153,7 +153,7 @@ void convnet::ConvNet::_update_buffers_()
   if (this->_block_vals[0].rows() != 1 || this->_block_vals[0].cols() != buffer_size)
   {
     this->_block_vals[0].resize(1, buffer_size);
-    util::init_matrix(this->_block_vals[0]);
+    this->_block_vals[0].setZero();
   }
 
   for (long i = 1; i < this->_block_vals.size(); i++)
@@ -161,7 +161,7 @@ void convnet::ConvNet::_update_buffers_()
     if (this->_block_vals[i].rows() == this->_blocks[i - 1].get_out_channels() && this->_block_vals[i].cols() == buffer_size)
       continue;  // Already has correct size
     this->_block_vals[i].resize(this->_blocks[i - 1].get_out_channels(), buffer_size);
-    util::init_matrix(this->_block_vals[i]);
+    this->_block_vals[i].setZero();
   }
 }
 
