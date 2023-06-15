@@ -61,10 +61,10 @@ wavenet::_LayerArray::_LayerArray(const int input_size, const int condition_size
 : _rechannel(input_size, channels, false)
 , _head_rechannel(channels, head_size, head_bias)
 {
-  for (int i = 0; i < dilations.size(); i++)
+  for (size_t i = 0; i < dilations.size(); i++)
     this->_layers.push_back(_Layer(condition_size, channels, kernel_size, dilations[i], activation, gated));
   const long receptive_field = this->_get_receptive_field();
-  for (int i = 0; i < dilations.size(); i++)
+  for (size_t i = 0; i < dilations.size(); i++)
   {
     this->_layer_buffers.push_back(Eigen::MatrixXf(channels, LAYER_ARRAY_BUFFER_SIZE + receptive_field - 1));
     this->_layer_buffers[i].setZero();
@@ -80,7 +80,7 @@ void wavenet::_LayerArray::advance_buffers_(const int num_frames)
 long wavenet::_LayerArray::get_receptive_field() const
 {
   long result = 0;
-  for (int i = 0; i < this->_layers.size(); i++)
+  for (size_t i = 0; i < this->_layers.size(); i++)
     result += this->_layers[i].get_dilation() * (this->_layers[i].get_kernel_size() - 1);
   return result;
 }
@@ -103,8 +103,8 @@ void wavenet::_LayerArray::process_(const Eigen::MatrixXf& layer_inputs, const E
                                     Eigen::MatrixXf& head_outputs)
 {
   this->_layer_buffers[0].middleCols(this->_buffer_start, layer_inputs.cols()) = this->_rechannel.process(layer_inputs);
-  const long last_layer = this->_layers.size() - 1;
-  for (auto i = 0; i < this->_layers.size(); i++)
+  const size_t last_layer = this->_layers.size() - 1;
+  for (size_t i = 0; i < this->_layers.size(); i++)
   {
     this->_layers[i].process_(this->_layer_buffers[i], condition, head_inputs,
                               i == last_layer ? layer_outputs : this->_layer_buffers[i + 1], this->_buffer_start,
@@ -125,14 +125,14 @@ void wavenet::_LayerArray::set_num_frames_(const long num_frames)
        << "); copy errors could occur!\n";
     throw std::runtime_error(ss.str().c_str());
   }
-  for (int i = 0; i < this->_layers.size(); i++)
+  for (size_t i = 0; i < this->_layers.size(); i++)
     this->_layers[i].set_num_frames_(num_frames);
 }
 
 void wavenet::_LayerArray::set_params_(std::vector<float>::iterator& params)
 {
   this->_rechannel.set_params_(params);
-  for (int i = 0; i < this->_layers.size(); i++)
+  for (size_t i = 0; i < this->_layers.size(); i++)
     this->_layers[i].set_params_(params);
   this->_head_rechannel.set_params_(params);
 }
@@ -146,7 +146,7 @@ long wavenet::_LayerArray::_get_receptive_field() const
 {
   // TODO remove this and use get_receptive_field() instead!
   long res = 1;
-  for (int i = 0; i < this->_layers.size(); i++)
+  for (size_t i = 0; i < this->_layers.size(); i++)
     res += (this->_layers[i].get_kernel_size() - 1) * this->_layers[i].get_dilation();
   return res;
 }
@@ -156,7 +156,7 @@ void wavenet::_LayerArray::_rewind_buffers_()
 // Can make this smaller--largest dilation, not receptive field!
 {
   const long start = this->_get_receptive_field() - 1;
-  for (int i = 0; i < this->_layer_buffers.size(); i++)
+  for (size_t i = 0; i < this->_layer_buffers.size(); i++)
   {
     const long d = (this->_layers[i].get_kernel_size() - 1) * this->_layers[i].get_dilation();
     this->_layer_buffers[i].middleCols(start - d, d) = this->_layer_buffers[i].middleCols(this->_buffer_start - d, d);
@@ -168,8 +168,8 @@ void wavenet::_LayerArray::_rewind_buffers_()
 
 wavenet::_Head::_Head(const int input_size, const int num_layers, const int channels, const std::string activation)
 : _channels(channels)
-, _activation(activations::Activation::get_activation(activation))
 , _head(num_layers > 0 ? channels : input_size, 1, true)
+, _activation(activations::Activation::get_activation(activation))
 {
   assert(num_layers > 0);
   int dx = input_size;
@@ -184,7 +184,7 @@ wavenet::_Head::_Head(const int input_size, const int num_layers, const int chan
 
 void wavenet::_Head::set_params_(std::vector<float>::iterator& params)
 {
-  for (int i = 0; i < this->_layers.size(); i++)
+  for (size_t i = 0; i < this->_layers.size(); i++)
     this->_layers[i].set_params_(params);
 }
 
@@ -197,7 +197,7 @@ void wavenet::_Head::process_(Eigen::MatrixXf& inputs, Eigen::MatrixXf& outputs)
   else
   {
     this->_buffers[0] = this->_layers[0].process(inputs);
-    for (int i = 1; i < num_layers; i++)
+    for (size_t i = 1; i < num_layers; i++)
     { // Asserted > 0 layers
       this->_apply_activation_(this->_buffers[i - 1]);
       if (i < num_layers - 1)
@@ -210,7 +210,7 @@ void wavenet::_Head::process_(Eigen::MatrixXf& inputs, Eigen::MatrixXf& outputs)
 
 void wavenet::_Head::set_num_frames_(const long num_frames)
 {
-  for (int i = 0; i < this->_buffers.size(); i++)
+  for (size_t i = 0; i < this->_buffers.size(); i++)
     this->_buffers[i].resize(this->_channels, num_frames);
 }
 
@@ -237,7 +237,7 @@ wavenet::WaveNet::WaveNet(const double loudness, const std::vector<wavenet::Laye
   if (with_head)
     throw std::runtime_error("Head not implemented!");
   this->_init_parametric_(parametric);
-  for (int i = 0; i < layer_array_params.size(); i++)
+  for (size_t i = 0; i < layer_array_params.size(); i++)
   {
     this->_layer_arrays.push_back(wavenet::_LayerArray(
       layer_array_params[i].input_size, layer_array_params[i].condition_size, layer_array_params[i].head_size,
@@ -270,14 +270,14 @@ void wavenet::WaveNet::finalize_(const int num_frames)
 void wavenet::WaveNet::set_params_(std::vector<float>& params)
 {
   std::vector<float>::iterator it = params.begin();
-  for (int i = 0; i < this->_layer_arrays.size(); i++)
+  for (size_t i = 0; i < this->_layer_arrays.size(); i++)
     this->_layer_arrays[i].set_params_(it);
   // this->_head.set_params_(it);
   this->_head_scale = *(it++);
   if (it != params.end())
   {
     std::stringstream ss;
-    for (int i = 0; i < params.size(); i++)
+    for (size_t i = 0; i < params.size(); i++)
       if (params[i] == *it)
       {
         ss << "Parameter mismatch: assigned " << i + 1 << " parameters, but " << params.size() << " were provided.";
@@ -290,7 +290,7 @@ void wavenet::WaveNet::set_params_(std::vector<float>& params)
 
 void wavenet::WaveNet::_advance_buffers_(const int num_frames)
 {
-  for (int i = 0; i < this->_layer_arrays.size(); i++)
+  for (size_t i = 0; i < this->_layer_arrays.size(); i++)
     this->_layer_arrays[i].advance_buffers_(num_frames);
 }
 
@@ -304,7 +304,7 @@ void wavenet::WaveNet::_init_parametric_(nlohmann::json& parametric)
 
 void wavenet::WaveNet::_prepare_for_frames_(const long num_frames)
 {
-  for (auto i = 0; i < this->_layer_arrays.size(); i++)
+  for (size_t i = 0; i < this->_layer_arrays.size(); i++)
     this->_layer_arrays[i].prepare_for_frames_(num_frames);
 }
 
@@ -326,7 +326,7 @@ void wavenet::WaveNet::_process_core_()
     this->_condition(0, j) = this->_input_post_gain[j];
     if (this->_stale_params) // Column-major assignment; good for Eigen. Let the
                              // compiler optimize this.
-      for (int i = 0; i < this->_param_names.size(); i++)
+      for (size_t i = 0; i < this->_param_names.size(); i++)
         this->_condition(i + 1, j) = (float)this->_params[this->_param_names[i]];
   }
 
@@ -334,7 +334,7 @@ void wavenet::WaveNet::_process_core_()
   // Layer-to-layer
   // Sum on head output
   this->_head_arrays[0].setZero();
-  for (int i = 0; i < this->_layer_arrays.size(); i++)
+  for (size_t i = 0; i < this->_layer_arrays.size(); i++)
     this->_layer_arrays[i].process_(i == 0 ? this->_condition : this->_layer_array_outputs[i - 1], this->_condition,
                                     this->_head_arrays[i], this->_layer_array_outputs[i], this->_head_arrays[i + 1]);
   // this->_head.process_(
@@ -365,13 +365,13 @@ void wavenet::WaveNet::_set_num_frames_(const long num_frames)
     return;
 
   this->_condition.resize(1 + this->_param_names.size(), num_frames);
-  for (int i = 0; i < this->_head_arrays.size(); i++)
+  for (size_t i = 0; i < this->_head_arrays.size(); i++)
     this->_head_arrays[i].resize(this->_head_arrays[i].rows(), num_frames);
-  for (int i = 0; i < this->_layer_array_outputs.size(); i++)
+  for (size_t i = 0; i < this->_layer_array_outputs.size(); i++)
     this->_layer_array_outputs[i].resize(this->_layer_array_outputs[i].rows(), num_frames);
   this->_head_output.resize(this->_head_output.rows(), num_frames);
 
-  for (int i = 0; i < this->_layer_arrays.size(); i++)
+  for (size_t i = 0; i < this->_layer_arrays.size(); i++)
     this->_layer_arrays[i].set_num_frames_(num_frames);
   // this->_head.set_num_frames_(num_frames);
   this->_num_frames = num_frames;
@@ -382,7 +382,7 @@ void wavenet::WaveNet::_anti_pop_()
   if (this->_anti_pop_countdown >= this->_anti_pop_ramp)
     return;
   const float slope = 1.0f / float(this->_anti_pop_ramp);
-  for (int i = 0; i < this->_core_dsp_output.size(); i++)
+  for (size_t i = 0; i < this->_core_dsp_output.size(); i++)
   {
     if (this->_anti_pop_countdown >= this->_anti_pop_ramp)
       break;
@@ -396,7 +396,7 @@ void wavenet::WaveNet::_reset_anti_pop_()
 {
   // You need the "real" receptive field, not the buffers.
   long receptive_field = 1;
-  for (int i = 0; i < this->_layer_arrays.size(); i++)
+  for (size_t i = 0; i < this->_layer_arrays.size(); i++)
     receptive_field += this->_layer_arrays[i].get_receptive_field();
   this->_anti_pop_countdown = -receptive_field;
 }

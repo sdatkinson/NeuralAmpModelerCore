@@ -62,7 +62,7 @@ void DSP::_apply_input_level_(double** inputs, const int num_channels, const int
 {
   // Must match exactly; we're going to use the size of _input_post_gain later
   // for num_frames.
-  if (this->_input_post_gain.size() != num_frames)
+  if ((int)this->_input_post_gain.size() != num_frames)
     this->_input_post_gain.resize(num_frames);
   // MONO ONLY
   const int channel = 0;
@@ -79,7 +79,7 @@ void DSP::_ensure_core_dsp_output_ready_()
 void DSP::_process_core_()
 {
   // Default implementation is the null operation
-  for (int i = 0; i < this->_input_post_gain.size(); i++)
+  for (size_t i = 0; i < this->_input_post_gain.size(); i++)
     this->_core_dsp_output[i] = this->_input_post_gain[i];
 }
 
@@ -124,7 +124,7 @@ void Buffer::_update_buffers_()
   // frames needed!
   {
     const long minimum_input_buffer_size = (long)this->_receptive_field + _INPUT_BUFFER_SAFETY_FACTOR * num_frames;
-    if (this->_input_buffer.size() < minimum_input_buffer_size)
+    if ((long)this->_input_buffer.size() < minimum_input_buffer_size)
     {
       long new_buffer_size = 2;
       while (new_buffer_size < minimum_input_buffer_size)
@@ -135,7 +135,7 @@ void Buffer::_update_buffers_()
 
   // If we'd run off the end of the input buffer, then we need to move the data
   // back to the start of the buffer and start again.
-  if (this->_input_buffer_offset + num_frames > this->_input_buffer.size())
+  if (this->_input_buffer_offset + num_frames > (long)this->_input_buffer.size())
     this->_rewind_buffers_();
   // Put the new samples into the input buffer
   for (long i = this->_input_buffer_offset, j = 0; j < num_frames; i++, j++)
@@ -179,7 +179,7 @@ Linear::Linear(const int receptive_field, const bool _bias, const std::vector<fl
 Linear::Linear(const double loudness, const int receptive_field, const bool _bias, const std::vector<float>& params)
 : Buffer(loudness, receptive_field)
 {
-  if (params.size() != (receptive_field + (_bias ? 1 : 0)))
+  if ((int)params.size() != (receptive_field + (_bias ? 1 : 0)))
     throw std::runtime_error(
       "Params vector does not match expected size based "
       "on architecture parameters");
@@ -196,9 +196,9 @@ void Linear::_process_core_()
   this->Buffer::_update_buffers_();
 
   // Main computation!
-  for (long i = 0; i < this->_input_post_gain.size(); i++)
+  for (size_t i = 0; i < this->_input_post_gain.size(); i++)
   {
-    const long offset = this->_input_buffer_offset - this->_weight.size() + i + 1;
+    const size_t offset = this->_input_buffer_offset - this->_weight.size() + i + 1;
     auto input = Eigen::Map<const Eigen::VectorXf>(&this->_input_buffer[offset], this->_receptive_field);
     this->_core_dsp_output[i] = this->_bias + this->_weight.dot(input);
   }
@@ -215,10 +215,10 @@ void Conv1D::set_params_(std::vector<float>::iterator& params)
     // Crazy ordering because that's how it gets flattened.
     for (auto i = 0; i < out_channels; i++)
       for (auto j = 0; j < in_channels; j++)
-        for (auto k = 0; k < this->_weight.size(); k++)
+        for (size_t k = 0; k < this->_weight.size(); k++)
           this->_weight[k](i, j) = *(params++);
   }
-  for (int i = 0; i < this->_bias.size(); i++)
+  for (long i = 0; i < this->_bias.size(); i++)
     this->_bias(i) = *(params++);
 }
 
@@ -226,7 +226,7 @@ void Conv1D::set_size_(const int in_channels, const int out_channels, const int 
                        const int _dilation)
 {
   this->_weight.resize(kernel_size);
-  for (int i = 0; i < this->_weight.size(); i++)
+  for (size_t i = 0; i < this->_weight.size(); i++)
     this->_weight[i].resize(out_channels,
                             in_channels); // y = Ax, input array (C,L)
   if (do_bias)
@@ -247,7 +247,7 @@ void Conv1D::process_(const Eigen::MatrixXf& input, Eigen::MatrixXf& output, con
                       const long j_start) const
 {
   // This is the clever part ;)
-  for (long k = 0; k < this->_weight.size(); k++)
+  for (size_t k = 0; k < this->_weight.size(); k++)
   {
     const long offset = this->_dilation * (k + 1 - this->_weight.size());
     if (k == 0)
@@ -262,7 +262,7 @@ void Conv1D::process_(const Eigen::MatrixXf& input, Eigen::MatrixXf& output, con
 long Conv1D::get_num_params() const
 {
   long num_params = this->_bias.size();
-  for (long i = 0; i < this->_weight.size(); i++)
+  for (size_t i = 0; i < this->_weight.size(); i++)
     num_params += this->_weight[i].size();
   return num_params;
 }
