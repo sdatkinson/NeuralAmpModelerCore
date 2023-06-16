@@ -123,9 +123,9 @@ std::unique_ptr<DSP> get_dsp(dspData& conf)
 {
   verify_config_version(conf.version);
 
-  auto &architecture = conf.architecture;
-  nlohmann::json &config = conf.config;
-  std::vector<float> &params = conf.params;
+  auto& architecture = conf.architecture;
+  nlohmann::json& config = conf.config;
+  std::vector<float>& params = conf.params;
   bool haveLoudness = false;
   double loudness = TARGET_DSP_LOUDNESS;
 

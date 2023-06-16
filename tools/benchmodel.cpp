@@ -4,9 +4,9 @@
 
 #include "NAM/dsp.h"
 
-using std::chrono::high_resolution_clock;
-using std::chrono::duration_cast;
 using std::chrono::duration;
+using std::chrono::duration_cast;
+using std::chrono::high_resolution_clock;
 using std::chrono::milliseconds;
 
 #define AUDIO_BUFFER_SIZE 64
@@ -31,41 +31,41 @@ int main(int argc, char* argv[])
 
     std::unique_ptr<DSP> model;
 
-      model.reset();
-      model = std::move(get_dsp(modelPath));
+    model.reset();
+    model = std::move(get_dsp(modelPath));
 
-      if (model == nullptr)
-      {
-        std::cerr << "Failed to load model\n";
+    if (model == nullptr)
+    {
+      std::cerr << "Failed to load model\n";
 
-        exit(1);
-      }
+      exit(1);
+    }
 
-      auto t1 = high_resolution_clock::now();
+    auto t1 = high_resolution_clock::now();
 
-      size_t bufferSize = 64;
-      size_t numBuffers = (48000 / 64) * 2;
+    size_t bufferSize = 64;
+    size_t numBuffers = (48000 / 64) * 2;
 
-      std::cout << "Running benchmark\n";
+    std::cout << "Running benchmark\n";
 
-      for (size_t i = 0; i < numBuffers; i++)
-      {
-        model->process(buffers, buffers, 1, AUDIO_BUFFER_SIZE, 1.0, 1.0, mNAMParams);
-        model->finalize_(AUDIO_BUFFER_SIZE);
-      }
+    for (size_t i = 0; i < numBuffers; i++)
+    {
+      model->process(buffers, buffers, 1, AUDIO_BUFFER_SIZE, 1.0, 1.0, mNAMParams);
+      model->finalize_(AUDIO_BUFFER_SIZE);
+    }
 
-      std::cout << "Finished\n";
+    std::cout << "Finished\n";
 
-      auto t2 = high_resolution_clock::now();
+    auto t2 = high_resolution_clock::now();
 
-      /* Getting number of milliseconds as an integer. */
-      auto ms_int = duration_cast<milliseconds>(t2 - t1);
+    /* Getting number of milliseconds as an integer. */
+    auto ms_int = duration_cast<milliseconds>(t2 - t1);
 
-      /* Getting number of milliseconds as a double. */
-      duration<double, std::milli> ms_double = t2 - t1;
+    /* Getting number of milliseconds as a double. */
+    duration<double, std::milli> ms_double = t2 - t1;
 
-      std::cout << ms_int.count() << "ms\n";
-      std::cout << ms_double.count() << "ms\n";
+    std::cout << ms_int.count() << "ms\n";
+    std::cout << ms_double.count() << "ms\n";
   }
   else
   {

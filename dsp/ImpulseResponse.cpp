@@ -49,7 +49,7 @@ void dsp::ImpulseResponse::_SetWeights(const double sampleRate)
   if (this->mRawAudioSampleRate == sampleRate)
   {
     this->mResampled.resize(this->mRawAudio.size());
-    memcpy(this->mResampled.data(), this->mRawAudio.data(), this->mResampled.size());
+    memcpy(this->mResampled.data(), this->mRawAudio.data(), sizeof(float) * this->mResampled.size());
   }
   else
   {
@@ -58,7 +58,7 @@ void dsp::ImpulseResponse::_SetWeights(const double sampleRate)
     padded.resize(this->mRawAudio.size() + 2);
     padded[0] = 0.0f;
     padded[padded.size() - 1] = 0.0f;
-    memcpy(padded.data() + 1, this->mRawAudio.data(), this->mRawAudio.size());
+    memcpy(padded.data() + 1, this->mRawAudio.data(), sizeof(float) * this->mRawAudio.size());
     dsp::ResampleCubic<float>(padded, this->mRawAudioSampleRate, sampleRate, 0.0, this->mResampled);
   }
   // Simple implementation w/ no resample...
