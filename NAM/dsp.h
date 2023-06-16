@@ -46,7 +46,7 @@ class DSP
 {
 public:
   DSP();
-  DSP(const NAM_SAMPLE loudness);
+  DSP(const double loudness);
   virtual ~DSP() = default;
   // process() does all of the processing requried to take `inputs` array and
   // fill in the required values on `outputs`.
@@ -58,7 +58,7 @@ public:
   //    overridden in subclasses).
   // 4. The output level is applied and the result stored to `output`.
   virtual void process(NAM_SAMPLE** inputs, NAM_SAMPLE** outputs, const int num_channels, const int num_frames,
-                       const NAM_SAMPLE input_gain, const NAM_SAMPLE output_gain,
+                       const double input_gain, const double output_gain,
                        const std::unordered_map<std::string, double>& params);
   // Anything to take care of before next buffer comes in.
   // For example:
@@ -72,7 +72,7 @@ public:
 
 protected:
   // How loud is the model?
-  NAM_SAMPLE mLoudness;
+  double mLoudness;
   // Should we normalize according to this loudness?
   bool mNormalizeOutputLoudness;
   // Parameters (aka "knobs")
@@ -93,7 +93,7 @@ protected:
 
   // Apply the input gain
   // Result populates this->_input_post_gain
-  void _apply_input_level_(NAM_SAMPLE** inputs, const int num_channels, const int num_frames, const NAM_SAMPLE gain);
+  void _apply_input_level_(NAM_SAMPLE** inputs, const int num_channels, const int num_frames, const double gain);
 
   // i.e. ensure the size is correct.
   void _ensure_core_dsp_output_ready_();
@@ -104,7 +104,7 @@ protected:
   virtual void _process_core_();
 
   // Copy this->_core_dsp_output to output and apply the output volume
-  void _apply_output_level_(NAM_SAMPLE** outputs, const int num_channels, const int num_frames, const NAM_SAMPLE gain);
+  void _apply_output_level_(NAM_SAMPLE** outputs, const int num_channels, const int num_frames, const double gain);
 };
 
 // Class where an input buffer is kept so that long-time effects can be
@@ -114,7 +114,7 @@ class Buffer : public DSP
 {
 public:
   Buffer(const int receptive_field);
-  Buffer(const NAM_SAMPLE loudness, const int receptive_field);
+  Buffer(const double loudness, const int receptive_field);
   void finalize_(const int num_frames);
 
 protected:
@@ -139,7 +139,7 @@ class Linear : public Buffer
 {
 public:
   Linear(const int receptive_field, const bool _bias, const std::vector<float>& params);
-  Linear(const NAM_SAMPLE loudness, const int receptive_field, const bool _bias, const std::vector<float>& params);
+  Linear(const double loudness, const int receptive_field, const bool _bias, const std::vector<float>& params);
   void _process_core_() override;
 
 protected:

@@ -23,7 +23,7 @@ DSP::DSP()
 {
 }
 
-DSP::DSP(const NAM_SAMPLE loudness)
+DSP::DSP(const double loudness)
 : mLoudness(loudness)
 , mNormalizeOutputLoudness(false)
 , _stale_params(true)
@@ -31,7 +31,7 @@ DSP::DSP(const NAM_SAMPLE loudness)
 }
 
 void DSP::process(NAM_SAMPLE** inputs, NAM_SAMPLE** outputs, const int num_channels, const int num_frames,
-                  const NAM_SAMPLE input_gain, const NAM_SAMPLE output_gain,
+                  const double input_gain, const double output_gain,
                   const std::unordered_map<std::string, double>& params)
 {
   this->_get_params_(params);
@@ -58,7 +58,7 @@ void DSP::_get_params_(const std::unordered_map<std::string, double>& input_para
   }
 }
 
-void DSP::_apply_input_level_(NAM_SAMPLE** inputs, const int num_channels, const int num_frames, const NAM_SAMPLE gain)
+void DSP::_apply_input_level_(NAM_SAMPLE** inputs, const int num_channels, const int num_frames, const double gain)
 {
   // Must match exactly; we're going to use the size of _input_post_gain later
   // for num_frames.
@@ -84,10 +84,10 @@ void DSP::_process_core_()
 }
 
 void DSP::_apply_output_level_(NAM_SAMPLE** outputs, const int num_channels, const int num_frames,
-                               const NAM_SAMPLE gain)
+                               const double gain)
 {
-  const NAM_SAMPLE loudnessGain = (NAM_SAMPLE)pow(10.0, -(this->mLoudness - TARGET_DSP_LOUDNESS) / 20.0);
-  const NAM_SAMPLE finalGain = this->mNormalizeOutputLoudness ? gain * loudnessGain : gain;
+  const double loudnessGain = pow(10.0, -(this->mLoudness - TARGET_DSP_LOUDNESS) / 20.0);
+  const double finalGain = this->mNormalizeOutputLoudness ? gain * loudnessGain : gain;
   for (int c = 0; c < num_channels; c++)
     for (int s = 0; s < num_frames; s++)
       outputs[c][s] = (NAM_SAMPLE)(finalGain * this->_core_dsp_output[s]);
@@ -100,7 +100,7 @@ Buffer::Buffer(const int receptive_field)
 {
 }
 
-Buffer::Buffer(const NAM_SAMPLE loudness, const int receptive_field)
+Buffer::Buffer(const double loudness, const int receptive_field)
 : DSP(loudness)
 {
   this->_set_receptive_field(receptive_field);
@@ -177,7 +177,7 @@ Linear::Linear(const int receptive_field, const bool _bias, const std::vector<fl
 {
 }
 
-Linear::Linear(const NAM_SAMPLE loudness, const int receptive_field, const bool _bias, const std::vector<float>& params)
+Linear::Linear(const double loudness, const int receptive_field, const bool _bias, const std::vector<float>& params)
 : Buffer(loudness, receptive_field)
 {
   if (params.size() != (receptive_field + (_bias ? 1 : 0)))

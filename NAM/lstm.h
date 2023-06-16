@@ -51,7 +51,7 @@ class LSTM : public DSP
 public:
   LSTM(const int num_layers, const int input_size, const int hidden_size, std::vector<float>& params,
        nlohmann::json& parametric);
-  LSTM(const NAM_SAMPLE loudness, const int num_layers, const int input_size, const int hidden_size,
+  LSTM(const double loudness, const int num_layers, const int input_size, const int hidden_size,
        std::vector<float>& params, nlohmann::json& parametric);
   ~LSTM() = default;
 
