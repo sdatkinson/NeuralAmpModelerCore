@@ -114,6 +114,7 @@ void Buffer::_set_receptive_field(const int new_receptive_field, const int input
 {
   this->_receptive_field = new_receptive_field;
   this->_input_buffer.resize(input_buffer_size);
+  std::fill (this->_input_buffer.begin(), this->_input_buffer.end(), 0.0f);
   this->_reset_input_buffer();
 }
 
@@ -130,6 +131,7 @@ void Buffer::_update_buffers_()
       while (new_buffer_size < minimum_input_buffer_size)
         new_buffer_size *= 2;
       this->_input_buffer.resize(new_buffer_size);
+      std::fill (this->_input_buffer.begin(), this->_input_buffer.end(), 0.0f);
     }
   }
 
@@ -142,6 +144,7 @@ void Buffer::_update_buffers_()
     this->_input_buffer[i] = this->_input_post_gain[j];
   // And resize the output buffer:
   this->_output_buffer.resize(num_frames);
+  std::fill (this->_output_buffer.begin(), this->_output_buffer.end(), 0.0f);
 }
 
 void Buffer::_rewind_buffers_()
