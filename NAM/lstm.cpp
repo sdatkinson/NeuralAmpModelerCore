@@ -111,7 +111,7 @@ void lstm::LSTM::_process_core_()
     this->_stale_params = false;
   }
   // Process samples, placing results in the required output location
-  for (int i = 0; i < this->_input_post_gain.size(); i++)
+  for (size_t i = 0; i < this->_input_post_gain.size(); i++)
     this->_core_dsp_output[i] = this->_process_sample(this->_input_post_gain[i]);
 }
 
@@ -121,7 +121,7 @@ float lstm::LSTM::_process_sample(const float x)
     return x;
   this->_input_and_params(0) = x;
   this->_layers[0].process_(this->_input_and_params);
-  for (int i = 1; i < this->_layers.size(); i++)
+  for (size_t i = 1; i < this->_layers.size(); i++)
     this->_layers[i].process_(this->_layers[i - 1].get_hidden_state());
   return this->_head_weight.dot(this->_layers[this->_layers.size() - 1].get_hidden_state()) + this->_head_bias;
 }

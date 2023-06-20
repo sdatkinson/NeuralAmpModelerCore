@@ -150,7 +150,7 @@ std::unique_ptr<DSP> get_dsp(dspData& conf)
     const int channels = config["channels"];
     const bool batchnorm = config["batchnorm"];
     std::vector<int> dilations;
-    for (int i = 0; i < config["dilations"].size(); i++)
+    for (size_t i = 0; i < config["dilations"].size(); i++)
       dilations.push_back(config["dilations"][i]);
     const std::string activation = config["activation"];
     return std::make_unique<convnet::ConvNet>(loudness, channels, dilations, batchnorm, activation, params);
@@ -173,11 +173,11 @@ std::unique_ptr<DSP> get_dsp(dspData& conf)
   else if (architecture == "WaveNet" || architecture == "CatWaveNet")
   {
     std::vector<wavenet::LayerArrayParams> layer_array_params;
-    for (int i = 0; i < config["layers"].size(); i++)
+    for (size_t i = 0; i < config["layers"].size(); i++)
     {
       nlohmann::json layer_config = config["layers"][i];
       std::vector<int> dilations;
-      for (int j = 0; j < layer_config["dilations"].size(); j++)
+      for (size_t j = 0; j < layer_config["dilations"].size(); j++)
         dilations.push_back(layer_config["dilations"][j]);
       layer_array_params.push_back(
         wavenet::LayerArrayParams(layer_config["input_size"], layer_config["condition_size"], layer_config["head_size"],
