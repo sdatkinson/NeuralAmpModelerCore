@@ -39,8 +39,8 @@ public:
 class DSP
 {
 public:
-  DSP();
-  DSP(const double loudness);
+  DSP(const double expected_sample_rate);
+  DSP(const double loudness, const double expected_sample_rate);
   virtual ~DSP() = default;
   // process() does all of the processing requried to take `inputs` array and
   // fill in the required values on `outputs`.
@@ -61,12 +61,15 @@ public:
   //   that actually uses them, which varies depends on the particulars of the
   //   DSP subclass implementation.
   virtual void finalize_(const int num_frames);
-  void SetNormalize(const bool normalize) { this->mNormalizeOutputLoudness = normalize; };
+  double GetExpectedSampleRate() const { return mExpectedSampleRate; };
   bool HasLoudness() { return mLoudness != TARGET_DSP_LOUDNESS; };
+  void SetNormalize(const bool normalize) { this->mNormalizeOutputLoudness = normalize; };
 
 protected:
   // How loud is the model?
   double mLoudness;
+  // What sample rate does the model expect?
+  double mExpectedSampleRate;
   // Should we normalize according to this loudness?
   bool mNormalizeOutputLoudness;
   // Parameters (aka "knobs")
@@ -107,8 +110,8 @@ protected:
 class Buffer : public DSP
 {
 public:
-  Buffer(const int receptive_field);
-  Buffer(const double loudness, const int receptive_field);
+  Buffer(const int receptive_field, const double expected_sample_rate);
+  Buffer(const double loudness, const int receptive_field, const double expected_sample_rate);
   void finalize_(const int num_frames);
 
 protected:
@@ -132,8 +135,10 @@ protected:
 class Linear : public Buffer
 {
 public:
-  Linear(const int receptive_field, const bool _bias, const std::vector<float>& params);
-  Linear(const double loudness, const int receptive_field, const bool _bias, const std::vector<float>& params);
+  Linear(const int receptive_field, const bool _bias, const std::vector<float>& params,
+         const double expected_sample_rate);
+  Linear(const double loudness, const int receptive_field, const bool _bias, const std::vector<float>& params,
+         const double expected_sample_rate);
   void _process_core_() override;
 
 protected:
@@ -192,6 +197,20 @@ private:
 // Utilities ==================================================================
 // Implemented in get_dsp.cpp
 
+// Data for a DSP object
+// :param version: Data version. Follows the conventions established in the trainer code.
+// :param architecture: Defines the high-level architecture. Supported are (as per `get-dsp()` in get_dsp.cpp):
+//     * "CatLSTM"
+//     * "CatWaveNet"
+//     * "ConvNet"
+//     * "LSTM"
+//     * "Linear"
+//     * "WaveNet"
+// :param config:
+// :param metadata:
+// :param params: The model parameters ("weights")
+// :param expected_sample_rate: Most NAM models implicitly assume that data will be provided to them at some sample
+//     rate. This captures it for other components interfacing with the model to understand its needs.
 struct dspData
 {
   std::string version;
@@ -199,6 +218,7 @@ struct dspData
   nlohmann::json config;
   nlohmann::json metadata;
   std::vector<float> params;
+  double expected_sample_rate;
 };
 
 // Verify that the config that we are building our model from is supported by

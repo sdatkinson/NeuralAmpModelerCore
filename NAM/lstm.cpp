@@ -64,14 +64,14 @@ void lstm::LSTMCell::process_(const Eigen::VectorXf& x)
 }
 
 lstm::LSTM::LSTM(const int num_layers, const int input_size, const int hidden_size, std::vector<float>& params,
-                 nlohmann::json& parametric)
-: LSTM(TARGET_DSP_LOUDNESS, num_layers, input_size, hidden_size, params, parametric)
+                 nlohmann::json& parametric, const double expected_sample_rate)
+: LSTM(TARGET_DSP_LOUDNESS, num_layers, input_size, hidden_size, params, parametric, expected_sample_rate)
 {
 }
 
 lstm::LSTM::LSTM(const double loudness, const int num_layers, const int input_size, const int hidden_size,
-                 std::vector<float>& params, nlohmann::json& parametric)
-: DSP(loudness)
+                 std::vector<float>& params, nlohmann::json& parametric, const double expected_sample_rate)
+: DSP(loudness, expected_sample_rate)
 {
   this->_init_parametric(parametric);
   std::vector<float>::iterator it = params.begin();

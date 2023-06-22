@@ -50,9 +50,9 @@ class LSTM : public DSP
 {
 public:
   LSTM(const int num_layers, const int input_size, const int hidden_size, std::vector<float>& params,
-       nlohmann::json& parametric);
+       nlohmann::json& parametric, const double expected_sample_rate);
   LSTM(const double loudness, const int num_layers, const int input_size, const int hidden_size,
-       std::vector<float>& params, nlohmann::json& parametric);
+       std::vector<float>& params, nlohmann::json& parametric, const double expected_sample_rate);
   ~LSTM() = default;
 
 protected:
