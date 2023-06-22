@@ -210,7 +210,8 @@ private:
 // :param metadata:
 // :param params: The model parameters ("weights")
 // :param expected_sample_rate: Most NAM models implicitly assume that data will be provided to them at some sample
-//     rate. This captures it for other components interfacing with the model to understand its needs.
+//     rate. This captures it for other components interfacing with the model to understand its needs. Use -1.0 for "I
+//     don't know".
 struct dspData
 {
   std::string version;
