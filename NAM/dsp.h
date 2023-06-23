@@ -12,6 +12,12 @@
 #include "activations.h"
 #include "json.hpp"
 
+#ifdef NAM_SAMPLE_FLOAT
+#define NAM_SAMPLE float
+#else
+#define NAM_SAMPLE double
+#endif
+
 enum EArchitectures
 {
   kLinear = 0,
@@ -51,7 +57,7 @@ public:
   // 3. The core DSP algorithm is run (This is what should probably be
   //    overridden in subclasses).
   // 4. The output level is applied and the result stored to `output`.
-  virtual void process(double** inputs, double** outputs, const int num_channels, const int num_frames,
+  virtual void process(NAM_SAMPLE** inputs, NAM_SAMPLE** outputs, const int num_channels, const int num_frames,
                        const double input_gain, const double output_gain,
                        const std::unordered_map<std::string, double>& params);
   // Anything to take care of before next buffer comes in.
@@ -90,7 +96,7 @@ protected:
 
   // Apply the input gain
   // Result populates this->_input_post_gain
-  void _apply_input_level_(double** inputs, const int num_channels, const int num_frames, const double gain);
+  void _apply_input_level_(NAM_SAMPLE** inputs, const int num_channels, const int num_frames, const double gain);
 
   // i.e. ensure the size is correct.
   void _ensure_core_dsp_output_ready_();
@@ -101,7 +107,7 @@ protected:
   virtual void _process_core_();
 
   // Copy this->_core_dsp_output to output and apply the output volume
-  void _apply_output_level_(double** outputs, const int num_channels, const int num_frames, const double gain);
+  void _apply_output_level_(NAM_SAMPLE** outputs, const int num_channels, const int num_frames, const double gain);
 };
 
 // Class where an input buffer is kept so that long-time effects can be
