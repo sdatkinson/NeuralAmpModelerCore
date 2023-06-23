@@ -222,15 +222,16 @@ void wavenet::_Head::_apply_activation_(Eigen::MatrixXf& x)
 // WaveNet ====================================================================
 
 wavenet::WaveNet::WaveNet(const std::vector<wavenet::LayerArrayParams>& layer_array_params, const float head_scale,
-                          const bool with_head, nlohmann::json parametric, std::vector<float> params)
-: WaveNet(TARGET_DSP_LOUDNESS, layer_array_params, head_scale, with_head, parametric, params)
+                          const bool with_head, nlohmann::json parametric, std::vector<float> params,
+                          const double expected_sample_rate)
+: WaveNet(TARGET_DSP_LOUDNESS, layer_array_params, head_scale, with_head, parametric, params, expected_sample_rate)
 {
 }
 
 wavenet::WaveNet::WaveNet(const double loudness, const std::vector<wavenet::LayerArrayParams>& layer_array_params,
                           const float head_scale, const bool with_head, nlohmann::json parametric,
-                          std::vector<float> params)
-: DSP(loudness)
+                          std::vector<float> params, const double expected_sample_rate)
+: DSP(loudness, expected_sample_rate)
 , _num_frames(0)
 , _head_scale(head_scale)
 {

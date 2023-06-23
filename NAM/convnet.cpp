@@ -94,14 +94,15 @@ void convnet::_Head::process_(const Eigen::MatrixXf& input, Eigen::VectorXf& out
 }
 
 convnet::ConvNet::ConvNet(const int channels, const std::vector<int>& dilations, const bool batchnorm,
-                          const std::string activation, std::vector<float>& params)
-: ConvNet(TARGET_DSP_LOUDNESS, channels, dilations, batchnorm, activation, params)
+                          const std::string activation, std::vector<float>& params, const double expected_sample_rate)
+: ConvNet(TARGET_DSP_LOUDNESS, channels, dilations, batchnorm, activation, params, expected_sample_rate)
 {
 }
 
 convnet::ConvNet::ConvNet(const double loudness, const int channels, const std::vector<int>& dilations,
-                          const bool batchnorm, const std::string activation, std::vector<float>& params)
-: Buffer(loudness, *std::max_element(dilations.begin(), dilations.end()))
+                          const bool batchnorm, const std::string activation, std::vector<float>& params,
+                          const double expected_sample_rate)
+: Buffer(loudness, *std::max_element(dilations.begin(), dilations.end()), expected_sample_rate)
 {
   this->_verify_params(channels, dilations, batchnorm, params.size());
   this->_blocks.resize(dilations.size());
