@@ -25,6 +25,14 @@ dsp::ImpulseResponse::ImpulseResponse(const char* fileName, const double sampleR
     this->_SetWeights(sampleRate);
 }
 
+dsp::ImpulseResponse::ImpulseResponse(const IRData& irData, const double sampleRate)
+: mWavState(dsp::wav::LoadReturnCode::SUCCESS)
+{
+  this->mRawAudio = irData.mRawAudio;
+  this->mRawAudioSampleRate = irData.mRawAudioSampleRate;
+  this->_SetWeights(sampleRate);
+}
+
 double** dsp::ImpulseResponse::Process(double** inputs, const size_t numChannels, const size_t numFrames)
 {
   this->_PrepareBuffers(numChannels, numFrames);
@@ -71,4 +79,11 @@ void dsp::ImpulseResponse::_SetWeights(const double sampleRate)
   for (size_t i = 0, j = irLength - 1; i < irLength; i++, j--)
     this->mWeight[j] = gain * this->mResampled[i];
   this->mHistoryRequired = irLength - 1;
+}
+
+dsp::ImpulseResponse::IRData dsp::ImpulseResponse::GetData() {
+  IRData irData;
+  irData.mRawAudio = this->mRawAudio;
+  irData.mRawAudioSampleRate = this->mRawAudioSampleRate;
+  return irData;
 }
