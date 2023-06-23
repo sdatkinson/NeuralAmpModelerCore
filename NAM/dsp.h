@@ -39,8 +39,8 @@ public:
 class DSP
 {
 public:
-  DSP(const double expected_sample_rate);
-  DSP(const double loudness, const double expected_sample_rate);
+  DSP(const double expected_sample_rate = -1.0);
+  DSP(const double loudness, const double expected_sample_rate = -1.0);
   virtual ~DSP() = default;
   // process() does all of the processing requried to take `inputs` array and
   // fill in the required values on `outputs`.
@@ -110,8 +110,8 @@ protected:
 class Buffer : public DSP
 {
 public:
-  Buffer(const int receptive_field, const double expected_sample_rate);
-  Buffer(const double loudness, const int receptive_field, const double expected_sample_rate);
+  Buffer(const int receptive_field, const double expected_sample_rate = -1.0);
+  Buffer(const double loudness, const int receptive_field, const double expected_sample_rate = -1.0);
   void finalize_(const int num_frames);
 
 protected:
@@ -136,9 +136,9 @@ class Linear : public Buffer
 {
 public:
   Linear(const int receptive_field, const bool _bias, const std::vector<float>& params,
-         const double expected_sample_rate);
+         const double expected_sample_rate = -1.0);
   Linear(const double loudness, const int receptive_field, const bool _bias, const std::vector<float>& params,
-         const double expected_sample_rate);
+         const double expected_sample_rate = -1.0);
   void _process_core_() override;
 
 protected:

@@ -66,9 +66,9 @@ class ConvNet : public Buffer
 {
 public:
   ConvNet(const int channels, const std::vector<int>& dilations, const bool batchnorm, const std::string activation,
-          std::vector<float>& params, const double expected_sample_rate);
+          std::vector<float>& params, const double expected_sample_rate = -1.0);
   ConvNet(const double loudness, const int channels, const std::vector<int>& dilations, const bool batchnorm,
-          const std::string activation, std::vector<float>& params, const double expected_sample_rate);
+          const std::string activation, std::vector<float>& params, const double expected_sample_rate = -1.0);
 
 protected:
   std::vector<ConvNetBlock> _blocks;
