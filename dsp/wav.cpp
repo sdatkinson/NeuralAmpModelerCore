@@ -182,7 +182,7 @@ dsp::wav::LoadReturnCode dsp::wav::Load(const char* fileName, std::vector<float>
   if (subchunk1Size > 16)
   {
     const int extraBytes = subchunk1Size - 16;
-    const int skipChars = extraBytes / 4;
+    const int skipChars = extraBytes / 4 * 4; // truncate to dword size
     wavFile.ignore(skipChars);
     const int remainder = extraBytes % 4;
     wavFile.read(reinterpret_cast<char*>(&byteRate), remainder);
