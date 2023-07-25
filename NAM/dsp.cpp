@@ -85,8 +85,7 @@ void DSP::_process_core_()
     this->_core_dsp_output[i] = this->_input_post_gain[i];
 }
 
-void DSP::_apply_output_level_(NAM_SAMPLE** outputs, const int num_channels, const int num_frames,
-                               const double gain)
+void DSP::_apply_output_level_(NAM_SAMPLE** outputs, const int num_channels, const int num_frames, const double gain)
 {
   const double loudnessGain = pow(10.0, -(this->mLoudness - TARGET_DSP_LOUDNESS) / 20.0);
   const double finalGain = this->mNormalizeOutputLoudness ? gain * loudnessGain : gain;

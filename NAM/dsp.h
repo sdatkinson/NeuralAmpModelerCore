@@ -13,9 +13,9 @@
 #include "json.hpp"
 
 #ifdef NAM_SAMPLE_FLOAT
-#define NAM_SAMPLE float
+  #define NAM_SAMPLE float
 #else
-#define NAM_SAMPLE double
+  #define NAM_SAMPLE double
 #endif
 
 enum EArchitectures
