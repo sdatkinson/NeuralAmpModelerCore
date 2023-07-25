@@ -32,6 +32,10 @@ protected:
   void _PrepareBuffers(const size_t numChannels, const size_t numFrames) override;
 
   // Coefficients for the DSP filter
+  // [0] is for the current sample
+  // [1] is for the previous
+  // [2] before that
+  // (mOutputCoefficients[0] should always be zero. It'll never be used.)
   std::vector<double> mInputCoefficients;
   std::vector<double> mOutputCoefficients;
 
@@ -126,4 +130,76 @@ class HighShelf : public Biquad
 public:
   void SetParams(const BiquadParams& params) override;
 };
+
+// HPF only has one param: frequency
+// TODO LPF (alpha calculation is different though)
+class HighPassParams : public dsp::Params
+{
+public:
+  HighPassParams(const double sampleRate, const double frequency)
+  : dsp::Params()
+  , mFrequency(frequency)
+  , mSampleRate(sampleRate){};
+
+  double GetAlpha() const
+  {
+    const double c = 2.0 * MATH_PI * mFrequency / mSampleRate;
+    return 1.0 / (c + 1.0);
+  };
+
+private:
+  double mFrequency;
+  double mSampleRate;
+};
+
+class HighPass : public Base
+{
+public:
+  HighPass()
+  : Base(2, 2){};
+  void SetParams(const HighPassParams& params)
+  {
+    const double alpha = params.GetAlpha();
+    // y[i] = alpha * y[i-1] + alpha * (x[i]-x[i-1])
+    mInputCoefficients[0] = alpha;
+    mInputCoefficients[1] = -alpha;
+    mOutputCoefficients[0] = 0.0;
+    mOutputCoefficients[1] = alpha;
+  }
+};
+
+class LowPassParams : public dsp::Params
+{
+public:
+  LowPassParams(const double sampleRate, const double frequency)
+  : dsp::Params()
+  , mFrequency(frequency)
+  , mSampleRate(sampleRate){};
+
+  double GetAlpha() const
+  {
+    const double c = 2.0 * MATH_PI * mFrequency / mSampleRate;
+    return c / (c + 1.0);
+  };
+
+private:
+  double mFrequency;
+  double mSampleRate;
+};
+
+class LowPass : public Base
+{
+public:
+  LowPass()
+  : Base(1, 2){};
+  void SetParams(const LowPassParams& params)
+  {
+    const double alpha = params.GetAlpha();
+    // y[i] = alpha * x[i] + (1-alpha) * y[i-1]
+    mInputCoefficients[0] = alpha;
+    mOutputCoefficients[0] = 0.0;
+    mOutputCoefficients[1] = 1.0 - alpha;
+  }
+};
+
 }; // namespace recursive_linear_filter
