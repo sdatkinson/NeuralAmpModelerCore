@@ -81,7 +81,8 @@ void dsp::ImpulseResponse::_SetWeights(const double sampleRate)
   this->mHistoryRequired = irLength - 1;
 }
 
-dsp::ImpulseResponse::IRData dsp::ImpulseResponse::GetData() {
+dsp::ImpulseResponse::IRData dsp::ImpulseResponse::GetData()
+{
   IRData irData;
   irData.mRawAudio = this->mRawAudio;
   irData.mRawAudioSampleRate = this->mRawAudioSampleRate;
