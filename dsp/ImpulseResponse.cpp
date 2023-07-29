@@ -11,7 +11,7 @@
 #include "ImpulseResponse.h"
 
 dsp::ImpulseResponse::ImpulseResponse(const char* fileName, const double sampleRate)
-: mWavState(dsp::wav::LoadReturnCode::ERROR_OTHER)
+: mWavState(dsp::wav::LoadReturnCode::ERROR_OTHER), mSampleRate(sampleRate)
 {
   // Try to load the WAV
   this->mWavState = dsp::wav::Load(fileName, this->mRawAudio, this->mRawAudioSampleRate);
@@ -22,15 +22,16 @@ dsp::ImpulseResponse::ImpulseResponse(const char* fileName, const double sampleR
   }
   else
     // Set the weights based on the raw audio.
-    this->_SetWeights(sampleRate);
+    this->_SetWeights();
 }
 
 dsp::ImpulseResponse::ImpulseResponse(const IRData& irData, const double sampleRate)
 : mWavState(dsp::wav::LoadReturnCode::SUCCESS)
+, mSampleRate(sampleRate)
 {
   this->mRawAudio = irData.mRawAudio;
   this->mRawAudioSampleRate = irData.mRawAudioSampleRate;
-  this->_SetWeights(sampleRate);
+  this->_SetWeights();
 }
 
 double** dsp::ImpulseResponse::Process(double** inputs, const size_t numChannels, const size_t numFrames)
@@ -52,9 +53,9 @@ double** dsp::ImpulseResponse::Process(double** inputs, const size_t numChannels
   return this->_GetPointers();
 }
 
-void dsp::ImpulseResponse::_SetWeights(const double sampleRate)
+void dsp::ImpulseResponse::_SetWeights()
 {
-  if (this->mRawAudioSampleRate == sampleRate)
+  if (this->mRawAudioSampleRate == mSampleRate)
   {
     this->mResampled.resize(this->mRawAudio.size());
     memcpy(this->mResampled.data(), this->mRawAudio.data(), sizeof(float) * this->mResampled.size());
@@ -67,7 +68,7 @@ void dsp::ImpulseResponse::_SetWeights(const double sampleRate)
     padded[0] = 0.0f;
     padded[padded.size() - 1] = 0.0f;
     memcpy(padded.data() + 1, this->mRawAudio.data(), sizeof(float) * this->mRawAudio.size());
-    dsp::ResampleCubic<float>(padded, this->mRawAudioSampleRate, sampleRate, 0.0, this->mResampled);
+    dsp::ResampleCubic<float>(padded, this->mRawAudioSampleRate, mSampleRate, 0.0, this->mResampled);
   }
   // Simple implementation w/ no resample...
   const size_t irLength = std::min(this->mResampled.size(), this->mMaxLength);
@@ -75,7 +76,7 @@ void dsp::ImpulseResponse::_SetWeights(const double sampleRate)
   // Gain reduction.
   // https://github.com/sdatkinson/NeuralAmpModelerPlugin/issues/100#issuecomment-1455273839
   // Add sample rate-dependence
-  const float gain = pow(10, -18 * 0.05) * 48000 / sampleRate;
+  const float gain = pow(10, -18 * 0.05) * 48000 / mSampleRate;
   for (size_t i = 0, j = irLength - 1; i < irLength; i++, j--)
     this->mWeight[j] = gain * this->mResampled[i];
   this->mHistoryRequired = irLength - 1;
