@@ -25,7 +25,7 @@ class DSP
 {
 public:
   DSP();
-  ~DSP();
+  virtual ~DSP();
   // The main interface for processing audio.
   // The incoming audio is given as a raw pointer-to-pointers.
   // The indexing is [channel][frame].
