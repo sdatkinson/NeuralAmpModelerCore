@@ -35,15 +35,15 @@ const double MINIMUM_LOUDNESS_POWER = pow(10.0, MINIMUM_LOUDNESS_DB / 10.0);
 class Gain : public DSP
 {
 public:
-  double** Process(double** inputs, const size_t numChannels, const size_t numFrames) override;
+  DSP_SAMPLE** Process(DSP_SAMPLE** inputs, const size_t numChannels, const size_t numFrames) override;
 
-  void SetGainReductionDB(std::vector<std::vector<double>>& gainReductionDB)
+  void SetGainReductionDB(std::vector<std::vector<DSP_SAMPLE>>& gainReductionDB)
   {
     this->mGainReductionDB = gainReductionDB;
   }
 
 private:
-  std::vector<std::vector<double>> mGainReductionDB;
+  std::vector<std::vector<DSP_SAMPLE>> mGainReductionDB;
 };
 
 // Part 1 of the noise gate: the trigger.
@@ -89,11 +89,11 @@ class Trigger : public DSP
 public:
   Trigger();
 
-  double** Process(double** inputs, const size_t numChannels, const size_t numFrames) override;
-  std::vector<std::vector<double>> GetGainReduction() const { return this->mGainReductionDB; };
+  DSP_SAMPLE** Process(DSP_SAMPLE** inputs, const size_t numChannels, const size_t numFrames) override;
+  std::vector<std::vector<DSP_SAMPLE>> GetGainReduction() const { return this->mGainReductionDB; };
   void SetParams(const TriggerParams& params) { this->mParams = params; };
   void SetSampleRate(const double sampleRate) { this->mSampleRate = sampleRate; }
-  std::vector<std::vector<double>> GetGainReductionDB() const { return this->mGainReductionDB; };
+  std::vector<std::vector<DSP_SAMPLE>> GetGainReductionDB() const { return this->mGainReductionDB; };
 
   void AddListener(Gain* gain)
   {

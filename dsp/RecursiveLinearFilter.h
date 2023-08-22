@@ -22,7 +22,7 @@ class Base : public dsp::DSP
 {
 public:
   Base(const size_t inputDegree, const size_t outputDegree);
-  double** Process(double** inputs, const size_t numChannels, const size_t numFrames) override;
+  DSP_SAMPLE** Process(DSP_SAMPLE** inputs, const size_t numChannels, const size_t numFrames) override;
 
 protected:
   // Methods
@@ -43,8 +43,8 @@ protected:
   // First index is channel
   // Second index, [0] is the current input/output, [1] is the previous, [2] is
   // before that, etc.
-  std::vector<std::vector<double>> mInputHistory;
-  std::vector<std::vector<double>> mOutputHistory;
+  std::vector<std::vector<DSP_SAMPLE>> mInputHistory;
+  std::vector<std::vector<DSP_SAMPLE>> mOutputHistory;
   // Indices for history.
   // Designates which index is currently "0". Use modulus to wrap around.
   long mInputStart;
