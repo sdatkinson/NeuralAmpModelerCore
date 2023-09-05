@@ -5,6 +5,7 @@
 //  Created by Steven Atkinson on 2/5/23.
 //
 
+#include <cstring> // memcpy
 #include <cmath> // pow
 #include <sstream>
 
@@ -31,7 +32,7 @@ double signum(const double val)
   return (0.0 < val) - (val < 0.0);
 }
 
-double** dsp::noise_gate::Trigger::Process(double** inputs, const size_t numChannels, const size_t numFrames)
+DSP_SAMPLE** dsp::noise_gate::Trigger::Process(DSP_SAMPLE** inputs, const size_t numChannels, const size_t numFrames)
 {
   this->_PrepareBuffers(numChannels, numFrames);
 
@@ -103,7 +104,7 @@ double** dsp::noise_gate::Trigger::Process(double** inputs, const size_t numChan
 
   // Copy input to output
   for (auto c = 0; c < numChannels; c++)
-    memcpy(this->mOutputs[c].data(), inputs[c], numFrames * sizeof(double));
+    memcpy(this->mOutputs[c].data(), inputs[c], numFrames * sizeof(DSP_SAMPLE));
   return this->_GetPointers();
 }
 
@@ -144,7 +145,7 @@ void dsp::noise_gate::Trigger::_PrepareBuffers(const size_t numChannels, const s
 
 // Gain========================================================================
 
-double** dsp::noise_gate::Gain::Process(double** inputs, const size_t numChannels, const size_t numFrames)
+DSP_SAMPLE** dsp::noise_gate::Gain::Process(DSP_SAMPLE** inputs, const size_t numChannels, const size_t numFrames)
 {
   // Assume that SetGainReductionDB() was just called to get data from a
   // trigger. Could use listeners...

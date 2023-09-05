@@ -23,11 +23,11 @@ class _Layer
 public:
   _Layer(const int condition_size, const int channels, const int kernel_size, const int dilation,
          const std::string activation, const bool gated)
-  : _activation(activations::Activation::get_activation(activation))
-  , _gated(gated)
-  , _conv(channels, gated ? 2 * channels : channels, kernel_size, true, dilation)
+  : _conv(channels, gated ? 2 * channels : channels, kernel_size, true, dilation)
   , _input_mixin(condition_size, gated ? 2 * channels : channels, false)
-  , _1x1(channels, channels, true){};
+  , _1x1(channels, channels, true)
+  , _activation(activations::Activation::get_activation(activation))
+  , _gated(gated){};
   void set_params_(std::vector<float>::iterator& params);
   // :param `input`: from previous layer
   // :param `output`: to next layer
@@ -67,7 +67,7 @@ public:
   , gated(gated_)
   , head_bias(head_bias_)
   {
-    for (int i = 0; i < dilations_.size(); i++)
+    for (size_t i = 0; i < dilations_.size(); i++)
       this->dilations.push_back(dilations_[i]);
   };
 
@@ -168,9 +168,10 @@ class WaveNet : public DSP
 {
 public:
   WaveNet(const std::vector<LayerArrayParams>& layer_array_params, const float head_scale, const bool with_head,
-          nlohmann::json parametric, std::vector<float> params);
+          nlohmann::json parametric, std::vector<float> params, const double expected_sample_rate = -1.0);
   WaveNet(const double loudness, const std::vector<LayerArrayParams>& layer_array_params, const float head_scale,
-          const bool with_head, nlohmann::json parametric, std::vector<float> params);
+          const bool with_head, nlohmann::json parametric, std::vector<float> params,
+          const double expected_sample_rate = -1.0);
 
   //    WaveNet(WaveNet&&) = default;
   //    WaveNet& operator=(WaveNet&&) = default;

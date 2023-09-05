@@ -94,19 +94,20 @@ void convnet::_Head::process_(const Eigen::MatrixXf& input, Eigen::VectorXf& out
 }
 
 convnet::ConvNet::ConvNet(const int channels, const std::vector<int>& dilations, const bool batchnorm,
-                          const std::string activation, std::vector<float>& params)
-: ConvNet(TARGET_DSP_LOUDNESS, channels, dilations, batchnorm, activation, params)
+                          const std::string activation, std::vector<float>& params, const double expected_sample_rate)
+: ConvNet(TARGET_DSP_LOUDNESS, channels, dilations, batchnorm, activation, params, expected_sample_rate)
 {
 }
 
 convnet::ConvNet::ConvNet(const double loudness, const int channels, const std::vector<int>& dilations,
-                          const bool batchnorm, const std::string activation, std::vector<float>& params)
-: Buffer(loudness, *std::max_element(dilations.begin(), dilations.end()))
+                          const bool batchnorm, const std::string activation, std::vector<float>& params,
+                          const double expected_sample_rate)
+: Buffer(loudness, *std::max_element(dilations.begin(), dilations.end()), expected_sample_rate)
 {
   this->_verify_params(channels, dilations, batchnorm, params.size());
   this->_blocks.resize(dilations.size());
   std::vector<float>::iterator it = params.begin();
-  for (int i = 0; i < dilations.size(); i++)
+  for (size_t i = 0; i < dilations.size(); i++)
     this->_blocks[i].set_params_(i == 0 ? 1 : channels, channels, dilations[i], batchnorm, activation, it);
   this->_block_vals.resize(this->_blocks.size() + 1);
   for (auto& matrix : this->_block_vals)
@@ -128,7 +129,7 @@ void convnet::ConvNet::_process_core_()
   // TODO one unnecessary copy :/ #speed
   for (auto i = i_start; i < i_end; i++)
     this->_block_vals[0](0, i) = this->_input_buffer[i];
-  for (auto i = 0; i < this->_blocks.size(); i++)
+  for (size_t i = 0; i < this->_blocks.size(); i++)
     this->_blocks[i].process_(this->_block_vals[i], this->_block_vals[i + 1], i_start, i_end);
   // TODO clean up this allocation
   this->_head.process_(this->_block_vals[this->_blocks.size()], this->_head_output, i_start, i_end);
@@ -148,7 +149,7 @@ void convnet::ConvNet::_verify_params(const int channels, const std::vector<int>
 void convnet::ConvNet::_update_buffers_()
 {
   this->Buffer::_update_buffers_();
-  const long buffer_size = this->_input_buffer.size();
+  const size_t buffer_size = this->_input_buffer.size();
 
   if (this->_block_vals[0].rows() != 1 || this->_block_vals[0].cols() != buffer_size)
   {
@@ -156,7 +157,7 @@ void convnet::ConvNet::_update_buffers_()
     this->_block_vals[0].setZero();
   }
 
-  for (long i = 1; i < this->_block_vals.size(); i++)
+  for (size_t i = 1; i < this->_block_vals.size(); i++)
   {
     if (this->_block_vals[i].rows() == this->_blocks[i - 1].get_out_channels() && this->_block_vals[i].cols() == buffer_size)
       continue;  // Already has correct size
@@ -171,7 +172,7 @@ void convnet::ConvNet::_rewind_buffers_()
   // resets the offset index
   // The last _block_vals is the output of the last block and doesn't need to be
   // rewound.
-  for (long k = 0; k < this->_block_vals.size() - 1; k++)
+  for (size_t k = 0; k < this->_block_vals.size() - 1; k++)
   {
     // We actually don't need to pull back a lot...just as far as the first
     // input sample would grab from dilation
@@ -190,7 +191,7 @@ void convnet::ConvNet::_anti_pop_()
   if (this->_anti_pop_countdown >= this->_anti_pop_ramp)
     return;
   const float slope = 1.0f / float(this->_anti_pop_ramp);
-  for (int i = 0; i < this->_core_dsp_output.size(); i++)
+  for (size_t i = 0; i < this->_core_dsp_output.size(); i++)
   {
     if (this->_anti_pop_countdown >= this->_anti_pop_ramp)
       break;
@@ -204,7 +205,7 @@ void convnet::ConvNet::_reset_anti_pop_()
 {
   // You need the "real" receptive field, not the buffers.
   long receptive_field = 1;
-  for (int i = 0; i < this->_blocks.size(); i++)
+  for (size_t i = 0; i < this->_blocks.size(); i++)
     receptive_field += this->_blocks[i].conv.get_dilation();
   this->_anti_pop_countdown = -receptive_field;
 }

@@ -5,6 +5,7 @@
 //  Created by Steven Atkinson on 12/31/22.
 //
 
+#include <cstring> // strncmp
 #include <cmath> // pow
 #include <fstream>
 #include <iostream>
@@ -46,31 +47,23 @@ std::string dsp::wav::GetMsgForLoadReturnCode(LoadReturnCode retCode)
   {
     case (LoadReturnCode::ERROR_OPENING):
       message << "Failed to open file (is it being used by another "
-      "program?)";
+                 "program?)";
       break;
     case (LoadReturnCode::ERROR_NOT_RIFF): message << "File is not a WAV file."; break;
     case (LoadReturnCode::ERROR_NOT_WAVE): message << "File is not a WAV file."; break;
-    case (LoadReturnCode::ERROR_MISSING_FMT):
-      message << "File is missing expected format chunk.";
-      break;
+    case (LoadReturnCode::ERROR_MISSING_FMT): message << "File is missing expected format chunk."; break;
     case (LoadReturnCode::ERROR_INVALID_FILE): message << "WAV file contents are invalid."; break;
-    case (LoadReturnCode::ERROR_UNSUPPORTED_FORMAT_ALAW):
-      message << "Unsupported file format \"A-law\"";
-      break;
-    case (LoadReturnCode::ERROR_UNSUPPORTED_FORMAT_MULAW):
-      message << "Unsupported file format \"mu-law\"";
-      break;
+    case (LoadReturnCode::ERROR_UNSUPPORTED_FORMAT_ALAW): message << "Unsupported file format \"A-law\""; break;
+    case (LoadReturnCode::ERROR_UNSUPPORTED_FORMAT_MULAW): message << "Unsupported file format \"mu-law\""; break;
     case (LoadReturnCode::ERROR_UNSUPPORTED_FORMAT_EXTENSIBLE):
       message << "Unsupported file format \"extensible\"";
       break;
     case (LoadReturnCode::ERROR_NOT_MONO): message << "File is not mono."; break;
-    case (LoadReturnCode::ERROR_UNSUPPORTED_BITS_PER_SAMPLE):
-      message << "Unsupported bits per sample";
-      break;
+    case (LoadReturnCode::ERROR_UNSUPPORTED_BITS_PER_SAMPLE): message << "Unsupported bits per sample"; break;
     case (dsp::wav::LoadReturnCode::ERROR_OTHER): message << "???"; break;
     default: message << "???"; break;
   }
-  
+
   return message.str();
 }
 
@@ -189,7 +182,7 @@ dsp::wav::LoadReturnCode dsp::wav::Load(const char* fileName, std::vector<float>
   if (subchunk1Size > 16)
   {
     const int extraBytes = subchunk1Size - 16;
-    const int skipChars = extraBytes / 4;
+    const int skipChars = extraBytes / 4 * 4; // truncate to dword size
     wavFile.ignore(skipChars);
     const int remainder = extraBytes % 4;
     wavFile.read(reinterpret_cast<char*>(&byteRate), remainder);

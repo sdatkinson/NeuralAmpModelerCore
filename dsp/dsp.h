@@ -7,6 +7,12 @@
 #include <unordered_map>
 #include <vector>
 
+#ifdef DSP_SAMPLE_FLOAT
+  #define DSP_SAMPLE float
+#else
+  #define DSP_SAMPLE double
+#endif
+
 // Version 2 DSP abstraction ==================================================
 
 namespace dsp
@@ -19,14 +25,14 @@ class DSP
 {
 public:
   DSP();
-  ~DSP();
+  virtual ~DSP();
   // The main interface for processing audio.
   // The incoming audio is given as a raw pointer-to-pointers.
   // The indexing is [channel][frame].
   // The output shall be a pointer-to-pointers of matching size.
   // This object instance will own the data referenced by the pointers and be
   // responsible for its allocation and deallocation.
-  virtual double** Process(double** inputs, const size_t numChannels, const size_t numFrames) = 0;
+  virtual DSP_SAMPLE** Process(DSP_SAMPLE** inputs, const size_t numChannels, const size_t numFrames) = 0;
   // Update the parameters of the DSP object according to the provided params.
   // Not declaring a pure virtual bc there's no concrete definition that can
   // use Params.
@@ -46,7 +52,7 @@ protected:
   size_t _GetNumFrames() const { return this->_GetNumChannels() > 0 ? this->mOutputs[0].size() : 0; }
   // Return a pointer-to-pointers for the DSP's output buffers (all channels)
   // Assumes that ._PrepareBuffers()  was called recently enough.
-  double** _GetPointers();
+  DSP_SAMPLE** _GetPointers();
   // Resize mOutputs to (numChannels, numFrames) and ensure that the raw
   // pointers are also keeping up.
   virtual void _PrepareBuffers(const size_t numChannels, const size_t numFrames);
@@ -58,11 +64,11 @@ protected:
   // The output array into which the DSP module's calculations will be written.
   // Pointers to this member's data will be returned by .Process(), and std
   // Will ensure proper allocation.
-  std::vector<std::vector<double>> mOutputs;
+  std::vector<std::vector<DSP_SAMPLE>> mOutputs;
   // A pointer to pointers of which copies will be given out as the output of
   // .Process(). This object will ensure proper allocation and deallocation of
   // the first level; The second level points to .data() from mOutputs.
-  double** mOutputPointers;
+  DSP_SAMPLE** mOutputPointers;
   size_t mOutputPointersSize;
 };
 
@@ -83,7 +89,7 @@ protected:
   void _AdvanceHistoryIndex(const size_t bufferSize);
   // Drop the new samples into the history array.
   // Manages history array size
-  void _UpdateHistory(double** inputs, const size_t numChannels, const size_t numFrames);
+  void _UpdateHistory(DSP_SAMPLE** inputs, const size_t numChannels, const size_t numFrames);
 
   // The history array that's used for DSP calculations.
   std::vector<float> mHistory;

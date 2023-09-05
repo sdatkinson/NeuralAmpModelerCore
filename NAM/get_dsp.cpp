@@ -104,11 +104,19 @@ std::unique_ptr<DSP> get_dsp(const std::filesystem::path config_filename, dspDat
   nlohmann::json config = j["config"];
   std::vector<float> params = GetWeights(j, config_filename);
 
+  // Assign values to returnedConfig
   returnedConfig.version = j["version"];
   returnedConfig.architecture = j["architecture"];
   returnedConfig.config = j["config"];
   returnedConfig.metadata = j["metadata"];
   returnedConfig.params = params;
+  if (j.find("sample_rate") != j.end())
+    returnedConfig.expected_sample_rate = j["sample_rate"];
+  else
+  {
+    returnedConfig.expected_sample_rate = -1.0;
+  }
+
 
   /*Copy to a new dsp_config object for get_dsp below,
   since not sure if params actually get modified as being non-const references on some
@@ -123,9 +131,9 @@ std::unique_ptr<DSP> get_dsp(dspData& conf)
 {
   verify_config_version(conf.version);
 
-  auto &architecture = conf.architecture;
-  nlohmann::json &config = conf.config;
-  std::vector<float> &params = conf.params;
+  auto& architecture = conf.architecture;
+  nlohmann::json& config = conf.config;
+  std::vector<float>& params = conf.params;
   bool haveLoudness = false;
   double loudness = TARGET_DSP_LOUDNESS;
 
@@ -137,47 +145,50 @@ std::unique_ptr<DSP> get_dsp(dspData& conf)
       haveLoudness = true;
     }
   }
-
+  const double expected_sample_rate = conf.expected_sample_rate;
 
   if (architecture == "Linear")
   {
     const int receptive_field = config["receptive_field"];
     const bool _bias = config["bias"];
-    return std::make_unique<Linear>(loudness, receptive_field, _bias, params);
+    return std::make_unique<Linear>(loudness, receptive_field, _bias, params, expected_sample_rate);
   }
   else if (architecture == "ConvNet")
   {
     const int channels = config["channels"];
     const bool batchnorm = config["batchnorm"];
     std::vector<int> dilations;
-    for (int i = 0; i < config["dilations"].size(); i++)
+    for (size_t i = 0; i < config["dilations"].size(); i++)
       dilations.push_back(config["dilations"][i]);
     const std::string activation = config["activation"];
-    return std::make_unique<convnet::ConvNet>(loudness, channels, dilations, batchnorm, activation, params);
+    return std::make_unique<convnet::ConvNet>(
+      loudness, channels, dilations, batchnorm, activation, params, expected_sample_rate);
   }
   else if (architecture == "LSTM")
   {
     const int num_layers = config["num_layers"];
     const int input_size = config["input_size"];
     const int hidden_size = config["hidden_size"];
-    auto json = nlohmann::json{};
-    return std::make_unique<lstm::LSTM>(loudness, num_layers, input_size, hidden_size, params, json);
+    auto empty_json = nlohmann::json{};
+    return std::make_unique<lstm::LSTM>(
+      loudness, num_layers, input_size, hidden_size, params, empty_json, expected_sample_rate);
   }
   else if (architecture == "CatLSTM")
   {
     const int num_layers = config["num_layers"];
     const int input_size = config["input_size"];
     const int hidden_size = config["hidden_size"];
-    return std::make_unique<lstm::LSTM>(loudness, num_layers, input_size, hidden_size, params, config["parametric"]);
+    return std::make_unique<lstm::LSTM>(
+      loudness, num_layers, input_size, hidden_size, params, config["parametric"], expected_sample_rate);
   }
   else if (architecture == "WaveNet" || architecture == "CatWaveNet")
   {
     std::vector<wavenet::LayerArrayParams> layer_array_params;
-    for (int i = 0; i < config["layers"].size(); i++)
+    for (size_t i = 0; i < config["layers"].size(); i++)
     {
       nlohmann::json layer_config = config["layers"][i];
       std::vector<int> dilations;
-      for (int j = 0; j < layer_config["dilations"].size(); j++)
+      for (size_t j = 0; j < layer_config["dilations"].size(); j++)
         dilations.push_back(layer_config["dilations"][j]);
       layer_array_params.push_back(
         wavenet::LayerArrayParams(layer_config["input_size"], layer_config["condition_size"], layer_config["head_size"],
@@ -191,7 +202,7 @@ std::unique_ptr<DSP> get_dsp(dspData& conf)
     // https://stackoverflow.com/a/73956681/3768284
     auto parametric_json = architecture == "CatWaveNet" ? config["parametric"] : nlohmann::json{};
     return std::make_unique<wavenet::WaveNet>(
-      loudness, layer_array_params, head_scale, with_head, parametric_json, params);
+      loudness, layer_array_params, head_scale, with_head, parametric_json, params, expected_sample_rate);
   }
   else
   {

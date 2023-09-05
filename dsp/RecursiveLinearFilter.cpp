@@ -22,7 +22,8 @@ mOutputStart(outputDegree)
   this->mOutputCoefficients.resize(outputDegree);
 }
 
-double** recursive_linear_filter::Base::Process(double** inputs, const size_t numChannels, const size_t numFrames)
+DSP_SAMPLE** recursive_linear_filter::Base::Process(DSP_SAMPLE** inputs, const size_t numChannels,
+                                                    const size_t numFrames)
 {
   this->_PrepareBuffers(numChannels, numFrames);
   long inputStart = 0;
@@ -40,7 +41,7 @@ double** recursive_linear_filter::Base::Process(double** inputs, const size_t nu
     outputStart = this->mOutputStart;
     for (auto s = 0; s < numFrames; s++)
     {
-      double out = 0.0;
+      DSP_SAMPLE out = 0.0;
       // Compute input terms
       inputStart -= 1;
       if (inputStart < 0)
@@ -56,7 +57,7 @@ double** recursive_linear_filter::Base::Process(double** inputs, const size_t nu
       for (auto i = 1; i < outputDegree; i++)
         out += this->mOutputCoefficients[i] * this->mOutputHistory[c][(outputStart + i) % outputDegree];
       // Prevent a NaN from jamming the filter!
-      if (isnan(out))
+      if (std::isnan(out))
         out = 0.0;
       // Store the output!
       if (outputDegree >= 1)
