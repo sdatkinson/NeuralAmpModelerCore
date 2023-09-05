@@ -5,6 +5,7 @@
 #include <Eigen/Dense>
 
 #include "wavenet.h"
+#include "util.h"
 
 wavenet::_DilatedConv::_DilatedConv(const int in_channels, const int out_channels, const int kernel_size,
                                     const int bias, const int dilation)
@@ -48,7 +49,11 @@ void wavenet::_Layer::process_(const Eigen::MatrixXf& input, const Eigen::Matrix
 
 void wavenet::_Layer::set_num_frames_(const long num_frames)
 {
+  if (this->_z.rows() == this->_conv.get_out_channels() && this->_z.cols() == num_frames)
+    return;  // Already has correct size
+
   this->_z.resize(this->_conv.get_out_channels(), num_frames);
+  this->_z.setZero();
 }
 
 // LayerArray =================================================================
@@ -211,7 +216,12 @@ void wavenet::_Head::process_(Eigen::MatrixXf& inputs, Eigen::MatrixXf& outputs)
 void wavenet::_Head::set_num_frames_(const long num_frames)
 {
   for (size_t i = 0; i < this->_buffers.size(); i++)
+  {
+    if (this->_buffers[i].rows() == this->_channels && this->_buffers[i].cols() == num_frames)
+      continue;  // Already has correct size
     this->_buffers[i].resize(this->_channels, num_frames);
+    this->_buffers[i].setZero();
+  }
 }
 
 void wavenet::_Head::_apply_activation_(Eigen::MatrixXf& x)
@@ -371,6 +381,7 @@ void wavenet::WaveNet::_set_num_frames_(const long num_frames)
   for (size_t i = 0; i < this->_layer_array_outputs.size(); i++)
     this->_layer_array_outputs[i].resize(this->_layer_array_outputs[i].rows(), num_frames);
   this->_head_output.resize(this->_head_output.rows(), num_frames);
+  this->_head_output.setZero();
 
   for (size_t i = 0; i < this->_layer_arrays.size(); i++)
     this->_layer_arrays[i].set_num_frames_(num_frames);
