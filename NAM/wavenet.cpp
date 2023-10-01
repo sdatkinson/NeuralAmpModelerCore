@@ -5,6 +5,7 @@
 #include <Eigen/Dense>
 
 #include "wavenet.h"
+#include "util.h"
 
 wavenet::_DilatedConv::_DilatedConv(const int in_channels, const int out_channels, const int kernel_size,
                                     const int bias, const int dilation)
@@ -48,7 +49,11 @@ void wavenet::_Layer::process_(const Eigen::MatrixXf& input, const Eigen::Matrix
 
 void wavenet::_Layer::set_num_frames_(const long num_frames)
 {
+  if (this->_z.rows() == this->_conv.get_out_channels() && this->_z.cols() == num_frames)
+    return;  // Already has correct size
+
   this->_z.resize(this->_conv.get_out_channels(), num_frames);
+  this->_z.setZero();
 }
 
 // LayerArray =================================================================
@@ -211,7 +216,12 @@ void wavenet::_Head::process_(Eigen::MatrixXf& inputs, Eigen::MatrixXf& outputs)
 void wavenet::_Head::set_num_frames_(const long num_frames)
 {
   for (size_t i = 0; i < this->_buffers.size(); i++)
+  {
+    if (this->_buffers[i].rows() == this->_channels && this->_buffers[i].cols() == num_frames)
+      continue;  // Already has correct size
     this->_buffers[i].resize(this->_channels, num_frames);
+    this->_buffers[i].setZero();
+  }
 }
 
 void wavenet::_Head::_apply_activation_(Eigen::MatrixXf& x)
@@ -259,7 +269,23 @@ wavenet::WaveNet::WaveNet(const double loudness, const std::vector<wavenet::Laye
   }
   this->_head_output.resize(1, 0); // Mono output!
   this->set_params_(params);
-  this->_reset_anti_pop_();
+
+  long receptive_field = 1;
+  for (size_t i = 0; i < this->_layer_arrays.size(); i++)
+    receptive_field += this->_layer_arrays[i].get_receptive_field();
+
+  NAM_SAMPLE sample = 0;
+  NAM_SAMPLE* sample_ptr = &sample;
+
+  std::unordered_map<std::string, double> param_dict = {};
+
+  // pre-warm the model over the size of the receptive field
+  for (long i = 0; i < receptive_field; i++)
+  {
+    this->process(&sample_ptr, &sample_ptr, 1, 1, 1.0, 1.0, param_dict);
+    this->finalize_(1);
+    sample = 0;
+  }
 }
 
 void wavenet::WaveNet::finalize_(const int num_frames)
@@ -315,11 +341,6 @@ void wavenet::WaveNet::_process_core_()
   this->_set_num_frames_(num_frames);
   this->_prepare_for_frames_(num_frames);
 
-  // NOTE: During warm-up, weird things can happen that NaN out the layers.
-  // We could solve this by anti-popping the *input*. But, it's easier to check
-  // the outputs for NaNs and zero them out.
-  // They'll flush out eventually because the model doesn't use any feedback.
-
   // Fill into condition array:
   // Clumsy...
   for (int j = 0; j < num_frames; j++)
@@ -351,13 +372,8 @@ void wavenet::WaveNet::_process_core_()
   for (int s = 0; s < num_frames; s++)
   {
     float out = this->_head_scale * this->_head_arrays[final_head_array](0, s);
-    // This is the NaN check that we could fix with anti-popping the input
-    if (isnan(out))
-      out = 0.0;
     this->_core_dsp_output[s] = out;
   }
-  // Apply anti-pop
-  this->_anti_pop_();
 }
 
 void wavenet::WaveNet::_set_num_frames_(const long num_frames)
@@ -371,33 +387,10 @@ void wavenet::WaveNet::_set_num_frames_(const long num_frames)
   for (size_t i = 0; i < this->_layer_array_outputs.size(); i++)
     this->_layer_array_outputs[i].resize(this->_layer_array_outputs[i].rows(), num_frames);
   this->_head_output.resize(this->_head_output.rows(), num_frames);
+  this->_head_output.setZero();
 
   for (size_t i = 0; i < this->_layer_arrays.size(); i++)
     this->_layer_arrays[i].set_num_frames_(num_frames);
   // this->_head.set_num_frames_(num_frames);
   this->_num_frames = num_frames;
-}
-
-void wavenet::WaveNet::_anti_pop_()
-{
-  if (this->_anti_pop_countdown >= this->_anti_pop_ramp)
-    return;
-  const float slope = 1.0f / float(this->_anti_pop_ramp);
-  for (size_t i = 0; i < this->_core_dsp_output.size(); i++)
-  {
-    if (this->_anti_pop_countdown >= this->_anti_pop_ramp)
-      break;
-    const float gain = std::max(slope * float(this->_anti_pop_countdown), 0.0f);
-    this->_core_dsp_output[i] *= gain;
-    this->_anti_pop_countdown++;
-  }
-}
-
-void wavenet::WaveNet::_reset_anti_pop_()
-{
-  // You need the "real" receptive field, not the buffers.
-  long receptive_field = 1;
-  for (size_t i = 0; i < this->_layer_arrays.size(); i++)
-    receptive_field += this->_layer_arrays[i].get_receptive_field();
-  this->_anti_pop_countdown = -receptive_field;
 }
