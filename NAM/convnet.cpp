@@ -124,7 +124,7 @@ void convnet::ConvNet::_process_core_()
   this->_update_buffers_();
   // Main computation!
   const long i_start = this->_input_buffer_offset;
-  const long i_end = i_start + _num_frames;
+  const long i_end = i_start + _num_input_samples;
   // TODO one unnecessary copy :/ #speed
   for (auto i = i_start; i < i_end; i++)
     this->_block_vals[0](0, i) = this->_input_buffer[i];
@@ -133,7 +133,7 @@ void convnet::ConvNet::_process_core_()
   // TODO clean up this allocation
   this->_head.process_(this->_block_vals[this->_blocks.size()], this->_head_output, i_start, i_end);
   // Copy to required output array (TODO tighten this up)
-  for (int s = 0; s < _num_frames; s++)
+  for (int s = 0; s < _num_input_samples; s++)
     this->_core_dsp_output[s] = this->_head_output(s);
   // Apply anti-pop
   this->_anti_pop_();

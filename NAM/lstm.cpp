@@ -111,7 +111,7 @@ void lstm::LSTM::_process_core_()
     this->_stale_params = false;
   }
   // Process samples, placing results in the required output location
-  for (size_t i = 0; i < _num_frames; i++)
+  for (size_t i = 0; i < _num_input_samples; i++)
     this->_core_dsp_output[i] = this->_process_sample(_input_samples[i]);
 }
 

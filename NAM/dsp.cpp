@@ -35,12 +35,12 @@ DSP::DSP(const double loudness, const double expected_sample_rate)
 void DSP::process(NAM_SAMPLE* input, NAM_SAMPLE* output, const int num_frames, const std::unordered_map<std::string, double>& params)
 {
   this->_input_samples = input;
-  this->_num_frames = num_frames;
+  this->_num_input_samples = num_frames;
 
   this->_get_params_(params);
   this->_ensure_core_dsp_output_ready_();
   this->_process_core_();
-  this->_apply_output_level_(output, _num_frames);
+  this->_apply_output_level_(output, _num_input_samples);
 }
 
 void DSP::finalize_(const int num_frames) {}
@@ -62,14 +62,14 @@ void DSP::_get_params_(const std::unordered_map<std::string, double>& input_para
 
 void DSP::_ensure_core_dsp_output_ready_()
 {
-  if (this->_core_dsp_output.size() < _num_frames)
-    this->_core_dsp_output.resize(_num_frames);
+  if (this->_core_dsp_output.size() < _num_input_samples)
+    this->_core_dsp_output.resize(_num_input_samples);
 }
 
 void DSP::_process_core_()
 {
   // Default implementation is the null operation
-  for (size_t i = 0; i < _num_frames; i++)
+  for (size_t i = 0; i < _num_input_samples; i++)
     this->_core_dsp_output[i] = _input_samples[i];
 }
 
@@ -112,7 +112,8 @@ void Buffer::_update_buffers_()
   // Make sure that the buffer is big enough for the receptive field and the
   // frames needed!
   {
-    const long minimum_input_buffer_size = (long)this->_receptive_field + _INPUT_BUFFER_SAFETY_FACTOR * _num_frames;
+    const long minimum_input_buffer_size =
+      (long)this->_receptive_field + _INPUT_BUFFER_SAFETY_FACTOR * _num_input_samples;
     if ((long)this->_input_buffer.size() < minimum_input_buffer_size)
     {
       long new_buffer_size = 2;
@@ -125,13 +126,13 @@ void Buffer::_update_buffers_()
 
   // If we'd run off the end of the input buffer, then we need to move the data
   // back to the start of the buffer and start again.
-  if (this->_input_buffer_offset + _num_frames > (long)this->_input_buffer.size())
+  if (this->_input_buffer_offset + _num_input_samples > (long)this->_input_buffer.size())
     this->_rewind_buffers_();
   // Put the new samples into the input buffer
-  for (long i = this->_input_buffer_offset, j = 0; j < _num_frames; i++, j++)
+  for (long i = this->_input_buffer_offset, j = 0; j < _num_input_samples; i++, j++)
     this->_input_buffer[i] = _input_samples[j];
   // And resize the output buffer:
-  this->_output_buffer.resize(_num_frames);
+  this->_output_buffer.resize(_num_input_samples);
   std::fill (this->_output_buffer.begin(), this->_output_buffer.end(), 0.0f);
 }
 
@@ -189,7 +190,7 @@ void Linear::_process_core_()
   this->Buffer::_update_buffers_();
 
   // Main computation!
-  for (size_t i = 0; i < _num_frames; i++)
+  for (size_t i = 0; i < _num_input_samples; i++)
   {
     const size_t offset = this->_input_buffer_offset - this->_weight.size() + i + 1;
     auto input = Eigen::Map<const Eigen::VectorXf>(&this->_input_buffer[offset], this->_receptive_field);

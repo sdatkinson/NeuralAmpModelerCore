@@ -337,12 +337,12 @@ void wavenet::WaveNet::_prepare_for_frames_(const long num_frames)
 
 void wavenet::WaveNet::_process_core_()
 {
-  this->_set_num_frames_(_num_frames);
-  this->_prepare_for_frames_(_num_frames);
+  this->_set_num_frames_(_num_input_samples);
+  this->_prepare_for_frames_(_num_input_samples);
 
   // Fill into condition array:
   // Clumsy...
-  for (int j = 0; j < _num_frames; j++)
+  for (int j = 0; j < _num_input_samples; j++)
   {
     this->_condition(0, j) = _input_samples[j];
     if (this->_stale_params) // Column-major assignment; good for Eigen. Let the
@@ -368,7 +368,7 @@ void wavenet::WaveNet::_process_core_()
 
   const long final_head_array = this->_head_arrays.size() - 1;
   assert(this->_head_arrays[final_head_array].rows() == 1);
-  for (int s = 0; s < _num_frames; s++)
+  for (int s = 0; s < _num_input_samples; s++)
   {
     float out = this->_head_scale * this->_head_arrays[final_head_array](0, s);
     this->_core_dsp_output[s] = out;
