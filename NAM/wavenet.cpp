@@ -369,7 +369,7 @@ void wavenet::WaveNet::_process_core_()
   for (int s = 0; s < _num_input_samples; s++)
   {
     float out = this->_head_scale * this->_head_arrays[final_head_array](0, s);
-    this->_core_dsp_output[s] = out;
+    this->_output_samples[s] = out;
   }
 }
 

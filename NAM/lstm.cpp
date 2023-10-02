@@ -112,7 +112,7 @@ void lstm::LSTM::_process_core_()
   }
   // Process samples, placing results in the required output location
   for (size_t i = 0; i < _num_input_samples; i++)
-    this->_core_dsp_output[i] = this->_process_sample(_input_samples[i]);
+    this->_output_samples[i] = this->_process_sample(_input_samples[i]);
 }
 
 float lstm::LSTM::_process_sample(const float x)

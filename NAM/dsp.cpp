@@ -35,6 +35,7 @@ DSP::DSP(const double loudness, const double expected_sample_rate)
 void DSP::process(NAM_SAMPLE* input, NAM_SAMPLE* output, const int num_frames)
 {
   this->_input_samples = input;
+  this->_output_samples = output;
   this->_num_input_samples = num_frames;
 
   this->_ensure_core_dsp_output_ready_();
@@ -61,15 +62,13 @@ void DSP::_get_params_(const std::unordered_map<std::string, double>& input_para
 
 void DSP::_ensure_core_dsp_output_ready_()
 {
-  if (this->_core_dsp_output.size() < _num_input_samples)
-    this->_core_dsp_output.resize(_num_input_samples);
 }
 
 void DSP::_process_core_()
 {
   // Default implementation is the null operation
   for (size_t i = 0; i < _num_input_samples; i++)
-    this->_core_dsp_output[i] = _input_samples[i];
+    this->_output_samples[i] = _input_samples[i];
 }
 
 void DSP::_apply_output_level_(NAM_SAMPLE* output, const int num_frames)
@@ -77,7 +76,7 @@ void DSP::_apply_output_level_(NAM_SAMPLE* output, const int num_frames)
   const double loudnessGain = pow(10.0, -(this->mLoudness - TARGET_DSP_LOUDNESS) / 20.0);
   const double finalGain = this->mNormalizeOutputLoudness ? loudnessGain : 1.0;
   for (int s = 0; s < num_frames; s++)
-    output[s] = (NAM_SAMPLE)(finalGain * this->_core_dsp_output[s]);
+    output[s] = (NAM_SAMPLE)(finalGain * _output_samples[s]);
 }
 
 // Buffer =====================================================================
@@ -193,7 +192,7 @@ void Linear::_process_core_()
   {
     const size_t offset = this->_input_buffer_offset - this->_weight.size() + i + 1;
     auto input = Eigen::Map<const Eigen::VectorXf>(&this->_input_buffer[offset], this->_receptive_field);
-    this->_core_dsp_output[i] = this->_bias + this->_weight.dot(input);
+    this->_output_samples[i] = this->_bias + this->_weight.dot(input);
   }
 }
 

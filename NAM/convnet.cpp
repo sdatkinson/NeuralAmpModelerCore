@@ -134,7 +134,7 @@ void convnet::ConvNet::_process_core_()
   this->_head.process_(this->_block_vals[this->_blocks.size()], this->_head_output, i_start, i_end);
   // Copy to required output array (TODO tighten this up)
   for (int s = 0; s < _num_input_samples; s++)
-    this->_core_dsp_output[s] = this->_head_output(s);
+    this->_output_samples[s] = this->_head_output(s);
   // Apply anti-pop
   this->_anti_pop_();
 }
@@ -190,12 +190,12 @@ void convnet::ConvNet::_anti_pop_()
   if (this->_anti_pop_countdown >= this->_anti_pop_ramp)
     return;
   const float slope = 1.0f / float(this->_anti_pop_ramp);
-  for (size_t i = 0; i < this->_core_dsp_output.size(); i++)
+  for (size_t i = 0; i < _num_input_samples; i++)
   {
     if (this->_anti_pop_countdown >= this->_anti_pop_ramp)
       break;
     const float gain = std::max(slope * float(this->_anti_pop_countdown), float(0.0));
-    this->_core_dsp_output[i] *= gain;
+    this->_output_samples[i] *= gain;
     this->_anti_pop_countdown++;
   }
 }

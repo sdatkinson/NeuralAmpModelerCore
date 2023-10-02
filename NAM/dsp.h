@@ -79,10 +79,10 @@ protected:
   bool _stale_params;
   // Input sample buffer
   float* _input_samples;
+  // Output sample buffer
+  float* _output_samples;
   // Number of samples in the input buffer
   int _num_input_samples;
-  // Location for the output of the core DSP algorithm.
-  std::vector<float> _core_dsp_output;
 
   // Methods
 
