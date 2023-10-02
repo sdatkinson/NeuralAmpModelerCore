@@ -12,14 +12,9 @@ using std::chrono::milliseconds;
 #define AUDIO_BUFFER_SIZE 64
 
 double buffer[AUDIO_BUFFER_SIZE];
-double* buffers[1];
 
 int main(int argc, char* argv[])
 {
-  std::unordered_map<std::string, double> mNAMParams = {};
-
-  buffers[0] = buffer;
-
   if (argc > 1)
   {
     const char* modelPath = argv[1];
@@ -50,7 +45,7 @@ int main(int argc, char* argv[])
 
     for (size_t i = 0; i < numBuffers; i++)
     {
-      model->process(buffers, buffers, 1, AUDIO_BUFFER_SIZE, 1.0, 1.0, mNAMParams);
+      model->process(buffer, buffer, AUDIO_BUFFER_SIZE);
       model->finalize_(AUDIO_BUFFER_SIZE);
     }
 

@@ -78,9 +78,9 @@ protected:
   // If the params have changed since the last buffer was processed:
   bool _stale_params;
   // Input sample buffer
-  float* _input_samples;
+  NAM_SAMPLE* _input_samples;
   // Output sample buffer
-  float* _output_samples;
+  NAM_SAMPLE* _output_samples;
   // Number of samples in the input buffer
   int _num_input_samples;
 
