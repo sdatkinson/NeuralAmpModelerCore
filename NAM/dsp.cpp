@@ -32,12 +32,11 @@ DSP::DSP(const double loudness, const double expected_sample_rate)
 {
 }
 
-void DSP::process(NAM_SAMPLE* input, NAM_SAMPLE* output, const int num_frames, const std::unordered_map<std::string, double>& params)
+void DSP::process(NAM_SAMPLE* input, NAM_SAMPLE* output, const int num_frames)
 {
   this->_input_samples = input;
   this->_num_input_samples = num_frames;
 
-  this->_get_params_(params);
   this->_ensure_core_dsp_output_ready_();
   this->_process_core_();
   this->_apply_output_level_(output, _num_input_samples);

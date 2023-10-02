@@ -51,13 +51,10 @@ public:
   // process() does all of the processing requried to take `input` array and
   // fill in the required values on `output`.
   // To do this:
-  // 1. The parameters from the plugin (I/O levels and any other parametric
-  //    inputs) are gotten.
-  // 2. The core DSP algorithm is run (This is what should probably be
+  // 1. The core DSP algorithm is run (This is what should probably be
   //    overridden in subclasses).
-  // 3. The output level is applied and the result stored to `output`.
-  virtual void process(NAM_SAMPLE* input, NAM_SAMPLE* output, const int num_frames,
-                       const std::unordered_map<std::string, double>& params);
+  // 2. The output level is applied and the result stored to `output`.
+  virtual void process(NAM_SAMPLE* input, NAM_SAMPLE* output, const int num_frames);
   // Anything to take care of before next buffer comes in.
   // For example:
   // * Move the buffer index forward

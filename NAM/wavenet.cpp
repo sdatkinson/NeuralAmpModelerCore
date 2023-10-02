@@ -277,12 +277,10 @@ wavenet::WaveNet::WaveNet(const double loudness, const std::vector<wavenet::Laye
   NAM_SAMPLE sample = 0;
   NAM_SAMPLE* sample_ptr = &sample;
 
-  std::unordered_map<std::string, double> param_dict = {};
-
   // pre-warm the model over the size of the receptive field
   for (long i = 0; i < receptive_field; i++)
   {
-    this->process(sample_ptr, sample_ptr, 1, param_dict);
+    this->process(sample_ptr, sample_ptr, 1);
     this->finalize_(1);
     sample = 0;
   }
