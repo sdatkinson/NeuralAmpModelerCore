@@ -282,7 +282,7 @@ wavenet::WaveNet::WaveNet(const double loudness, const std::vector<wavenet::Laye
   // pre-warm the model over the size of the receptive field
   for (long i = 0; i < receptive_field; i++)
   {
-    this->process(&sample_ptr, &sample_ptr, 1, 1, 1.0, 1.0, param_dict);
+    this->process(sample_ptr, sample_ptr, 1, param_dict);
     this->finalize_(1);
     sample = 0;
   }
@@ -337,15 +337,14 @@ void wavenet::WaveNet::_prepare_for_frames_(const long num_frames)
 
 void wavenet::WaveNet::_process_core_()
 {
-  const long num_frames = this->_input_post_gain.size();
-  this->_set_num_frames_(num_frames);
-  this->_prepare_for_frames_(num_frames);
+  this->_set_num_frames_(_num_frames);
+  this->_prepare_for_frames_(_num_frames);
 
   // Fill into condition array:
   // Clumsy...
-  for (int j = 0; j < num_frames; j++)
+  for (int j = 0; j < _num_frames; j++)
   {
-    this->_condition(0, j) = this->_input_post_gain[j];
+    this->_condition(0, j) = _input_samples[j];
     if (this->_stale_params) // Column-major assignment; good for Eigen. Let the
                              // compiler optimize this.
       for (size_t i = 0; i < this->_param_names.size(); i++)
@@ -369,7 +368,7 @@ void wavenet::WaveNet::_process_core_()
 
   const long final_head_array = this->_head_arrays.size() - 1;
   assert(this->_head_arrays[final_head_array].rows() == 1);
-  for (int s = 0; s < num_frames; s++)
+  for (int s = 0; s < _num_frames; s++)
   {
     float out = this->_head_scale * this->_head_arrays[final_head_array](0, s);
     this->_core_dsp_output[s] = out;
