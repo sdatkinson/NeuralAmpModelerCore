@@ -32,15 +32,15 @@ DSP::DSP(const double loudness, const double expected_sample_rate)
 {
 }
 
-void DSP::process(NAM_SAMPLE** inputs, NAM_SAMPLE** outputs, const int num_channels, const int num_frames,
-                  const double input_gain, const double output_gain,
-                  const std::unordered_map<std::string, double>& params)
+void DSP::process(NAM_SAMPLE* input, NAM_SAMPLE* output, const int num_frames)
 {
-  this->_get_params_(params);
-  this->_apply_input_level_(inputs, num_channels, num_frames, input_gain);
+  this->_input_samples = input;
+  this->_output_samples = output;
+  this->_num_input_samples = num_frames;
+
   this->_ensure_core_dsp_output_ready_();
   this->_process_core_();
-  this->_apply_output_level_(outputs, num_channels, num_frames, output_gain);
+  this->_apply_output_level_(output, _num_input_samples);
 }
 
 void DSP::finalize_(const int num_frames) {}
@@ -60,38 +60,23 @@ void DSP::_get_params_(const std::unordered_map<std::string, double>& input_para
   }
 }
 
-void DSP::_apply_input_level_(NAM_SAMPLE** inputs, const int num_channels, const int num_frames, const double gain)
-{
-  // Must match exactly; we're going to use the size of _input_post_gain later
-  // for num_frames.
-  if ((int)this->_input_post_gain.size() != num_frames)
-    this->_input_post_gain.resize(num_frames);
-  // MONO ONLY
-  const int channel = 0;
-  for (int i = 0; i < num_frames; i++)
-    this->_input_post_gain[i] = float(gain * inputs[channel][i]);
-}
-
 void DSP::_ensure_core_dsp_output_ready_()
 {
-  if (this->_core_dsp_output.size() < this->_input_post_gain.size())
-    this->_core_dsp_output.resize(this->_input_post_gain.size());
 }
 
 void DSP::_process_core_()
 {
   // Default implementation is the null operation
-  for (size_t i = 0; i < this->_input_post_gain.size(); i++)
-    this->_core_dsp_output[i] = this->_input_post_gain[i];
+  for (size_t i = 0; i < _num_input_samples; i++)
+    this->_output_samples[i] = _input_samples[i];
 }
 
-void DSP::_apply_output_level_(NAM_SAMPLE** outputs, const int num_channels, const int num_frames, const double gain)
+void DSP::_apply_output_level_(NAM_SAMPLE* output, const int num_frames)
 {
   const double loudnessGain = pow(10.0, -(this->mLoudness - TARGET_DSP_LOUDNESS) / 20.0);
-  const double finalGain = this->mNormalizeOutputLoudness ? gain * loudnessGain : gain;
-  for (int c = 0; c < num_channels; c++)
-    for (int s = 0; s < num_frames; s++)
-      outputs[c][s] = (NAM_SAMPLE)(finalGain * this->_core_dsp_output[s]);
+  const double finalGain = this->mNormalizeOutputLoudness ? loudnessGain : 1.0;
+  for (int s = 0; s < num_frames; s++)
+    output[s] = (NAM_SAMPLE)(finalGain * _output_samples[s]);
 }
 
 // Buffer =====================================================================
@@ -122,11 +107,11 @@ void Buffer::_set_receptive_field(const int new_receptive_field, const int input
 
 void Buffer::_update_buffers_()
 {
-  const long int num_frames = this->_input_post_gain.size();
   // Make sure that the buffer is big enough for the receptive field and the
   // frames needed!
   {
-    const long minimum_input_buffer_size = (long)this->_receptive_field + _INPUT_BUFFER_SAFETY_FACTOR * num_frames;
+    const long minimum_input_buffer_size =
+      (long)this->_receptive_field + _INPUT_BUFFER_SAFETY_FACTOR * _num_input_samples;
     if ((long)this->_input_buffer.size() < minimum_input_buffer_size)
     {
       long new_buffer_size = 2;
@@ -139,13 +124,13 @@ void Buffer::_update_buffers_()
 
   // If we'd run off the end of the input buffer, then we need to move the data
   // back to the start of the buffer and start again.
-  if (this->_input_buffer_offset + num_frames > (long)this->_input_buffer.size())
+  if (this->_input_buffer_offset + _num_input_samples > (long)this->_input_buffer.size())
     this->_rewind_buffers_();
   // Put the new samples into the input buffer
-  for (long i = this->_input_buffer_offset, j = 0; j < num_frames; i++, j++)
-    this->_input_buffer[i] = this->_input_post_gain[j];
+  for (long i = this->_input_buffer_offset, j = 0; j < _num_input_samples; i++, j++)
+    this->_input_buffer[i] = _input_samples[j];
   // And resize the output buffer:
-  this->_output_buffer.resize(num_frames);
+  this->_output_buffer.resize(_num_input_samples);
   std::fill (this->_output_buffer.begin(), this->_output_buffer.end(), 0.0f);
 }
 
@@ -203,11 +188,11 @@ void Linear::_process_core_()
   this->Buffer::_update_buffers_();
 
   // Main computation!
-  for (size_t i = 0; i < this->_input_post_gain.size(); i++)
+  for (size_t i = 0; i < _num_input_samples; i++)
   {
     const size_t offset = this->_input_buffer_offset - this->_weight.size() + i + 1;
     auto input = Eigen::Map<const Eigen::VectorXf>(&this->_input_buffer[offset], this->_receptive_field);
-    this->_core_dsp_output[i] = this->_bias + this->_weight.dot(input);
+    this->_output_samples[i] = this->_bias + this->_weight.dot(input);
   }
 }
 

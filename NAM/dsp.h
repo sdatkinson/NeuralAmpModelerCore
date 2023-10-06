@@ -48,18 +48,13 @@ public:
   DSP(const double expected_sample_rate = -1.0);
   DSP(const double loudness, const double expected_sample_rate = -1.0);
   virtual ~DSP() = default;
-  // process() does all of the processing requried to take `inputs` array and
-  // fill in the required values on `outputs`.
+  // process() does all of the processing requried to take `input` array and
+  // fill in the required values on `output`.
   // To do this:
-  // 1. The parameters from the plugin (I/O levels and any other parametric
-  //    inputs) are gotten.
-  // 2. The input level is applied
-  // 3. The core DSP algorithm is run (This is what should probably be
+  // 1. The core DSP algorithm is run (This is what should probably be
   //    overridden in subclasses).
-  // 4. The output level is applied and the result stored to `output`.
-  virtual void process(NAM_SAMPLE** inputs, NAM_SAMPLE** outputs, const int num_channels, const int num_frames,
-                       const double input_gain, const double output_gain,
-                       const std::unordered_map<std::string, double>& params);
+  // 2. The output level is applied and the result stored to `output`.
+  virtual void process(NAM_SAMPLE* input, NAM_SAMPLE* output, const int num_frames);
   // Anything to take care of before next buffer comes in.
   // For example:
   // * Move the buffer index forward
@@ -82,10 +77,12 @@ protected:
   std::unordered_map<std::string, double> _params;
   // If the params have changed since the last buffer was processed:
   bool _stale_params;
-  // Where to store the samples after applying input gain
-  std::vector<float> _input_post_gain;
-  // Location for the output of the core DSP algorithm.
-  std::vector<float> _core_dsp_output;
+  // Input sample buffer
+  NAM_SAMPLE* _input_samples;
+  // Output sample buffer
+  NAM_SAMPLE* _output_samples;
+  // Number of samples in the input buffer
+  int _num_input_samples;
 
   // Methods
 
@@ -93,10 +90,6 @@ protected:
   // If anything has changed, then set this->_stale_params to true.
   // (TODO use "listener" approach)
   void _get_params_(const std::unordered_map<std::string, double>& input_params);
-
-  // Apply the input gain
-  // Result populates this->_input_post_gain
-  void _apply_input_level_(NAM_SAMPLE** inputs, const int num_channels, const int num_frames, const double gain);
 
   // i.e. ensure the size is correct.
   void _ensure_core_dsp_output_ready_();
@@ -107,7 +100,7 @@ protected:
   virtual void _process_core_();
 
   // Copy this->_core_dsp_output to output and apply the output volume
-  void _apply_output_level_(NAM_SAMPLE** outputs, const int num_channels, const int num_frames, const double gain);
+  void _apply_output_level_(NAM_SAMPLE* output, const int num_frames);
 };
 
 // Class where an input buffer is kept so that long-time effects can be
