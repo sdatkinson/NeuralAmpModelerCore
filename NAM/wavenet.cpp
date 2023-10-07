@@ -333,16 +333,16 @@ void wavenet::WaveNet::_prepare_for_frames_(const long num_frames)
     this->_layer_arrays[i].prepare_for_frames_(num_frames);
 }
 
-void wavenet::WaveNet::_process_core_()
+void wavenet::WaveNet::process(NAM_SAMPLE* input, NAM_SAMPLE* output, const int num_frames)
 {
-  this->_set_num_frames_(_num_input_samples);
-  this->_prepare_for_frames_(_num_input_samples);
+  this->_set_num_frames_(num_frames);
+  this->_prepare_for_frames_(num_frames);
 
   // Fill into condition array:
   // Clumsy...
-  for (int j = 0; j < _num_input_samples; j++)
+  for (int j = 0; j < num_frames; j++)
   {
-    this->_condition(0, j) = _input_samples[j];
+    this->_condition(0, j) = input[j];
     if (this->_stale_params) // Column-major assignment; good for Eigen. Let the
                              // compiler optimize this.
       for (size_t i = 0; i < this->_param_names.size(); i++)
@@ -366,10 +366,10 @@ void wavenet::WaveNet::_process_core_()
 
   const long final_head_array = this->_head_arrays.size() - 1;
   assert(this->_head_arrays[final_head_array].rows() == 1);
-  for (int s = 0; s < _num_input_samples; s++)
+  for (int s = 0; s < num_frames; s++)
   {
     float out = this->_head_scale * this->_head_arrays[final_head_array](0, s);
-    this->_output_samples[s] = out;
+    output[s] = out;
   }
 }
 

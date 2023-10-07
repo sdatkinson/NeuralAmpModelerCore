@@ -203,7 +203,7 @@ private:
   void _init_parametric_(nlohmann::json& parametric);
   void _prepare_for_frames_(const long num_frames);
   // Reminder: From ._input_post_gain to ._core_dsp_output
-  void _process_core_() override;
+  void process(NAM_SAMPLE* input, NAM_SAMPLE* output, const int num_frames) override;
 
   // Ensure that all buffer arrays are the right size for this num_frames
   void _set_num_frames_(const long num_frames);

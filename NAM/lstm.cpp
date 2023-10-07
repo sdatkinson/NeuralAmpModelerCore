@@ -101,7 +101,7 @@ void lstm::LSTM::_init_parametric(nlohmann::json& parametric)
   this->_input_and_params.resize(1 + parametric.size()); // TODO amp parameters
 }
 
-void lstm::LSTM::_process_core_()
+void lstm::LSTM::process(NAM_SAMPLE* input, NAM_SAMPLE* output, const int num_frames)
 {
   // Get params into the input vector before starting
   if (this->_stale_params)
@@ -111,8 +111,8 @@ void lstm::LSTM::_process_core_()
     this->_stale_params = false;
   }
   // Process samples, placing results in the required output location
-  for (size_t i = 0; i < _num_input_samples; i++)
-    this->_output_samples[i] = this->_process_sample(_input_samples[i]);
+  for (size_t i = 0; i < num_frames; i++)
+    input[i] = this->_process_sample(output[i]);
 }
 
 float lstm::LSTM::_process_sample(const float x)

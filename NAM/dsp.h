@@ -63,26 +63,19 @@ public:
   //   DSP subclass implementation.
   virtual void finalize_(const int num_frames);
   double GetExpectedSampleRate() const { return mExpectedSampleRate; };
-  bool HasLoudness() { return mLoudness != TARGET_DSP_LOUDNESS; };
-  void SetNormalize(const bool normalize) { this->mNormalizeOutputLoudness = normalize; };
+  bool HasNormalization() { return mLoudness != TARGET_DSP_LOUDNESS; };
+  double GetNormalizationFactordB() { return -(this->mLoudness - TARGET_DSP_LOUDNESS); };
+  double GetNormalizationFactorLinear() { return pow(10.0, -(this->mLoudness - TARGET_DSP_LOUDNESS) / 20.0); };
 
 protected:
   // How loud is the model?
   double mLoudness;
   // What sample rate does the model expect?
   double mExpectedSampleRate;
-  // Should we normalize according to this loudness?
-  bool mNormalizeOutputLoudness;
   // Parameters (aka "knobs")
   std::unordered_map<std::string, double> _params;
   // If the params have changed since the last buffer was processed:
   bool _stale_params;
-  // Input sample buffer
-  NAM_SAMPLE* _input_samples;
-  // Output sample buffer
-  NAM_SAMPLE* _output_samples;
-  // Number of samples in the input buffer
-  int _num_input_samples;
 
   // Methods
 
@@ -90,17 +83,6 @@ protected:
   // If anything has changed, then set this->_stale_params to true.
   // (TODO use "listener" approach)
   void _get_params_(const std::unordered_map<std::string, double>& input_params);
-
-  // i.e. ensure the size is correct.
-  void _ensure_core_dsp_output_ready_();
-
-  // The core of your DSP algorithm.
-  // Access the inputs in this->_input_post_gain
-  // Place the outputs in this->_core_dsp_output
-  virtual void _process_core_();
-
-  // Copy this->_core_dsp_output to output and apply the output volume
-  void _apply_output_level_(NAM_SAMPLE* output, const int num_frames);
 };
 
 // Class where an input buffer is kept so that long-time effects can be
@@ -126,7 +108,7 @@ protected:
   void _set_receptive_field(const int new_receptive_field);
   void _reset_input_buffer();
   // Use this->_input_post_gain
-  virtual void _update_buffers_();
+  virtual void _update_buffers_(NAM_SAMPLE* input, int num_frames);
   virtual void _rewind_buffers_();
 };
 
@@ -138,7 +120,7 @@ public:
          const double expected_sample_rate = -1.0);
   Linear(const double loudness, const int receptive_field, const bool _bias, const std::vector<float>& params,
          const double expected_sample_rate = -1.0);
-  void _process_core_() override;
+  void process(NAM_SAMPLE* input, NAM_SAMPLE* output, const int num_frames) override;
 
 protected:
   Eigen::VectorXf _weight;
