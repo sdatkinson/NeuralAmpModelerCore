@@ -279,14 +279,6 @@ wavenet::WaveNet::WaveNet(const std::vector<wavenet::LayerArrayParams>& layer_ar
   }
 }
 
-wavenet::WaveNet::WaveNet(const double loudness, const std::vector<wavenet::LayerArrayParams>& layer_array_params,
-                          const float head_scale, const bool with_head, nlohmann::json parametric,
-                          std::vector<float> params, const double expected_sample_rate)
-: WaveNet(layer_array_params, head_scale, with_head, parametric, params, expected_sample_rate)
-{
-  SetLoudness(loudness);
-}
-
 void wavenet::WaveNet::finalize_(const int num_frames)
 {
   this->DSP::finalize_(num_frames);
