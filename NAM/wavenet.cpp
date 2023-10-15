@@ -50,7 +50,7 @@ void wavenet::_Layer::process_(const Eigen::MatrixXf& input, const Eigen::Matrix
 void wavenet::_Layer::set_num_frames_(const long num_frames)
 {
   if (this->_z.rows() == this->_conv.get_out_channels() && this->_z.cols() == num_frames)
-    return;  // Already has correct size
+    return; // Already has correct size
 
   this->_z.resize(this->_conv.get_out_channels(), num_frames);
   this->_z.setZero();
@@ -218,7 +218,7 @@ void wavenet::_Head::set_num_frames_(const long num_frames)
   for (size_t i = 0; i < this->_buffers.size(); i++)
   {
     if (this->_buffers[i].rows() == this->_channels && this->_buffers[i].cols() == num_frames)
-      continue;  // Already has correct size
+      continue; // Already has correct size
     this->_buffers[i].resize(this->_channels, num_frames);
     this->_buffers[i].setZero();
   }
@@ -234,14 +234,7 @@ void wavenet::_Head::_apply_activation_(Eigen::MatrixXf& x)
 wavenet::WaveNet::WaveNet(const std::vector<wavenet::LayerArrayParams>& layer_array_params, const float head_scale,
                           const bool with_head, nlohmann::json parametric, std::vector<float> params,
                           const double expected_sample_rate)
-: WaveNet(TARGET_DSP_LOUDNESS, layer_array_params, head_scale, with_head, parametric, params, expected_sample_rate)
-{
-}
-
-wavenet::WaveNet::WaveNet(const double loudness, const std::vector<wavenet::LayerArrayParams>& layer_array_params,
-                          const float head_scale, const bool with_head, nlohmann::json parametric,
-                          std::vector<float> params, const double expected_sample_rate)
-: DSP(loudness, expected_sample_rate)
+: DSP(expected_sample_rate)
 , _num_frames(0)
 , _head_scale(head_scale)
 {
@@ -284,6 +277,14 @@ wavenet::WaveNet::WaveNet(const double loudness, const std::vector<wavenet::Laye
     this->finalize_(1);
     sample = 0;
   }
+}
+
+wavenet::WaveNet::WaveNet(const double loudness, const std::vector<wavenet::LayerArrayParams>& layer_array_params,
+                          const float head_scale, const bool with_head, nlohmann::json parametric,
+                          std::vector<float> params, const double expected_sample_rate)
+: WaveNet(layer_array_params, head_scale, with_head, parametric, params, expected_sample_rate)
+{
+  SetLoudness(loudness);
 }
 
 void wavenet::WaveNet::finalize_(const int num_frames)

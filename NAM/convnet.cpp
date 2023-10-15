@@ -95,14 +95,7 @@ void convnet::_Head::process_(const Eigen::MatrixXf& input, Eigen::VectorXf& out
 
 convnet::ConvNet::ConvNet(const int channels, const std::vector<int>& dilations, const bool batchnorm,
                           const std::string activation, std::vector<float>& params, const double expected_sample_rate)
-: ConvNet(TARGET_DSP_LOUDNESS, channels, dilations, batchnorm, activation, params, expected_sample_rate)
-{
-}
-
-convnet::ConvNet::ConvNet(const double loudness, const int channels, const std::vector<int>& dilations,
-                          const bool batchnorm, const std::string activation, std::vector<float>& params,
-                          const double expected_sample_rate)
-: Buffer(loudness, *std::max_element(dilations.begin(), dilations.end()), expected_sample_rate)
+: Buffer(*std::max_element(dilations.begin(), dilations.end()), expected_sample_rate)
 {
   this->_verify_params(channels, dilations, batchnorm, params.size());
   this->_blocks.resize(dilations.size());
@@ -115,7 +108,16 @@ convnet::ConvNet::ConvNet(const double loudness, const int channels, const std::
   std::fill(this->_input_buffer.begin(), this->_input_buffer.end(), 0.0f);
   this->_head = _Head(channels, it);
   if (it != params.end())
-    throw std::runtime_error("Didn't touch all the params when initializing wavenet");
+    throw std::runtime_error("Didn't touch all the params when initializing ConvNet");
+}
+
+convnet::ConvNet::ConvNet(const double loudness, const int channels, const std::vector<int>& dilations,
+                          const bool batchnorm, const std::string activation, std::vector<float>& params,
+                          const double expected_sample_rate)
+: ConvNet(channels, dilations, batchnorm, activation, params, expected_sample_rate)
+
+{
+  SetLoudness(loudness);
 }
 
 void convnet::ConvNet::process(NAM_SAMPLE* input, NAM_SAMPLE* output, const int num_frames)
@@ -157,8 +159,9 @@ void convnet::ConvNet::_update_buffers_(NAM_SAMPLE* input, const int num_frames)
 
   for (size_t i = 1; i < this->_block_vals.size(); i++)
   {
-    if (this->_block_vals[i].rows() == this->_blocks[i - 1].get_out_channels() && this->_block_vals[i].cols() == buffer_size)
-      continue;  // Already has correct size
+    if (this->_block_vals[i].rows() == this->_blocks[i - 1].get_out_channels()
+        && this->_block_vals[i].cols() == buffer_size)
+      continue; // Already has correct size
     this->_block_vals[i].resize(this->_blocks[i - 1].get_out_channels(), buffer_size);
     this->_block_vals[i].setZero();
   }

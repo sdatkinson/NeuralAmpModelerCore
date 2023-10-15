@@ -3,7 +3,7 @@
 // Utilities
 
 #include <string>
-#include <Eigen/Dense>  // Eigen::MatrixXf
+#include <Eigen/Dense> // Eigen::MatrixXf
 
 namespace util
 {

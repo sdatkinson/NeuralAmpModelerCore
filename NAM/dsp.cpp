@@ -17,9 +17,7 @@
 constexpr const long _INPUT_BUFFER_SAFETY_FACTOR = 32;
 
 DSP::DSP(const double expected_sample_rate)
-: mLoudness(TARGET_DSP_LOUDNESS)
-, mExpectedSampleRate(expected_sample_rate)
-, _stale_params(true)
+: mExpectedSampleRate(expected_sample_rate)
 {
 }
 
@@ -35,6 +33,21 @@ void DSP::process(NAM_SAMPLE* input, NAM_SAMPLE* output, const int num_frames)
   // Default implementation is the null operation
   for (size_t i = 0; i < num_frames; i++)
     output[i] = input[i];
+}
+
+double DSP::GetLoudness() const
+{
+  if (!HasLoudness())
+  {
+    throw std::runtime_error("Asked for loudness of a model that doesn't know how loud it is!");
+  }
+  return mLoudness;
+}
+
+void DSP::SetLoudness(const double loudness)
+{
+  mLoudness = loudness;
+  mHasLoudness = true;
 }
 
 void DSP::finalize_(const int num_frames) {}
@@ -57,14 +70,15 @@ void DSP::_get_params_(const std::unordered_map<std::string, double>& input_para
 // Buffer =====================================================================
 
 Buffer::Buffer(const int receptive_field, const double expected_sample_rate)
-: Buffer(TARGET_DSP_LOUDNESS, receptive_field, expected_sample_rate)
+: DSP(expected_sample_rate)
 {
+  this->_set_receptive_field(receptive_field);
 }
 
 Buffer::Buffer(const double loudness, const int receptive_field, const double expected_sample_rate)
-: DSP(loudness, expected_sample_rate)
+: Buffer(receptive_field, expected_sample_rate)
 {
-  this->_set_receptive_field(receptive_field);
+  SetLoudness(loudness);
 }
 
 void Buffer::_set_receptive_field(const int new_receptive_field)
@@ -76,7 +90,7 @@ void Buffer::_set_receptive_field(const int new_receptive_field, const int input
 {
   this->_receptive_field = new_receptive_field;
   this->_input_buffer.resize(input_buffer_size);
-  std::fill (this->_input_buffer.begin(), this->_input_buffer.end(), 0.0f);
+  std::fill(this->_input_buffer.begin(), this->_input_buffer.end(), 0.0f);
   this->_reset_input_buffer();
 }
 
@@ -85,15 +99,14 @@ void Buffer::_update_buffers_(NAM_SAMPLE* input, const int num_frames)
   // Make sure that the buffer is big enough for the receptive field and the
   // frames needed!
   {
-    const long minimum_input_buffer_size =
-      (long)this->_receptive_field + _INPUT_BUFFER_SAFETY_FACTOR * num_frames;
+    const long minimum_input_buffer_size = (long)this->_receptive_field + _INPUT_BUFFER_SAFETY_FACTOR * num_frames;
     if ((long)this->_input_buffer.size() < minimum_input_buffer_size)
     {
       long new_buffer_size = 2;
       while (new_buffer_size < minimum_input_buffer_size)
         new_buffer_size *= 2;
       this->_input_buffer.resize(new_buffer_size);
-      std::fill (this->_input_buffer.begin(), this->_input_buffer.end(), 0.0f);
+      std::fill(this->_input_buffer.begin(), this->_input_buffer.end(), 0.0f);
     }
   }
 
@@ -106,7 +119,7 @@ void Buffer::_update_buffers_(NAM_SAMPLE* input, const int num_frames)
     this->_input_buffer[i] = input[j];
   // And resize the output buffer:
   this->_output_buffer.resize(num_frames);
-  std::fill (this->_output_buffer.begin(), this->_output_buffer.end(), 0.0f);
+  std::fill(this->_output_buffer.begin(), this->_output_buffer.end(), 0.0f);
 }
 
 void Buffer::_rewind_buffers_()
@@ -138,13 +151,7 @@ void Buffer::finalize_(const int num_frames)
 
 Linear::Linear(const int receptive_field, const bool _bias, const std::vector<float>& params,
                const double expected_sample_rate)
-: Linear(TARGET_DSP_LOUDNESS, receptive_field, _bias, params, expected_sample_rate)
-{
-}
-
-Linear::Linear(const double loudness, const int receptive_field, const bool _bias, const std::vector<float>& params,
-               const double expected_sample_rate)
-: Buffer(loudness, receptive_field, expected_sample_rate)
+: Buffer(receptive_field, expected_sample_rate)
 {
   if ((int)params.size() != (receptive_field + (_bias ? 1 : 0)))
     throw std::runtime_error(
@@ -156,6 +163,13 @@ Linear::Linear(const double loudness, const int receptive_field, const bool _bia
   for (int i = 0; i < this->_receptive_field; i++)
     this->_weight(i) = params[receptive_field - 1 - i];
   this->_bias = _bias ? params[receptive_field] : (float)0.0;
+}
+
+Linear::Linear(const double loudness, const int receptive_field, const bool _bias, const std::vector<float>& params,
+               const double expected_sample_rate)
+: Linear(receptive_field, _bias, params, expected_sample_rate)
+{
+  SetLoudness(loudness);
 }
 
 void Linear::process(NAM_SAMPLE* input, NAM_SAMPLE* output, const int num_frames)
