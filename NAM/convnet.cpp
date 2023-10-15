@@ -115,7 +115,7 @@ convnet::ConvNet::ConvNet(const double loudness, const int channels, const std::
                           const bool batchnorm, const std::string activation, std::vector<float>& params,
                           const double expected_sample_rate)
 : ConvNet(channels, dilations, batchnorm, activation, params, expected_sample_rate)
-  
+
 {
   SetLoudness(loudness);
 }
@@ -159,8 +159,9 @@ void convnet::ConvNet::_update_buffers_(NAM_SAMPLE* input, const int num_frames)
 
   for (size_t i = 1; i < this->_block_vals.size(); i++)
   {
-    if (this->_block_vals[i].rows() == this->_blocks[i - 1].get_out_channels() && this->_block_vals[i].cols() == buffer_size)
-      continue;  // Already has correct size
+    if (this->_block_vals[i].rows() == this->_blocks[i - 1].get_out_channels()
+        && this->_block_vals[i].cols() == buffer_size)
+      continue; // Already has correct size
     this->_block_vals[i].resize(this->_blocks[i - 1].get_out_channels(), buffer_size);
     this->_block_vals[i].setZero();
   }

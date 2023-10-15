@@ -185,8 +185,8 @@ std::unique_ptr<DSP> get_dsp(dspData& conf)
     const int hidden_size = config["hidden_size"];
     return haveLoudness ? std::make_unique<lstm::LSTM>(
              loudness, num_layers, input_size, hidden_size, params, config["parametric"], expected_sample_rate)
-                        : std::make_unique<lstm::LSTM>(num_layers, input_size, hidden_size, params,
-                                                       config["parametric"], expected_sample_rate);
+                        : std::make_unique<lstm::LSTM>(
+                          num_layers, input_size, hidden_size, params, config["parametric"], expected_sample_rate);
   }
   else if (architecture == "WaveNet" || architecture == "CatWaveNet")
   {
@@ -210,8 +210,8 @@ std::unique_ptr<DSP> get_dsp(dspData& conf)
     auto parametric_json = architecture == "CatWaveNet" ? config["parametric"] : nlohmann::json{};
     return haveLoudness ? std::make_unique<wavenet::WaveNet>(
              loudness, layer_array_params, head_scale, with_head, parametric_json, params, expected_sample_rate)
-                        : std::make_unique<wavenet::WaveNet>(layer_array_params, head_scale, with_head,
-                                                             parametric_json, params, expected_sample_rate);
+                        : std::make_unique<wavenet::WaveNet>(
+                          layer_array_params, head_scale, with_head, parametric_json, params, expected_sample_rate);
   }
   else
   {

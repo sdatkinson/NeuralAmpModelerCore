@@ -50,7 +50,7 @@ void wavenet::_Layer::process_(const Eigen::MatrixXf& input, const Eigen::Matrix
 void wavenet::_Layer::set_num_frames_(const long num_frames)
 {
   if (this->_z.rows() == this->_conv.get_out_channels() && this->_z.cols() == num_frames)
-    return;  // Already has correct size
+    return; // Already has correct size
 
   this->_z.resize(this->_conv.get_out_channels(), num_frames);
   this->_z.setZero();
@@ -218,7 +218,7 @@ void wavenet::_Head::set_num_frames_(const long num_frames)
   for (size_t i = 0; i < this->_buffers.size(); i++)
   {
     if (this->_buffers[i].rows() == this->_channels && this->_buffers[i].cols() == num_frames)
-      continue;  // Already has correct size
+      continue; // Already has correct size
     this->_buffers[i].resize(this->_channels, num_frames);
     this->_buffers[i].setZero();
   }

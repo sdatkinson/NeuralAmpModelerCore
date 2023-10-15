@@ -79,6 +79,7 @@ public:
   // This is included in the API so that downstream solutions can patch in the loudness of models that don't know how
   // loud they are, but so one can also choose not to do so (e.g. if computational costs dictate).
   void SetLoudness(const double loudness);
+
 protected:
   bool mHasLoudness = false;
   // How loud is the model? In dB

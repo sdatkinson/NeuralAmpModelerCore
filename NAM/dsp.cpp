@@ -37,14 +37,15 @@ void DSP::process(NAM_SAMPLE* input, NAM_SAMPLE* output, const int num_frames)
 
 double DSP::GetLoudness() const
 {
-    if (!HasLoudness()) {
+  if (!HasLoudness())
+  {
     throw std::runtime_error("Asked for loudness of a model that doesn't know how loud it is!");
   }
-    return mLoudness;
+  return mLoudness;
 }
 
 void DSP::SetLoudness(const double loudness)
-  {
+{
   mLoudness = loudness;
   mHasLoudness = true;
 }
@@ -89,7 +90,7 @@ void Buffer::_set_receptive_field(const int new_receptive_field, const int input
 {
   this->_receptive_field = new_receptive_field;
   this->_input_buffer.resize(input_buffer_size);
-  std::fill (this->_input_buffer.begin(), this->_input_buffer.end(), 0.0f);
+  std::fill(this->_input_buffer.begin(), this->_input_buffer.end(), 0.0f);
   this->_reset_input_buffer();
 }
 
@@ -98,15 +99,14 @@ void Buffer::_update_buffers_(NAM_SAMPLE* input, const int num_frames)
   // Make sure that the buffer is big enough for the receptive field and the
   // frames needed!
   {
-    const long minimum_input_buffer_size =
-      (long)this->_receptive_field + _INPUT_BUFFER_SAFETY_FACTOR * num_frames;
+    const long minimum_input_buffer_size = (long)this->_receptive_field + _INPUT_BUFFER_SAFETY_FACTOR * num_frames;
     if ((long)this->_input_buffer.size() < minimum_input_buffer_size)
     {
       long new_buffer_size = 2;
       while (new_buffer_size < minimum_input_buffer_size)
         new_buffer_size *= 2;
       this->_input_buffer.resize(new_buffer_size);
-      std::fill (this->_input_buffer.begin(), this->_input_buffer.end(), 0.0f);
+      std::fill(this->_input_buffer.begin(), this->_input_buffer.end(), 0.0f);
     }
   }
 
@@ -119,7 +119,7 @@ void Buffer::_update_buffers_(NAM_SAMPLE* input, const int num_frames)
     this->_input_buffer[i] = input[j];
   // And resize the output buffer:
   this->_output_buffer.resize(num_frames);
-  std::fill (this->_output_buffer.begin(), this->_output_buffer.end(), 0.0f);
+  std::fill(this->_output_buffer.begin(), this->_output_buffer.end(), 0.0f);
 }
 
 void Buffer::_rewind_buffers_()
