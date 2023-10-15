@@ -17,6 +17,9 @@
 #else
   #define NAM_SAMPLE double
 #endif
+// Use a sample rate of -1 if we don't know what the model expects to be run at.
+// TODO clean this up and track a bool for whether it knows.
+#define NAM_UNKNOWN_EXPECTED_SAMPLE_RATE -1.0
 
 enum EArchitectures
 {
@@ -39,14 +42,16 @@ public:
 };
 // And the params shall be provided as a std::vector<DSPParam>.
 
-// How loud do we want the models to be? in dB
-#define TARGET_DSP_LOUDNESS -18.0
-
 class DSP
 {
 public:
-  DSP(const double expected_sample_rate = -1.0);
-  DSP(const double loudness, const double expected_sample_rate = -1.0);
+  // Two constructors are provided: one where we know how loud the model is, and one where we don't.
+  // Older models won't know, but newer ones will come with a loudness from the training based on their response to a
+  // standardized input.
+  // We may choose to have the models figure out for themselves how loud they are in here in the future.
+  DSP(const double expected_sample_rate);
+  // Initialization where we know how loud the model is.
+  DSP(const double loudness, const double expected_sample_rate);
   virtual ~DSP() = default;
   // process() does all of the processing requried to take `input` array and
   // fill in the required values on `output`.
@@ -62,20 +67,28 @@ public:
   //   that actually uses them, which varies depends on the particulars of the
   //   DSP subclass implementation.
   virtual void finalize_(const int num_frames);
+  // Expected sample rate, in Hz.
+  // TODO throw if it doesn't know.
   double GetExpectedSampleRate() const { return mExpectedSampleRate; };
-  bool HasNormalization() { return mLoudness != TARGET_DSP_LOUDNESS; };
-  double GetNormalizationFactordB() { return -(this->mLoudness - TARGET_DSP_LOUDNESS); };
-  double GetNormalizationFactorLinear() { return pow(10.0, -(this->mLoudness - TARGET_DSP_LOUDNESS) / 20.0); };
-
+  // Get how loud this model is, in dB.
+  // Throws a std::runtime_error if the model doesn't know how loud it is.
+  double GetLoudness() const;
+  // Get whether the model knows how loud it is.
+  bool HasLoudness() const { return mHasLoudness; };
+  // Option to set the loudness.
+  // This is included in the API so that downstream solutions can patch in the loudness of models that don't know how
+  // loud they are, but so one can also choose not to do so (e.g. if computational costs dictate).
+  void SetLoudness(const double loudness);
 protected:
-  // How loud is the model?
-  double mLoudness;
+  bool mHasLoudness = false;
+  // How loud is the model? In dB
+  double mLoudness = 0.0;
   // What sample rate does the model expect?
   double mExpectedSampleRate;
   // Parameters (aka "knobs")
   std::unordered_map<std::string, double> _params;
   // If the params have changed since the last buffer was processed:
-  bool _stale_params;
+  bool _stale_params = true;
 
   // Methods
 
