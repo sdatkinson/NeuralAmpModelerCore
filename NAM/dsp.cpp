@@ -19,7 +19,6 @@ constexpr const long _INPUT_BUFFER_SAFETY_FACTOR = 32;
 DSP::DSP(const double expected_sample_rate)
 : mLoudness(TARGET_DSP_LOUDNESS)
 , mExpectedSampleRate(expected_sample_rate)
-, mNormalizeOutputLoudness(false)
 , _stale_params(true)
 {
 }
@@ -27,20 +26,15 @@ DSP::DSP(const double expected_sample_rate)
 DSP::DSP(const double loudness, const double expected_sample_rate)
 : mLoudness(loudness)
 , mExpectedSampleRate(expected_sample_rate)
-, mNormalizeOutputLoudness(false)
 , _stale_params(true)
 {
 }
 
 void DSP::process(NAM_SAMPLE* input, NAM_SAMPLE* output, const int num_frames)
 {
-  this->_input_samples = input;
-  this->_output_samples = output;
-  this->_num_input_samples = num_frames;
-
-  this->_ensure_core_dsp_output_ready_();
-  this->_process_core_();
-  this->_apply_output_level_(output, _num_input_samples);
+  // Default implementation is the null operation
+  for (size_t i = 0; i < num_frames; i++)
+    output[i] = input[i];
 }
 
 void DSP::finalize_(const int num_frames) {}
@@ -58,25 +52,6 @@ void DSP::_get_params_(const std::unordered_map<std::string, double>& input_para
       this->_stale_params = true;
     this->_params[key] = value;
   }
-}
-
-void DSP::_ensure_core_dsp_output_ready_()
-{
-}
-
-void DSP::_process_core_()
-{
-  // Default implementation is the null operation
-  for (size_t i = 0; i < _num_input_samples; i++)
-    this->_output_samples[i] = _input_samples[i];
-}
-
-void DSP::_apply_output_level_(NAM_SAMPLE* output, const int num_frames)
-{
-  const double loudnessGain = pow(10.0, -(this->mLoudness - TARGET_DSP_LOUDNESS) / 20.0);
-  const double finalGain = this->mNormalizeOutputLoudness ? loudnessGain : 1.0;
-  for (int s = 0; s < num_frames; s++)
-    output[s] = (NAM_SAMPLE)(finalGain * _output_samples[s]);
 }
 
 // Buffer =====================================================================
@@ -105,13 +80,13 @@ void Buffer::_set_receptive_field(const int new_receptive_field, const int input
   this->_reset_input_buffer();
 }
 
-void Buffer::_update_buffers_()
+void Buffer::_update_buffers_(NAM_SAMPLE* input, const int num_frames)
 {
   // Make sure that the buffer is big enough for the receptive field and the
   // frames needed!
   {
     const long minimum_input_buffer_size =
-      (long)this->_receptive_field + _INPUT_BUFFER_SAFETY_FACTOR * _num_input_samples;
+      (long)this->_receptive_field + _INPUT_BUFFER_SAFETY_FACTOR * num_frames;
     if ((long)this->_input_buffer.size() < minimum_input_buffer_size)
     {
       long new_buffer_size = 2;
@@ -124,13 +99,13 @@ void Buffer::_update_buffers_()
 
   // If we'd run off the end of the input buffer, then we need to move the data
   // back to the start of the buffer and start again.
-  if (this->_input_buffer_offset + _num_input_samples > (long)this->_input_buffer.size())
+  if (this->_input_buffer_offset + num_frames > (long)this->_input_buffer.size())
     this->_rewind_buffers_();
   // Put the new samples into the input buffer
-  for (long i = this->_input_buffer_offset, j = 0; j < _num_input_samples; i++, j++)
-    this->_input_buffer[i] = _input_samples[j];
+  for (long i = this->_input_buffer_offset, j = 0; j < num_frames; i++, j++)
+    this->_input_buffer[i] = input[j];
   // And resize the output buffer:
-  this->_output_buffer.resize(_num_input_samples);
+  this->_output_buffer.resize(num_frames);
   std::fill (this->_output_buffer.begin(), this->_output_buffer.end(), 0.0f);
 }
 
@@ -183,16 +158,16 @@ Linear::Linear(const double loudness, const int receptive_field, const bool _bia
   this->_bias = _bias ? params[receptive_field] : (float)0.0;
 }
 
-void Linear::_process_core_()
+void Linear::process(NAM_SAMPLE* input, NAM_SAMPLE* output, const int num_frames)
 {
-  this->Buffer::_update_buffers_();
+  this->Buffer::_update_buffers_(input, num_frames);
 
   // Main computation!
-  for (size_t i = 0; i < _num_input_samples; i++)
+  for (size_t i = 0; i < num_frames; i++)
   {
     const size_t offset = this->_input_buffer_offset - this->_weight.size() + i + 1;
     auto input = Eigen::Map<const Eigen::VectorXf>(&this->_input_buffer[offset], this->_receptive_field);
-    this->_output_samples[i] = this->_bias + this->_weight.dot(input);
+    output[i] = this->_bias + this->_weight.dot(input);
   }
 }
 

@@ -77,18 +77,9 @@ protected:
   _Head _head;
   void _verify_params(const int channels, const std::vector<int>& dilations, const bool batchnorm,
                       const size_t actual_params);
-  void _update_buffers_() override;
+  void _update_buffers_(NAM_SAMPLE* input, const int num_frames) override;
   void _rewind_buffers_() override;
 
-  void _process_core_() override;
-
-  // The net starts with random parameters inside; we need to wait for a full
-  // receptive field to pass through before we can count on the output being
-  // ok. This implements a gentle "ramp-up" so that there's no "pop" at the
-  // start.
-  long _anti_pop_countdown;
-  const long _anti_pop_ramp = 100;
-  void _anti_pop_();
-  void _reset_anti_pop_();
+  void process(NAM_SAMPLE* input, NAM_SAMPLE* output, const int num_frames) override;
 };
 }; // namespace convnet
