@@ -21,13 +21,6 @@ DSP::DSP(const double expected_sample_rate)
 {
 }
 
-DSP::DSP(const double loudness, const double expected_sample_rate)
-: mLoudness(loudness)
-, mExpectedSampleRate(expected_sample_rate)
-, _stale_params(true)
-{
-}
-
 void DSP::process(NAM_SAMPLE* input, NAM_SAMPLE* output, const int num_frames)
 {
   // Default implementation is the null operation
@@ -73,12 +66,6 @@ Buffer::Buffer(const int receptive_field, const double expected_sample_rate)
 : DSP(expected_sample_rate)
 {
   this->_set_receptive_field(receptive_field);
-}
-
-Buffer::Buffer(const double loudness, const int receptive_field, const double expected_sample_rate)
-: Buffer(receptive_field, expected_sample_rate)
-{
-  SetLoudness(loudness);
 }
 
 void Buffer::_set_receptive_field(const int new_receptive_field)
@@ -163,13 +150,6 @@ Linear::Linear(const int receptive_field, const bool _bias, const std::vector<fl
   for (int i = 0; i < this->_receptive_field; i++)
     this->_weight(i) = params[receptive_field - 1 - i];
   this->_bias = _bias ? params[receptive_field] : (float)0.0;
-}
-
-Linear::Linear(const double loudness, const int receptive_field, const bool _bias, const std::vector<float>& params,
-               const double expected_sample_rate)
-: Linear(receptive_field, _bias, params, expected_sample_rate)
-{
-  SetLoudness(loudness);
 }
 
 void Linear::process(NAM_SAMPLE* input, NAM_SAMPLE* output, const int num_frames)

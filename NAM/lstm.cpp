@@ -78,14 +78,6 @@ lstm::LSTM::LSTM(const int num_layers, const int input_size, const int hidden_si
   assert(it == params.end());
 }
 
-lstm::LSTM::LSTM(const double loudness, const int num_layers, const int input_size, const int hidden_size,
-                 std::vector<float>& params, nlohmann::json& parametric, const double expected_sample_rate)
-: LSTM(num_layers, input_size, hidden_size, params, parametric, expected_sample_rate)
-
-{
-  SetLoudness(loudness);
-}
-
 void lstm::LSTM::_init_parametric(nlohmann::json& parametric)
 {
   std::vector<std::string> parametric_names;

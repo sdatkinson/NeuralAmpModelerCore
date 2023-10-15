@@ -45,13 +45,10 @@ public:
 class DSP
 {
 public:
-  // Two constructors are provided: one where we know how loud the model is, and one where we don't.
   // Older models won't know, but newer ones will come with a loudness from the training based on their response to a
   // standardized input.
   // We may choose to have the models figure out for themselves how loud they are in here in the future.
   DSP(const double expected_sample_rate);
-  // Initialization where we know how loud the model is.
-  DSP(const double loudness, const double expected_sample_rate);
   virtual ~DSP() = default;
   // process() does all of the processing requried to take `input` array and
   // fill in the required values on `output`.
@@ -75,9 +72,9 @@ public:
   double GetLoudness() const;
   // Get whether the model knows how loud it is.
   bool HasLoudness() const { return mHasLoudness; };
-  // Option to set the loudness.
-  // This is included in the API so that downstream solutions can patch in the loudness of models that don't know how
-  // loud they are, but so one can also choose not to do so (e.g. if computational costs dictate).
+  // Set the loudness, in dB.
+  // This is usually defined to be the loudness to a standardized input. The trainer has its own, but you can always
+  // use this to define it a different way if you like yours better.
   void SetLoudness(const double loudness);
 
 protected:
@@ -106,7 +103,6 @@ class Buffer : public DSP
 {
 public:
   Buffer(const int receptive_field, const double expected_sample_rate = -1.0);
-  Buffer(const double loudness, const int receptive_field, const double expected_sample_rate = -1.0);
   void finalize_(const int num_frames);
 
 protected:
@@ -131,8 +127,6 @@ class Linear : public Buffer
 {
 public:
   Linear(const int receptive_field, const bool _bias, const std::vector<float>& params,
-         const double expected_sample_rate = -1.0);
-  Linear(const double loudness, const int receptive_field, const bool _bias, const std::vector<float>& params,
          const double expected_sample_rate = -1.0);
   void process(NAM_SAMPLE* input, NAM_SAMPLE* output, const int num_frames) override;
 

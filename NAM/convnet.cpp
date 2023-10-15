@@ -111,15 +111,6 @@ convnet::ConvNet::ConvNet(const int channels, const std::vector<int>& dilations,
     throw std::runtime_error("Didn't touch all the params when initializing ConvNet");
 }
 
-convnet::ConvNet::ConvNet(const double loudness, const int channels, const std::vector<int>& dilations,
-                          const bool batchnorm, const std::string activation, std::vector<float>& params,
-                          const double expected_sample_rate)
-: ConvNet(channels, dilations, batchnorm, activation, params, expected_sample_rate)
-
-{
-  SetLoudness(loudness);
-}
-
 void convnet::ConvNet::process(NAM_SAMPLE* input, NAM_SAMPLE* output, const int num_frames)
 
 {
