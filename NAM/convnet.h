@@ -37,7 +37,7 @@ private:
 class ConvNetBlock
 {
 public:
-  ConvNetBlock() {};
+  ConvNetBlock(){};
   void set_params_(const int in_channels, const int out_channels, const int _dilation, const bool batchnorm,
                    const std::string activation, std::vector<float>::iterator& params);
   void process_(const Eigen::MatrixXf& input, Eigen::MatrixXf& output, const long i_start, const long i_end) const;
@@ -46,20 +46,20 @@ public:
 
 private:
   BatchNorm batchnorm;
-  bool _batchnorm=false;
-  activations::Activation* activation=nullptr;
+  bool _batchnorm = false;
+  activations::Activation* activation = nullptr;
 };
 
 class _Head
 {
 public:
-  _Head() {};
+  _Head(){};
   _Head(const int channels, std::vector<float>::iterator& params);
   void process_(const Eigen::MatrixXf& input, Eigen::VectorXf& output, const long i_start, const long i_end) const;
 
 private:
   Eigen::VectorXf _weight;
-  float _bias=0.0f;
+  float _bias = 0.0f;
 };
 
 class ConvNet : public Buffer

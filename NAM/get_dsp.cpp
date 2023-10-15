@@ -162,8 +162,7 @@ std::unique_ptr<DSP> get_dsp(dspData& conf)
     for (size_t i = 0; i < config["dilations"].size(); i++)
       dilations.push_back(config["dilations"][i]);
     const std::string activation = config["activation"];
-    out = std::make_unique<convnet::ConvNet>(
-                          channels, dilations, batchnorm, activation, params, expectedSampleRate);
+    out = std::make_unique<convnet::ConvNet>(channels, dilations, batchnorm, activation, params, expectedSampleRate);
   }
   else if (architecture == "LSTM")
   {
@@ -171,8 +170,7 @@ std::unique_ptr<DSP> get_dsp(dspData& conf)
     const int input_size = config["input_size"];
     const int hidden_size = config["hidden_size"];
     auto empty_json = nlohmann::json{};
-    out = std::make_unique<lstm::LSTM>(
-                          num_layers, input_size, hidden_size, params, empty_json, expectedSampleRate);
+    out = std::make_unique<lstm::LSTM>(num_layers, input_size, hidden_size, params, empty_json, expectedSampleRate);
   }
   else if (architecture == "CatLSTM")
   {
@@ -180,7 +178,7 @@ std::unique_ptr<DSP> get_dsp(dspData& conf)
     const int input_size = config["input_size"];
     const int hidden_size = config["hidden_size"];
     out = std::make_unique<lstm::LSTM>(
-                          num_layers, input_size, hidden_size, params, config["parametric"], expectedSampleRate);
+      num_layers, input_size, hidden_size, params, config["parametric"], expectedSampleRate);
   }
   else if (architecture == "WaveNet" || architecture == "CatWaveNet")
   {
@@ -203,13 +201,14 @@ std::unique_ptr<DSP> get_dsp(dspData& conf)
     // https://stackoverflow.com/a/73956681/3768284
     auto parametric_json = architecture == "CatWaveNet" ? config["parametric"] : nlohmann::json{};
     out = std::make_unique<wavenet::WaveNet>(
-                          layer_array_params, head_scale, with_head, parametric_json, params, expectedSampleRate);
+      layer_array_params, head_scale, with_head, parametric_json, params, expectedSampleRate);
   }
   else
   {
     throw std::runtime_error("Unrecognized architecture");
   }
-  if (haveLoudness) {
+  if (haveLoudness)
+  {
     out->SetLoudness(loudness);
   }
   return out;
