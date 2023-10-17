@@ -21,6 +21,23 @@ DSP::DSP(const double expected_sample_rate)
 {
 }
 
+void DSP::prewarm()
+{
+  if (_prewarm_samples == 0)
+    return;
+
+  NAM_SAMPLE sample = 0;
+  NAM_SAMPLE* sample_ptr = &sample;
+
+  // pre-warm the model for a model-specific number of samples
+  for (long i = 0; i < _prewarm_samples; i++)
+  {
+    this->process(sample_ptr, sample_ptr, 1);
+    this->finalize_(1);
+    sample = 0;
+  }
+}
+
 void DSP::process(NAM_SAMPLE* input, NAM_SAMPLE* output, const int num_frames)
 {
   // Default implementation is the null operation

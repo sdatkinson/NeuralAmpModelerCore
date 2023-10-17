@@ -50,6 +50,9 @@ public:
   // We may choose to have the models figure out for themselves how loud they are in here in the future.
   DSP(const double expected_sample_rate);
   virtual ~DSP() = default;
+  // prewarm() does any required intial work required to "settle" model initial conditions
+  // it can be somewhat expensive, so should not be called during realtime audio processing
+  virtual void prewarm();
   // process() does all of the processing requried to take `input` array and
   // fill in the required values on `output`.
   // To do this:
@@ -87,6 +90,7 @@ protected:
   std::unordered_map<std::string, double> _params;
   // If the params have changed since the last buffer was processed:
   bool _stale_params = true;
+  int _prewarm_samples = 0;
 
   // Methods
 

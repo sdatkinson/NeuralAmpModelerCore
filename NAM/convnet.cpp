@@ -109,7 +109,12 @@ convnet::ConvNet::ConvNet(const int channels, const std::vector<int>& dilations,
   this->_head = _Head(channels, it);
   if (it != params.end())
     throw std::runtime_error("Didn't touch all the params when initializing ConvNet");
+
+  _prewarm_samples = 1;
+  for (size_t i = 0; i < dilations.size(); i++)
+    _prewarm_samples += dilations[i];
 }
+
 
 void convnet::ConvNet::process(NAM_SAMPLE* input, NAM_SAMPLE* output, const int num_frames)
 
