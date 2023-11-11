@@ -106,7 +106,7 @@ void lstm::LSTM::process(NAM_SAMPLE* input, NAM_SAMPLE* output, const int num_fr
   }
   // Process samples, placing results in the required output location
   for (size_t i = 0; i < num_frames; i++)
-    input[i] = this->_process_sample(output[i]);
+    output[i] = this->_process_sample(input[i]);
 }
 
 float lstm::LSTM::_process_sample(const float x)
