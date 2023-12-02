@@ -263,20 +263,9 @@ wavenet::WaveNet::WaveNet(const std::vector<wavenet::LayerArrayParams>& layer_ar
   this->_head_output.resize(1, 0); // Mono output!
   this->set_params_(params);
 
-  long receptive_field = 1;
+  _prewarm_samples = 1;
   for (size_t i = 0; i < this->_layer_arrays.size(); i++)
-    receptive_field += this->_layer_arrays[i].get_receptive_field();
-
-  NAM_SAMPLE sample = 0;
-  NAM_SAMPLE* sample_ptr = &sample;
-
-  // pre-warm the model over the size of the receptive field
-  for (long i = 0; i < receptive_field; i++)
-  {
-    this->process(sample_ptr, sample_ptr, 1);
-    this->finalize_(1);
-    sample = 0;
-  }
+    _prewarm_samples += this->_layer_arrays[i].get_receptive_field();
 }
 
 void wavenet::WaveNet::finalize_(const int num_frames)

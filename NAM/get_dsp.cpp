@@ -211,5 +211,9 @@ std::unique_ptr<DSP> get_dsp(dspData& conf)
   {
     out->SetLoudness(loudness);
   }
+
+  // "pre-warm" the model to settle initial conditions
+  out->prewarm();
+
   return out;
 }
