@@ -5,6 +5,8 @@
 #include <unordered_map>
 #include <Eigen/Dense>
 
+namespace nam
+{
 namespace activations
 {
 inline float relu(float x)
@@ -119,5 +121,5 @@ public:
     }
   }
 };
-
 }; // namespace activations
+}; // namespace nam

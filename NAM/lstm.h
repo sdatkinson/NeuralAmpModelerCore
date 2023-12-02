@@ -9,6 +9,8 @@
 #include "dsp.h"
 #include "json.hpp"
 
+namespace nam
+{
 namespace lstm
 {
 // A Single LSTM cell
@@ -70,3 +72,4 @@ protected:
   Eigen::VectorXf _input_and_params;
 };
 }; // namespace lstm
+}; // namespace nam

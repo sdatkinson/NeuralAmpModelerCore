@@ -21,6 +21,8 @@
 // TODO clean this up and track a bool for whether it knows.
 #define NAM_UNKNOWN_EXPECTED_SAMPLE_RATE -1.0
 
+namespace nam
+{
 enum EArchitectures
 {
   kLinear = 0,
@@ -227,3 +229,4 @@ std::unique_ptr<DSP> get_dsp(const std::filesystem::path model_file, dspData& re
 std::unique_ptr<DSP> get_dsp(dspData& conf);
 // Legacy loader for directory-type DSPs
 std::unique_ptr<DSP> get_dsp_legacy(const std::filesystem::path dirname);
+}; // namespace nam
