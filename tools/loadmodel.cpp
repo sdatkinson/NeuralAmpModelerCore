@@ -9,7 +9,7 @@ int main(int argc, char* argv[])
 
     fprintf(stderr, "Loading model [%s]\n", modelPath);
 
-    auto model = get_dsp(modelPath);
+    auto model = nam::get_dsp(modelPath);
 
     if (model != nullptr)
     {
