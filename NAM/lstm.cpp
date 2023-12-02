@@ -4,7 +4,7 @@
 
 #include "lstm.h"
 
-lstm::LSTMCell::LSTMCell(const int input_size, const int hidden_size, std::vector<float>::iterator& params)
+nam::lstm::LSTMCell::LSTMCell(const int input_size, const int hidden_size, std::vector<float>::iterator& params)
 {
   // Resize arrays
   this->_w.resize(4 * hidden_size, input_size + hidden_size);
@@ -26,7 +26,7 @@ lstm::LSTMCell::LSTMCell(const int input_size, const int hidden_size, std::vecto
     this->_c[i] = *(params++);
 }
 
-void lstm::LSTMCell::process_(const Eigen::VectorXf& x)
+void nam::lstm::LSTMCell::process_(const Eigen::VectorXf& x)
 {
   const long hidden_size = this->_get_hidden_size();
   const long input_size = this->_get_input_size();
@@ -63,8 +63,8 @@ void lstm::LSTMCell::process_(const Eigen::VectorXf& x)
   }
 }
 
-lstm::LSTM::LSTM(const int num_layers, const int input_size, const int hidden_size, std::vector<float>& params,
-                 nlohmann::json& parametric, const double expected_sample_rate)
+nam::lstm::LSTM::LSTM(const int num_layers, const int input_size, const int hidden_size, std::vector<float>& params,
+                      nlohmann::json& parametric, const double expected_sample_rate)
 : DSP(expected_sample_rate)
 {
   this->_init_parametric(parametric);
@@ -78,7 +78,7 @@ lstm::LSTM::LSTM(const int num_layers, const int input_size, const int hidden_si
   assert(it == params.end());
 }
 
-void lstm::LSTM::_init_parametric(nlohmann::json& parametric)
+void nam::lstm::LSTM::_init_parametric(nlohmann::json& parametric)
 {
   std::vector<std::string> parametric_names;
   for (nlohmann::json::iterator it = parametric.begin(); it != parametric.end(); ++it)
@@ -95,7 +95,7 @@ void lstm::LSTM::_init_parametric(nlohmann::json& parametric)
   this->_input_and_params.resize(1 + parametric.size()); // TODO amp parameters
 }
 
-void lstm::LSTM::process(NAM_SAMPLE* input, NAM_SAMPLE* output, const int num_frames)
+void nam::lstm::LSTM::process(NAM_SAMPLE* input, NAM_SAMPLE* output, const int num_frames)
 {
   // Get params into the input vector before starting
   if (this->_stale_params)
@@ -109,7 +109,7 @@ void lstm::LSTM::process(NAM_SAMPLE* input, NAM_SAMPLE* output, const int num_fr
     output[i] = this->_process_sample(input[i]);
 }
 
-float lstm::LSTM::_process_sample(const float x)
+float nam::lstm::LSTM::_process_sample(const float x)
 {
   if (this->_layers.size() == 0)
     return x;

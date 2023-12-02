@@ -8,6 +8,8 @@
 
 #include "dsp.h"
 
+namespace nam
+{
 namespace wavenet
 {
 // Rework the initialization API slightly. Merge w/ dsp.h later.
@@ -205,3 +207,4 @@ private:
   void _set_num_frames_(const long num_frames);
 };
 }; // namespace wavenet
+}; // namespace nam

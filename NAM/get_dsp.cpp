@@ -9,6 +9,8 @@
 #include "convnet.h"
 #include "wavenet.h"
 
+namespace nam
+{
 struct Version
 {
   int major;
@@ -78,13 +80,6 @@ std::vector<float> GetWeights(nlohmann::json const& j, const std::filesystem::pa
     throw std::runtime_error("Corrupted model file is missing weights.");
 }
 
-std::unique_ptr<DSP> get_dsp_legacy(const std::filesystem::path model_dir)
-{
-  auto config_filename = model_dir / std::filesystem::path("config.json");
-  dspData temp;
-  return get_dsp(config_filename, temp);
-}
-
 std::unique_ptr<DSP> get_dsp(const std::filesystem::path config_filename)
 {
   dspData temp;
@@ -119,9 +114,9 @@ std::unique_ptr<DSP> get_dsp(const std::filesystem::path config_filename, dspDat
 
 
   /*Copy to a new dsp_config object for get_dsp below,
-  since not sure if params actually get modified as being non-const references on some
-  model constructors inside get_dsp(dsp_config& conf).
-  We need to return unmodified version of dsp_config via returnedConfig.*/
+   since not sure if params actually get modified as being non-const references on some
+   model constructors inside get_dsp(dsp_config& conf).
+   We need to return unmodified version of dsp_config via returnedConfig.*/
   dspData conf = returnedConfig;
 
   return get_dsp(conf);
@@ -217,3 +212,4 @@ std::unique_ptr<DSP> get_dsp(dspData& conf)
 
   return out;
 }
+}; // namespace nam

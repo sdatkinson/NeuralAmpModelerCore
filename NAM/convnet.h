@@ -9,6 +9,8 @@
 
 #include <Eigen/Dense>
 
+namespace nam
+{
 namespace convnet
 {
 // Custom Conv that avoids re-computing on pieces of the input and trusts
@@ -82,3 +84,4 @@ protected:
   void process(NAM_SAMPLE* input, NAM_SAMPLE* output, const int num_frames) override;
 };
 }; // namespace convnet
+}; // namespace nam
