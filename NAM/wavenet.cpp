@@ -5,7 +5,6 @@
 #include <Eigen/Dense>
 
 #include "wavenet.h"
-#include "util.h"
 
 nam::wavenet::_DilatedConv::_DilatedConv(const int in_channels, const int out_channels, const int kernel_size,
                                          const int bias, const int dilation)
@@ -13,11 +12,11 @@ nam::wavenet::_DilatedConv::_DilatedConv(const int in_channels, const int out_ch
   this->set_size_(in_channels, out_channels, kernel_size, bias, dilation);
 }
 
-void nam::wavenet::_Layer::set_params_(std::vector<float>::iterator& params)
+void nam::wavenet::_Layer::set_weights_(std::vector<float>::iterator& weights)
 {
-  this->_conv.set_params_(params);
-  this->_input_mixin.set_params_(params);
-  this->_1x1.set_params_(params);
+  this->_conv.set_weights_(weights);
+  this->_input_mixin.set_weights_(weights);
+  this->_1x1.set_weights_(weights);
 }
 
 void nam::wavenet::_Layer::process_(const Eigen::MatrixXf& input, const Eigen::MatrixXf& condition,
@@ -134,12 +133,12 @@ void nam::wavenet::_LayerArray::set_num_frames_(const long num_frames)
     this->_layers[i].set_num_frames_(num_frames);
 }
 
-void nam::wavenet::_LayerArray::set_params_(std::vector<float>::iterator& params)
+void nam::wavenet::_LayerArray::set_weights_(std::vector<float>::iterator& weights)
 {
-  this->_rechannel.set_params_(params);
+  this->_rechannel.set_weights_(weights);
   for (size_t i = 0; i < this->_layers.size(); i++)
-    this->_layers[i].set_params_(params);
-  this->_head_rechannel.set_params_(params);
+    this->_layers[i].set_weights_(weights);
+  this->_head_rechannel.set_weights_(weights);
 }
 
 long nam::wavenet::_LayerArray::_get_channels() const
@@ -187,10 +186,10 @@ nam::wavenet::_Head::_Head(const int input_size, const int num_layers, const int
   }
 }
 
-void nam::wavenet::_Head::set_params_(std::vector<float>::iterator& params)
+void nam::wavenet::_Head::set_weights_(std::vector<float>::iterator& weights)
 {
   for (size_t i = 0; i < this->_layers.size(); i++)
-    this->_layers[i].set_params_(params);
+    this->_layers[i].set_weights_(weights);
 }
 
 void nam::wavenet::_Head::process_(Eigen::MatrixXf& inputs, Eigen::MatrixXf& outputs)
@@ -232,15 +231,14 @@ void nam::wavenet::_Head::_apply_activation_(Eigen::MatrixXf& x)
 // WaveNet ====================================================================
 
 nam::wavenet::WaveNet::WaveNet(const std::vector<nam::wavenet::LayerArrayParams>& layer_array_params,
-                               const float head_scale, const bool with_head, nlohmann::json parametric,
-                               std::vector<float> params, const double expected_sample_rate)
+                               const float head_scale, const bool with_head, std::vector<float> weights,
+                               const double expected_sample_rate)
 : DSP(expected_sample_rate)
 , _num_frames(0)
 , _head_scale(head_scale)
 {
   if (with_head)
     throw std::runtime_error("Head not implemented!");
-  this->_init_parametric_(parametric);
   for (size_t i = 0; i < layer_array_params.size(); i++)
   {
     this->_layer_arrays.push_back(nam::wavenet::_LayerArray(
@@ -261,7 +259,7 @@ nam::wavenet::WaveNet::WaveNet(const std::vector<nam::wavenet::LayerArrayParams>
     this->_head_arrays.push_back(Eigen::MatrixXf(layer_array_params[i].head_size, 0));
   }
   this->_head_output.resize(1, 0); // Mono output!
-  this->set_params_(params);
+  this->set_weights_(weights);
 
   _prewarm_samples = 1;
   for (size_t i = 0; i < this->_layer_arrays.size(); i++)
@@ -274,23 +272,23 @@ void nam::wavenet::WaveNet::finalize_(const int num_frames)
   this->_advance_buffers_(num_frames);
 }
 
-void nam::wavenet::WaveNet::set_params_(std::vector<float>& params)
+void nam::wavenet::WaveNet::set_weights_(std::vector<float>& weights)
 {
-  std::vector<float>::iterator it = params.begin();
+  std::vector<float>::iterator it = weights.begin();
   for (size_t i = 0; i < this->_layer_arrays.size(); i++)
-    this->_layer_arrays[i].set_params_(it);
+    this->_layer_arrays[i].set_weights_(it);
   // this->_head.set_params_(it);
   this->_head_scale = *(it++);
-  if (it != params.end())
+  if (it != weights.end())
   {
     std::stringstream ss;
-    for (size_t i = 0; i < params.size(); i++)
-      if (params[i] == *it)
+    for (size_t i = 0; i < weights.size(); i++)
+      if (weights[i] == *it)
       {
-        ss << "Parameter mismatch: assigned " << i + 1 << " parameters, but " << params.size() << " were provided.";
+        ss << "Weight mismatch: assigned " << i + 1 << " weights, but " << weights.size() << " were provided.";
         throw std::runtime_error(ss.str().c_str());
       }
-    ss << "Parameter mismatch: provided " << params.size() << " weights, but the model expects more.";
+    ss << "Weight mismatch: provided " << weights.size() << " weights, but the model expects more.";
     throw std::runtime_error(ss.str().c_str());
   }
 }
@@ -301,35 +299,25 @@ void nam::wavenet::WaveNet::_advance_buffers_(const int num_frames)
     this->_layer_arrays[i].advance_buffers_(num_frames);
 }
 
-void nam::wavenet::WaveNet::_init_parametric_(nlohmann::json& parametric)
-{
-  for (nlohmann::json::iterator it = parametric.begin(); it != parametric.end(); ++it)
-    this->_param_names.push_back(it.key());
-  // TODO assert continuous 0 to 1
-  std::sort(this->_param_names.begin(), this->_param_names.end());
-}
-
 void nam::wavenet::WaveNet::_prepare_for_frames_(const long num_frames)
 {
   for (size_t i = 0; i < this->_layer_arrays.size(); i++)
     this->_layer_arrays[i].prepare_for_frames_(num_frames);
 }
 
+void nam::wavenet::WaveNet::_set_condition_array(NAM_SAMPLE* input, const int num_frames)
+{
+  for (int j = 0; j < num_frames; j++)
+  {
+    this->_condition(0, j) = input[j];
+  }
+}
+
 void nam::wavenet::WaveNet::process(NAM_SAMPLE* input, NAM_SAMPLE* output, const int num_frames)
 {
   this->_set_num_frames_(num_frames);
   this->_prepare_for_frames_(num_frames);
-
-  // Fill into condition array:
-  // Clumsy...
-  for (int j = 0; j < num_frames; j++)
-  {
-    this->_condition(0, j) = input[j];
-    if (this->_stale_params) // Column-major assignment; good for Eigen. Let the
-                             // compiler optimize this.
-      for (size_t i = 0; i < this->_param_names.size(); i++)
-        this->_condition(i + 1, j) = (float)this->_params[this->_param_names[i]];
-  }
+  this->_set_condition_array(input, num_frames);
 
   // Main layer arrays:
   // Layer-to-layer
@@ -360,7 +348,7 @@ void nam::wavenet::WaveNet::_set_num_frames_(const long num_frames)
   if (num_frames == this->_num_frames)
     return;
 
-  this->_condition.resize(1 + this->_param_names.size(), num_frames);
+  this->_condition.resize(this->_get_condition_dim(), num_frames);
   for (size_t i = 0; i < this->_head_arrays.size(); i++)
     this->_head_arrays[i].resize(this->_head_arrays[i].rows(), num_frames);
   for (size_t i = 0; i < this->_layer_array_outputs.size(); i++)

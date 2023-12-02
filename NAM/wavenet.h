@@ -30,7 +30,7 @@ public:
   , _1x1(channels, channels, true)
   , _activation(activations::Activation::get_activation(activation))
   , _gated(gated){};
-  void set_params_(std::vector<float>::iterator& params);
+  void set_weights_(std::vector<float>::iterator& weights);
   // :param `input`: from previous layer
   // :param `output`: to next layer
   void process_(const Eigen::MatrixXf& input, const Eigen::MatrixXf& condition, Eigen::MatrixXf& head_input,
@@ -108,7 +108,7 @@ public:
                 Eigen::MatrixXf& head_outputs // post head-rechannel
   );
   void set_num_frames_(const long num_frames);
-  void set_params_(std::vector<float>::iterator& it);
+  void set_weights_(std::vector<float>::iterator& it);
 
   // "Zero-indexed" receptive field.
   // E.g. a 1x1 convolution has a z.i.r.f. of zero.
@@ -144,7 +144,7 @@ class _Head
 {
 public:
   _Head(const int input_size, const int num_layers, const int channels, const std::string activation);
-  void set_params_(std::vector<float>::iterator& params);
+  void set_weights_(std::vector<float>::iterator& weights);
   // NOTE: the head transforms the provided input by applying a nonlinearity
   // to it in-place!
   void process_(Eigen::MatrixXf& inputs, Eigen::MatrixXf& outputs);
@@ -165,19 +165,15 @@ private:
 };
 
 // The main WaveNet model
-// Both parametric and not; difference is handled at param read-in.
 class WaveNet : public DSP
 {
 public:
   WaveNet(const std::vector<LayerArrayParams>& layer_array_params, const float head_scale, const bool with_head,
-          nlohmann::json parametric, std::vector<float> params, const double expected_sample_rate = -1.0);
-
-  //    WaveNet(WaveNet&&) = default;
-  //    WaveNet& operator=(WaveNet&&) = default;
+          std::vector<float> weights, const double expected_sample_rate = -1.0);
   ~WaveNet() = default;
 
   void finalize_(const int num_frames) override;
-  void set_params_(std::vector<float>& params);
+  void set_weights_(std::vector<float>& weights);
 
 private:
   long _num_frames;
@@ -193,16 +189,13 @@ private:
   float _head_scale;
   Eigen::MatrixXf _head_output;
 
-  // Names of the params, sorted.
-  // TODO move this up, ugh.
-  std::vector<std::string> _param_names;
-
   void _advance_buffers_(const int num_frames);
-  // Get the info from the parametric config
-  void _init_parametric_(nlohmann::json& parametric);
   void _prepare_for_frames_(const long num_frames);
   void process(NAM_SAMPLE* input, NAM_SAMPLE* output, const int num_frames) override;
 
+  virtual int _get_condition_dim() const { return 1; };
+  // Fill in the "condition" array that's fed into the various parts of the net.
+  virtual void _set_condition_array(NAM_SAMPLE* input, const int num_frames);
   // Ensure that all buffer arrays are the right size for this num_frames
   void _set_num_frames_(const long num_frames);
 };
