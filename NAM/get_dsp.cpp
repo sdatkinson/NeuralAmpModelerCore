@@ -97,14 +97,14 @@ std::unique_ptr<DSP> get_dsp(const std::filesystem::path config_filename, dspDat
 
   auto architecture = j["architecture"];
   nlohmann::json config = j["config"];
-  std::vector<float> params = GetWeights(j, config_filename);
+  std::vector<float> weights = GetWeights(j, config_filename);
 
   // Assign values to returnedConfig
   returnedConfig.version = j["version"];
   returnedConfig.architecture = j["architecture"];
   returnedConfig.config = j["config"];
   returnedConfig.metadata = j["metadata"];
-  returnedConfig.params = params;
+  returnedConfig.weights = weights;
   if (j.find("sample_rate") != j.end())
     returnedConfig.expected_sample_rate = j["sample_rate"];
   else
@@ -114,7 +114,7 @@ std::unique_ptr<DSP> get_dsp(const std::filesystem::path config_filename, dspDat
 
 
   /*Copy to a new dsp_config object for get_dsp below,
-   since not sure if params actually get modified as being non-const references on some
+   since not sure if weights actually get modified as being non-const references on some
    model constructors inside get_dsp(dsp_config& conf).
    We need to return unmodified version of dsp_config via returnedConfig.*/
   dspData conf = returnedConfig;
@@ -128,7 +128,7 @@ std::unique_ptr<DSP> get_dsp(dspData& conf)
 
   auto& architecture = conf.architecture;
   nlohmann::json& config = conf.config;
-  std::vector<float>& params = conf.params;
+  std::vector<float>& weights = conf.weights;
   bool haveLoudness = false;
   double loudness = 0.0;
 
@@ -147,7 +147,7 @@ std::unique_ptr<DSP> get_dsp(dspData& conf)
   {
     const int receptive_field = config["receptive_field"];
     const bool _bias = config["bias"];
-    out = std::make_unique<Linear>(receptive_field, _bias, params, expectedSampleRate);
+    out = std::make_unique<Linear>(receptive_field, _bias, weights, expectedSampleRate);
   }
   else if (architecture == "ConvNet")
   {
@@ -157,25 +157,16 @@ std::unique_ptr<DSP> get_dsp(dspData& conf)
     for (size_t i = 0; i < config["dilations"].size(); i++)
       dilations.push_back(config["dilations"][i]);
     const std::string activation = config["activation"];
-    out = std::make_unique<convnet::ConvNet>(channels, dilations, batchnorm, activation, params, expectedSampleRate);
+    out = std::make_unique<convnet::ConvNet>(channels, dilations, batchnorm, activation, weights, expectedSampleRate);
   }
   else if (architecture == "LSTM")
   {
     const int num_layers = config["num_layers"];
     const int input_size = config["input_size"];
     const int hidden_size = config["hidden_size"];
-    auto empty_json = nlohmann::json{};
-    out = std::make_unique<lstm::LSTM>(num_layers, input_size, hidden_size, params, empty_json, expectedSampleRate);
+    out = std::make_unique<lstm::LSTM>(num_layers, input_size, hidden_size, weights, expectedSampleRate);
   }
-  else if (architecture == "CatLSTM")
-  {
-    const int num_layers = config["num_layers"];
-    const int input_size = config["input_size"];
-    const int hidden_size = config["hidden_size"];
-    out = std::make_unique<lstm::LSTM>(
-      num_layers, input_size, hidden_size, params, config["parametric"], expectedSampleRate);
-  }
-  else if (architecture == "WaveNet" || architecture == "CatWaveNet")
+  else if (architecture == "WaveNet")
   {
     std::vector<wavenet::LayerArrayParams> layer_array_params;
     for (size_t i = 0; i < config["layers"].size(); i++)
@@ -191,12 +182,7 @@ std::unique_ptr<DSP> get_dsp(dspData& conf)
     }
     const bool with_head = config["head"] == NULL;
     const float head_scale = config["head_scale"];
-    // Solves compilation issue on macOS Error: No matching constructor for
-    // initialization of 'wavenet::WaveNet' Solution from
-    // https://stackoverflow.com/a/73956681/3768284
-    auto parametric_json = architecture == "CatWaveNet" ? config["parametric"] : nlohmann::json{};
-    out = std::make_unique<wavenet::WaveNet>(
-      layer_array_params, head_scale, with_head, parametric_json, params, expectedSampleRate);
+    out = std::make_unique<wavenet::WaveNet>(layer_array_params, head_scale, with_head, weights, expectedSampleRate);
   }
   else
   {

@@ -8,8 +8,6 @@
 #include <unordered_set>
 
 #include "dsp.h"
-#include "json.hpp"
-#include "util.h"
 
 #define tanh_impl_ std::tanh
 // #define tanh_impl_ fast_tanh_
@@ -61,21 +59,6 @@ void nam::DSP::SetLoudness(const double loudness)
 }
 
 void nam::DSP::finalize_(const int num_frames) {}
-
-void nam::DSP::_get_params_(const std::unordered_map<std::string, double>& input_params)
-{
-  this->_stale_params = false;
-  for (auto it = input_params.begin(); it != input_params.end(); ++it)
-  {
-    const std::string key = util::lowercase(it->first);
-    const double value = it->second;
-    if (this->_params.find(key) == this->_params.end()) // Not contained
-      this->_stale_params = true;
-    else if (this->_params[key] != value) // Contained but new value
-      this->_stale_params = true;
-    this->_params[key] = value;
-  }
-}
 
 // Buffer =====================================================================
 
@@ -153,11 +136,11 @@ void nam::Buffer::finalize_(const int num_frames)
 
 // Linear =====================================================================
 
-nam::Linear::Linear(const int receptive_field, const bool _bias, const std::vector<float>& params,
+nam::Linear::Linear(const int receptive_field, const bool _bias, const std::vector<float>& weights,
                     const double expected_sample_rate)
 : nam::Buffer(receptive_field, expected_sample_rate)
 {
-  if ((int)params.size() != (receptive_field + (_bias ? 1 : 0)))
+  if ((int)weights.size() != (receptive_field + (_bias ? 1 : 0)))
     throw std::runtime_error(
       "Params vector does not match expected size based "
       "on architecture parameters");
@@ -165,8 +148,8 @@ nam::Linear::Linear(const int receptive_field, const bool _bias, const std::vect
   this->_weight.resize(this->_receptive_field);
   // Pass in in reverse order so that dot products work out of the box.
   for (int i = 0; i < this->_receptive_field; i++)
-    this->_weight(i) = params[receptive_field - 1 - i];
-  this->_bias = _bias ? params[receptive_field] : (float)0.0;
+    this->_weight(i) = weights[receptive_field - 1 - i];
+  this->_bias = _bias ? weights[receptive_field] : (float)0.0;
 }
 
 void nam::Linear::process(NAM_SAMPLE* input, NAM_SAMPLE* output, const int num_frames)
@@ -184,7 +167,7 @@ void nam::Linear::process(NAM_SAMPLE* input, NAM_SAMPLE* output, const int num_f
 
 // NN modules =================================================================
 
-void nam::Conv1D::set_params_(std::vector<float>::iterator& params)
+void nam::Conv1D::set_weights_(std::vector<float>::iterator& weights)
 {
   if (this->_weight.size() > 0)
   {
@@ -194,10 +177,10 @@ void nam::Conv1D::set_params_(std::vector<float>::iterator& params)
     for (auto i = 0; i < out_channels; i++)
       for (auto j = 0; j < in_channels; j++)
         for (size_t k = 0; k < this->_weight.size(); k++)
-          this->_weight[k](i, j) = *(params++);
+          this->_weight[k](i, j) = *(weights++);
   }
   for (long i = 0; i < this->_bias.size(); i++)
-    this->_bias(i) = *(params++);
+    this->_bias(i) = *(weights++);
 }
 
 void nam::Conv1D::set_size_(const int in_channels, const int out_channels, const int kernel_size, const bool do_bias,
@@ -214,11 +197,11 @@ void nam::Conv1D::set_size_(const int in_channels, const int out_channels, const
   this->_dilation = _dilation;
 }
 
-void nam::Conv1D::set_size_and_params_(const int in_channels, const int out_channels, const int kernel_size,
-                                       const int _dilation, const bool do_bias, std::vector<float>::iterator& params)
+void nam::Conv1D::set_size_and_weights_(const int in_channels, const int out_channels, const int kernel_size,
+                                        const int _dilation, const bool do_bias, std::vector<float>::iterator& weights)
 {
   this->set_size_(in_channels, out_channels, kernel_size, do_bias, _dilation);
-  this->set_params_(params);
+  this->set_weights_(weights);
 }
 
 void nam::Conv1D::process_(const Eigen::MatrixXf& input, Eigen::MatrixXf& output, const long i_start, const long ncols,
@@ -237,12 +220,12 @@ void nam::Conv1D::process_(const Eigen::MatrixXf& input, Eigen::MatrixXf& output
     output.middleCols(j_start, ncols).colwise() += this->_bias;
 }
 
-long nam::Conv1D::get_num_params() const
+long nam::Conv1D::get_num_weights() const
 {
-  long num_params = this->_bias.size();
+  long num_weights = this->_bias.size();
   for (size_t i = 0; i < this->_weight.size(); i++)
-    num_params += this->_weight[i].size();
-  return num_params;
+    num_weights += this->_weight[i].size();
+  return num_weights;
 }
 
 nam::Conv1x1::Conv1x1(const int in_channels, const int out_channels, const bool _bias)
@@ -253,14 +236,14 @@ nam::Conv1x1::Conv1x1(const int in_channels, const int out_channels, const bool 
     this->_bias.resize(out_channels);
 }
 
-void nam::Conv1x1::set_params_(std::vector<float>::iterator& params)
+void nam::Conv1x1::set_weights_(std::vector<float>::iterator& weights)
 {
   for (int i = 0; i < this->_weight.rows(); i++)
     for (int j = 0; j < this->_weight.cols(); j++)
-      this->_weight(i, j) = *(params++);
+      this->_weight(i, j) = *(weights++);
   if (this->_do_bias)
     for (int i = 0; i < this->_bias.size(); i++)
-      this->_bias(i) = *(params++);
+      this->_bias(i) = *(weights++);
 }
 
 Eigen::MatrixXf nam::Conv1x1::process(const Eigen::MatrixXf& input) const

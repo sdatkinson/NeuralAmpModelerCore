@@ -23,7 +23,7 @@ class BatchNorm
 {
 public:
   BatchNorm(){};
-  BatchNorm(const int dim, std::vector<float>::iterator& params);
+  BatchNorm(const int dim, std::vector<float>::iterator& weights);
   void process_(Eigen::MatrixXf& input, const long i_start, const long i_end) const;
 
 private:
@@ -40,8 +40,8 @@ class ConvNetBlock
 {
 public:
   ConvNetBlock(){};
-  void set_params_(const int in_channels, const int out_channels, const int _dilation, const bool batchnorm,
-                   const std::string activation, std::vector<float>::iterator& params);
+  void set_weights_(const int in_channels, const int out_channels, const int _dilation, const bool batchnorm,
+                    const std::string activation, std::vector<float>::iterator& weights);
   void process_(const Eigen::MatrixXf& input, Eigen::MatrixXf& output, const long i_start, const long i_end) const;
   long get_out_channels() const;
   Conv1D conv;
@@ -56,7 +56,7 @@ class _Head
 {
 public:
   _Head(){};
-  _Head(const int channels, std::vector<float>::iterator& params);
+  _Head(const int channels, std::vector<float>::iterator& weights);
   void process_(const Eigen::MatrixXf& input, Eigen::VectorXf& output, const long i_start, const long i_end) const;
 
 private:
@@ -68,7 +68,7 @@ class ConvNet : public Buffer
 {
 public:
   ConvNet(const int channels, const std::vector<int>& dilations, const bool batchnorm, const std::string activation,
-          std::vector<float>& params, const double expected_sample_rate = -1.0);
+          std::vector<float>& weights, const double expected_sample_rate = -1.0);
   ~ConvNet() = default;
 
 protected:
@@ -76,8 +76,8 @@ protected:
   std::vector<Eigen::MatrixXf> _block_vals;
   Eigen::VectorXf _head_output;
   _Head _head;
-  void _verify_params(const int channels, const std::vector<int>& dilations, const bool batchnorm,
-                      const size_t actual_params);
+  void _verify_weights(const int channels, const std::vector<int>& dilations, const bool batchnorm,
+                       const size_t actual_weights);
   void _update_buffers_(NAM_SAMPLE* input, const int num_frames) override;
   void _rewind_buffers_() override;
 

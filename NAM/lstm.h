@@ -7,7 +7,6 @@
 #include <Eigen/Dense>
 
 #include "dsp.h"
-#include "json.hpp"
 
 namespace nam
 {
@@ -23,7 +22,7 @@ namespace lstm
 class LSTMCell
 {
 public:
-  LSTMCell(const int input_size, const int hidden_size, std::vector<float>::iterator& params);
+  LSTMCell(const int input_size, const int hidden_size, std::vector<float>::iterator& weights);
   Eigen::VectorXf get_hidden_state() const { return this->_xh(Eigen::placeholders::lastN(this->_get_hidden_size())); };
   void process_(const Eigen::VectorXf& x);
 
@@ -51,8 +50,8 @@ private:
 class LSTM : public DSP
 {
 public:
-  LSTM(const int num_layers, const int input_size, const int hidden_size, std::vector<float>& params,
-       nlohmann::json& parametric, const double expected_sample_rate = -1.0);
+  LSTM(const int num_layers, const int input_size, const int hidden_size, std::vector<float>& weights,
+       const double expected_sample_rate = -1.0);
   ~LSTM() = default;
 
 protected:
@@ -63,13 +62,9 @@ protected:
 
   float _process_sample(const float x);
 
-  // Initialize the parametric map
-  void _init_parametric(nlohmann::json& parametric);
-
-  // Mapping from param name to index in _input_and_params:
-  std::map<std::string, int> _parametric_map;
-  // Input sample first, params second
-  Eigen::VectorXf _input_and_params;
+  // Input to the LSTM.
+  // Since this is assumed to not be a parametric model, its shape should be (1,)
+  Eigen::VectorXf _input;
 };
 }; // namespace lstm
 }; // namespace nam
