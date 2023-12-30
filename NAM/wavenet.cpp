@@ -12,7 +12,7 @@ nam::wavenet::_DilatedConv::_DilatedConv(const int in_channels, const int out_ch
   this->set_size_(in_channels, out_channels, kernel_size, bias, dilation);
 }
 
-void nam::wavenet::_Layer::set_weights_(std::vector<float>::const_iterator& weights)
+void nam::wavenet::_Layer::set_weights_(weights_it& weights)
 {
   this->_conv.set_weights_(weights);
   this->_input_mixin.set_weights_(weights);
@@ -133,7 +133,7 @@ void nam::wavenet::_LayerArray::set_num_frames_(const long num_frames)
     this->_layers[i].set_num_frames_(num_frames);
 }
 
-void nam::wavenet::_LayerArray::set_weights_(std::vector<float>::const_iterator& weights)
+void nam::wavenet::_LayerArray::set_weights_(weights_it& weights)
 {
   this->_rechannel.set_weights_(weights);
   for (size_t i = 0; i < this->_layers.size(); i++)
@@ -186,7 +186,7 @@ nam::wavenet::_Head::_Head(const int input_size, const int num_layers, const int
   }
 }
 
-void nam::wavenet::_Head::set_weights_(std::vector<float>::const_iterator& weights)
+void nam::wavenet::_Head::set_weights_(weights_it& weights)
 {
   for (size_t i = 0; i < this->_layers.size(); i++)
     this->_layers[i].set_weights_(weights);
@@ -274,7 +274,7 @@ void nam::wavenet::WaveNet::finalize_(const int num_frames)
 
 void nam::wavenet::WaveNet::set_weights_(const std::vector<float>& weights)
 {
-  std::vector<float>::const_iterator it = weights.begin();
+  weights_it it = weights.begin();
   for (size_t i = 0; i < this->_layer_arrays.size(); i++)
     this->_layer_arrays[i].set_weights_(it);
   // this->_head.set_params_(it);

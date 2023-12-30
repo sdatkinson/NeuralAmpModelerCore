@@ -2,9 +2,10 @@
 #include <string>
 #include <vector>
 
+#include "dsp.h"
 #include "lstm.h"
 
-nam::lstm::LSTMCell::LSTMCell(const int input_size, const int hidden_size, std::vector<float>::const_iterator& weights)
+nam::lstm::LSTMCell::LSTMCell(const int input_size, const int hidden_size, weights_it& weights)
 {
   // Resize arrays
   this->_w.resize(4 * hidden_size, input_size + hidden_size);
@@ -68,7 +69,7 @@ nam::lstm::LSTM::LSTM(const int num_layers, const int input_size, const int hidd
 : DSP(expected_sample_rate)
 {
   this->_input.resize(1);
-  std::vector<float>::const_iterator it = weights.begin();
+  auto it = weights.begin();
   for (int i = 0; i < num_layers; i++)
     this->_layers.push_back(LSTMCell(i == 0 ? input_size : hidden_size, hidden_size, it));
   this->_head_weight.resize(hidden_size);

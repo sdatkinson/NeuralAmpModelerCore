@@ -167,7 +167,7 @@ void nam::Linear::process(NAM_SAMPLE* input, NAM_SAMPLE* output, const int num_f
 
 // NN modules =================================================================
 
-void nam::Conv1D::set_weights_(std::vector<float>::const_iterator& weights)
+void nam::Conv1D::set_weights_(weights_it& weights)
 {
   if (this->_weight.size() > 0)
   {
@@ -198,7 +198,7 @@ void nam::Conv1D::set_size_(const int in_channels, const int out_channels, const
 }
 
 void nam::Conv1D::set_size_and_weights_(const int in_channels, const int out_channels, const int kernel_size,
-                                        const int _dilation, const bool do_bias, std::vector<float>::const_iterator& weights)
+                                        const int _dilation, const bool do_bias, weights_it& weights)
 {
   this->set_size_(in_channels, out_channels, kernel_size, do_bias, _dilation);
   this->set_weights_(weights);
@@ -236,7 +236,7 @@ nam::Conv1x1::Conv1x1(const int in_channels, const int out_channels, const bool 
     this->_bias.resize(out_channels);
 }
 
-void nam::Conv1x1::set_weights_(std::vector<float>::const_iterator& weights)
+void nam::Conv1x1::set_weights_(weights_it& weights)
 {
   for (int i = 0; i < this->_weight.rows(); i++)
     for (int j = 0; j < this->_weight.cols(); j++)
