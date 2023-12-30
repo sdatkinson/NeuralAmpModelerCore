@@ -24,7 +24,7 @@ class BatchNorm
 public:
   BatchNorm(){};
   BatchNorm(const int dim, weights_it& weights);
-  void process_(Eigen::MatrixXf& input, const long i_start, const long i_end) const;
+  void process_(Eigen::Ref<Eigen::MatrixXf> input, const long i_start, const long i_end) const;
 
 private:
   // TODO simplify to just ax+b
@@ -42,7 +42,7 @@ public:
   ConvNetBlock(){};
   void set_weights_(const int in_channels, const int out_channels, const int _dilation, const bool batchnorm,
                     const std::string activation, weights_it& weights);
-  void process_(const Eigen::MatrixXf& input, Eigen::MatrixXf& output, const long i_start, const long i_end) const;
+  void process_(const Eigen::Ref<const Eigen::MatrixXf> input, Eigen::Ref<Eigen::MatrixXf> output, const long i_start, const long i_end) const;
   long get_out_channels() const;
   Conv1D conv;
 
@@ -57,7 +57,7 @@ class _Head
 public:
   _Head(){};
   _Head(const int channels, weights_it& weights);
-  void process_(const Eigen::MatrixXf& input, Eigen::VectorXf& output, const long i_start, const long i_end) const;
+  void process_(const Eigen::Ref<const Eigen::MatrixXf> input, Eigen::VectorXf& output, const long i_start, const long i_end) const;
 
 private:
   Eigen::VectorXf _weight;

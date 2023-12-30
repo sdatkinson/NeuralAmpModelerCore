@@ -134,7 +134,7 @@ public:
   // Process from input to output
   //  Rightmost indices of input go from i_start to i_end,
   //  Indices on output for from j_start (to j_start + i_end - i_start)
-  void process_(const Eigen::MatrixXf& input, Eigen::MatrixXf& output, const long i_start, const long i_end,
+  void process_(const Eigen::Ref<const Eigen::MatrixXf> input, Eigen::Ref<Eigen::MatrixXf> output, const long i_start, const long i_end,
                 const long j_start) const;
   long get_in_channels() const { return this->_weight.size() > 0 ? this->_weight[0].cols() : 0; };
   long get_kernel_size() const { return this->_weight.size(); };
@@ -158,7 +158,7 @@ public:
   void set_weights_(weights_it& weights);
   // :param input: (N,Cin) or (Cin,)
   // :return: (N,Cout) or (Cout,), respectively
-  Eigen::MatrixXf process(const Eigen::MatrixXf& input) const;
+  Eigen::MatrixXf process(const Eigen::Ref<const Eigen::MatrixXf> input) const;
 
   long get_out_channels() const { return this->_weight.rows(); };
 

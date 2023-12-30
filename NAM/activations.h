@@ -45,7 +45,7 @@ class Activation
 public:
   Activation() = default;
   virtual ~Activation() = default;
-  virtual void apply(Eigen::MatrixXf& matrix) { apply(matrix.data(), matrix.rows() * matrix.cols()); }
+  virtual void apply(Eigen::Ref<Eigen::MatrixXf> matrix) { apply(matrix.data(), matrix.rows() * matrix.cols()); }
   virtual void apply(Eigen::Block<Eigen::MatrixXf> block) { apply(block.data(), block.rows() * block.cols()); }
   virtual void apply(Eigen::Block<Eigen::MatrixXf, -1, -1, true> block)
   {

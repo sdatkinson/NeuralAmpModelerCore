@@ -19,8 +19,8 @@ void nam::wavenet::_Layer::set_weights_(weights_it& weights)
   this->_1x1.set_weights_(weights);
 }
 
-void nam::wavenet::_Layer::process_(const Eigen::MatrixXf& input, const Eigen::MatrixXf& condition,
-                                    Eigen::MatrixXf& head_input, Eigen::MatrixXf& output, const long i_start,
+void nam::wavenet::_Layer::process_(const Eigen::Ref<const Eigen::MatrixXf> input, const Eigen::Ref<const Eigen::MatrixXf> condition,
+                                    Eigen::Ref<Eigen::MatrixXf> head_input, Eigen::Ref<Eigen::MatrixXf> output, const long i_start,
                                     const long j_start)
 {
   const long ncols = condition.cols();
@@ -102,17 +102,27 @@ void nam::wavenet::_LayerArray::prepare_for_frames_(const long num_frames)
     this->_rewind_buffers_();
 }
 
-void nam::wavenet::_LayerArray::process_(const Eigen::MatrixXf& layer_inputs, const Eigen::MatrixXf& condition,
-                                         Eigen::MatrixXf& head_inputs, Eigen::MatrixXf& layer_outputs,
-                                         Eigen::MatrixXf& head_outputs)
+void nam::wavenet::_LayerArray::process_(const Eigen::Ref<const Eigen::MatrixXf> layer_inputs, const Eigen::Ref<const Eigen::MatrixXf> condition,
+                                         Eigen::Ref<Eigen::MatrixXf> head_inputs, Eigen::Ref<Eigen::MatrixXf> layer_outputs,
+                                         Eigen::Ref<Eigen::MatrixXf> head_outputs)
 {
   this->_layer_buffers[0].middleCols(this->_buffer_start, layer_inputs.cols()) = this->_rechannel.process(layer_inputs);
   const size_t last_layer = this->_layers.size() - 1;
   for (size_t i = 0; i < this->_layers.size(); i++)
   {
-    this->_layers[i].process_(this->_layer_buffers[i], condition, head_inputs,
-                              i == last_layer ? layer_outputs : this->_layer_buffers[i + 1], this->_buffer_start,
-                              i == last_layer ? 0 : this->_buffer_start);
+    if (i == last_layer)
+    {
+      this->_layers[i].process_(this->_layer_buffers[i], condition, head_inputs,
+                                layer_outputs, this->_buffer_start,
+                                0);
+    }
+    else
+    {
+      this->_layers[i].process_(this->_layer_buffers[i], condition, head_inputs,
+                                this->_layer_buffers[i + 1], this->_buffer_start,
+                                this->_buffer_start);
+    }
+
   }
   head_outputs = this->_head_rechannel.process(head_inputs);
 }
@@ -192,7 +202,7 @@ void nam::wavenet::_Head::set_weights_(weights_it& weights)
     this->_layers[i].set_weights_(weights);
 }
 
-void nam::wavenet::_Head::process_(Eigen::MatrixXf& inputs, Eigen::MatrixXf& outputs)
+void nam::wavenet::_Head::process_(Eigen::Ref<Eigen::MatrixXf> inputs, Eigen::Ref<Eigen::MatrixXf> outputs)
 {
   const size_t num_layers = this->_layers.size();
   this->_apply_activation_(inputs);
@@ -223,7 +233,7 @@ void nam::wavenet::_Head::set_num_frames_(const long num_frames)
   }
 }
 
-void nam::wavenet::_Head::_apply_activation_(Eigen::MatrixXf& x)
+void nam::wavenet::_Head::_apply_activation_(Eigen::Ref<Eigen::MatrixXf> x)
 {
   this->_activation->apply(x);
 }

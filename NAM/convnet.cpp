@@ -35,7 +35,7 @@ nam::convnet::BatchNorm::BatchNorm(const int dim, weights_it& weights)
   this->loc = _bias - this->scale.cwiseProduct(running_mean);
 }
 
-void nam::convnet::BatchNorm::process_(Eigen::MatrixXf& x, const long i_start, const long i_end) const
+void nam::convnet::BatchNorm::process_(Eigen::Ref<Eigen::MatrixXf> x, const long i_start, const long i_end) const
 {
   // todo using colwise?
   // #speed but conv probably dominates
@@ -58,7 +58,7 @@ void nam::convnet::ConvNetBlock::set_weights_(const int in_channels, const int o
   this->activation = activations::Activation::get_activation(activation);
 }
 
-void nam::convnet::ConvNetBlock::process_(const Eigen::MatrixXf& input, Eigen::MatrixXf& output, const long i_start,
+void nam::convnet::ConvNetBlock::process_(const Eigen::Ref<const Eigen::MatrixXf> input, Eigen::Ref<Eigen::MatrixXf> output, const long i_start,
                                           const long i_end) const
 {
   const long ncols = i_end - i_start;
@@ -82,7 +82,7 @@ nam::convnet::_Head::_Head(const int channels, weights_it& weights)
   this->_bias = *(weights++);
 }
 
-void nam::convnet::_Head::process_(const Eigen::MatrixXf& input, Eigen::VectorXf& output, const long i_start,
+void nam::convnet::_Head::process_(const Eigen::Ref<const Eigen::MatrixXf> input, Eigen::VectorXf& output, const long i_start,
                                    const long i_end) const
 {
   const long length = i_end - i_start;
@@ -146,7 +146,7 @@ void nam::convnet::ConvNet::_update_buffers_(NAM_SAMPLE* input, const int num_fr
 
   const size_t buffer_size = this->_input_buffer.size();
 
-  if (this->_block_vals[0].rows() != 1 || this->_block_vals[0].cols() != buffer_size)
+  if (this->_block_vals[0].rows() != Eigen::Index(1) || this->_block_vals[0].cols() != Eigen::Index(buffer_size))
   {
     this->_block_vals[0].resize(1, buffer_size);
     this->_block_vals[0].setZero();
@@ -155,7 +155,7 @@ void nam::convnet::ConvNet::_update_buffers_(NAM_SAMPLE* input, const int num_fr
   for (size_t i = 1; i < this->_block_vals.size(); i++)
   {
     if (this->_block_vals[i].rows() == this->_blocks[i - 1].get_out_channels()
-        && this->_block_vals[i].cols() == buffer_size)
+        && this->_block_vals[i].cols() == Eigen::Index(buffer_size))
       continue; // Already has correct size
     this->_block_vals[i].resize(this->_blocks[i - 1].get_out_channels(), buffer_size);
     this->_block_vals[i].setZero();
