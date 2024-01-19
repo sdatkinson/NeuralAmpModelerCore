@@ -82,10 +82,10 @@ nam::lstm::LSTM::LSTM(const int num_layers, const int input_size, const int hidd
 void nam::lstm::LSTM::Process(float* input, float* output, const int numFrames)
 {
   for (auto i = 0; i < numFrames; i++)
-    output[i] = this->_process_sample(input[i]);
+    output[i] = this->ProcessSample(input[i]);
 }
 
-float nam::lstm::LSTM::_process_sample(const float x)
+float nam::lstm::LSTM::ProcessSample(const float x)
 {
   if (this->mLayers.size() == 0)
     return x;

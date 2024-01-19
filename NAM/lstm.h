@@ -60,7 +60,7 @@ protected:
   void Process(float* input, float* output, const int numFrames) override;
   std::vector<LSTMCell> mLayers;
 
-  float _process_sample(const float x);
+  float ProcessSample(const float x);
 
   // Input to the LSTM.
   // Since this is assumed to not be a parametric model, its shape should be (1,)
