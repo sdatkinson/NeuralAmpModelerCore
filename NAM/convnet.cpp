@@ -46,13 +46,13 @@ void nam::convnet::BatchNorm::process_(Eigen::Ref<Eigen::MatrixXf> x, const long
   }
 }
 
-void nam::convnet::ConvNetBlock::set_weights_(const int in_channels, const int out_channels, const int _dilation,
+void nam::convnet::ConvNetBlock::set_weights_(const int in_channels, const int out_channels, const int dilation,
                                               const bool batchnorm, const std::string activation,
                                               weights_it& weights)
 {
   this->_batchnorm = batchnorm;
   // HACK 2 kernel
-  this->conv.set_size_and_weights_(in_channels, out_channels, 2, _dilation, !batchnorm, weights);
+  this->conv.set_size_and_weights_(in_channels, out_channels, 2, dilation, !batchnorm, weights);
   if (this->_batchnorm)
     this->batchnorm = BatchNorm(out_channels, weights);
   this->activation = activations::Activation::get_activation(activation);
@@ -172,8 +172,8 @@ void nam::convnet::ConvNet::RewindBuffers()
   {
     // We actually don't need to pull back a lot...just as far as the first
     // input sample would grab from dilation
-    const long _dilation = this->_blocks[k].conv.get_dilation();
-    for (long i = this->mReceptiveField - _dilation, j = this->mInputBufferOffset - _dilation;
+    const long dilation = this->_blocks[k].conv.get_dilation();
+    for (long i = this->mReceptiveField - dilation, j = this->mInputBufferOffset - dilation;
          j < this->mInputBufferOffset; i++, j++)
       for (long r = 0; r < this->_block_vals[k].rows(); r++)
         this->_block_vals[k](r, i) = this->_block_vals[k](r, j);

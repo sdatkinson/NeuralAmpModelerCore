@@ -184,7 +184,7 @@ void nam::Conv1D::set_weights_(weights_it& weights)
 }
 
 void nam::Conv1D::set_size_(const int in_channels, const int out_channels, const int kernel_size, const bool do_bias,
-                            const int _dilation)
+                            const int dilation)
 {
   this->mWeight.resize(kernel_size);
   for (size_t i = 0; i < this->mWeight.size(); i++)
@@ -194,13 +194,13 @@ void nam::Conv1D::set_size_(const int in_channels, const int out_channels, const
     this->mBias.resize(out_channels);
   else
     this->mBias.resize(0);
-  this->mDilation = _dilation;
+  this->mDilation = dilation;
 }
 
 void nam::Conv1D::set_size_and_weights_(const int in_channels, const int out_channels, const int kernel_size,
-                                        const int _dilation, const bool do_bias, weights_it& weights)
+                                        const int dilation, const bool do_bias, weights_it& weights)
 {
-  this->set_size_(in_channels, out_channels, kernel_size, do_bias, _dilation);
+  this->set_size_(in_channels, out_channels, kernel_size, do_bias, dilation);
   this->set_weights_(weights);
 }
 
