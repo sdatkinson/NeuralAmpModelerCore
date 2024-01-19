@@ -195,7 +195,7 @@ private:
 
   virtual int _get_condition_dim() const { return 1; };
   // Fill in the "condition" array that's fed into the various parts of the net.
-  virtual void _set_condition_array(float* input, const int numFrames);
+  virtual void SetConditionArray(float* input, const int numFrames);
   // Ensure that all buffer arrays are the right size for this numFrames
   void SetNumFrames(const long numFrames);
 };
