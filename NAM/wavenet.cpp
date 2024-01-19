@@ -48,10 +48,10 @@ void nam::wavenet::_Layer::Process(const Eigen::Ref<const Eigen::MatrixXf> input
 
 void nam::wavenet::_Layer::set_num_frames_(const long numFrames)
 {
-  if (this->_z.rows() == this->_conv.get_out_channels() && this->_z.cols() == numFrames)
+  if (this->_z.rows() == this->_conv.GetOutChannels() && this->_z.cols() == numFrames)
     return; // Already has correct size
 
-  this->_z.resize(this->_conv.get_out_channels(), numFrames);
+  this->_z.resize(this->_conv.GetOutChannels(), numFrames);
   this->_z.setZero();
 }
 

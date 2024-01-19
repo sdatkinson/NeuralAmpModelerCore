@@ -43,7 +43,7 @@ public:
   void SetWeights(const int inChannels, const int outChannels, const int dilation, const bool batchnorm,
                     const std::string activation, weights_it& weights);
   void Process(const Eigen::Ref<const Eigen::MatrixXf> input, Eigen::Ref<Eigen::MatrixXf> output, const long i_start, const long i_end) const;
-  long get_out_channels() const;
+  long GetOutChannels() const;
   Conv1D conv;
 
 private:
