@@ -33,7 +33,7 @@ public:
   void set_weights_(weights_it& weights);
   // :param `input`: from previous layer
   // :param `output`: to next layer
-  void process_(const Eigen::Ref<const Eigen::MatrixXf> input, const Eigen::Ref<const Eigen::MatrixXf> condition, Eigen::Ref<Eigen::MatrixXf> head_input,
+  void Process(const Eigen::Ref<const Eigen::MatrixXf> input, const Eigen::Ref<const Eigen::MatrixXf> condition, Eigen::Ref<Eigen::MatrixXf> head_input,
                 Eigen::Ref<Eigen::MatrixXf> output, const long i_start, const long j_start);
   void set_num_frames_(const long numFrames);
   long get_channels() const { return this->_conv.get_in_channels(); };
@@ -101,7 +101,7 @@ public:
   void prepare_for_frames_(const long numFrames);
 
   // All arrays are "short".
-  void process_(const Eigen::Ref<const Eigen::MatrixXf> layer_inputs, // Short
+  void Process(const Eigen::Ref<const Eigen::MatrixXf> layer_inputs, // Short
                 const Eigen::Ref<const Eigen::MatrixXf> condition, // Short
                 Eigen::Ref<Eigen::MatrixXf> layer_outputs, // Short
                 Eigen::Ref<Eigen::MatrixXf> head_inputs, // Sum up on this.
@@ -147,7 +147,7 @@ public:
   void set_weights_(weights_it& weights);
   // NOTE: the head transforms the provided input by applying a nonlinearity
   // to it in-place!
-  void process_(Eigen::Ref<Eigen::MatrixXf> inputs, Eigen::Ref<Eigen::MatrixXf> outputs);
+  void Process(Eigen::Ref<Eigen::MatrixXf> inputs, Eigen::Ref<Eigen::MatrixXf> outputs);
   void set_num_frames_(const long numFrames);
 
 private:
@@ -157,7 +157,7 @@ private:
   activations::Activation* _activation;
 
   // Stores the outputs of the convs *except* the last one, which goes in
-  // The array `outputs` provided to .process_()
+  // The array `outputs` provided to .Process()
   std::vector<Eigen::MatrixXf> _buffers;
 
   // Apply the activation to the provided array, in-place

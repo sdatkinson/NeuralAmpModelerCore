@@ -35,7 +35,7 @@ nam::convnet::BatchNorm::BatchNorm(const int dim, weights_it& weights)
   this->loc = bias - this->scale.cwiseProduct(running_mean);
 }
 
-void nam::convnet::BatchNorm::process_(Eigen::Ref<Eigen::MatrixXf> x, const long i_start, const long i_end) const
+void nam::convnet::BatchNorm::Process(Eigen::Ref<Eigen::MatrixXf> x, const long i_start, const long i_end) const
 {
   // todo using colwise?
   // #speed but conv probably dominates
@@ -58,13 +58,13 @@ void nam::convnet::ConvNetBlock::set_weights_(const int in_channels, const int o
   this->activation = activations::Activation::get_activation(activation);
 }
 
-void nam::convnet::ConvNetBlock::process_(const Eigen::Ref<const Eigen::MatrixXf> input, Eigen::Ref<Eigen::MatrixXf> output, const long i_start,
+void nam::convnet::ConvNetBlock::Process(const Eigen::Ref<const Eigen::MatrixXf> input, Eigen::Ref<Eigen::MatrixXf> output, const long i_start,
                                           const long i_end) const
 {
   const long ncols = i_end - i_start;
-  this->conv.process_(input, output, i_start, ncols, i_start);
+  this->conv.Process(input, output, i_start, ncols, i_start);
   if (this->_batchnorm)
-    this->batchnorm.process_(output, i_start, i_end);
+    this->batchnorm.Process(output, i_start, i_end);
 
   this->activation->apply(output.middleCols(i_start, ncols));
 }
@@ -82,7 +82,7 @@ nam::convnet::_Head::_Head(const int channels, weights_it& weights)
   this->mBias = *(weights++);
 }
 
-void nam::convnet::_Head::process_(const Eigen::Ref<const Eigen::MatrixXf> input, Eigen::VectorXf& output, const long i_start,
+void nam::convnet::_Head::Process(const Eigen::Ref<const Eigen::MatrixXf> input, Eigen::VectorXf& output, const long i_start,
                                    const long i_end) const
 {
   const long length = i_end - i_start;
@@ -126,9 +126,9 @@ void nam::convnet::ConvNet::Process(float* input, float* output, const int numFr
   for (auto i = i_start; i < i_end; i++)
     this->_block_vals[0](0, i) = this->mInputBuffer[i];
   for (size_t i = 0; i < this->_blocks.size(); i++)
-    this->_blocks[i].process_(this->_block_vals[i], this->_block_vals[i + 1], i_start, i_end);
+    this->_blocks[i].Process(this->_block_vals[i], this->_block_vals[i + 1], i_start, i_end);
   // TODO clean up this allocation
-  this->_head.process_(this->_block_vals[this->_blocks.size()], this->_head_output, i_start, i_end);
+  this->_head.Process(this->_block_vals[this->_blocks.size()], this->_head_output, i_start, i_end);
   // Copy to required output array (TODO tighten this up)
   for (int s = 0; s < numFrames; s++)
     output[s] = this->_head_output(s);

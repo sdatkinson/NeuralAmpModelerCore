@@ -204,7 +204,7 @@ void nam::Conv1D::set_size_and_weights_(const int in_channels, const int out_cha
   this->set_weights_(weights);
 }
 
-void nam::Conv1D::process_(const Eigen::Ref<const Eigen::MatrixXf> input, Eigen::Ref<Eigen::MatrixXf> output, const long i_start, const long ncols,
+void nam::Conv1D::Process(const Eigen::Ref<const Eigen::MatrixXf> input, Eigen::Ref<Eigen::MatrixXf> output, const long i_start, const long ncols,
                            const long j_start) const
 {
   // This is the clever part ;)
