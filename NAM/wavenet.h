@@ -186,7 +186,7 @@ private:
   Eigen::MatrixXf _condition;
   // One more than total layer arrays
   std::vector<Eigen::MatrixXf> _head_arrays;
-  float _head_scale;
+  float mHeadScale;
   Eigen::MatrixXf mHeadOutput;
 
   void AdvanceBuffers(const int numFrames);
