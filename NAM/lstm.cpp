@@ -64,13 +64,13 @@ void nam::lstm::LSTMCell::Process(const Eigen::VectorXf& x)
   }
 }
 
-nam::lstm::LSTM::LSTM(const int num_layers, const int input_size, const int hidden_size, const std::vector<float>& weights,
+nam::lstm::LSTM::LSTM(const int numLayers, const int input_size, const int hidden_size, const std::vector<float>& weights,
                       const double expectedSampleRate)
 : DSP(expectedSampleRate)
 {
   this->mInput.resize(1);
   auto it = weights.begin();
-  for (int i = 0; i < num_layers; i++)
+  for (int i = 0; i < numLayers; i++)
     this->mLayers.push_back(LSTMCell(i == 0 ? input_size : hidden_size, hidden_size, it));
   this->mHeadWeight.resize(hidden_size);
   for (int i = 0; i < hidden_size; i++)

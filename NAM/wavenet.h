@@ -143,7 +143,7 @@ private:
 class Head
 {
 public:
-  Head(const int input_size, const int num_layers, const int channels, const std::string activation);
+  Head(const int input_size, const int numLayers, const int channels, const std::string activation);
   void SetWeights(weights_it& weights);
   // NOTE: the head transforms the provided input by applying a nonlinearity
   // to it in-place!

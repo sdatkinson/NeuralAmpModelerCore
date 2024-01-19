@@ -161,10 +161,10 @@ std::unique_ptr<DSP> GetDSP(dspData& conf)
   }
   else if (architecture == "LSTM")
   {
-    const int num_layers = config["num_layers"];
+    const int numLayers = config["num_layers"];
     const int input_size = config["input_size"];
     const int hidden_size = config["hidden_size"];
-    out = std::make_unique<lstm::LSTM>(num_layers, input_size, hidden_size, weights, expectedSampleRate);
+    out = std::make_unique<lstm::LSTM>(numLayers, input_size, hidden_size, weights, expectedSampleRate);
   }
   else if (architecture == "WaveNet")
   {
