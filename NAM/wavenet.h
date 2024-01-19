@@ -38,7 +38,7 @@ public:
   void set_num_frames_(const long numFrames);
   long get_channels() const { return this->_conv.GetInChannels(); };
   int get_dilation() const { return this->_conv.get_dilation(); };
-  long get_kernel_size() const { return this->_conv.get_kernel_size(); };
+  long GetKernelSize() const { return this->_conv.GetKernelSize(); };
 
 private:
   // The dilated convolution at the front of the block

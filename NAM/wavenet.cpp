@@ -85,7 +85,7 @@ long nam::wavenet::_LayerArray::get_receptive_field() const
 {
   long result = 0;
   for (size_t i = 0; i < this->_layers.size(); i++)
-    result += this->_layers[i].get_dilation() * (this->_layers[i].get_kernel_size() - 1);
+    result += this->_layers[i].get_dilation() * (this->_layers[i].GetKernelSize() - 1);
   return result;
 }
 
@@ -161,7 +161,7 @@ long nam::wavenet::_LayerArray::_get_receptive_field() const
   // TODO remove this and use get_receptive_field() instead!
   long res = 1;
   for (size_t i = 0; i < this->_layers.size(); i++)
-    res += (this->_layers[i].get_kernel_size() - 1) * this->_layers[i].get_dilation();
+    res += (this->_layers[i].GetKernelSize() - 1) * this->_layers[i].get_dilation();
   return res;
 }
 
@@ -172,7 +172,7 @@ void nam::wavenet::_LayerArray::RewindBuffers()
   const long start = this->_get_receptive_field() - 1;
   for (size_t i = 0; i < this->_layer_buffers.size(); i++)
   {
-    const long d = (this->_layers[i].get_kernel_size() - 1) * this->_layers[i].get_dilation();
+    const long d = (this->_layers[i].GetKernelSize() - 1) * this->_layers[i].get_dilation();
     this->_layer_buffers[i].middleCols(start - d, d) = this->_layer_buffers[i].middleCols(this->_buffer_start - d, d);
   }
   this->_buffer_start = start;
