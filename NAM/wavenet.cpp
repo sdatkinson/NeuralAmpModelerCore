@@ -205,7 +205,7 @@ void nam::wavenet::Head::SetWeights(weights_it& weights)
 void nam::wavenet::Head::Process(Eigen::Ref<Eigen::MatrixXf> inputs, Eigen::Ref<Eigen::MatrixXf> outputs)
 {
   const size_t numLayers = this->_layers.size();
-  this->_apply_activation_(inputs);
+  this->ApplyActivation(inputs);
   if (numLayers == 1)
     outputs = this->_layers[0].Process(inputs);
   else
@@ -213,7 +213,7 @@ void nam::wavenet::Head::Process(Eigen::Ref<Eigen::MatrixXf> inputs, Eigen::Ref<
     this->_buffers[0] = this->_layers[0].Process(inputs);
     for (size_t i = 1; i < numLayers; i++)
     { // Asserted > 0 layers
-      this->_apply_activation_(this->_buffers[i - 1]);
+      this->ApplyActivation(this->_buffers[i - 1]);
       if (i < numLayers - 1)
         this->_buffers[i] = this->_layers[i].Process(this->_buffers[i - 1]);
       else
@@ -233,7 +233,7 @@ void nam::wavenet::Head::set_num_frames_(const long numFrames)
   }
 }
 
-void nam::wavenet::Head::_apply_activation_(Eigen::Ref<Eigen::MatrixXf> x)
+void nam::wavenet::Head::ApplyActivation(Eigen::Ref<Eigen::MatrixXf> x)
 {
   this->_activation->Apply(x);
 }

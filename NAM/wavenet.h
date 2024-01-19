@@ -161,7 +161,7 @@ private:
   std::vector<Eigen::MatrixXf> _buffers;
 
   // Apply the activation to the provided array, in-place
-  void _apply_activation_(Eigen::Ref<Eigen::MatrixXf> x);
+  void ApplyActivation(Eigen::Ref<Eigen::MatrixXf> x);
 };
 
 // The main WaveNet model
