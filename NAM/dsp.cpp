@@ -136,11 +136,11 @@ void nam::Buffer::Finalize(const int numFrames)
 
 // Linear =====================================================================
 
-nam::Linear::Linear(const int receptiveField, const bool _bias, const std::vector<float>& weights,
+nam::Linear::Linear(const int receptiveField, const bool bias, const std::vector<float>& weights,
                     const double expectedSampleRate)
 : nam::Buffer(receptiveField, expectedSampleRate)
 {
-  if ((int)weights.size() != (receptiveField + (_bias ? 1 : 0)))
+  if ((int)weights.size() != (receptiveField + (bias ? 1 : 0)))
     throw std::runtime_error(
       "Params vector does not match expected size based "
       "on architecture parameters");
@@ -149,7 +149,7 @@ nam::Linear::Linear(const int receptiveField, const bool _bias, const std::vecto
   // Pass in in reverse order so that dot products work out of the box.
   for (int i = 0; i < this->mReceptiveField; i++)
     this->mWeight(i) = weights[receptiveField - 1 - i];
-  this->mBias = _bias ? weights[receptiveField] : (float)0.0;
+  this->mBias = bias ? weights[receptiveField] : (float)0.0;
 }
 
 void nam::Linear::Process(float* input, float* output, const int numFrames)
@@ -228,11 +228,11 @@ long nam::Conv1D::get_num_weights() const
   return num_weights;
 }
 
-nam::Conv1x1::Conv1x1(const int in_channels, const int out_channels, const bool _bias)
+nam::Conv1x1::Conv1x1(const int in_channels, const int out_channels, const bool bias)
 {
   this->mWeight.resize(out_channels, in_channels);
-  this->mDoBias = _bias;
-  if (_bias)
+  this->mDoBias = bias;
+  if (bias)
     this->mBias.resize(out_channels);
 }
 
