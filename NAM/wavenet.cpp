@@ -183,7 +183,7 @@ void nam::wavenet::LayerArray::RewindBuffers()
 nam::wavenet::Head::Head(const int inputSize, const int numLayers, const int channels, const std::string activation)
 : _channels(channels)
 , _head(numLayers > 0 ? channels : inputSize, 1, true)
-, _activation(activations::Activation::GetActivation(activation))
+, mActivation(activations::Activation::GetActivation(activation))
 {
   assert(numLayers > 0);
   int dx = inputSize;
@@ -235,7 +235,7 @@ void nam::wavenet::Head::set_num_frames_(const long numFrames)
 
 void nam::wavenet::Head::ApplyActivation(Eigen::Ref<Eigen::MatrixXf> x)
 {
-  this->_activation->Apply(x);
+  this->mActivation->Apply(x);
 }
 
 // WaveNet ====================================================================
