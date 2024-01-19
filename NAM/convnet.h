@@ -78,10 +78,10 @@ protected:
   _Head _head;
   void _verify_weights(const int channels, const std::vector<int>& dilations, const bool batchnorm,
                        const size_t actual_weights);
-  void _update_buffers_(float* input, const int num_frames) override;
+  void _update_buffers_(float* input, const int numFrames) override;
   void _rewind_buffers_() override;
 
-  void process(float* input, float* output, const int num_frames) override;
+  void process(float* input, float* output, const int numFrames) override;
 };
 }; // namespace convnet
 }; // namespace nam
