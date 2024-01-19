@@ -98,7 +98,7 @@ protected:
   void SetReceptiveField(const int new_receptive_field);
   void ResetInputBuffer();
   // Use this->_input_post_gain
-  virtual void _update_buffers_(float* input, int numFrames);
+  virtual void UpdateBuffers(float* input, int numFrames);
   virtual void _rewind_buffers_();
 };
 

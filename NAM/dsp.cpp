@@ -81,7 +81,7 @@ void nam::Buffer::SetReceptiveField(const int new_receptive_field, const int inp
   this->ResetInputBuffer();
 }
 
-void nam::Buffer::_update_buffers_(float* input, const int numFrames)
+void nam::Buffer::UpdateBuffers(float* input, const int numFrames)
 {
   // Make sure that the buffer is big enough for the receptive field and the
   // frames needed!
@@ -154,7 +154,7 @@ nam::Linear::Linear(const int receptive_field, const bool _bias, const std::vect
 
 void nam::Linear::Process(float* input, float* output, const int numFrames)
 {
-  this->nam::Buffer::_update_buffers_(input, numFrames);
+  this->nam::Buffer::UpdateBuffers(input, numFrames);
 
   // Main computation!
   for (auto i = 0; i < numFrames; i++)

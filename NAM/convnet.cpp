@@ -118,7 +118,7 @@ nam::convnet::ConvNet::ConvNet(const int channels, const std::vector<int>& dilat
 void nam::convnet::ConvNet::Process(float* input, float* output, const int numFrames)
 
 {
-  this->_update_buffers_(input, numFrames);
+  this->UpdateBuffers(input, numFrames);
   // Main computation!
   const long i_start = this->_input_buffer_offset;
   const long i_end = i_start + numFrames;
@@ -140,9 +140,9 @@ void nam::convnet::ConvNet::_verify_weights(const int channels, const std::vecto
   // TODO
 }
 
-void nam::convnet::ConvNet::_update_buffers_(float* input, const int numFrames)
+void nam::convnet::ConvNet::UpdateBuffers(float* input, const int numFrames)
 {
-  this->Buffer::_update_buffers_(input, numFrames);
+  this->Buffer::UpdateBuffers(input, numFrames);
 
   const size_t buffer_size = this->_input_buffer.size();
 
