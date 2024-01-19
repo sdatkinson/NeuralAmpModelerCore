@@ -33,7 +33,7 @@ private:
   // a = w / sqrt(v+eps)
   // b = a * m + bias
   Eigen::VectorXf mScale;
-  Eigen::VectorXf loc;
+  Eigen::VectorXf mLoc;
 };
 
 class ConvNetBlock
