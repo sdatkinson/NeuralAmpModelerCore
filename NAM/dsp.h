@@ -104,7 +104,7 @@ protected:
 class Linear : public Buffer
 {
 public:
-  Linear(const int receptiveField, const bool _bias, const std::vector<float>& weights,
+  Linear(const int receptiveField, const bool bias, const std::vector<float>& weights,
          const double expectedSampleRate = -1.0);
   void Process(float* input, float* output, const int numFrames) override;
 
@@ -147,7 +147,7 @@ private:
 class Conv1x1
 {
 public:
-  Conv1x1(const int in_channels, const int out_channels, const bool _bias);
+  Conv1x1(const int in_channels, const int out_channels, const bool bias);
   void set_weights_(weights_it& weights);
   // :param input: (N,Cin) or (Cin,)
   // :return: (N,Cout) or (Cout,), respectively
