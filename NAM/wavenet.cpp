@@ -319,7 +319,7 @@ void nam::wavenet::WaveNet::SetConditionArray(float* input, const int numFrames)
 {
   for (int j = 0; j < numFrames; j++)
   {
-    this->_condition(0, j) = input[j];
+    this->mCondition(0, j) = input[j];
   }
 }
 
@@ -334,7 +334,7 @@ void nam::wavenet::WaveNet::Process(float* input, float* output, const int numFr
   // Sum on head output
   this->mHeadArrays[0].setZero();
   for (size_t i = 0; i < this->_layer_arrays.size(); i++)
-    this->_layer_arrays[i].Process(i == 0 ? this->_condition : this->_layer_array_outputs[i - 1], this->_condition,
+    this->_layer_arrays[i].Process(i == 0 ? this->mCondition : this->_layer_array_outputs[i - 1], this->mCondition,
                                     this->mHeadArrays[i], this->_layer_array_outputs[i], this->mHeadArrays[i + 1]);
   // this->_head.Process(
   //   this->_head_input,
@@ -358,7 +358,7 @@ void nam::wavenet::WaveNet::SetNumFrames(const long numFrames)
   if (numFrames == this->_num_frames)
     return;
 
-  this->_condition.resize(this->GetConditionDim(), numFrames);
+  this->mCondition.resize(this->GetConditionDim(), numFrames);
   for (size_t i = 0; i < this->mHeadArrays.size(); i++)
     this->mHeadArrays[i].resize(this->mHeadArrays[i].rows(), numFrames);
   for (size_t i = 0; i < this->_layer_array_outputs.size(); i++)
