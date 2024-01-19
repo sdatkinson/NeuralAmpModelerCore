@@ -40,7 +40,7 @@ class ConvNetBlock
 {
 public:
   ConvNetBlock(){};
-  void SetWeights(const int in_channels, const int out_channels, const int dilation, const bool batchnorm,
+  void SetWeights(const int inChannels, const int out_channels, const int dilation, const bool batchnorm,
                     const std::string activation, weights_it& weights);
   void Process(const Eigen::Ref<const Eigen::MatrixXf> input, Eigen::Ref<Eigen::MatrixXf> output, const long i_start, const long i_end) const;
   long get_out_channels() const;
