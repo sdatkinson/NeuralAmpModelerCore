@@ -118,7 +118,7 @@ protected:
 class Conv1D
 {
 public:
-  Conv1D() { this->_dilation = 1; };
+  Conv1D() { this->mDilation = 1; };
   void set_weights_(weights_it& weights);
   void set_size_(const int in_channels, const int out_channels, const int kernel_size, const bool do_bias,
                  const int _dilation);
@@ -133,14 +133,14 @@ public:
   long get_kernel_size() const { return this->mWeight.size(); };
   long get_num_weights() const;
   long get_out_channels() const { return this->mWeight.size() > 0 ? this->mWeight[0].rows() : 0; };
-  int get_dilation() const { return this->_dilation; };
+  int get_dilation() const { return this->mDilation; };
 
 private:
   // Gonna wing this...
   // conv[kernel](cout, cin)
   std::vector<Eigen::MatrixXf> mWeight;
   Eigen::VectorXf mBias;
-  int _dilation;
+  int mDilation;
 };
 
 // Really just a linear layer

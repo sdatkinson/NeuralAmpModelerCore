@@ -194,7 +194,7 @@ void nam::Conv1D::set_size_(const int in_channels, const int out_channels, const
     this->mBias.resize(out_channels);
   else
     this->mBias.resize(0);
-  this->_dilation = _dilation;
+  this->mDilation = _dilation;
 }
 
 void nam::Conv1D::set_size_and_weights_(const int in_channels, const int out_channels, const int kernel_size,
@@ -210,7 +210,7 @@ void nam::Conv1D::process_(const Eigen::Ref<const Eigen::MatrixXf> input, Eigen:
   // This is the clever part ;)
   for (size_t k = 0; k < this->mWeight.size(); k++)
   {
-    const long offset = this->_dilation * (k + 1 - this->mWeight.size());
+    const long offset = this->mDilation * (k + 1 - this->mWeight.size());
     if (k == 0)
       output.middleCols(j_start, ncols) = this->mWeight[k] * input.middleCols(i_start + offset, ncols);
     else
