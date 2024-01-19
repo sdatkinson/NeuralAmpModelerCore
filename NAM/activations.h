@@ -45,13 +45,13 @@ class Activation
 public:
   Activation() = default;
   virtual ~Activation() = default;
-  virtual void apply(Eigen::Ref<Eigen::MatrixXf> matrix) { apply(matrix.data(), matrix.rows() * matrix.cols()); }
-  virtual void apply(Eigen::Block<Eigen::MatrixXf> block) { apply(block.data(), block.rows() * block.cols()); }
-  virtual void apply(Eigen::Block<Eigen::MatrixXf, -1, -1, true> block)
+  virtual void Apply(Eigen::Ref<Eigen::MatrixXf> matrix) { Apply(matrix.data(), matrix.rows() * matrix.cols()); }
+  virtual void Apply(Eigen::Block<Eigen::MatrixXf> block) { Apply(block.data(), block.rows() * block.cols()); }
+  virtual void Apply(Eigen::Block<Eigen::MatrixXf, -1, -1, true> block)
   {
-    apply(block.data(), block.rows() * block.cols());
+    Apply(block.data(), block.rows() * block.cols());
   }
-  virtual void apply(float* data, long size) {}
+  virtual void Apply(float* data, long size) {}
 
   static Activation* get_activation(const std::string name);
   static void enable_fast_tanh();
@@ -65,7 +65,7 @@ protected:
 class ActivationTanh : public Activation
 {
 public:
-  void apply(float* data, long size) override
+  void Apply(float* data, long size) override
   {
     for (long pos = 0; pos < size; pos++)
     {
@@ -77,7 +77,7 @@ public:
 class ActivationHardTanh : public Activation
 {
 public:
-  void apply(float* data, long size) override
+  void Apply(float* data, long size) override
   {
     for (long pos = 0; pos < size; pos++)
     {
@@ -89,7 +89,7 @@ public:
 class ActivationFastTanh : public Activation
 {
 public:
-  void apply(float* data, long size) override
+  void Apply(float* data, long size) override
   {
     for (long pos = 0; pos < size; pos++)
     {
@@ -101,7 +101,7 @@ public:
 class ActivationReLU : public Activation
 {
 public:
-  void apply(float* data, long size) override
+  void Apply(float* data, long size) override
   {
     for (long pos = 0; pos < size; pos++)
     {
@@ -113,7 +113,7 @@ public:
 class ActivationSigmoid : public Activation
 {
 public:
-  void apply(float* data, long size) override
+  void Apply(float* data, long size) override
   {
     for (long pos = 0; pos < size; pos++)
     {
