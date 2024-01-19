@@ -60,7 +60,7 @@ public:
   LayerArrayParams(const int input_size_, const int condition_size_, const int head_size_, const int channels_,
                    const int kernel_size_, const std::vector<int>& dilations_, const std::string activation_,
                    const bool gated_, const bool head_bias_)
-  : input_size(input_size_)
+  : inputSize(input_size_)
   , condition_size(condition_size_)
   , head_size(head_size_)
   , channels(channels_)
@@ -73,7 +73,7 @@ public:
       this->dilations.push_back(dilations_[i]);
   };
 
-  const int input_size;
+  const int inputSize;
   const int condition_size;
   const int head_size;
   const int channels;
@@ -88,7 +88,7 @@ public:
 class _LayerArray
 {
 public:
-  _LayerArray(const int input_size, const int condition_size, const int head_size, const int channels,
+  _LayerArray(const int inputSize, const int condition_size, const int head_size, const int channels,
               const int kernelSize, const std::vector<int>& dilations, const std::string activation, const bool gated,
               const bool head_bias);
 
@@ -143,7 +143,7 @@ private:
 class Head
 {
 public:
-  Head(const int input_size, const int numLayers, const int channels, const std::string activation);
+  Head(const int inputSize, const int numLayers, const int channels, const std::string activation);
   void SetWeights(weights_it& weights);
   // NOTE: the head transforms the provided input by applying a nonlinearity
   // to it in-place!

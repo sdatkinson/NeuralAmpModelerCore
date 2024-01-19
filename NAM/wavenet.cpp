@@ -59,10 +59,10 @@ void nam::wavenet::_Layer::set_num_frames_(const long numFrames)
 
 #define LAYER_ARRAY_BUFFER_SIZE 65536
 
-nam::wavenet::_LayerArray::_LayerArray(const int input_size, const int condition_size, const int head_size,
+nam::wavenet::_LayerArray::_LayerArray(const int inputSize, const int condition_size, const int head_size,
                                        const int channels, const int kernelSize, const std::vector<int>& dilations,
                                        const std::string activation, const bool gated, const bool head_bias)
-: _rechannel(input_size, channels, false)
+: _rechannel(inputSize, channels, false)
 , _head_rechannel(channels, head_size, head_bias)
 {
   for (size_t i = 0; i < dilations.size(); i++)
@@ -180,13 +180,13 @@ void nam::wavenet::_LayerArray::RewindBuffers()
 
 // Head =======================================================================
 
-nam::wavenet::Head::Head(const int input_size, const int numLayers, const int channels, const std::string activation)
+nam::wavenet::Head::Head(const int inputSize, const int numLayers, const int channels, const std::string activation)
 : _channels(channels)
-, _head(numLayers > 0 ? channels : input_size, 1, true)
+, _head(numLayers > 0 ? channels : inputSize, 1, true)
 , _activation(activations::Activation::GetActivation(activation))
 {
   assert(numLayers > 0);
-  int dx = input_size;
+  int dx = inputSize;
   for (int i = 0; i < numLayers; i++)
   {
     this->_layers.push_back(Conv1x1(dx, i == numLayers - 1 ? 1 : channels, true));
@@ -252,7 +252,7 @@ nam::wavenet::WaveNet::WaveNet(const std::vector<nam::wavenet::LayerArrayParams>
   for (size_t i = 0; i < layer_array_params.size(); i++)
   {
     this->_layer_arrays.push_back(nam::wavenet::_LayerArray(
-      layer_array_params[i].input_size, layer_array_params[i].condition_size, layer_array_params[i].head_size,
+      layer_array_params[i].inputSize, layer_array_params[i].condition_size, layer_array_params[i].head_size,
       layer_array_params[i].channels, layer_array_params[i].kernelSize, layer_array_params[i].dilations,
       layer_array_params[i].activation, layer_array_params[i].gated, layer_array_params[i].head_bias));
     this->_layer_array_outputs.push_back(Eigen::MatrixXf(layer_array_params[i].channels, 0));
