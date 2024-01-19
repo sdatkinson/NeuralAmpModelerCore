@@ -52,11 +52,11 @@ private:
   activations::Activation* activation = nullptr;
 };
 
-class _Head
+class Head
 {
 public:
-  _Head(){};
-  _Head(const int channels, weights_it& weights);
+  Head(){};
+  Head(const int channels, weights_it& weights);
   void Process(const Eigen::Ref<const Eigen::MatrixXf> input, Eigen::VectorXf& output, const long i_start, const long i_end) const;
 
 private:
@@ -75,7 +75,7 @@ protected:
   std::vector<ConvNetBlock> mBlocks;
   std::vector<Eigen::MatrixXf> mBlockVals;
   Eigen::VectorXf mHeadOutput;
-  _Head mHead;
+  Head mHead;
   void VerifyWeights(const int channels, const std::vector<int>& dilations, const bool batchnorm,
                        const size_t actualWeights);
   void UpdateBuffers(float* input, const int numFrames) override;

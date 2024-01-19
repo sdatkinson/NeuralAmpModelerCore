@@ -74,7 +74,7 @@ long nam::convnet::ConvNetBlock::GetOutChannels() const
   return this->conv.GetOutChannels();
 }
 
-nam::convnet::_Head::_Head(const int channels, weights_it& weights)
+nam::convnet::Head::Head(const int channels, weights_it& weights)
 {
   this->mWeight.resize(channels);
   for (int i = 0; i < channels; i++)
@@ -82,7 +82,7 @@ nam::convnet::_Head::_Head(const int channels, weights_it& weights)
   this->mBias = *(weights++);
 }
 
-void nam::convnet::_Head::Process(const Eigen::Ref<const Eigen::MatrixXf> input, Eigen::VectorXf& output, const long i_start,
+void nam::convnet::Head::Process(const Eigen::Ref<const Eigen::MatrixXf> input, Eigen::VectorXf& output, const long i_start,
                                    const long i_end) const
 {
   const long length = i_end - i_start;
@@ -105,7 +105,7 @@ nam::convnet::ConvNet::ConvNet(const int channels, const std::vector<int>& dilat
   for (auto& matrix : this->mBlockVals)
     matrix.setZero();
   std::fill(this->mInputBuffer.begin(), this->mInputBuffer.end(), 0.0f);
-  this->mHead = _Head(channels, it);
+  this->mHead = Head(channels, it);
   if (it != weights.end())
     throw std::runtime_error("Didn't touch all the weights when initializing ConvNet");
 
