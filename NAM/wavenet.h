@@ -112,7 +112,7 @@ public:
 
   // "Zero-indexed" receptive field.
   // E.g. a 1x1 convolution has a z.i.r.f. of zero.
-  long get_receptive_field() const;
+  long GetReceptiveField() const;
 
 private:
   long mBufferStart;
