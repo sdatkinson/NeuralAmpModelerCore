@@ -85,10 +85,10 @@ public:
 };
 
 // An array of layers with the same channels, kernel sizes, activations.
-class _LayerArray
+class LayerArray
 {
 public:
-  _LayerArray(const int inputSize, const int condition_size, const int head_size, const int channels,
+  LayerArray(const int inputSize, const int condition_size, const int head_size, const int channels,
               const int kernelSize, const std::vector<int>& dilations, const std::string activation, const bool gated,
               const bool head_bias);
 
@@ -177,7 +177,7 @@ public:
 
 private:
   long _num_frames;
-  std::vector<_LayerArray> mLayerArrays;
+  std::vector<LayerArray> mLayerArrays;
   // Their outputs
   std::vector<Eigen::MatrixXf> mLayerArrayOutputs;
   // Head _head;
