@@ -23,7 +23,7 @@ class LSTMCell
 {
 public:
   LSTMCell(const int inputSize, const int hiddenSize, weights_it& weights);
-  Eigen::VectorXf get_hidden_state() const { return this->_xh(Eigen::placeholders::lastN(this->GetHiddenSize())); };
+  Eigen::VectorXf GetHiddenState() const { return this->_xh(Eigen::placeholders::lastN(this->GetHiddenSize())); };
   void Process(const Eigen::VectorXf& x);
 
 private:

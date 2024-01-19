@@ -92,6 +92,6 @@ float nam::lstm::LSTM::ProcessSample(const float x)
   this->mInput(0) = x;
   this->mLayers[0].Process(this->mInput);
   for (size_t i = 1; i < this->mLayers.size(); i++)
-    this->mLayers[i].Process(this->mLayers[i - 1].get_hidden_state());
-  return this->mHeadWeight.dot(this->mLayers[this->mLayers.size() - 1].get_hidden_state()) + this->mHeadBias;
+    this->mLayers[i].Process(this->mLayers[i - 1].GetHiddenState());
+  return this->mHeadWeight.dot(this->mLayers[this->mLayers.size() - 1].GetHiddenState()) + this->mHeadBias;
 }
