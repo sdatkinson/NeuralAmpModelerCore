@@ -71,7 +71,7 @@ nam::lstm::LSTM::LSTM(const int num_layers, const int input_size, const int hidd
   this->_input.resize(1);
   auto it = weights.begin();
   for (int i = 0; i < num_layers; i++)
-    this->_layers.push_back(LSTMCell(i == 0 ? input_size : hidden_size, hidden_size, it));
+    this->mLayers.push_back(LSTMCell(i == 0 ? input_size : hidden_size, hidden_size, it));
   this->mHeadWeight.resize(hidden_size);
   for (int i = 0; i < hidden_size; i++)
     this->mHeadWeight[i] = *(it++);
@@ -87,11 +87,11 @@ void nam::lstm::LSTM::Process(float* input, float* output, const int numFrames)
 
 float nam::lstm::LSTM::_process_sample(const float x)
 {
-  if (this->_layers.size() == 0)
+  if (this->mLayers.size() == 0)
     return x;
   this->_input(0) = x;
-  this->_layers[0].Process(this->_input);
-  for (size_t i = 1; i < this->_layers.size(); i++)
-    this->_layers[i].Process(this->_layers[i - 1].get_hidden_state());
-  return this->mHeadWeight.dot(this->_layers[this->_layers.size() - 1].get_hidden_state()) + this->mHeadBias;
+  this->mLayers[0].Process(this->_input);
+  for (size_t i = 1; i < this->mLayers.size(); i++)
+    this->mLayers[i].Process(this->mLayers[i - 1].get_hidden_state());
+  return this->mHeadWeight.dot(this->mLayers[this->mLayers.size() - 1].get_hidden_state()) + this->mHeadBias;
 }
