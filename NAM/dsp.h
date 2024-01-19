@@ -94,8 +94,8 @@ protected:
   std::vector<float> _input_buffer;
   std::vector<float> _output_buffer;
 
-  void _set_receptive_field(const int new_receptive_field, const int input_buffer_size);
-  void _set_receptive_field(const int new_receptive_field);
+  void SetReceptiveField(const int new_receptive_field, const int input_buffer_size);
+  void SetReceptiveField(const int new_receptive_field);
   void _reset_input_buffer();
   // Use this->_input_post_gain
   virtual void _update_buffers_(float* input, int numFrames);
