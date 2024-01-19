@@ -182,7 +182,7 @@ void nam::wavenet::LayerArray::RewindBuffers()
 
 nam::wavenet::Head::Head(const int inputSize, const int numLayers, const int channels, const std::string activation)
 : _channels(channels)
-, _head(numLayers > 0 ? channels : inputSize, 1, true)
+, mHead(numLayers > 0 ? channels : inputSize, 1, true)
 , mActivation(activations::Activation::GetActivation(activation))
 {
   assert(numLayers > 0);
