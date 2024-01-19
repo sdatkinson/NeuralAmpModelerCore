@@ -56,7 +56,7 @@ public:
   static Activation* GetActivation(const std::string name);
   static void EnableFastTanh();
   static void DisableFastTanh();
-  static bool using_fast_tanh;
+  static bool sUsingFastTanh;
 
 protected:
   static std::unordered_map<std::string, Activation*> _activations;
