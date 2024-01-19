@@ -101,7 +101,7 @@ public:
   void prepare_for_frames_(const long numFrames);
 
   // All arrays are "short".
-  void Process(const Eigen::Ref<const Eigen::MatrixXf> layer_inputs, // Short
+  void Process(const Eigen::Ref<const Eigen::MatrixXf> layerInputs, // Short
                 const Eigen::Ref<const Eigen::MatrixXf> condition, // Short
                 Eigen::Ref<Eigen::MatrixXf> layerOutputs, // Short
                 Eigen::Ref<Eigen::MatrixXf> headInputs, // Sum up on this.

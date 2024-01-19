@@ -102,11 +102,11 @@ void nam::wavenet::LayerArray::prepare_for_frames_(const long numFrames)
     this->RewindBuffers();
 }
 
-void nam::wavenet::LayerArray::Process(const Eigen::Ref<const Eigen::MatrixXf> layer_inputs, const Eigen::Ref<const Eigen::MatrixXf> condition,
+void nam::wavenet::LayerArray::Process(const Eigen::Ref<const Eigen::MatrixXf> layerInputs, const Eigen::Ref<const Eigen::MatrixXf> condition,
                                          Eigen::Ref<Eigen::MatrixXf> headInputs, Eigen::Ref<Eigen::MatrixXf> layerOutputs,
                                          Eigen::Ref<Eigen::MatrixXf> headOutputs)
 {
-  this->mLayerBuffers[0].middleCols(this->mBufferStart, layer_inputs.cols()) = this->mReChannel.Process(layer_inputs);
+  this->mLayerBuffers[0].middleCols(this->mBufferStart, layerInputs.cols()) = this->mReChannel.Process(layerInputs);
   const size_t last_layer = this->mLayers.size() - 1;
   for (size_t i = 0; i < this->mLayers.size(); i++)
   {
