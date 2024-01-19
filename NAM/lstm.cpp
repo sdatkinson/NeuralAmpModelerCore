@@ -30,7 +30,7 @@ nam::lstm::LSTMCell::LSTMCell(const int inputSize, const int hiddenSize, weights
 void nam::lstm::LSTMCell::Process(const Eigen::VectorXf& x)
 {
   const long hiddenSize = this->GetHiddenSize();
-  const long inputSize = this->_get_input_size();
+  const long inputSize = this->GetInputSize();
   // Assign inputs
   this->_xh(Eigen::seq(0, inputSize - 1)) = x;
   // The matmul
