@@ -145,9 +145,9 @@ std::unique_ptr<DSP> get_dsp(dspData& conf)
   std::unique_ptr<DSP> out = nullptr;
   if (architecture == "Linear")
   {
-    const int receptive_field = config["receptive_field"];
+    const int receptiveField = config["receptiveField"];
     const bool _bias = config["bias"];
-    out = std::make_unique<Linear>(receptive_field, _bias, weights, expectedSampleRate);
+    out = std::make_unique<Linear>(receptiveField, _bias, weights, expectedSampleRate);
   }
   else if (architecture == "ConvNet")
   {
