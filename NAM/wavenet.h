@@ -193,7 +193,7 @@ private:
   void _prepare_for_frames_(const long numFrames);
   void Process(float* input, float* output, const int numFrames) override;
 
-  virtual int _get_condition_dim() const { return 1; };
+  virtual int GetConditionDim() const { return 1; };
   // Fill in the "condition" array that's fed into the various parts of the net.
   virtual void SetConditionArray(float* input, const int numFrames);
   // Ensure that all buffer arrays are the right size for this numFrames

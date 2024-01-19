@@ -358,7 +358,7 @@ void nam::wavenet::WaveNet::SetNumFrames(const long numFrames)
   if (numFrames == this->_num_frames)
     return;
 
-  this->_condition.resize(this->_get_condition_dim(), numFrames);
+  this->_condition.resize(this->GetConditionDim(), numFrames);
   for (size_t i = 0; i < this->_head_arrays.size(); i++)
     this->_head_arrays[i].resize(this->_head_arrays[i].rows(), numFrames);
   for (size_t i = 0; i < this->_layer_array_outputs.size(); i++)
