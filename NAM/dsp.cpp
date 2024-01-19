@@ -220,7 +220,7 @@ void nam::Conv1D::Process(const Eigen::Ref<const Eigen::MatrixXf> input, Eigen::
     output.middleCols(j_start, ncols).colwise() += this->mBias;
 }
 
-long nam::Conv1D::get_num_weights() const
+long nam::Conv1D::GetNumWeights() const
 {
   long num_weights = this->mBias.size();
   for (size_t i = 0; i < this->mWeight.size(); i++)
