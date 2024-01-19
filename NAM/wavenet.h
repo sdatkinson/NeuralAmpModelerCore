@@ -176,7 +176,7 @@ public:
   void SetWeights(const std::vector<float>& weights);
 
 private:
-  long _num_frames;
+  long mNumFrames;
   std::vector<LayerArray> mLayerArrays;
   // Their outputs
   std::vector<Eigen::MatrixXf> mLayerArrayOutputs;
