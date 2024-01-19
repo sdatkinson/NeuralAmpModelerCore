@@ -55,7 +55,7 @@ public:
 
   static Activation* GetActivation(const std::string name);
   static void EnableFastTanh();
-  static void disable_fast_tanh();
+  static void DisableFastTanh();
   static bool using_fast_tanh;
 
 protected:

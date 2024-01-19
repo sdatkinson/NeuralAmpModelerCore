@@ -32,7 +32,7 @@ void nam::activations::Activation::EnableFastTanh()
   }
 }
 
-void nam::activations::Activation::disable_fast_tanh()
+void nam::activations::Activation::DisableFastTanh()
 {
   nam::activations::Activation::using_fast_tanh = false;
 
