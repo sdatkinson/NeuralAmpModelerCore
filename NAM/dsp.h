@@ -120,10 +120,10 @@ class Conv1D
 public:
   Conv1D() { this->mDilation = 1; };
   void set_weights_(weights_it& weights);
-  void set_size_(const int in_channels, const int out_channels, const int kernel_size, const bool do_bias,
+  void set_size_(const int in_channels, const int out_channels, const int kernel_size, const bool doBias,
                  const int dilation);
   void set_size_and_weights_(const int in_channels, const int out_channels, const int kernel_size, const int dilation,
-                             const bool do_bias, weights_it& weights);
+                             const bool doBias, weights_it& weights);
   // Process from input to output
   //  Rightmost indices of input go from i_start to i_end,
   //  Indices on output for from j_start (to j_start + i_end - i_start)
