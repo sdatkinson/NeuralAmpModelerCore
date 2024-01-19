@@ -76,7 +76,7 @@ protected:
   std::vector<Eigen::MatrixXf> _block_vals;
   Eigen::VectorXf _head_output;
   _Head _head;
-  void _verify_weights(const int channels, const std::vector<int>& dilations, const bool batchnorm,
+  void VerifyWeights(const int channels, const std::vector<int>& dilations, const bool batchnorm,
                        const size_t actual_weights);
   void UpdateBuffers(float* input, const int numFrames) override;
   void RewindBuffers() override;
