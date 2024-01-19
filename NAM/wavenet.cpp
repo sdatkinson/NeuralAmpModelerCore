@@ -180,7 +180,7 @@ void nam::wavenet::_LayerArray::RewindBuffers()
 
 // Head =======================================================================
 
-nam::wavenet::_Head::_Head(const int input_size, const int num_layers, const int channels, const std::string activation)
+nam::wavenet::Head::Head(const int input_size, const int num_layers, const int channels, const std::string activation)
 : _channels(channels)
 , _head(num_layers > 0 ? channels : input_size, 1, true)
 , _activation(activations::Activation::GetActivation(activation))
@@ -196,13 +196,13 @@ nam::wavenet::_Head::_Head(const int input_size, const int num_layers, const int
   }
 }
 
-void nam::wavenet::_Head::SetWeights(weights_it& weights)
+void nam::wavenet::Head::SetWeights(weights_it& weights)
 {
   for (size_t i = 0; i < this->_layers.size(); i++)
     this->_layers[i].SetWeights(weights);
 }
 
-void nam::wavenet::_Head::Process(Eigen::Ref<Eigen::MatrixXf> inputs, Eigen::Ref<Eigen::MatrixXf> outputs)
+void nam::wavenet::Head::Process(Eigen::Ref<Eigen::MatrixXf> inputs, Eigen::Ref<Eigen::MatrixXf> outputs)
 {
   const size_t num_layers = this->_layers.size();
   this->_apply_activation_(inputs);
@@ -222,7 +222,7 @@ void nam::wavenet::_Head::Process(Eigen::Ref<Eigen::MatrixXf> inputs, Eigen::Ref
   }
 }
 
-void nam::wavenet::_Head::set_num_frames_(const long numFrames)
+void nam::wavenet::Head::set_num_frames_(const long numFrames)
 {
   for (size_t i = 0; i < this->_buffers.size(); i++)
   {
@@ -233,7 +233,7 @@ void nam::wavenet::_Head::set_num_frames_(const long numFrames)
   }
 }
 
-void nam::wavenet::_Head::_apply_activation_(Eigen::Ref<Eigen::MatrixXf> x)
+void nam::wavenet::Head::_apply_activation_(Eigen::Ref<Eigen::MatrixXf> x)
 {
   this->_activation->Apply(x);
 }
