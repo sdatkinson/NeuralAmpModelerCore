@@ -14,8 +14,8 @@
 
 constexpr const long _INPUT_BUFFER_SAFETY_FACTOR = 32;
 
-nam::DSP::DSP(const double expected_sample_rate)
-: mExpectedSampleRate(expected_sample_rate)
+nam::DSP::DSP(const double expectedSampleRate)
+: mExpectedSampleRate(expectedSampleRate)
 {
 }
 
@@ -62,8 +62,8 @@ void nam::DSP::Finalize(const int numFrames) {}
 
 // Buffer =====================================================================
 
-nam::Buffer::Buffer(const int receptiveField, const double expected_sample_rate)
-: nam::DSP(expected_sample_rate)
+nam::Buffer::Buffer(const int receptiveField, const double expectedSampleRate)
+: nam::DSP(expectedSampleRate)
 {
   this->SetReceptiveField(receptiveField);
 }
@@ -137,8 +137,8 @@ void nam::Buffer::Finalize(const int numFrames)
 // Linear =====================================================================
 
 nam::Linear::Linear(const int receptiveField, const bool _bias, const std::vector<float>& weights,
-                    const double expected_sample_rate)
-: nam::Buffer(receptiveField, expected_sample_rate)
+                    const double expectedSampleRate)
+: nam::Buffer(receptiveField, expectedSampleRate)
 {
   if ((int)weights.size() != (receptiveField + (_bias ? 1 : 0)))
     throw std::runtime_error(

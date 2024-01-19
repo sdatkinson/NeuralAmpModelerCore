@@ -106,10 +106,10 @@ std::unique_ptr<DSP> get_dsp(const std::filesystem::path config_filename, dspDat
   returnedConfig.metadata = j["metadata"];
   returnedConfig.weights = weights;
   if (j.find("sample_rate") != j.end())
-    returnedConfig.expected_sample_rate = j["sample_rate"];
+    returnedConfig.expectedSampleRate = j["sample_rate"];
   else
   {
-    returnedConfig.expected_sample_rate = -1.0;
+    returnedConfig.expectedSampleRate = -1.0;
   }
 
 
@@ -140,7 +140,7 @@ std::unique_ptr<DSP> get_dsp(dspData& conf)
       haveLoudness = true;
     }
   }
-  const double expectedSampleRate = conf.expected_sample_rate;
+  const double expectedSampleRate = conf.expectedSampleRate;
 
   std::unique_ptr<DSP> out = nullptr;
   if (architecture == "Linear")
