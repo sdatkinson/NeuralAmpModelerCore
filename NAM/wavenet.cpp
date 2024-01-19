@@ -242,8 +242,8 @@ void nam::wavenet::_Head::_apply_activation_(Eigen::Ref<Eigen::MatrixXf> x)
 
 nam::wavenet::WaveNet::WaveNet(const std::vector<nam::wavenet::LayerArrayParams>& layer_array_params,
                                const float head_scale, const bool with_head, const std::vector<float>& weights,
-                               const double expected_sample_rate)
-: DSP(expected_sample_rate)
+                               const double expectedSampleRate)
+: DSP(expectedSampleRate)
 , _num_frames(0)
 , _head_scale(head_scale)
 {

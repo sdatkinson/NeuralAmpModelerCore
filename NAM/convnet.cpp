@@ -93,8 +93,8 @@ void nam::convnet::_Head::process_(const Eigen::Ref<const Eigen::MatrixXf> input
 
 nam::convnet::ConvNet::ConvNet(const int channels, const std::vector<int>& dilations, const bool batchnorm,
                                const std::string activation, std::vector<float>& weights,
-                               const double expected_sample_rate)
-: Buffer(*std::max_element(dilations.begin(), dilations.end()), expected_sample_rate)
+                               const double expectedSampleRate)
+: Buffer(*std::max_element(dilations.begin(), dilations.end()), expectedSampleRate)
 {
   this->_verify_weights(channels, dilations, batchnorm, weights.size());
   this->_blocks.resize(dilations.size());

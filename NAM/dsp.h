@@ -37,7 +37,7 @@ public:
   // Older models won't know, but newer ones will come with a loudness from the training based on their response to a
   // standardized input.
   // We may choose to have the models figure out for themselves how loud they are in here in the future.
-  DSP(const double expected_sample_rate);
+  DSP(const double expectedSampleRate);
   virtual ~DSP() = default;
   // Prewarm() does any required intial work required to "settle" model initial conditions
   // it can be somewhat expensive, so should not be called during realtime audio processing
@@ -82,7 +82,7 @@ protected:
 class Buffer : public DSP
 {
 public:
-  Buffer(const int receptiveField, const double expected_sample_rate = -1.0);
+  Buffer(const int receptiveField, const double expectedSampleRate = -1.0);
   void Finalize(const int numFrames);
 
 protected:
@@ -105,7 +105,7 @@ class Linear : public Buffer
 {
 public:
   Linear(const int receptiveField, const bool _bias, const std::vector<float>& weights,
-         const double expected_sample_rate = -1.0);
+         const double expectedSampleRate = -1.0);
   void Process(float* input, float* output, const int numFrames) override;
 
 protected:
@@ -176,7 +176,7 @@ private:
 // :param config:
 // :param metadata:
 // :param weights: The model weights
-// :param expected_sample_rate: Most NAM models implicitly assume that data will be provided to them at some sample
+// :param expectedSampleRate: Most NAM models implicitly assume that data will be provided to them at some sample
 //     rate. This captures it for other components interfacing with the model to understand its needs. Use -1.0 for "I
 //     don't know".
 struct dspData
@@ -186,7 +186,7 @@ struct dspData
   nlohmann::json config;
   nlohmann::json metadata;
   std::vector<float> weights;
-  double expected_sample_rate;
+  double expectedSampleRate;
 };
 
 // Verify that the config that we are building our model from is supported by

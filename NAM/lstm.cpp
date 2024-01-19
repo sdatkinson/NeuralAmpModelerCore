@@ -65,8 +65,8 @@ void nam::lstm::LSTMCell::process_(const Eigen::VectorXf& x)
 }
 
 nam::lstm::LSTM::LSTM(const int num_layers, const int input_size, const int hidden_size, const std::vector<float>& weights,
-                      const double expected_sample_rate)
-: DSP(expected_sample_rate)
+                      const double expectedSampleRate)
+: DSP(expectedSampleRate)
 {
   this->_input.resize(1);
   auto it = weights.begin();
