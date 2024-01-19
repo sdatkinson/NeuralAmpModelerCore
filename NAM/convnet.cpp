@@ -162,7 +162,7 @@ void nam::convnet::ConvNet::UpdateBuffers(float* input, const int numFrames)
   }
 }
 
-void nam::convnet::ConvNet::_rewind_buffers_()
+void nam::convnet::ConvNet::RewindBuffers()
 {
   // Need to rewind the block vals first because Buffer::rewind_buffers()
   // resets the offset index
@@ -179,5 +179,5 @@ void nam::convnet::ConvNet::_rewind_buffers_()
         this->_block_vals[k](r, i) = this->_block_vals[k](r, j);
   }
   // Now we can do the rest of the rewind
-  this->Buffer::_rewind_buffers_();
+  this->Buffer::RewindBuffers();
 }
