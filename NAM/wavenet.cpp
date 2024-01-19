@@ -66,7 +66,7 @@ nam::wavenet::LayerArray::LayerArray(const int inputSize, const int condition_si
 , mHeadRechannel(channels, head_size, head_bias)
 {
   for (size_t i = 0; i < dilations.size(); i++)
-    this->_layers.push_back(_Layer(condition_size, channels, kernelSize, dilations[i], activation, gated));
+    this->mLayers.push_back(_Layer(condition_size, channels, kernelSize, dilations[i], activation, gated));
   const long receptiveField = this->GetReceptiveField();
   for (size_t i = 0; i < dilations.size(); i++)
   {
@@ -84,8 +84,8 @@ void nam::wavenet::LayerArray::advance_buffers_(const int numFrames)
 long nam::wavenet::LayerArray::get_receptive_field() const
 {
   long result = 0;
-  for (size_t i = 0; i < this->_layers.size(); i++)
-    result += this->_layers[i].GetDilation() * (this->_layers[i].GetKernelSize() - 1);
+  for (size_t i = 0; i < this->mLayers.size(); i++)
+    result += this->mLayers[i].GetDilation() * (this->mLayers[i].GetKernelSize() - 1);
   return result;
 }
 
@@ -107,18 +107,18 @@ void nam::wavenet::LayerArray::Process(const Eigen::Ref<const Eigen::MatrixXf> l
                                          Eigen::Ref<Eigen::MatrixXf> head_outputs)
 {
   this->mLayerBuffers[0].middleCols(this->_buffer_start, layer_inputs.cols()) = this->_rechannel.Process(layer_inputs);
-  const size_t last_layer = this->_layers.size() - 1;
-  for (size_t i = 0; i < this->_layers.size(); i++)
+  const size_t last_layer = this->mLayers.size() - 1;
+  for (size_t i = 0; i < this->mLayers.size(); i++)
   {
     if (i == last_layer)
     {
-      this->_layers[i].Process(this->mLayerBuffers[i], condition, head_inputs,
+      this->mLayers[i].Process(this->mLayerBuffers[i], condition, head_inputs,
                                 layer_outputs, this->_buffer_start,
                                 0);
     }
     else
     {
-      this->_layers[i].Process(this->mLayerBuffers[i], condition, head_inputs,
+      this->mLayers[i].Process(this->mLayerBuffers[i], condition, head_inputs,
                                 this->mLayerBuffers[i + 1], this->_buffer_start,
                                 this->_buffer_start);
     }
@@ -139,29 +139,29 @@ void nam::wavenet::LayerArray::SetNumFrames(const long numFrames)
        << "); copy errors could occur!\n";
     throw std::runtime_error(ss.str().c_str());
   }
-  for (size_t i = 0; i < this->_layers.size(); i++)
-    this->_layers[i].SetNumFrames(numFrames);
+  for (size_t i = 0; i < this->mLayers.size(); i++)
+    this->mLayers[i].SetNumFrames(numFrames);
 }
 
 void nam::wavenet::LayerArray::SetWeights(weights_it& weights)
 {
   this->_rechannel.SetWeights(weights);
-  for (size_t i = 0; i < this->_layers.size(); i++)
-    this->_layers[i].SetWeights(weights);
+  for (size_t i = 0; i < this->mLayers.size(); i++)
+    this->mLayers[i].SetWeights(weights);
   this->mHeadRechannel.SetWeights(weights);
 }
 
 long nam::wavenet::LayerArray::GetChannels() const
 {
-  return this->_layers.size() > 0 ? this->_layers[0].get_channels() : 0;
+  return this->mLayers.size() > 0 ? this->mLayers[0].get_channels() : 0;
 }
 
 long nam::wavenet::LayerArray::GetReceptiveField() const
 {
   // TODO remove this and use get_receptive_field() instead!
   long res = 1;
-  for (size_t i = 0; i < this->_layers.size(); i++)
-    res += (this->_layers[i].GetKernelSize() - 1) * this->_layers[i].GetDilation();
+  for (size_t i = 0; i < this->mLayers.size(); i++)
+    res += (this->mLayers[i].GetKernelSize() - 1) * this->mLayers[i].GetDilation();
   return res;
 }
 
@@ -172,7 +172,7 @@ void nam::wavenet::LayerArray::RewindBuffers()
   const long start = this->GetReceptiveField() - 1;
   for (size_t i = 0; i < this->mLayerBuffers.size(); i++)
   {
-    const long d = (this->_layers[i].GetKernelSize() - 1) * this->_layers[i].GetDilation();
+    const long d = (this->mLayers[i].GetKernelSize() - 1) * this->mLayers[i].GetDilation();
     this->mLayerBuffers[i].middleCols(start - d, d) = this->mLayerBuffers[i].middleCols(this->_buffer_start - d, d);
   }
   this->_buffer_start = start;

@@ -124,7 +124,7 @@ private:
   // the last layer outputs to a short array provided by outside.
   std::vector<Eigen::MatrixXf> mLayerBuffers;
   // The layer objects
-  std::vector<_Layer> _layers;
+  std::vector<_Layer> mLayers;
 
   // Rechannel for the head
   Conv1x1 mHeadRechannel;
