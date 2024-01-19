@@ -98,7 +98,7 @@ void nam::wavenet::LayerArray::prepare_for_frames_(const long numFrames)
   // -> this will write on indices 0 through 63, inclusive.
   // -> No illegal writes.
   // -> no rewind needed.
-  if (this->_buffer_start + numFrames > this->_get_buffer_size())
+  if (this->_buffer_start + numFrames > this->GetBufferSize())
     this->RewindBuffers();
 }
 
