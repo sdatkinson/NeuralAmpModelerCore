@@ -197,7 +197,7 @@ void nam::Conv1D::SetSize(const int in_channels, const int out_channels, const i
   this->mDilation = dilation;
 }
 
-void nam::Conv1D::set_size_and_weights_(const int in_channels, const int out_channels, const int kernel_size,
+void nam::Conv1D::SetSizeAndWeights(const int in_channels, const int out_channels, const int kernel_size,
                                         const int dilation, const bool doBias, weights_it& weights)
 {
   this->SetSize(in_channels, out_channels, kernel_size, doBias, dilation);
