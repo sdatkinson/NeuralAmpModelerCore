@@ -129,7 +129,7 @@ private:
   // Rechannel for the head
   Conv1x1 _head_rechannel;
 
-  long _get_buffer_size() const { return this->_layer_buffers.size() > 0 ? this->_layer_buffers[0].cols() : 0; };
+  long GetBufferSize() const { return this->_layer_buffers.size() > 0 ? this->_layer_buffers[0].cols() : 0; };
   long GetChannels() const;
   // "One-indexed" receptive field
   // TODO remove!
