@@ -78,7 +78,7 @@ void nam::Buffer::SetReceptiveField(const int new_receptive_field, const int inp
   this->_receptive_field = new_receptive_field;
   this->_input_buffer.resize(input_buffer_size);
   std::fill(this->_input_buffer.begin(), this->_input_buffer.end(), 0.0f);
-  this->_reset_input_buffer();
+  this->ResetInputBuffer();
 }
 
 void nam::Buffer::_update_buffers_(float* input, const int numFrames)
@@ -123,7 +123,7 @@ void nam::Buffer::_rewind_buffers_()
   this->_input_buffer_offset = this->_receptive_field;
 }
 
-void nam::Buffer::_reset_input_buffer()
+void nam::Buffer::ResetInputBuffer()
 {
   this->_input_buffer_offset = this->_receptive_field;
 }
