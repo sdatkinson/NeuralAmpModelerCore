@@ -37,7 +37,7 @@ public:
                 Eigen::Ref<Eigen::MatrixXf> output, const long i_start, const long j_start);
   void set_num_frames_(const long numFrames);
   long get_channels() const { return this->_conv.GetInChannels(); };
-  int get_dilation() const { return this->_conv.get_dilation(); };
+  int GetDilation() const { return this->_conv.GetDilation(); };
   long GetKernelSize() const { return this->_conv.GetKernelSize(); };
 
 private:

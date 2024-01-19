@@ -172,7 +172,7 @@ void nam::convnet::ConvNet::RewindBuffers()
   {
     // We actually don't need to pull back a lot...just as far as the first
     // input sample would grab from dilation
-    const long dilation = this->_blocks[k].conv.get_dilation();
+    const long dilation = this->_blocks[k].conv.GetDilation();
     for (long i = this->mReceptiveField - dilation, j = this->mInputBufferOffset - dilation;
          j < this->mInputBufferOffset; i++, j++)
       for (long r = 0; r < this->_block_vals[k].rows(); r++)
