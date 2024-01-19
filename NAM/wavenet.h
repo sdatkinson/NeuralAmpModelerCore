@@ -117,7 +117,7 @@ public:
 private:
   long _buffer_start;
   // The rechannel before the layers
-  Conv1x1 _rechannel;
+  Conv1x1 mReChannel;
 
   // Buffers in between layers.
   // buffer [i] is the input to layer [i].
