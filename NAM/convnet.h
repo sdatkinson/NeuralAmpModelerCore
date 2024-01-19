@@ -73,7 +73,7 @@ public:
 
 protected:
   std::vector<ConvNetBlock> _blocks;
-  std::vector<Eigen::MatrixXf> _block_vals;
+  std::vector<Eigen::MatrixXf> mBlockVals;
   Eigen::VectorXf mHeadOutput;
   _Head mHead;
   void VerifyWeights(const int channels, const std::vector<int>& dilations, const bool batchnorm,
