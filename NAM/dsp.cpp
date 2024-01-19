@@ -75,7 +75,7 @@ void nam::Buffer::SetReceptiveField(const int new_receptive_field)
 
 void nam::Buffer::SetReceptiveField(const int new_receptive_field, const int input_buffer_size)
 {
-  this->_receptive_field = new_receptive_field;
+  this->mReceptiveField = new_receptive_field;
   this->mInputBuffer.resize(input_buffer_size);
   std::fill(this->mInputBuffer.begin(), this->mInputBuffer.end(), 0.0f);
   this->ResetInputBuffer();
@@ -86,7 +86,7 @@ void nam::Buffer::UpdateBuffers(float* input, const int numFrames)
   // Make sure that the buffer is big enough for the receptive field and the
   // frames needed!
   {
-    const long minimum_input_buffer_size = (long)this->_receptive_field + _INPUT_BUFFER_SAFETY_FACTOR * numFrames;
+    const long minimum_input_buffer_size = (long)this->mReceptiveField + _INPUT_BUFFER_SAFETY_FACTOR * numFrames;
     if ((long)this->mInputBuffer.size() < minimum_input_buffer_size)
     {
       long new_buffer_size = 2;
@@ -113,19 +113,19 @@ void nam::Buffer::RewindBuffers()
 {
   // Copy the input buffer back
   // RF-1 samples because we've got at least one new one inbound.
-  for (long i = 0, j = this->mInputBufferOffset - this->_receptive_field; i < this->_receptive_field; i++, j++)
+  for (long i = 0, j = this->mInputBufferOffset - this->mReceptiveField; i < this->mReceptiveField; i++, j++)
     this->mInputBuffer[i] = this->mInputBuffer[j];
   // And reset the offset.
   // Even though we could be stingy about that one sample that we won't be using
   // (because a new set is incoming) it's probably not worth the
   // hyper-optimization and liable for bugs. And the code looks way tidier this
   // way.
-  this->mInputBufferOffset = this->_receptive_field;
+  this->mInputBufferOffset = this->mReceptiveField;
 }
 
 void nam::Buffer::ResetInputBuffer()
 {
-  this->mInputBufferOffset = this->_receptive_field;
+  this->mInputBufferOffset = this->mReceptiveField;
 }
 
 void nam::Buffer::Finalize(const int numFrames)
@@ -145,9 +145,9 @@ nam::Linear::Linear(const int receptive_field, const bool _bias, const std::vect
       "Params vector does not match expected size based "
       "on architecture parameters");
 
-  this->_weight.resize(this->_receptive_field);
+  this->_weight.resize(this->mReceptiveField);
   // Pass in in reverse order so that dot products work out of the box.
-  for (int i = 0; i < this->_receptive_field; i++)
+  for (int i = 0; i < this->mReceptiveField; i++)
     this->_weight(i) = weights[receptive_field - 1 - i];
   this->_bias = _bias ? weights[receptive_field] : (float)0.0;
 }
@@ -160,7 +160,7 @@ void nam::Linear::Process(float* input, float* output, const int numFrames)
   for (auto i = 0; i < numFrames; i++)
   {
     const size_t offset = this->mInputBufferOffset - this->_weight.size() + i + 1;
-    auto input = Eigen::Map<const Eigen::VectorXf>(&this->mInputBuffer[offset], this->_receptive_field);
+    auto input = Eigen::Map<const Eigen::VectorXf>(&this->mInputBuffer[offset], this->mReceptiveField);
     output[i] = this->_bias + this->_weight.dot(input);
   }
 }
