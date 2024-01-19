@@ -67,13 +67,13 @@ nam::wavenet::LayerArray::LayerArray(const int inputSize, const int condition_si
 {
   for (size_t i = 0; i < dilations.size(); i++)
     this->_layers.push_back(_Layer(condition_size, channels, kernelSize, dilations[i], activation, gated));
-  const long receptiveField = this->_get_receptive_field();
+  const long receptiveField = this->GetReceptiveField();
   for (size_t i = 0; i < dilations.size(); i++)
   {
     this->_layer_buffers.push_back(Eigen::MatrixXf(channels, LAYER_ARRAY_BUFFER_SIZE + receptiveField - 1));
     this->_layer_buffers[i].setZero();
   }
-  this->_buffer_start = this->_get_receptive_field() - 1;
+  this->_buffer_start = this->GetReceptiveField() - 1;
 }
 
 void nam::wavenet::LayerArray::advance_buffers_(const int numFrames)
@@ -131,11 +131,11 @@ void nam::wavenet::LayerArray::SetNumFrames(const long numFrames)
 {
   // Wavenet checks for unchanged numFrames; if we made it here, there's
   // something to do.
-  if (LAYER_ARRAY_BUFFER_SIZE - numFrames < this->_get_receptive_field())
+  if (LAYER_ARRAY_BUFFER_SIZE - numFrames < this->GetReceptiveField())
   {
     std::stringstream ss;
     ss << "Asked to accept a buffer of " << numFrames << " samples, but the buffer is too short ("
-       << LAYER_ARRAY_BUFFER_SIZE << ") to get out of the recptive field (" << this->_get_receptive_field()
+       << LAYER_ARRAY_BUFFER_SIZE << ") to get out of the recptive field (" << this->GetReceptiveField()
        << "); copy errors could occur!\n";
     throw std::runtime_error(ss.str().c_str());
   }
@@ -156,7 +156,7 @@ long nam::wavenet::LayerArray::_get_channels() const
   return this->_layers.size() > 0 ? this->_layers[0].get_channels() : 0;
 }
 
-long nam::wavenet::LayerArray::_get_receptive_field() const
+long nam::wavenet::LayerArray::GetReceptiveField() const
 {
   // TODO remove this and use get_receptive_field() instead!
   long res = 1;
@@ -169,7 +169,7 @@ void nam::wavenet::LayerArray::RewindBuffers()
 // Consider wrapping instead...
 // Can make this smaller--largest dilation, not receptive field!
 {
-  const long start = this->_get_receptive_field() - 1;
+  const long start = this->GetReceptiveField() - 1;
   for (size_t i = 0; i < this->_layer_buffers.size(); i++)
   {
     const long d = (this->_layers[i].GetKernelSize() - 1) * this->_layers[i].GetDilation();

@@ -134,7 +134,7 @@ private:
   // "One-indexed" receptive field
   // TODO remove!
   // E.g. a 1x1 convolution has a o.i.r.f. of one.
-  long _get_receptive_field() const;
+  long GetReceptiveField() const;
   void RewindBuffers();
 };
 
