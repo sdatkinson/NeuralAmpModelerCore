@@ -72,7 +72,7 @@ public:
   ~ConvNet() = default;
 
 protected:
-  std::vector<ConvNetBlock> _blocks;
+  std::vector<ConvNetBlock> mBlocks;
   std::vector<Eigen::MatrixXf> mBlockVals;
   Eigen::VectorXf mHeadOutput;
   _Head mHead;
