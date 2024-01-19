@@ -70,8 +70,8 @@ nam::wavenet::LayerArray::LayerArray(const int inputSize, const int condition_si
   const long receptiveField = this->GetReceptiveField();
   for (size_t i = 0; i < dilations.size(); i++)
   {
-    this->_layer_buffers.push_back(Eigen::MatrixXf(channels, LAYER_ARRAY_BUFFER_SIZE + receptiveField - 1));
-    this->_layer_buffers[i].setZero();
+    this->mLayerBuffers.push_back(Eigen::MatrixXf(channels, LAYER_ARRAY_BUFFER_SIZE + receptiveField - 1));
+    this->mLayerBuffers[i].setZero();
   }
   this->_buffer_start = this->GetReceptiveField() - 1;
 }
@@ -106,20 +106,20 @@ void nam::wavenet::LayerArray::Process(const Eigen::Ref<const Eigen::MatrixXf> l
                                          Eigen::Ref<Eigen::MatrixXf> head_inputs, Eigen::Ref<Eigen::MatrixXf> layer_outputs,
                                          Eigen::Ref<Eigen::MatrixXf> head_outputs)
 {
-  this->_layer_buffers[0].middleCols(this->_buffer_start, layer_inputs.cols()) = this->_rechannel.Process(layer_inputs);
+  this->mLayerBuffers[0].middleCols(this->_buffer_start, layer_inputs.cols()) = this->_rechannel.Process(layer_inputs);
   const size_t last_layer = this->_layers.size() - 1;
   for (size_t i = 0; i < this->_layers.size(); i++)
   {
     if (i == last_layer)
     {
-      this->_layers[i].Process(this->_layer_buffers[i], condition, head_inputs,
+      this->_layers[i].Process(this->mLayerBuffers[i], condition, head_inputs,
                                 layer_outputs, this->_buffer_start,
                                 0);
     }
     else
     {
-      this->_layers[i].Process(this->_layer_buffers[i], condition, head_inputs,
-                                this->_layer_buffers[i + 1], this->_buffer_start,
+      this->_layers[i].Process(this->mLayerBuffers[i], condition, head_inputs,
+                                this->mLayerBuffers[i + 1], this->_buffer_start,
                                 this->_buffer_start);
     }
 
@@ -170,10 +170,10 @@ void nam::wavenet::LayerArray::RewindBuffers()
 // Can make this smaller--largest dilation, not receptive field!
 {
   const long start = this->GetReceptiveField() - 1;
-  for (size_t i = 0; i < this->_layer_buffers.size(); i++)
+  for (size_t i = 0; i < this->mLayerBuffers.size(); i++)
   {
     const long d = (this->_layers[i].GetKernelSize() - 1) * this->_layers[i].GetDilation();
-    this->_layer_buffers[i].middleCols(start - d, d) = this->_layer_buffers[i].middleCols(this->_buffer_start - d, d);
+    this->mLayerBuffers[i].middleCols(start - d, d) = this->mLayerBuffers[i].middleCols(this->_buffer_start - d, d);
   }
   this->_buffer_start = start;
 }
