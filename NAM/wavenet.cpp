@@ -251,7 +251,7 @@ nam::wavenet::WaveNet::WaveNet(const std::vector<nam::wavenet::LayerArrayParams>
     throw std::runtime_error("Head not implemented!");
   for (size_t i = 0; i < layer_array_params.size(); i++)
   {
-    this->_layer_arrays.push_back(nam::wavenet::_LayerArray(
+    this->mLayerArrays.push_back(nam::wavenet::_LayerArray(
       layer_array_params[i].inputSize, layer_array_params[i].condition_size, layer_array_params[i].head_size,
       layer_array_params[i].channels, layer_array_params[i].kernelSize, layer_array_params[i].dilations,
       layer_array_params[i].activation, layer_array_params[i].gated, layer_array_params[i].head_bias));
@@ -272,8 +272,8 @@ nam::wavenet::WaveNet::WaveNet(const std::vector<nam::wavenet::LayerArrayParams>
   this->SetWeights(weights);
 
   mPrewarmSamples = 1;
-  for (size_t i = 0; i < this->_layer_arrays.size(); i++)
-    mPrewarmSamples += this->_layer_arrays[i].get_receptive_field();
+  for (size_t i = 0; i < this->mLayerArrays.size(); i++)
+    mPrewarmSamples += this->mLayerArrays[i].get_receptive_field();
 }
 
 void nam::wavenet::WaveNet::Finalize(const int numFrames)
@@ -285,8 +285,8 @@ void nam::wavenet::WaveNet::Finalize(const int numFrames)
 void nam::wavenet::WaveNet::SetWeights(const std::vector<float>& weights)
 {
   weights_it it = weights.begin();
-  for (size_t i = 0; i < this->_layer_arrays.size(); i++)
-    this->_layer_arrays[i].SetWeights(it);
+  for (size_t i = 0; i < this->mLayerArrays.size(); i++)
+    this->mLayerArrays[i].SetWeights(it);
   // this->_head.set_params_(it);
   this->mHeadScale = *(it++);
   if (it != weights.end())
@@ -305,14 +305,14 @@ void nam::wavenet::WaveNet::SetWeights(const std::vector<float>& weights)
 
 void nam::wavenet::WaveNet::AdvanceBuffers(const int numFrames)
 {
-  for (size_t i = 0; i < this->_layer_arrays.size(); i++)
-    this->_layer_arrays[i].advance_buffers_(numFrames);
+  for (size_t i = 0; i < this->mLayerArrays.size(); i++)
+    this->mLayerArrays[i].advance_buffers_(numFrames);
 }
 
 void nam::wavenet::WaveNet::PrepareForFrames(const long numFrames)
 {
-  for (size_t i = 0; i < this->_layer_arrays.size(); i++)
-    this->_layer_arrays[i].prepare_for_frames_(numFrames);
+  for (size_t i = 0; i < this->mLayerArrays.size(); i++)
+    this->mLayerArrays[i].prepare_for_frames_(numFrames);
 }
 
 void nam::wavenet::WaveNet::SetConditionArray(float* input, const int numFrames)
@@ -333,8 +333,8 @@ void nam::wavenet::WaveNet::Process(float* input, float* output, const int numFr
   // Layer-to-layer
   // Sum on head output
   this->mHeadArrays[0].setZero();
-  for (size_t i = 0; i < this->_layer_arrays.size(); i++)
-    this->_layer_arrays[i].Process(i == 0 ? this->mCondition : this->mLayerArrayOutputs[i - 1], this->mCondition,
+  for (size_t i = 0; i < this->mLayerArrays.size(); i++)
+    this->mLayerArrays[i].Process(i == 0 ? this->mCondition : this->mLayerArrayOutputs[i - 1], this->mCondition,
                                     this->mHeadArrays[i], this->mLayerArrayOutputs[i], this->mHeadArrays[i + 1]);
   // this->_head.Process(
   //   this->_head_input,
@@ -366,8 +366,8 @@ void nam::wavenet::WaveNet::SetNumFrames(const long numFrames)
   this->mHeadOutput.resize(this->mHeadOutput.rows(), numFrames);
   this->mHeadOutput.setZero();
 
-  for (size_t i = 0; i < this->_layer_arrays.size(); i++)
-    this->_layer_arrays[i].set_num_frames_(numFrames);
+  for (size_t i = 0; i < this->mLayerArrays.size(); i++)
+    this->mLayerArrays[i].set_num_frames_(numFrames);
   // this->_head.set_num_frames_(numFrames);
   this->_num_frames = numFrames;
 }
