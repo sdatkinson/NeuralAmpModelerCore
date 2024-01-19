@@ -109,9 +109,9 @@ nam::convnet::ConvNet::ConvNet(const int channels, const std::vector<int>& dilat
   if (it != weights.end())
     throw std::runtime_error("Didn't touch all the weights when initializing ConvNet");
 
-  _prewarm_samples = 1;
+  mPrewarmSamples = 1;
   for (size_t i = 0; i < dilations.size(); i++)
-    _prewarm_samples += dilations[i];
+    mPrewarmSamples += dilations[i];
 }
 
 
