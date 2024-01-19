@@ -191,11 +191,11 @@ private:
 
   void _advance_buffers_(const int num_frames);
   void _prepare_for_frames_(const long num_frames);
-  void process(NAM_SAMPLE* input, NAM_SAMPLE* output, const int num_frames) override;
+  void process(float* input, float* output, const int num_frames) override;
 
   virtual int _get_condition_dim() const { return 1; };
   // Fill in the "condition" array that's fed into the various parts of the net.
-  virtual void _set_condition_array(NAM_SAMPLE* input, const int num_frames);
+  virtual void _set_condition_array(float* input, const int num_frames);
   // Ensure that all buffer arrays are the right size for this num_frames
   void _set_num_frames_(const long num_frames);
 };
