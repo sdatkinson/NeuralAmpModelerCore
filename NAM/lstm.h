@@ -55,7 +55,7 @@ public:
   ~LSTM() = default;
 
 protected:
-  Eigen::VectorXf _head_weight;
+  Eigen::VectorXf mHeadWeight;
   float mHeadBias;
   void Process(float* input, float* output, const int numFrames) override;
   std::vector<LSTMCell> _layers;
