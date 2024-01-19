@@ -92,7 +92,7 @@ protected:
   std::vector<float> mInputBuffer;
   std::vector<float> mOutputBuffer;
 
-  void SetReceptiveField(const int newReceptiveField, const int input_buffer_size);
+  void SetReceptiveField(const int newReceptiveField, const int inputBufferSize);
   void SetReceptiveField(const int newReceptiveField);
   void ResetInputBuffer();
   // Use this->_input_post_gain
