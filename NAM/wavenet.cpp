@@ -240,7 +240,7 @@ void nam::wavenet::Head::_apply_activation_(Eigen::Ref<Eigen::MatrixXf> x)
 
 // WaveNet ====================================================================
 
-nam::wavenet::WaveNet::WaveNet(const std::vector<nam::wavenet::LayerArrayParams>& layer_array_params,
+nam::wavenet::WaveNet::WaveNet(const std::vector<nam::wavenet::LayerArrayParams>& layerArrayParams,
                                const float head_scale, const bool with_head, const std::vector<float>& weights,
                                const double expectedSampleRate)
 : DSP(expectedSampleRate)
@@ -249,24 +249,24 @@ nam::wavenet::WaveNet::WaveNet(const std::vector<nam::wavenet::LayerArrayParams>
 {
   if (with_head)
     throw std::runtime_error("Head not implemented!");
-  for (size_t i = 0; i < layer_array_params.size(); i++)
+  for (size_t i = 0; i < layerArrayParams.size(); i++)
   {
     this->mLayerArrays.push_back(nam::wavenet::LayerArray(
-      layer_array_params[i].inputSize, layer_array_params[i].condition_size, layer_array_params[i].head_size,
-      layer_array_params[i].channels, layer_array_params[i].kernelSize, layer_array_params[i].dilations,
-      layer_array_params[i].activation, layer_array_params[i].gated, layer_array_params[i].head_bias));
-    this->mLayerArrayOutputs.push_back(Eigen::MatrixXf(layer_array_params[i].channels, 0));
+      layerArrayParams[i].inputSize, layerArrayParams[i].condition_size, layerArrayParams[i].head_size,
+      layerArrayParams[i].channels, layerArrayParams[i].kernelSize, layerArrayParams[i].dilations,
+      layerArrayParams[i].activation, layerArrayParams[i].gated, layerArrayParams[i].head_bias));
+    this->mLayerArrayOutputs.push_back(Eigen::MatrixXf(layerArrayParams[i].channels, 0));
     if (i == 0)
-      this->mHeadArrays.push_back(Eigen::MatrixXf(layer_array_params[i].channels, 0));
+      this->mHeadArrays.push_back(Eigen::MatrixXf(layerArrayParams[i].channels, 0));
     if (i > 0)
-      if (layer_array_params[i].channels != layer_array_params[i - 1].head_size)
+      if (layerArrayParams[i].channels != layerArrayParams[i - 1].head_size)
       {
         std::stringstream ss;
-        ss << "channels of layer " << i << " (" << layer_array_params[i].channels
-           << ") doesn't match head_size of preceding layer (" << layer_array_params[i - 1].head_size << "!\n";
+        ss << "channels of layer " << i << " (" << layerArrayParams[i].channels
+           << ") doesn't match head_size of preceding layer (" << layerArrayParams[i - 1].head_size << "!\n";
         throw std::runtime_error(ss.str().c_str());
       }
-    this->mHeadArrays.push_back(Eigen::MatrixXf(layer_array_params[i].head_size, 0));
+    this->mHeadArrays.push_back(Eigen::MatrixXf(layerArrayParams[i].head_size, 0));
   }
   this->mHeadOutput.resize(1, 0); // Mono output!
   this->SetWeights(weights);

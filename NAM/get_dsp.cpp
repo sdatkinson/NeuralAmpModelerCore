@@ -168,21 +168,21 @@ std::unique_ptr<DSP> GetDSP(dspData& conf)
   }
   else if (architecture == "WaveNet")
   {
-    std::vector<wavenet::LayerArrayParams> layer_array_params;
+    std::vector<wavenet::LayerArrayParams> layerArrayParams;
     for (size_t i = 0; i < config["layers"].size(); i++)
     {
       nlohmann::json layer_config = config["layers"][i];
       std::vector<int> dilations;
       for (size_t j = 0; j < layer_config["dilations"].size(); j++)
         dilations.push_back(layer_config["dilations"][j]);
-      layer_array_params.push_back(
+      layerArrayParams.push_back(
         wavenet::LayerArrayParams(layer_config["input_size"], layer_config["condition_size"], layer_config["head_size"],
                                   layer_config["channels"], layer_config["kernel_size"], dilations,
                                   layer_config["activation"], layer_config["gated"], layer_config["head_bias"]));
     }
     const bool with_head = config["head"] == NULL;
     const float head_scale = config["head_scale"];
-    out = std::make_unique<wavenet::WaveNet>(layer_array_params, head_scale, with_head, weights, expectedSampleRate);
+    out = std::make_unique<wavenet::WaveNet>(layerArrayParams, head_scale, with_head, weights, expectedSampleRate);
   }
   else
   {
