@@ -57,7 +57,7 @@ public:
 protected:
   Eigen::VectorXf _head_weight;
   float _head_bias;
-  void process(NAM_SAMPLE* input, NAM_SAMPLE* output, const int num_frames) override;
+  void process(float* input, float* output, const int num_frames) override;
   std::vector<LSTMCell> _layers;
 
   float _process_sample(const float x);

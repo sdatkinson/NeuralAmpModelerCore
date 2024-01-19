@@ -12,11 +12,6 @@
 #include "activations.h"
 #include "json.hpp"
 
-#ifdef NAM_SAMPLE_FLOAT
-  #define NAM_SAMPLE float
-#else
-  #define NAM_SAMPLE double
-#endif
 // Use a sample rate of -1 if we don't know what the model expects to be run at.
 // TODO clean this up and track a bool for whether it knows.
 #define NAM_UNKNOWN_EXPECTED_SAMPLE_RATE -1.0
@@ -53,7 +48,7 @@ public:
   // 1. The core DSP algorithm is run (This is what should probably be
   //    overridden in subclasses).
   // 2. The output level is applied and the result stored to `output`.
-  virtual void process(NAM_SAMPLE* input, NAM_SAMPLE* output, const int num_frames);
+  virtual void process(float* input, float* output, const int num_frames);
   // Anything to take care of before next buffer comes in.
   // For example:
   // * Move the buffer index forward
@@ -103,7 +98,7 @@ protected:
   void _set_receptive_field(const int new_receptive_field);
   void _reset_input_buffer();
   // Use this->_input_post_gain
-  virtual void _update_buffers_(NAM_SAMPLE* input, int num_frames);
+  virtual void _update_buffers_(float* input, int num_frames);
   virtual void _rewind_buffers_();
 };
 
@@ -113,7 +108,7 @@ class Linear : public Buffer
 public:
   Linear(const int receptive_field, const bool _bias, const std::vector<float>& weights,
          const double expected_sample_rate = -1.0);
-  void process(NAM_SAMPLE* input, NAM_SAMPLE* output, const int num_frames) override;
+  void process(float* input, float* output, const int num_frames) override;
 
 protected:
   Eigen::VectorXf _weight;

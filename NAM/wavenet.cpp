@@ -315,7 +315,7 @@ void nam::wavenet::WaveNet::_prepare_for_frames_(const long num_frames)
     this->_layer_arrays[i].prepare_for_frames_(num_frames);
 }
 
-void nam::wavenet::WaveNet::_set_condition_array(NAM_SAMPLE* input, const int num_frames)
+void nam::wavenet::WaveNet::_set_condition_array(float* input, const int num_frames)
 {
   for (int j = 0; j < num_frames; j++)
   {
@@ -323,7 +323,7 @@ void nam::wavenet::WaveNet::_set_condition_array(NAM_SAMPLE* input, const int nu
   }
 }
 
-void nam::wavenet::WaveNet::process(NAM_SAMPLE* input, NAM_SAMPLE* output, const int num_frames)
+void nam::wavenet::WaveNet::process(float* input, float* output, const int num_frames)
 {
   this->_set_num_frames_(num_frames);
   this->_prepare_for_frames_(num_frames);

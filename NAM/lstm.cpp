@@ -79,7 +79,7 @@ nam::lstm::LSTM::LSTM(const int num_layers, const int input_size, const int hidd
   assert(it == weights.end());
 }
 
-void nam::lstm::LSTM::process(NAM_SAMPLE* input, NAM_SAMPLE* output, const int num_frames)
+void nam::lstm::LSTM::process(float* input, float* output, const int num_frames)
 {
   for (auto i = 0; i < num_frames; i++)
     output[i] = this->_process_sample(input[i]);
