@@ -73,12 +73,12 @@ nam::wavenet::LayerArray::LayerArray(const int inputSize, const int condition_si
     this->mLayerBuffers.push_back(Eigen::MatrixXf(channels, LAYER_ARRAY_BUFFER_SIZE + receptiveField - 1));
     this->mLayerBuffers[i].setZero();
   }
-  this->_buffer_start = this->GetReceptiveField() - 1;
+  this->mBufferStart = this->GetReceptiveField() - 1;
 }
 
 void nam::wavenet::LayerArray::advance_buffers_(const int numFrames)
 {
-  this->_buffer_start += numFrames;
+  this->mBufferStart += numFrames;
 }
 
 long nam::wavenet::LayerArray::get_receptive_field() const
@@ -98,7 +98,7 @@ void nam::wavenet::LayerArray::prepare_for_frames_(const long numFrames)
   // -> this will write on indices 0 through 63, inclusive.
   // -> No illegal writes.
   // -> no rewind needed.
-  if (this->_buffer_start + numFrames > this->GetBufferSize())
+  if (this->mBufferStart + numFrames > this->GetBufferSize())
     this->RewindBuffers();
 }
 
@@ -106,21 +106,21 @@ void nam::wavenet::LayerArray::Process(const Eigen::Ref<const Eigen::MatrixXf> l
                                          Eigen::Ref<Eigen::MatrixXf> head_inputs, Eigen::Ref<Eigen::MatrixXf> layer_outputs,
                                          Eigen::Ref<Eigen::MatrixXf> head_outputs)
 {
-  this->mLayerBuffers[0].middleCols(this->_buffer_start, layer_inputs.cols()) = this->mReChannel.Process(layer_inputs);
+  this->mLayerBuffers[0].middleCols(this->mBufferStart, layer_inputs.cols()) = this->mReChannel.Process(layer_inputs);
   const size_t last_layer = this->mLayers.size() - 1;
   for (size_t i = 0; i < this->mLayers.size(); i++)
   {
     if (i == last_layer)
     {
       this->mLayers[i].Process(this->mLayerBuffers[i], condition, head_inputs,
-                                layer_outputs, this->_buffer_start,
+                                layer_outputs, this->mBufferStart,
                                 0);
     }
     else
     {
       this->mLayers[i].Process(this->mLayerBuffers[i], condition, head_inputs,
-                                this->mLayerBuffers[i + 1], this->_buffer_start,
-                                this->_buffer_start);
+                                this->mLayerBuffers[i + 1], this->mBufferStart,
+                                this->mBufferStart);
     }
 
   }
@@ -173,9 +173,9 @@ void nam::wavenet::LayerArray::RewindBuffers()
   for (size_t i = 0; i < this->mLayerBuffers.size(); i++)
   {
     const long d = (this->mLayers[i].GetKernelSize() - 1) * this->mLayers[i].GetDilation();
-    this->mLayerBuffers[i].middleCols(start - d, d) = this->mLayerBuffers[i].middleCols(this->_buffer_start - d, d);
+    this->mLayerBuffers[i].middleCols(start - d, d) = this->mLayerBuffers[i].middleCols(this->mBufferStart - d, d);
   }
-  this->_buffer_start = start;
+  this->mBufferStart = start;
 }
 
 // Head =======================================================================

@@ -115,7 +115,7 @@ public:
   long get_receptive_field() const;
 
 private:
-  long _buffer_start;
+  long mBufferStart;
   // The rechannel before the layers
   Conv1x1 mReChannel;
 
