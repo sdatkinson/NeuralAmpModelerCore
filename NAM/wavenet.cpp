@@ -104,7 +104,7 @@ void nam::wavenet::LayerArray::prepare_for_frames_(const long numFrames)
 
 void nam::wavenet::LayerArray::Process(const Eigen::Ref<const Eigen::MatrixXf> layer_inputs, const Eigen::Ref<const Eigen::MatrixXf> condition,
                                          Eigen::Ref<Eigen::MatrixXf> head_inputs, Eigen::Ref<Eigen::MatrixXf> layer_outputs,
-                                         Eigen::Ref<Eigen::MatrixXf> head_outputs)
+                                         Eigen::Ref<Eigen::MatrixXf> headOutputs)
 {
   this->mLayerBuffers[0].middleCols(this->mBufferStart, layer_inputs.cols()) = this->mReChannel.Process(layer_inputs);
   const size_t last_layer = this->mLayers.size() - 1;
@@ -124,7 +124,7 @@ void nam::wavenet::LayerArray::Process(const Eigen::Ref<const Eigen::MatrixXf> l
     }
 
   }
-  head_outputs = this->mHeadRechannel.Process(head_inputs);
+  headOutputs = this->mHeadRechannel.Process(head_inputs);
 }
 
 void nam::wavenet::LayerArray::SetNumFrames(const long numFrames)
