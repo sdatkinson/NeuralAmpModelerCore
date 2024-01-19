@@ -187,7 +187,7 @@ private:
   // One more than total layer arrays
   std::vector<Eigen::MatrixXf> _head_arrays;
   float _head_scale;
-  Eigen::MatrixXf _head_output;
+  Eigen::MatrixXf mHeadOutput;
 
   void AdvanceBuffers(const int numFrames);
   void PrepareForFrames(const long numFrames);

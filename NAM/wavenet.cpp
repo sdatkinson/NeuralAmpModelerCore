@@ -268,7 +268,7 @@ nam::wavenet::WaveNet::WaveNet(const std::vector<nam::wavenet::LayerArrayParams>
       }
     this->_head_arrays.push_back(Eigen::MatrixXf(layer_array_params[i].head_size, 0));
   }
-  this->_head_output.resize(1, 0); // Mono output!
+  this->mHeadOutput.resize(1, 0); // Mono output!
   this->SetWeights(weights);
 
   mPrewarmSamples = 1;
@@ -363,8 +363,8 @@ void nam::wavenet::WaveNet::SetNumFrames(const long numFrames)
     this->_head_arrays[i].resize(this->_head_arrays[i].rows(), numFrames);
   for (size_t i = 0; i < this->_layer_array_outputs.size(); i++)
     this->_layer_array_outputs[i].resize(this->_layer_array_outputs[i].rows(), numFrames);
-  this->_head_output.resize(this->_head_output.rows(), numFrames);
-  this->_head_output.setZero();
+  this->mHeadOutput.resize(this->mHeadOutput.rows(), numFrames);
+  this->mHeadOutput.setZero();
 
   for (size_t i = 0; i < this->_layer_arrays.size(); i++)
     this->_layer_arrays[i].set_num_frames_(numFrames);
