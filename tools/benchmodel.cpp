@@ -22,7 +22,7 @@ int main(int argc, char* argv[])
     std::cout << "Loading model " << modelPath << "\n";
 
     // Turn on fast tanh approximation
-    nam::activations::Activation::enable_fast_tanh();
+    nam::activations::Activation::EnableFastTanh();
 
     std::unique_ptr<nam::DSP> model;
 

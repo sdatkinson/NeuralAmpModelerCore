@@ -21,7 +21,7 @@ nam::activations::Activation* nam::activations::Activation::GetActivation(const 
   return _activations[name];
 }
 
-void nam::activations::Activation::enable_fast_tanh()
+void nam::activations::Activation::EnableFastTanh()
 {
   nam::activations::Activation::using_fast_tanh = true;
 
