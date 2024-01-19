@@ -52,7 +52,7 @@ void nam::convnet::ConvNetBlock::SetWeights(const int in_channels, const int out
 {
   this->_batchnorm = batchnorm;
   // HACK 2 kernel
-  this->conv.set_size_and_weights_(in_channels, out_channels, 2, dilation, !batchnorm, weights);
+  this->conv.SetSizeAndWeights(in_channels, out_channels, 2, dilation, !batchnorm, weights);
   if (this->_batchnorm)
     this->batchnorm = BatchNorm(out_channels, weights);
   this->activation = activations::Activation::get_activation(activation);

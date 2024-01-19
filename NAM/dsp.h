@@ -122,7 +122,7 @@ public:
   void SetWeights(weights_it& weights);
   void SetSize(const int in_channels, const int out_channels, const int kernel_size, const bool doBias,
                  const int dilation);
-  void set_size_and_weights_(const int in_channels, const int out_channels, const int kernel_size, const int dilation,
+  void SetSizeAndWeights(const int in_channels, const int out_channels, const int kernel_size, const int dilation,
                              const bool doBias, weights_it& weights);
   // Process from input to output
   //  Rightmost indices of input go from i_start to i_end,
