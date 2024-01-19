@@ -39,9 +39,9 @@ public:
   // We may choose to have the models figure out for themselves how loud they are in here in the future.
   DSP(const double expected_sample_rate);
   virtual ~DSP() = default;
-  // prewarm() does any required intial work required to "settle" model initial conditions
+  // Prewarm() does any required intial work required to "settle" model initial conditions
   // it can be somewhat expensive, so should not be called during realtime audio processing
-  virtual void prewarm();
+  virtual void Prewarm();
   // Process() does all of the processing requried to take `input` array and
   // fill in the required values on `output`.
   // To do this:

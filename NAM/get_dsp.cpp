@@ -194,7 +194,7 @@ std::unique_ptr<DSP> get_dsp(dspData& conf)
   }
 
   // "pre-warm" the model to settle initial conditions
-  out->prewarm();
+  out->Prewarm();
 
   return out;
 }
