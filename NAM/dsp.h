@@ -109,7 +109,7 @@ public:
   void Process(float* input, float* output, const int numFrames) override;
 
 protected:
-  Eigen::VectorXf _weight;
+  Eigen::VectorXf mWeight;
   float mBias;
 };
 
@@ -129,16 +129,16 @@ public:
   //  Indices on output for from j_start (to j_start + i_end - i_start)
   void process_(const Eigen::Ref<const Eigen::MatrixXf> input, Eigen::Ref<Eigen::MatrixXf> output, const long i_start, const long i_end,
                 const long j_start) const;
-  long get_in_channels() const { return this->_weight.size() > 0 ? this->_weight[0].cols() : 0; };
-  long get_kernel_size() const { return this->_weight.size(); };
+  long get_in_channels() const { return this->mWeight.size() > 0 ? this->mWeight[0].cols() : 0; };
+  long get_kernel_size() const { return this->mWeight.size(); };
   long get_num_weights() const;
-  long get_out_channels() const { return this->_weight.size() > 0 ? this->_weight[0].rows() : 0; };
+  long get_out_channels() const { return this->mWeight.size() > 0 ? this->mWeight[0].rows() : 0; };
   int get_dilation() const { return this->_dilation; };
 
 private:
   // Gonna wing this...
   // conv[kernel](cout, cin)
-  std::vector<Eigen::MatrixXf> _weight;
+  std::vector<Eigen::MatrixXf> mWeight;
   Eigen::VectorXf mBias;
   int _dilation;
 };
@@ -153,10 +153,10 @@ public:
   // :return: (N,Cout) or (Cout,), respectively
   Eigen::MatrixXf Process(const Eigen::Ref<const Eigen::MatrixXf> input) const;
 
-  long get_out_channels() const { return this->_weight.rows(); };
+  long get_out_channels() const { return this->mWeight.rows(); };
 
 private:
-  Eigen::MatrixXf _weight;
+  Eigen::MatrixXf mWeight;
   Eigen::VectorXf mBias;
   bool _do_bias;
 };
