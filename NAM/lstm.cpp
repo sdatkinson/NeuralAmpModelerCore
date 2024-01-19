@@ -42,7 +42,7 @@ void nam::lstm::LSTMCell::Process(const Eigen::VectorXf& x)
   const long o_offset = 3 * hidden_size;
   const long h_offset = input_size;
 
-  if (activations::Activation::using_fast_tanh)
+  if (activations::Activation::sUsingFastTanh)
   {
     for (auto i = 0; i < hidden_size; i++)
       this->_c[i] =
