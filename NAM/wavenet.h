@@ -189,7 +189,7 @@ private:
   float _head_scale;
   Eigen::MatrixXf _head_output;
 
-  void _advance_buffers_(const int numFrames);
+  void AdvanceBuffers(const int numFrames);
   void PrepareForFrames(const long numFrames);
   void Process(float* input, float* output, const int numFrames) override;
 
