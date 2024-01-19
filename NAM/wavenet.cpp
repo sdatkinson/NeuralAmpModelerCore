@@ -244,7 +244,7 @@ nam::wavenet::WaveNet::WaveNet(const std::vector<nam::wavenet::LayerArrayParams>
                                const float head_scale, const bool with_head, const std::vector<float>& weights,
                                const double expectedSampleRate)
 : DSP(expectedSampleRate)
-, _num_frames(0)
+, mNumFrames(0)
 , mHeadScale(head_scale)
 {
   if (with_head)
@@ -355,7 +355,7 @@ void nam::wavenet::WaveNet::Process(float* input, float* output, const int numFr
 
 void nam::wavenet::WaveNet::SetNumFrames(const long numFrames)
 {
-  if (numFrames == this->_num_frames)
+  if (numFrames == this->mNumFrames)
     return;
 
   this->mCondition.resize(this->GetConditionDim(), numFrames);
@@ -369,5 +369,5 @@ void nam::wavenet::WaveNet::SetNumFrames(const long numFrames)
   for (size_t i = 0; i < this->mLayerArrays.size(); i++)
     this->mLayerArrays[i].set_num_frames_(numFrames);
   // this->_head.set_num_frames_(numFrames);
-  this->_num_frames = numFrames;
+  this->mNumFrames = numFrames;
 }
