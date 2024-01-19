@@ -60,7 +60,7 @@ public:
   void process_(const Eigen::Ref<const Eigen::MatrixXf> input, Eigen::VectorXf& output, const long i_start, const long i_end) const;
 
 private:
-  Eigen::VectorXf _weight;
+  Eigen::VectorXf mWeight;
   float mBias = 0.0f;
 };
 

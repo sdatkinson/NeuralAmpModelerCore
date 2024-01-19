@@ -145,10 +145,10 @@ nam::Linear::Linear(const int receptiveField, const bool _bias, const std::vecto
       "Params vector does not match expected size based "
       "on architecture parameters");
 
-  this->_weight.resize(this->mReceptiveField);
+  this->mWeight.resize(this->mReceptiveField);
   // Pass in in reverse order so that dot products work out of the box.
   for (int i = 0; i < this->mReceptiveField; i++)
-    this->_weight(i) = weights[receptiveField - 1 - i];
+    this->mWeight(i) = weights[receptiveField - 1 - i];
   this->mBias = _bias ? weights[receptiveField] : (float)0.0;
 }
 
@@ -159,9 +159,9 @@ void nam::Linear::Process(float* input, float* output, const int numFrames)
   // Main computation!
   for (auto i = 0; i < numFrames; i++)
   {
-    const size_t offset = this->mInputBufferOffset - this->_weight.size() + i + 1;
+    const size_t offset = this->mInputBufferOffset - this->mWeight.size() + i + 1;
     auto input = Eigen::Map<const Eigen::VectorXf>(&this->mInputBuffer[offset], this->mReceptiveField);
-    output[i] = this->mBias + this->_weight.dot(input);
+    output[i] = this->mBias + this->mWeight.dot(input);
   }
 }
 
@@ -169,15 +169,15 @@ void nam::Linear::Process(float* input, float* output, const int numFrames)
 
 void nam::Conv1D::set_weights_(weights_it& weights)
 {
-  if (this->_weight.size() > 0)
+  if (this->mWeight.size() > 0)
   {
-    const long out_channels = this->_weight[0].rows();
-    const long in_channels = this->_weight[0].cols();
+    const long out_channels = this->mWeight[0].rows();
+    const long in_channels = this->mWeight[0].cols();
     // Crazy ordering because that's how it gets flattened.
     for (auto i = 0; i < out_channels; i++)
       for (auto j = 0; j < in_channels; j++)
-        for (size_t k = 0; k < this->_weight.size(); k++)
-          this->_weight[k](i, j) = *(weights++);
+        for (size_t k = 0; k < this->mWeight.size(); k++)
+          this->mWeight[k](i, j) = *(weights++);
   }
   for (long i = 0; i < this->mBias.size(); i++)
     this->mBias(i) = *(weights++);
@@ -186,9 +186,9 @@ void nam::Conv1D::set_weights_(weights_it& weights)
 void nam::Conv1D::set_size_(const int in_channels, const int out_channels, const int kernel_size, const bool do_bias,
                             const int _dilation)
 {
-  this->_weight.resize(kernel_size);
-  for (size_t i = 0; i < this->_weight.size(); i++)
-    this->_weight[i].resize(out_channels,
+  this->mWeight.resize(kernel_size);
+  for (size_t i = 0; i < this->mWeight.size(); i++)
+    this->mWeight[i].resize(out_channels,
                             in_channels); // y = Ax, input array (C,L)
   if (do_bias)
     this->mBias.resize(out_channels);
@@ -208,13 +208,13 @@ void nam::Conv1D::process_(const Eigen::Ref<const Eigen::MatrixXf> input, Eigen:
                            const long j_start) const
 {
   // This is the clever part ;)
-  for (size_t k = 0; k < this->_weight.size(); k++)
+  for (size_t k = 0; k < this->mWeight.size(); k++)
   {
-    const long offset = this->_dilation * (k + 1 - this->_weight.size());
+    const long offset = this->_dilation * (k + 1 - this->mWeight.size());
     if (k == 0)
-      output.middleCols(j_start, ncols) = this->_weight[k] * input.middleCols(i_start + offset, ncols);
+      output.middleCols(j_start, ncols) = this->mWeight[k] * input.middleCols(i_start + offset, ncols);
     else
-      output.middleCols(j_start, ncols) += this->_weight[k] * input.middleCols(i_start + offset, ncols);
+      output.middleCols(j_start, ncols) += this->mWeight[k] * input.middleCols(i_start + offset, ncols);
   }
   if (this->mBias.size() > 0)
     output.middleCols(j_start, ncols).colwise() += this->mBias;
@@ -223,14 +223,14 @@ void nam::Conv1D::process_(const Eigen::Ref<const Eigen::MatrixXf> input, Eigen:
 long nam::Conv1D::get_num_weights() const
 {
   long num_weights = this->mBias.size();
-  for (size_t i = 0; i < this->_weight.size(); i++)
-    num_weights += this->_weight[i].size();
+  for (size_t i = 0; i < this->mWeight.size(); i++)
+    num_weights += this->mWeight[i].size();
   return num_weights;
 }
 
 nam::Conv1x1::Conv1x1(const int in_channels, const int out_channels, const bool _bias)
 {
-  this->_weight.resize(out_channels, in_channels);
+  this->mWeight.resize(out_channels, in_channels);
   this->_do_bias = _bias;
   if (_bias)
     this->mBias.resize(out_channels);
@@ -238,9 +238,9 @@ nam::Conv1x1::Conv1x1(const int in_channels, const int out_channels, const bool 
 
 void nam::Conv1x1::set_weights_(weights_it& weights)
 {
-  for (int i = 0; i < this->_weight.rows(); i++)
-    for (int j = 0; j < this->_weight.cols(); j++)
-      this->_weight(i, j) = *(weights++);
+  for (int i = 0; i < this->mWeight.rows(); i++)
+    for (int j = 0; j < this->mWeight.cols(); j++)
+      this->mWeight(i, j) = *(weights++);
   if (this->_do_bias)
     for (int i = 0; i < this->mBias.size(); i++)
       this->mBias(i) = *(weights++);
@@ -249,7 +249,7 @@ void nam::Conv1x1::set_weights_(weights_it& weights)
 Eigen::MatrixXf nam::Conv1x1::Process(const Eigen::Ref<const Eigen::MatrixXf> input) const
 {
   if (this->_do_bias)
-    return (this->_weight * input).colwise() + this->mBias;
+    return (this->mWeight * input).colwise() + this->mBias;
   else
-    return this->_weight * input;
+    return this->mWeight * input;
 }
