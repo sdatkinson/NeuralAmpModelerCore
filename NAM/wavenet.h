@@ -172,7 +172,7 @@ public:
           const std::vector<float>& weights, const double expected_sample_rate = -1.0);
   ~WaveNet() = default;
 
-  void finalize_(const int num_frames) override;
+  void Finalize(const int num_frames) override;
   void set_weights_(const std::vector<float>& weights);
 
 private:

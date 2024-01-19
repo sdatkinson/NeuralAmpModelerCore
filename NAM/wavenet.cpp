@@ -276,9 +276,9 @@ nam::wavenet::WaveNet::WaveNet(const std::vector<nam::wavenet::LayerArrayParams>
     _prewarm_samples += this->_layer_arrays[i].get_receptive_field();
 }
 
-void nam::wavenet::WaveNet::finalize_(const int num_frames)
+void nam::wavenet::WaveNet::Finalize(const int num_frames)
 {
-  this->DSP::finalize_(num_frames);
+  this->DSP::Finalize(num_frames);
   this->_advance_buffers_(num_frames);
 }
 
