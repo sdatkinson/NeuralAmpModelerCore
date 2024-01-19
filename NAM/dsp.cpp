@@ -19,7 +19,7 @@ nam::DSP::DSP(const double expected_sample_rate)
 {
 }
 
-void nam::DSP::prewarm()
+void nam::DSP::Prewarm()
 {
   if (mPrewarmSamples == 0)
     return;
