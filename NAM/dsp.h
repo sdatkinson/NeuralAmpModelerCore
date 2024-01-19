@@ -120,7 +120,7 @@ class Conv1D
 public:
   Conv1D() { this->mDilation = 1; };
   void SetWeights(weights_it& weights);
-  void set_size_(const int in_channels, const int out_channels, const int kernel_size, const bool doBias,
+  void SetSize(const int in_channels, const int out_channels, const int kernel_size, const bool doBias,
                  const int dilation);
   void set_size_and_weights_(const int in_channels, const int out_channels, const int kernel_size, const int dilation,
                              const bool doBias, weights_it& weights);
