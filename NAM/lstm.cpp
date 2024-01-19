@@ -5,14 +5,14 @@
 #include "dsp.h"
 #include "lstm.h"
 
-nam::lstm::LSTMCell::LSTMCell(const int inputSize, const int hidden_size, weights_it& weights)
+nam::lstm::LSTMCell::LSTMCell(const int inputSize, const int hiddenSize, weights_it& weights)
 {
   // Resize arrays
-  this->_w.resize(4 * hidden_size, inputSize + hidden_size);
-  this->_b.resize(4 * hidden_size);
-  this->_xh.resize(inputSize + hidden_size);
-  this->_ifgo.resize(4 * hidden_size);
-  this->_c.resize(hidden_size);
+  this->_w.resize(4 * hiddenSize, inputSize + hiddenSize);
+  this->_b.resize(4 * hiddenSize);
+  this->_xh.resize(inputSize + hiddenSize);
+  this->_ifgo.resize(4 * hiddenSize);
+  this->_c.resize(hiddenSize);
 
   // Assign in row-major because that's how PyTorch goes.
   for (int i = 0; i < this->_w.rows(); i++)
@@ -21,15 +21,15 @@ nam::lstm::LSTMCell::LSTMCell(const int inputSize, const int hidden_size, weight
   for (int i = 0; i < this->_b.size(); i++)
     this->_b[i] = *(weights++);
   const int h_offset = inputSize;
-  for (int i = 0; i < hidden_size; i++)
+  for (int i = 0; i < hiddenSize; i++)
     this->_xh[i + h_offset] = *(weights++);
-  for (int i = 0; i < hidden_size; i++)
+  for (int i = 0; i < hiddenSize; i++)
     this->_c[i] = *(weights++);
 }
 
 void nam::lstm::LSTMCell::Process(const Eigen::VectorXf& x)
 {
-  const long hidden_size = this->_get_hidden_size();
+  const long hiddenSize = this->_get_hidden_size();
   const long inputSize = this->_get_input_size();
   // Assign inputs
   this->_xh(Eigen::seq(0, inputSize - 1)) = x;
@@ -37,43 +37,43 @@ void nam::lstm::LSTMCell::Process(const Eigen::VectorXf& x)
   this->_ifgo = this->_w * this->_xh + this->_b;
   // Elementwise updates (apply nonlinearities here)
   const long i_offset = 0;
-  const long f_offset = hidden_size;
-  const long g_offset = 2 * hidden_size;
-  const long o_offset = 3 * hidden_size;
+  const long f_offset = hiddenSize;
+  const long g_offset = 2 * hiddenSize;
+  const long o_offset = 3 * hiddenSize;
   const long h_offset = inputSize;
 
   if (activations::Activation::sUsingFastTanh)
   {
-    for (auto i = 0; i < hidden_size; i++)
+    for (auto i = 0; i < hiddenSize; i++)
       this->_c[i] =
         activations::fast_sigmoid(this->_ifgo[i + f_offset]) * this->_c[i]
         + activations::fast_sigmoid(this->_ifgo[i + i_offset]) * activations::fast_tanh(this->_ifgo[i + g_offset]);
 
-    for (int i = 0; i < hidden_size; i++)
+    for (int i = 0; i < hiddenSize; i++)
       this->_xh[i + h_offset] =
         activations::fast_sigmoid(this->_ifgo[i + o_offset]) * activations::fast_tanh(this->_c[i]);
   }
   else
   {
-    for (auto i = 0; i < hidden_size; i++)
+    for (auto i = 0; i < hiddenSize; i++)
       this->_c[i] = activations::sigmoid(this->_ifgo[i + f_offset]) * this->_c[i]
                     + activations::sigmoid(this->_ifgo[i + i_offset]) * tanhf(this->_ifgo[i + g_offset]);
 
-    for (int i = 0; i < hidden_size; i++)
+    for (int i = 0; i < hiddenSize; i++)
       this->_xh[i + h_offset] = activations::sigmoid(this->_ifgo[i + o_offset]) * tanhf(this->_c[i]);
   }
 }
 
-nam::lstm::LSTM::LSTM(const int numLayers, const int inputSize, const int hidden_size, const std::vector<float>& weights,
+nam::lstm::LSTM::LSTM(const int numLayers, const int inputSize, const int hiddenSize, const std::vector<float>& weights,
                       const double expectedSampleRate)
 : DSP(expectedSampleRate)
 {
   this->mInput.resize(1);
   auto it = weights.begin();
   for (int i = 0; i < numLayers; i++)
-    this->mLayers.push_back(LSTMCell(i == 0 ? inputSize : hidden_size, hidden_size, it));
-  this->mHeadWeight.resize(hidden_size);
-  for (int i = 0; i < hidden_size; i++)
+    this->mLayers.push_back(LSTMCell(i == 0 ? inputSize : hiddenSize, hiddenSize, it));
+  this->mHeadWeight.resize(hiddenSize);
+  for (int i = 0; i < hiddenSize; i++)
     this->mHeadWeight[i] = *(it++);
   this->mHeadBias = *(it++);
   assert(it == weights.end());
