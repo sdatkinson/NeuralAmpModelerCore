@@ -6,10 +6,10 @@
 
 #include "wavenet.h"
 
-nam::wavenet::_DilatedConv::_DilatedConv(const int inChannels, const int out_channels, const int kernel_size,
+nam::wavenet::_DilatedConv::_DilatedConv(const int inChannels, const int outChannels, const int kernel_size,
                                          const int bias, const int dilation)
 {
-  this->SetSize(inChannels, out_channels, kernel_size, bias, dilation);
+  this->SetSize(inChannels, outChannels, kernel_size, bias, dilation);
 }
 
 void nam::wavenet::_Layer::SetWeights(weights_it& weights)
