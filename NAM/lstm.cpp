@@ -68,7 +68,7 @@ nam::lstm::LSTM::LSTM(const int num_layers, const int input_size, const int hidd
                       const double expectedSampleRate)
 : DSP(expectedSampleRate)
 {
-  this->_input.resize(1);
+  this->mInput.resize(1);
   auto it = weights.begin();
   for (int i = 0; i < num_layers; i++)
     this->mLayers.push_back(LSTMCell(i == 0 ? input_size : hidden_size, hidden_size, it));
@@ -89,8 +89,8 @@ float nam::lstm::LSTM::ProcessSample(const float x)
 {
   if (this->mLayers.size() == 0)
     return x;
-  this->_input(0) = x;
-  this->mLayers[0].Process(this->_input);
+  this->mInput(0) = x;
+  this->mLayers[0].Process(this->mInput);
   for (size_t i = 1; i < this->mLayers.size(); i++)
     this->mLayers[i].Process(this->mLayers[i - 1].get_hidden_state());
   return this->mHeadWeight.dot(this->mLayers[this->mLayers.size() - 1].get_hidden_state()) + this->mHeadBias;
