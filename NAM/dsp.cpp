@@ -76,8 +76,8 @@ void nam::Buffer::SetReceptiveField(const int new_receptive_field)
 void nam::Buffer::SetReceptiveField(const int new_receptive_field, const int input_buffer_size)
 {
   this->_receptive_field = new_receptive_field;
-  this->_input_buffer.resize(input_buffer_size);
-  std::fill(this->_input_buffer.begin(), this->_input_buffer.end(), 0.0f);
+  this->mInputBuffer.resize(input_buffer_size);
+  std::fill(this->mInputBuffer.begin(), this->mInputBuffer.end(), 0.0f);
   this->ResetInputBuffer();
 }
 
@@ -87,23 +87,23 @@ void nam::Buffer::UpdateBuffers(float* input, const int numFrames)
   // frames needed!
   {
     const long minimum_input_buffer_size = (long)this->_receptive_field + _INPUT_BUFFER_SAFETY_FACTOR * numFrames;
-    if ((long)this->_input_buffer.size() < minimum_input_buffer_size)
+    if ((long)this->mInputBuffer.size() < minimum_input_buffer_size)
     {
       long new_buffer_size = 2;
       while (new_buffer_size < minimum_input_buffer_size)
         new_buffer_size *= 2;
-      this->_input_buffer.resize(new_buffer_size);
-      std::fill(this->_input_buffer.begin(), this->_input_buffer.end(), 0.0f);
+      this->mInputBuffer.resize(new_buffer_size);
+      std::fill(this->mInputBuffer.begin(), this->mInputBuffer.end(), 0.0f);
     }
   }
 
   // If we'd run off the end of the input buffer, then we need to move the data
   // back to the start of the buffer and start again.
-  if (this->_input_buffer_offset + numFrames > (long)this->_input_buffer.size())
+  if (this->_input_buffer_offset + numFrames > (long)this->mInputBuffer.size())
     this->RewindBuffers();
   // Put the new samples into the input buffer
   for (long i = this->_input_buffer_offset, j = 0; j < numFrames; i++, j++)
-    this->_input_buffer[i] = input[j];
+    this->mInputBuffer[i] = input[j];
   // And resize the output buffer:
   this->_output_buffer.resize(numFrames);
   std::fill(this->_output_buffer.begin(), this->_output_buffer.end(), 0.0f);
@@ -114,7 +114,7 @@ void nam::Buffer::RewindBuffers()
   // Copy the input buffer back
   // RF-1 samples because we've got at least one new one inbound.
   for (long i = 0, j = this->_input_buffer_offset - this->_receptive_field; i < this->_receptive_field; i++, j++)
-    this->_input_buffer[i] = this->_input_buffer[j];
+    this->mInputBuffer[i] = this->mInputBuffer[j];
   // And reset the offset.
   // Even though we could be stingy about that one sample that we won't be using
   // (because a new set is incoming) it's probably not worth the
@@ -160,7 +160,7 @@ void nam::Linear::Process(float* input, float* output, const int numFrames)
   for (auto i = 0; i < numFrames; i++)
   {
     const size_t offset = this->_input_buffer_offset - this->_weight.size() + i + 1;
-    auto input = Eigen::Map<const Eigen::VectorXf>(&this->_input_buffer[offset], this->_receptive_field);
+    auto input = Eigen::Map<const Eigen::VectorXf>(&this->mInputBuffer[offset], this->_receptive_field);
     output[i] = this->_bias + this->_weight.dot(input);
   }
 }
