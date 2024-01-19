@@ -12,14 +12,14 @@ nam::wavenet::_DilatedConv::_DilatedConv(const int inChannels, const int outChan
   this->SetSize(inChannels, outChannels, kernelSize, bias, dilation);
 }
 
-void nam::wavenet::_Layer::SetWeights(weights_it& weights)
+void nam::wavenet::Layer::SetWeights(weights_it& weights)
 {
   this->_conv.SetWeights(weights);
   this->_input_mixin.SetWeights(weights);
   this->_1x1.SetWeights(weights);
 }
 
-void nam::wavenet::_Layer::Process(const Eigen::Ref<const Eigen::MatrixXf> input, const Eigen::Ref<const Eigen::MatrixXf> condition,
+void nam::wavenet::Layer::Process(const Eigen::Ref<const Eigen::MatrixXf> input, const Eigen::Ref<const Eigen::MatrixXf> condition,
                                     Eigen::Ref<Eigen::MatrixXf> head_input, Eigen::Ref<Eigen::MatrixXf> output, const long i_start,
                                     const long j_start)
 {
@@ -46,7 +46,7 @@ void nam::wavenet::_Layer::Process(const Eigen::Ref<const Eigen::MatrixXf> input
   output.middleCols(j_start, ncols) = input.middleCols(i_start, ncols) + this->_1x1.Process(this->_z.topRows(channels));
 }
 
-void nam::wavenet::_Layer::SetNumFrames(const long numFrames)
+void nam::wavenet::Layer::SetNumFrames(const long numFrames)
 {
   if (this->_z.rows() == this->_conv.GetOutChannels() && this->_z.cols() == numFrames)
     return; // Already has correct size
@@ -66,7 +66,7 @@ nam::wavenet::LayerArray::LayerArray(const int inputSize, const int condition_si
 , mHeadRechannel(channels, head_size, head_bias)
 {
   for (size_t i = 0; i < dilations.size(); i++)
-    this->mLayers.push_back(_Layer(condition_size, channels, kernelSize, dilations[i], activation, gated));
+    this->mLayers.push_back(Layer(condition_size, channels, kernelSize, dilations[i], activation, gated));
   const long receptiveField = this->GetReceptiveField();
   for (size_t i = 0; i < dilations.size(); i++)
   {
