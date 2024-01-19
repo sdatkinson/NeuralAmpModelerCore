@@ -100,7 +100,7 @@ void nam::Buffer::UpdateBuffers(float* input, const int numFrames)
   // If we'd run off the end of the input buffer, then we need to move the data
   // back to the start of the buffer and start again.
   if (this->_input_buffer_offset + numFrames > (long)this->_input_buffer.size())
-    this->_rewind_buffers_();
+    this->RewindBuffers();
   // Put the new samples into the input buffer
   for (long i = this->_input_buffer_offset, j = 0; j < numFrames; i++, j++)
     this->_input_buffer[i] = input[j];
@@ -109,7 +109,7 @@ void nam::Buffer::UpdateBuffers(float* input, const int numFrames)
   std::fill(this->_output_buffer.begin(), this->_output_buffer.end(), 0.0f);
 }
 
-void nam::Buffer::_rewind_buffers_()
+void nam::Buffer::RewindBuffers()
 {
   // Copy the input buffer back
   // RF-1 samples because we've got at least one new one inbound.

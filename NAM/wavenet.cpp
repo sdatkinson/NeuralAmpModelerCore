@@ -99,7 +99,7 @@ void nam::wavenet::_LayerArray::prepare_for_frames_(const long numFrames)
   // -> No illegal writes.
   // -> no rewind needed.
   if (this->_buffer_start + numFrames > this->_get_buffer_size())
-    this->_rewind_buffers_();
+    this->RewindBuffers();
 }
 
 void nam::wavenet::_LayerArray::process_(const Eigen::Ref<const Eigen::MatrixXf> layer_inputs, const Eigen::Ref<const Eigen::MatrixXf> condition,
@@ -165,7 +165,7 @@ long nam::wavenet::_LayerArray::_get_receptive_field() const
   return res;
 }
 
-void nam::wavenet::_LayerArray::_rewind_buffers_()
+void nam::wavenet::_LayerArray::RewindBuffers()
 // Consider wrapping instead...
 // Can make this smaller--largest dilation, not receptive field!
 {

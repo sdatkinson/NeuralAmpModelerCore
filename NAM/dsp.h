@@ -99,7 +99,7 @@ protected:
   void ResetInputBuffer();
   // Use this->_input_post_gain
   virtual void UpdateBuffers(float* input, int numFrames);
-  virtual void _rewind_buffers_();
+  virtual void RewindBuffers();
 };
 
 // Basic linear model (an IR!)
