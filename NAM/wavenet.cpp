@@ -241,11 +241,11 @@ void nam::wavenet::Head::_apply_activation_(Eigen::Ref<Eigen::MatrixXf> x)
 // WaveNet ====================================================================
 
 nam::wavenet::WaveNet::WaveNet(const std::vector<nam::wavenet::LayerArrayParams>& layerArrayParams,
-                               const float head_scale, const bool with_head, const std::vector<float>& weights,
+                               const float headScale, const bool with_head, const std::vector<float>& weights,
                                const double expectedSampleRate)
 : DSP(expectedSampleRate)
 , mNumFrames(0)
-, mHeadScale(head_scale)
+, mHeadScale(headScale)
 {
   if (with_head)
     throw std::runtime_error("Head not implemented!");
