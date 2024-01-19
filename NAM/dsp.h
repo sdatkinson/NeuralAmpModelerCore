@@ -92,7 +92,7 @@ protected:
   // First location where we add new samples from the input
   long _input_buffer_offset;
   std::vector<float> mInputBuffer;
-  std::vector<float> _output_buffer;
+  std::vector<float> mOutputBuffer;
 
   void SetReceptiveField(const int new_receptive_field, const int input_buffer_size);
   void SetReceptiveField(const int new_receptive_field);

@@ -105,8 +105,8 @@ void nam::Buffer::UpdateBuffers(float* input, const int numFrames)
   for (long i = this->_input_buffer_offset, j = 0; j < numFrames; i++, j++)
     this->mInputBuffer[i] = input[j];
   // And resize the output buffer:
-  this->_output_buffer.resize(numFrames);
-  std::fill(this->_output_buffer.begin(), this->_output_buffer.end(), 0.0f);
+  this->mOutputBuffer.resize(numFrames);
+  std::fill(this->mOutputBuffer.begin(), this->mOutputBuffer.end(), 0.0f);
 }
 
 void nam::Buffer::RewindBuffers()
