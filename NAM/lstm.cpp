@@ -5,12 +5,12 @@
 #include "dsp.h"
 #include "lstm.h"
 
-nam::lstm::LSTMCell::LSTMCell(const int input_size, const int hidden_size, weights_it& weights)
+nam::lstm::LSTMCell::LSTMCell(const int inputSize, const int hidden_size, weights_it& weights)
 {
   // Resize arrays
-  this->_w.resize(4 * hidden_size, input_size + hidden_size);
+  this->_w.resize(4 * hidden_size, inputSize + hidden_size);
   this->_b.resize(4 * hidden_size);
-  this->_xh.resize(input_size + hidden_size);
+  this->_xh.resize(inputSize + hidden_size);
   this->_ifgo.resize(4 * hidden_size);
   this->_c.resize(hidden_size);
 
@@ -20,7 +20,7 @@ nam::lstm::LSTMCell::LSTMCell(const int input_size, const int hidden_size, weigh
       this->_w(i, j) = *(weights++);
   for (int i = 0; i < this->_b.size(); i++)
     this->_b[i] = *(weights++);
-  const int h_offset = input_size;
+  const int h_offset = inputSize;
   for (int i = 0; i < hidden_size; i++)
     this->_xh[i + h_offset] = *(weights++);
   for (int i = 0; i < hidden_size; i++)
@@ -30,9 +30,9 @@ nam::lstm::LSTMCell::LSTMCell(const int input_size, const int hidden_size, weigh
 void nam::lstm::LSTMCell::Process(const Eigen::VectorXf& x)
 {
   const long hidden_size = this->_get_hidden_size();
-  const long input_size = this->_get_input_size();
+  const long inputSize = this->_get_input_size();
   // Assign inputs
-  this->_xh(Eigen::seq(0, input_size - 1)) = x;
+  this->_xh(Eigen::seq(0, inputSize - 1)) = x;
   // The matmul
   this->_ifgo = this->_w * this->_xh + this->_b;
   // Elementwise updates (apply nonlinearities here)
@@ -40,7 +40,7 @@ void nam::lstm::LSTMCell::Process(const Eigen::VectorXf& x)
   const long f_offset = hidden_size;
   const long g_offset = 2 * hidden_size;
   const long o_offset = 3 * hidden_size;
-  const long h_offset = input_size;
+  const long h_offset = inputSize;
 
   if (activations::Activation::sUsingFastTanh)
   {
@@ -64,14 +64,14 @@ void nam::lstm::LSTMCell::Process(const Eigen::VectorXf& x)
   }
 }
 
-nam::lstm::LSTM::LSTM(const int numLayers, const int input_size, const int hidden_size, const std::vector<float>& weights,
+nam::lstm::LSTM::LSTM(const int numLayers, const int inputSize, const int hidden_size, const std::vector<float>& weights,
                       const double expectedSampleRate)
 : DSP(expectedSampleRate)
 {
   this->mInput.resize(1);
   auto it = weights.begin();
   for (int i = 0; i < numLayers; i++)
-    this->mLayers.push_back(LSTMCell(i == 0 ? input_size : hidden_size, hidden_size, it));
+    this->mLayers.push_back(LSTMCell(i == 0 ? inputSize : hidden_size, hidden_size, it));
   this->mHeadWeight.resize(hidden_size);
   for (int i = 0; i < hidden_size; i++)
     this->mHeadWeight[i] = *(it++);
