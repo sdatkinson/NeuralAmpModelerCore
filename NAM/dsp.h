@@ -52,7 +52,7 @@ public:
   // Anything to take care of before next buffer comes in.
   // For example:
   // * Move the buffer index forward
-  virtual void finalize_(const int num_frames);
+  virtual void Finalize(const int num_frames);
   // Expected sample rate, in Hz.
   // TODO throw if it doesn't know.
   double GetExpectedSampleRate() const { return mExpectedSampleRate; };
@@ -83,7 +83,7 @@ class Buffer : public DSP
 {
 public:
   Buffer(const int receptive_field, const double expected_sample_rate = -1.0);
-  void finalize_(const int num_frames);
+  void Finalize(const int num_frames);
 
 protected:
   // Input buffer
