@@ -168,7 +168,7 @@ private:
 class WaveNet : public DSP
 {
 public:
-  WaveNet(const std::vector<LayerArrayParams>& layerArrayParams, const float headScale, const bool with_head,
+  WaveNet(const std::vector<LayerArrayParams>& layerArrayParams, const float headScale, const bool withHead,
           const std::vector<float>& weights, const double expectedSampleRate = -1.0);
   ~WaveNet() = default;
 
