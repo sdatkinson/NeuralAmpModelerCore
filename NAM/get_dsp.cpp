@@ -53,7 +53,7 @@ Version ParseVersion(const std::string& versionStr)
   return version;
 }
 
-void verify_config_version(const std::string versionStr)
+void VerifyConfigVersion(const std::string versionStr)
 {
   Version version = ParseVersion(versionStr);
   if (version.major != 0 || version.minor != 5)
@@ -93,7 +93,7 @@ std::unique_ptr<DSP> get_dsp(const std::filesystem::path config_filename, dspDat
   std::ifstream i(config_filename);
   nlohmann::json j;
   i >> j;
-  verify_config_version(j["version"]);
+  VerifyConfigVersion(j["version"]);
 
   auto architecture = j["architecture"];
   nlohmann::json config = j["config"];
@@ -124,7 +124,7 @@ std::unique_ptr<DSP> get_dsp(const std::filesystem::path config_filename, dspDat
 
 std::unique_ptr<DSP> get_dsp(dspData& conf)
 {
-  verify_config_version(conf.version);
+  VerifyConfigVersion(conf.version);
 
   auto& architecture = conf.architecture;
   nlohmann::json& config = conf.config;

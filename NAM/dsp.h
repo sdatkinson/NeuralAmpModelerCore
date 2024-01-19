@@ -191,7 +191,7 @@ struct dspData
 
 // Verify that the config that we are building our model from is supported by
 // this plugin version.
-void verify_config_version(const std::string version);
+void VerifyConfigVersion(const std::string version);
 
 // Takes the model file and uses it to instantiate an instance of DSP.
 std::unique_ptr<DSP> get_dsp(const std::filesystem::path model_file);
