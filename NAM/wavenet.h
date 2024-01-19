@@ -197,7 +197,7 @@ private:
   // Fill in the "condition" array that's fed into the various parts of the net.
   virtual void _set_condition_array(float* input, const int numFrames);
   // Ensure that all buffer arrays are the right size for this numFrames
-  void _set_num_frames_(const long numFrames);
+  void SetNumFrames(const long numFrames);
 };
 }; // namespace wavenet
 }; // namespace nam
