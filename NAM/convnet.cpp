@@ -69,9 +69,9 @@ void nam::convnet::ConvNetBlock::Process(const Eigen::Ref<const Eigen::MatrixXf>
   this->activation->apply(output.middleCols(i_start, ncols));
 }
 
-long nam::convnet::ConvNetBlock::get_out_channels() const
+long nam::convnet::ConvNetBlock::GetOutChannels() const
 {
-  return this->conv.get_out_channels();
+  return this->conv.GetOutChannels();
 }
 
 nam::convnet::_Head::_Head(const int channels, weights_it& weights)
@@ -154,10 +154,10 @@ void nam::convnet::ConvNet::UpdateBuffers(float* input, const int numFrames)
 
   for (size_t i = 1; i < this->_block_vals.size(); i++)
   {
-    if (this->_block_vals[i].rows() == this->_blocks[i - 1].get_out_channels()
+    if (this->_block_vals[i].rows() == this->_blocks[i - 1].GetOutChannels()
         && this->_block_vals[i].cols() == Eigen::Index(buffer_size))
       continue; // Already has correct size
-    this->_block_vals[i].resize(this->_blocks[i - 1].get_out_channels(), buffer_size);
+    this->_block_vals[i].resize(this->_blocks[i - 1].GetOutChannels(), buffer_size);
     this->_block_vals[i].setZero();
   }
 }

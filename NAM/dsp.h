@@ -132,7 +132,7 @@ public:
   long GetInChannels() const { return this->mWeight.size() > 0 ? this->mWeight[0].cols() : 0; };
   long GetKernelSize() const { return this->mWeight.size(); };
   long GetNumWeights() const;
-  long get_out_channels() const { return this->mWeight.size() > 0 ? this->mWeight[0].rows() : 0; };
+  long GetOutChannels() const { return this->mWeight.size() > 0 ? this->mWeight[0].rows() : 0; };
   int get_dilation() const { return this->mDilation; };
 
 private:
@@ -153,7 +153,7 @@ public:
   // :return: (N,Cout) or (Cout,), respectively
   Eigen::MatrixXf Process(const Eigen::Ref<const Eigen::MatrixXf> input) const;
 
-  long get_out_channels() const { return this->mWeight.rows(); };
+  long GetOutChannels() const { return this->mWeight.rows(); };
 
 private:
   Eigen::MatrixXf mWeight;
