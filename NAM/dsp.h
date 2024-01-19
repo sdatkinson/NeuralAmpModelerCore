@@ -162,11 +162,11 @@ private:
 };
 
 // Utilities ==================================================================
-// Implemented in get_dsp.cpp
+// Implemented in GetDSP.cpp
 
 // Data for a DSP object
 // :param version: Data version. Follows the conventions established in the trainer code.
-// :param architecture: Defines the high-level architecture. Supported are (as per `get-dsp()` in get_dsp.cpp):
+// :param architecture: Defines the high-level architecture. Supported are (as per `get-dsp()` in GetDSP.cpp):
 //     * "CatLSTM"
 //     * "CatWaveNet"
 //     * "ConvNet"
@@ -194,11 +194,11 @@ struct dspData
 void VerifyConfigVersion(const std::string version);
 
 // Takes the model file and uses it to instantiate an instance of DSP.
-std::unique_ptr<DSP> get_dsp(const std::filesystem::path model_file);
+std::unique_ptr<DSP> GetDSP(const std::filesystem::path model_file);
 // Creates an instance of DSP. Also returns a dspData struct that holds the data of the model.
-std::unique_ptr<DSP> get_dsp(const std::filesystem::path model_file, dspData& returnedConfig);
+std::unique_ptr<DSP> GetDSP(const std::filesystem::path model_file, dspData& returnedConfig);
 // Instantiates a DSP object from dsp_config struct.
-std::unique_ptr<DSP> get_dsp(dspData& conf);
+std::unique_ptr<DSP> GetDSP(dspData& conf);
 // Legacy loader for directory-type DSPs
 std::unique_ptr<DSP> get_dsp_legacy(const std::filesystem::path dirname);
 }; // namespace nam

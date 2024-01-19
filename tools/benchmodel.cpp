@@ -27,7 +27,7 @@ int main(int argc, char* argv[])
     std::unique_ptr<nam::DSP> model;
 
     model.reset();
-    model = std::move(nam::get_dsp(modelPath));
+    model = std::move(nam::GetDSP(modelPath));
 
     if (model == nullptr)
     {
