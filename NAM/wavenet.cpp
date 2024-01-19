@@ -59,7 +59,7 @@ void nam::wavenet::_Layer::set_num_frames_(const long numFrames)
 
 #define LAYER_ARRAY_BUFFER_SIZE 65536
 
-nam::wavenet::_LayerArray::_LayerArray(const int inputSize, const int condition_size, const int head_size,
+nam::wavenet::LayerArray::LayerArray(const int inputSize, const int condition_size, const int head_size,
                                        const int channels, const int kernelSize, const std::vector<int>& dilations,
                                        const std::string activation, const bool gated, const bool head_bias)
 : _rechannel(inputSize, channels, false)
@@ -76,12 +76,12 @@ nam::wavenet::_LayerArray::_LayerArray(const int inputSize, const int condition_
   this->_buffer_start = this->_get_receptive_field() - 1;
 }
 
-void nam::wavenet::_LayerArray::advance_buffers_(const int numFrames)
+void nam::wavenet::LayerArray::advance_buffers_(const int numFrames)
 {
   this->_buffer_start += numFrames;
 }
 
-long nam::wavenet::_LayerArray::get_receptive_field() const
+long nam::wavenet::LayerArray::get_receptive_field() const
 {
   long result = 0;
   for (size_t i = 0; i < this->_layers.size(); i++)
@@ -89,7 +89,7 @@ long nam::wavenet::_LayerArray::get_receptive_field() const
   return result;
 }
 
-void nam::wavenet::_LayerArray::prepare_for_frames_(const long numFrames)
+void nam::wavenet::LayerArray::prepare_for_frames_(const long numFrames)
 {
   // Example:
   // _buffer_start = 0
@@ -102,7 +102,7 @@ void nam::wavenet::_LayerArray::prepare_for_frames_(const long numFrames)
     this->RewindBuffers();
 }
 
-void nam::wavenet::_LayerArray::Process(const Eigen::Ref<const Eigen::MatrixXf> layer_inputs, const Eigen::Ref<const Eigen::MatrixXf> condition,
+void nam::wavenet::LayerArray::Process(const Eigen::Ref<const Eigen::MatrixXf> layer_inputs, const Eigen::Ref<const Eigen::MatrixXf> condition,
                                          Eigen::Ref<Eigen::MatrixXf> head_inputs, Eigen::Ref<Eigen::MatrixXf> layer_outputs,
                                          Eigen::Ref<Eigen::MatrixXf> head_outputs)
 {
@@ -127,7 +127,7 @@ void nam::wavenet::_LayerArray::Process(const Eigen::Ref<const Eigen::MatrixXf> 
   head_outputs = this->_head_rechannel.Process(head_inputs);
 }
 
-void nam::wavenet::_LayerArray::set_num_frames_(const long numFrames)
+void nam::wavenet::LayerArray::set_num_frames_(const long numFrames)
 {
   // Wavenet checks for unchanged numFrames; if we made it here, there's
   // something to do.
@@ -143,7 +143,7 @@ void nam::wavenet::_LayerArray::set_num_frames_(const long numFrames)
     this->_layers[i].set_num_frames_(numFrames);
 }
 
-void nam::wavenet::_LayerArray::SetWeights(weights_it& weights)
+void nam::wavenet::LayerArray::SetWeights(weights_it& weights)
 {
   this->_rechannel.SetWeights(weights);
   for (size_t i = 0; i < this->_layers.size(); i++)
@@ -151,12 +151,12 @@ void nam::wavenet::_LayerArray::SetWeights(weights_it& weights)
   this->_head_rechannel.SetWeights(weights);
 }
 
-long nam::wavenet::_LayerArray::_get_channels() const
+long nam::wavenet::LayerArray::_get_channels() const
 {
   return this->_layers.size() > 0 ? this->_layers[0].get_channels() : 0;
 }
 
-long nam::wavenet::_LayerArray::_get_receptive_field() const
+long nam::wavenet::LayerArray::_get_receptive_field() const
 {
   // TODO remove this and use get_receptive_field() instead!
   long res = 1;
@@ -165,7 +165,7 @@ long nam::wavenet::_LayerArray::_get_receptive_field() const
   return res;
 }
 
-void nam::wavenet::_LayerArray::RewindBuffers()
+void nam::wavenet::LayerArray::RewindBuffers()
 // Consider wrapping instead...
 // Can make this smaller--largest dilation, not receptive field!
 {
@@ -251,7 +251,7 @@ nam::wavenet::WaveNet::WaveNet(const std::vector<nam::wavenet::LayerArrayParams>
     throw std::runtime_error("Head not implemented!");
   for (size_t i = 0; i < layer_array_params.size(); i++)
   {
-    this->mLayerArrays.push_back(nam::wavenet::_LayerArray(
+    this->mLayerArrays.push_back(nam::wavenet::LayerArray(
       layer_array_params[i].inputSize, layer_array_params[i].condition_size, layer_array_params[i].head_size,
       layer_array_params[i].channels, layer_array_params[i].kernelSize, layer_array_params[i].dilations,
       layer_array_params[i].activation, layer_array_params[i].gated, layer_array_params[i].head_bias));
