@@ -15,14 +15,14 @@ nam::convnet::BatchNorm::BatchNorm(const int dim, weights_it& weights)
   // Extract from param buffer
   Eigen::VectorXf running_mean(dim);
   Eigen::VectorXf running_var(dim);
-  Eigen::VectorXf _weight(dim);
+  Eigen::VectorXf weight(dim);
   Eigen::VectorXf bias(dim);
   for (int i = 0; i < dim; i++)
     running_mean(i) = *(weights++);
   for (int i = 0; i < dim; i++)
     running_var(i) = *(weights++);
   for (int i = 0; i < dim; i++)
-    _weight(i) = *(weights++);
+    weight(i) = *(weights++);
   for (int i = 0; i < dim; i++)
     bias(i) = *(weights++);
   float eps = *(weights++);
@@ -31,7 +31,7 @@ nam::convnet::BatchNorm::BatchNorm(const int dim, weights_it& weights)
   this->scale.resize(dim);
   this->loc.resize(dim);
   for (int i = 0; i < dim; i++)
-    this->scale(i) = _weight(i) / sqrt(eps + running_var(i));
+    this->scale(i) = weight(i) / sqrt(eps + running_var(i));
   this->loc = bias - this->scale.cwiseProduct(running_mean);
 }
 
