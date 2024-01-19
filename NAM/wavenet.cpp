@@ -6,10 +6,10 @@
 
 #include "wavenet.h"
 
-nam::wavenet::_DilatedConv::_DilatedConv(const int inChannels, const int outChannels, const int kernel_size,
+nam::wavenet::_DilatedConv::_DilatedConv(const int inChannels, const int outChannels, const int kernelSize,
                                          const int bias, const int dilation)
 {
-  this->SetSize(inChannels, outChannels, kernel_size, bias, dilation);
+  this->SetSize(inChannels, outChannels, kernelSize, bias, dilation);
 }
 
 void nam::wavenet::_Layer::SetWeights(weights_it& weights)
@@ -60,13 +60,13 @@ void nam::wavenet::_Layer::set_num_frames_(const long numFrames)
 #define LAYER_ARRAY_BUFFER_SIZE 65536
 
 nam::wavenet::_LayerArray::_LayerArray(const int input_size, const int condition_size, const int head_size,
-                                       const int channels, const int kernel_size, const std::vector<int>& dilations,
+                                       const int channels, const int kernelSize, const std::vector<int>& dilations,
                                        const std::string activation, const bool gated, const bool head_bias)
 : _rechannel(input_size, channels, false)
 , _head_rechannel(channels, head_size, head_bias)
 {
   for (size_t i = 0; i < dilations.size(); i++)
-    this->_layers.push_back(_Layer(condition_size, channels, kernel_size, dilations[i], activation, gated));
+    this->_layers.push_back(_Layer(condition_size, channels, kernelSize, dilations[i], activation, gated));
   const long receptiveField = this->_get_receptive_field();
   for (size_t i = 0; i < dilations.size(); i++)
   {
@@ -253,7 +253,7 @@ nam::wavenet::WaveNet::WaveNet(const std::vector<nam::wavenet::LayerArrayParams>
   {
     this->_layer_arrays.push_back(nam::wavenet::_LayerArray(
       layer_array_params[i].input_size, layer_array_params[i].condition_size, layer_array_params[i].head_size,
-      layer_array_params[i].channels, layer_array_params[i].kernel_size, layer_array_params[i].dilations,
+      layer_array_params[i].channels, layer_array_params[i].kernelSize, layer_array_params[i].dilations,
       layer_array_params[i].activation, layer_array_params[i].gated, layer_array_params[i].head_bias));
     this->_layer_array_outputs.push_back(Eigen::MatrixXf(layer_array_params[i].channels, 0));
     if (i == 0)

@@ -16,16 +16,16 @@ namespace wavenet
 class _DilatedConv : public Conv1D
 {
 public:
-  _DilatedConv(const int inChannels, const int outChannels, const int kernel_size, const int bias,
+  _DilatedConv(const int inChannels, const int outChannels, const int kernelSize, const int bias,
                const int dilation);
 };
 
 class _Layer
 {
 public:
-  _Layer(const int condition_size, const int channels, const int kernel_size, const int dilation,
+  _Layer(const int condition_size, const int channels, const int kernelSize, const int dilation,
          const std::string activation, const bool gated)
-  : _conv(channels, gated ? 2 * channels : channels, kernel_size, true, dilation)
+  : _conv(channels, gated ? 2 * channels : channels, kernelSize, true, dilation)
   , _input_mixin(condition_size, gated ? 2 * channels : channels, false)
   , _1x1(channels, channels, true)
   , _activation(activations::Activation::get_activation(activation))
@@ -64,7 +64,7 @@ public:
   , condition_size(condition_size_)
   , head_size(head_size_)
   , channels(channels_)
-  , kernel_size(kernel_size_)
+  , kernelSize(kernel_size_)
   , activation(activation_)
   , gated(gated_)
   , head_bias(head_bias_)
@@ -77,7 +77,7 @@ public:
   const int condition_size;
   const int head_size;
   const int channels;
-  const int kernel_size;
+  const int kernelSize;
   std::vector<int> dilations;
   const std::string activation;
   const bool gated;
@@ -89,7 +89,7 @@ class _LayerArray
 {
 public:
   _LayerArray(const int input_size, const int condition_size, const int head_size, const int channels,
-              const int kernel_size, const std::vector<int>& dilations, const std::string activation, const bool gated,
+              const int kernelSize, const std::vector<int>& dilations, const std::string activation, const bool gated,
               const bool head_bias);
 
   void advance_buffers_(const int numFrames);
