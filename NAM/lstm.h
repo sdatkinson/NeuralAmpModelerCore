@@ -64,7 +64,7 @@ protected:
 
   // Input to the LSTM.
   // Since this is assumed to not be a parametric model, its shape should be (1,)
-  Eigen::VectorXf _input;
+  Eigen::VectorXf mInput;
 };
 }; // namespace lstm
 }; // namespace nam
