@@ -32,7 +32,7 @@ private:
   // y = ax+b
   // a = w / sqrt(v+eps)
   // b = a * m + bias
-  Eigen::VectorXf scale;
+  Eigen::VectorXf mScale;
   Eigen::VectorXf loc;
 };
 

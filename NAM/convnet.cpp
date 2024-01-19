@@ -28,11 +28,11 @@ nam::convnet::BatchNorm::BatchNorm(const int dim, weights_it& weights)
   float eps = *(weights++);
 
   // Convert to scale & loc
-  this->scale.resize(dim);
+  this->mScale.resize(dim);
   this->loc.resize(dim);
   for (int i = 0; i < dim; i++)
-    this->scale(i) = weight(i) / sqrt(eps + running_var(i));
-  this->loc = bias - this->scale.cwiseProduct(running_mean);
+    this->mScale(i) = weight(i) / sqrt(eps + running_var(i));
+  this->loc = bias - this->mScale.cwiseProduct(running_mean);
 }
 
 void nam::convnet::BatchNorm::Process(Eigen::Ref<Eigen::MatrixXf> x, const long i_start, const long i_end) const
@@ -41,7 +41,7 @@ void nam::convnet::BatchNorm::Process(Eigen::Ref<Eigen::MatrixXf> x, const long 
   // #speed but conv probably dominates
   for (auto i = i_start; i < i_end; i++)
   {
-    x.col(i) = x.col(i).cwiseProduct(this->scale);
+    x.col(i) = x.col(i).cwiseProduct(this->mScale);
     x.col(i) += this->loc;
   }
 }
