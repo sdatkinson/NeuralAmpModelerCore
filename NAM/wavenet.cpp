@@ -62,7 +62,7 @@ void nam::wavenet::Layer::SetNumFrames(const long numFrames)
 nam::wavenet::LayerArray::LayerArray(const int inputSize, const int condition_size, const int head_size,
                                        const int channels, const int kernelSize, const std::vector<int>& dilations,
                                        const std::string activation, const bool gated, const bool head_bias)
-: _rechannel(inputSize, channels, false)
+: mReChannel(inputSize, channels, false)
 , mHeadRechannel(channels, head_size, head_bias)
 {
   for (size_t i = 0; i < dilations.size(); i++)
@@ -106,7 +106,7 @@ void nam::wavenet::LayerArray::Process(const Eigen::Ref<const Eigen::MatrixXf> l
                                          Eigen::Ref<Eigen::MatrixXf> head_inputs, Eigen::Ref<Eigen::MatrixXf> layer_outputs,
                                          Eigen::Ref<Eigen::MatrixXf> head_outputs)
 {
-  this->mLayerBuffers[0].middleCols(this->_buffer_start, layer_inputs.cols()) = this->_rechannel.Process(layer_inputs);
+  this->mLayerBuffers[0].middleCols(this->_buffer_start, layer_inputs.cols()) = this->mReChannel.Process(layer_inputs);
   const size_t last_layer = this->mLayers.size() - 1;
   for (size_t i = 0; i < this->mLayers.size(); i++)
   {
@@ -145,7 +145,7 @@ void nam::wavenet::LayerArray::SetNumFrames(const long numFrames)
 
 void nam::wavenet::LayerArray::SetWeights(weights_it& weights)
 {
-  this->_rechannel.SetWeights(weights);
+  this->mReChannel.SetWeights(weights);
   for (size_t i = 0; i < this->mLayers.size(); i++)
     this->mLayers[i].SetWeights(weights);
   this->mHeadRechannel.SetWeights(weights);
