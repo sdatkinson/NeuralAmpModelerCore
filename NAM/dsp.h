@@ -73,7 +73,7 @@ protected:
   // What sample rate does the model expect?
   double mExpectedSampleRate;
   // How many samples should be processed during "pre-warming"
-  int _prewarm_samples = 0;
+  int mPrewarmSamples = 0;
 };
 
 // Class where an input buffer is kept so that long-time effects can be

@@ -21,14 +21,14 @@ nam::DSP::DSP(const double expected_sample_rate)
 
 void nam::DSP::prewarm()
 {
-  if (_prewarm_samples == 0)
+  if (mPrewarmSamples == 0)
     return;
 
   float sample = 0;
   float* sample_ptr = &sample;
 
   // pre-warm the model for a model-specific number of samples
-  for (long i = 0; i < _prewarm_samples; i++)
+  for (long i = 0; i < mPrewarmSamples; i++)
   {
     this->process(sample_ptr, sample_ptr, 1);
     this->Finalize(1);
