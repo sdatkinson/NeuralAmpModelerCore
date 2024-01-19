@@ -30,13 +30,13 @@ void nam::DSP::prewarm()
   // pre-warm the model for a model-specific number of samples
   for (long i = 0; i < mPrewarmSamples; i++)
   {
-    this->process(sample_ptr, sample_ptr, 1);
+    this->Process(sample_ptr, sample_ptr, 1);
     this->Finalize(1);
     sample = 0;
   }
 }
 
-void nam::DSP::process(float* input, float* output, const int numFrames)
+void nam::DSP::Process(float* input, float* output, const int numFrames)
 {
   // Default implementation is the null operation
   for (auto i = 0; i < numFrames; i++)
@@ -152,7 +152,7 @@ nam::Linear::Linear(const int receptive_field, const bool _bias, const std::vect
   this->_bias = _bias ? weights[receptive_field] : (float)0.0;
 }
 
-void nam::Linear::process(float* input, float* output, const int numFrames)
+void nam::Linear::Process(float* input, float* output, const int numFrames)
 {
   this->nam::Buffer::_update_buffers_(input, numFrames);
 
@@ -246,7 +246,7 @@ void nam::Conv1x1::set_weights_(weights_it& weights)
       this->_bias(i) = *(weights++);
 }
 
-Eigen::MatrixXf nam::Conv1x1::process(const Eigen::Ref<const Eigen::MatrixXf> input) const
+Eigen::MatrixXf nam::Conv1x1::Process(const Eigen::Ref<const Eigen::MatrixXf> input) const
 {
   if (this->_do_bias)
     return (this->_weight * input).colwise() + this->_bias;

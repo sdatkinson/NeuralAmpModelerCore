@@ -45,7 +45,7 @@ int main(int argc, char* argv[])
 
     for (size_t i = 0; i < numBuffers; i++)
     {
-      model->process(buffer, buffer, AUDIO_BUFFER_SIZE);
+      model->Process(buffer, buffer, AUDIO_BUFFER_SIZE);
       model->Finalize(AUDIO_BUFFER_SIZE);
     }
 

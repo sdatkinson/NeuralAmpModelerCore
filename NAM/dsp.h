@@ -42,13 +42,13 @@ public:
   // prewarm() does any required intial work required to "settle" model initial conditions
   // it can be somewhat expensive, so should not be called during realtime audio processing
   virtual void prewarm();
-  // process() does all of the processing requried to take `input` array and
+  // Process() does all of the processing requried to take `input` array and
   // fill in the required values on `output`.
   // To do this:
   // 1. The core DSP algorithm is run (This is what should probably be
   //    overridden in subclasses).
   // 2. The output level is applied and the result stored to `output`.
-  virtual void process(float* input, float* output, const int numFrames);
+  virtual void Process(float* input, float* output, const int numFrames);
   // Anything to take care of before next buffer comes in.
   // For example:
   // * Move the buffer index forward
@@ -108,7 +108,7 @@ class Linear : public Buffer
 public:
   Linear(const int receptive_field, const bool _bias, const std::vector<float>& weights,
          const double expected_sample_rate = -1.0);
-  void process(float* input, float* output, const int numFrames) override;
+  void Process(float* input, float* output, const int numFrames) override;
 
 protected:
   Eigen::VectorXf _weight;
@@ -153,7 +153,7 @@ public:
   void set_weights_(weights_it& weights);
   // :param input: (N,Cin) or (Cin,)
   // :return: (N,Cout) or (Cout,), respectively
-  Eigen::MatrixXf process(const Eigen::Ref<const Eigen::MatrixXf> input) const;
+  Eigen::MatrixXf Process(const Eigen::Ref<const Eigen::MatrixXf> input) const;
 
   long get_out_channels() const { return this->_weight.rows(); };
 

@@ -115,7 +115,7 @@ nam::convnet::ConvNet::ConvNet(const int channels, const std::vector<int>& dilat
 }
 
 
-void nam::convnet::ConvNet::process(float* input, float* output, const int numFrames)
+void nam::convnet::ConvNet::Process(float* input, float* output, const int numFrames)
 
 {
   this->_update_buffers_(input, numFrames);

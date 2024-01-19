@@ -28,7 +28,7 @@ void nam::wavenet::_Layer::process_(const Eigen::Ref<const Eigen::MatrixXf> inpu
   // Input dilated conv
   this->_conv.process_(input, this->_z, i_start, ncols, 0);
   // Mix-in condition
-  this->_z += this->_input_mixin.process(condition);
+  this->_z += this->_input_mixin.Process(condition);
 
   this->_activation->apply(this->_z);
 
@@ -43,7 +43,7 @@ void nam::wavenet::_Layer::process_(const Eigen::Ref<const Eigen::MatrixXf> inpu
   }
 
   head_input += this->_z.topRows(channels);
-  output.middleCols(j_start, ncols) = input.middleCols(i_start, ncols) + this->_1x1.process(this->_z.topRows(channels));
+  output.middleCols(j_start, ncols) = input.middleCols(i_start, ncols) + this->_1x1.Process(this->_z.topRows(channels));
 }
 
 void nam::wavenet::_Layer::set_num_frames_(const long numFrames)
@@ -106,7 +106,7 @@ void nam::wavenet::_LayerArray::process_(const Eigen::Ref<const Eigen::MatrixXf>
                                          Eigen::Ref<Eigen::MatrixXf> head_inputs, Eigen::Ref<Eigen::MatrixXf> layer_outputs,
                                          Eigen::Ref<Eigen::MatrixXf> head_outputs)
 {
-  this->_layer_buffers[0].middleCols(this->_buffer_start, layer_inputs.cols()) = this->_rechannel.process(layer_inputs);
+  this->_layer_buffers[0].middleCols(this->_buffer_start, layer_inputs.cols()) = this->_rechannel.Process(layer_inputs);
   const size_t last_layer = this->_layers.size() - 1;
   for (size_t i = 0; i < this->_layers.size(); i++)
   {
@@ -124,7 +124,7 @@ void nam::wavenet::_LayerArray::process_(const Eigen::Ref<const Eigen::MatrixXf>
     }
 
   }
-  head_outputs = this->_head_rechannel.process(head_inputs);
+  head_outputs = this->_head_rechannel.Process(head_inputs);
 }
 
 void nam::wavenet::_LayerArray::set_num_frames_(const long numFrames)
@@ -207,17 +207,17 @@ void nam::wavenet::_Head::process_(Eigen::Ref<Eigen::MatrixXf> inputs, Eigen::Re
   const size_t num_layers = this->_layers.size();
   this->_apply_activation_(inputs);
   if (num_layers == 1)
-    outputs = this->_layers[0].process(inputs);
+    outputs = this->_layers[0].Process(inputs);
   else
   {
-    this->_buffers[0] = this->_layers[0].process(inputs);
+    this->_buffers[0] = this->_layers[0].Process(inputs);
     for (size_t i = 1; i < num_layers; i++)
     { // Asserted > 0 layers
       this->_apply_activation_(this->_buffers[i - 1]);
       if (i < num_layers - 1)
-        this->_buffers[i] = this->_layers[i].process(this->_buffers[i - 1]);
+        this->_buffers[i] = this->_layers[i].Process(this->_buffers[i - 1]);
       else
-        outputs = this->_layers[i].process(this->_buffers[i - 1]);
+        outputs = this->_layers[i].Process(this->_buffers[i - 1]);
     }
   }
 }
@@ -323,7 +323,7 @@ void nam::wavenet::WaveNet::_set_condition_array(float* input, const int numFram
   }
 }
 
-void nam::wavenet::WaveNet::process(float* input, float* output, const int numFrames)
+void nam::wavenet::WaveNet::Process(float* input, float* output, const int numFrames)
 {
   this->_set_num_frames_(numFrames);
   this->_prepare_for_frames_(numFrames);
