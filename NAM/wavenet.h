@@ -151,7 +151,7 @@ public:
   void set_num_frames_(const long numFrames);
 
 private:
-  int _channels;
+  int mChannels;
   std::vector<Conv1x1> mLayers;
   Conv1x1 mHead;
   activations::Activation* mActivation;
