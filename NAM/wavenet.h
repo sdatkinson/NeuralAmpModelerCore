@@ -20,10 +20,10 @@ public:
                const int dilation);
 };
 
-class _Layer
+class Layer
 {
 public:
-  _Layer(const int condition_size, const int channels, const int kernelSize, const int dilation,
+  Layer(const int condition_size, const int channels, const int kernelSize, const int dilation,
          const std::string activation, const bool gated)
   : _conv(channels, gated ? 2 * channels : channels, kernelSize, true, dilation)
   , _input_mixin(condition_size, gated ? 2 * channels : channels, false)
@@ -124,7 +124,7 @@ private:
   // the last layer outputs to a short array provided by outside.
   std::vector<Eigen::MatrixXf> mLayerBuffers;
   // The layer objects
-  std::vector<_Layer> mLayers;
+  std::vector<Layer> mLayers;
 
   // Rechannel for the head
   Conv1x1 mHeadRechannel;
