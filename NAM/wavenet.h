@@ -158,7 +158,7 @@ private:
 
   // Stores the outputs of the convs *except* the last one, which goes in
   // The array `outputs` provided to .Process()
-  std::vector<Eigen::MatrixXf> _buffers;
+  std::vector<Eigen::MatrixXf> mBuffers;
 
   // Apply the activation to the provided array, in-place
   void ApplyActivation(Eigen::Ref<Eigen::MatrixXf> x);

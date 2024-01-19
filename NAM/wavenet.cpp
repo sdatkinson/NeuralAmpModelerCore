@@ -192,7 +192,7 @@ nam::wavenet::Head::Head(const int inputSize, const int numLayers, const int cha
     this->_layers.push_back(Conv1x1(dx, i == numLayers - 1 ? 1 : channels, true));
     dx = channels;
     if (i < numLayers - 1)
-      this->_buffers.push_back(Eigen::MatrixXf());
+      this->mBuffers.push_back(Eigen::MatrixXf());
   }
 }
 
@@ -210,26 +210,26 @@ void nam::wavenet::Head::Process(Eigen::Ref<Eigen::MatrixXf> inputs, Eigen::Ref<
     outputs = this->_layers[0].Process(inputs);
   else
   {
-    this->_buffers[0] = this->_layers[0].Process(inputs);
+    this->mBuffers[0] = this->_layers[0].Process(inputs);
     for (size_t i = 1; i < numLayers; i++)
     { // Asserted > 0 layers
-      this->ApplyActivation(this->_buffers[i - 1]);
+      this->ApplyActivation(this->mBuffers[i - 1]);
       if (i < numLayers - 1)
-        this->_buffers[i] = this->_layers[i].Process(this->_buffers[i - 1]);
+        this->mBuffers[i] = this->_layers[i].Process(this->mBuffers[i - 1]);
       else
-        outputs = this->_layers[i].Process(this->_buffers[i - 1]);
+        outputs = this->_layers[i].Process(this->mBuffers[i - 1]);
     }
   }
 }
 
 void nam::wavenet::Head::set_num_frames_(const long numFrames)
 {
-  for (size_t i = 0; i < this->_buffers.size(); i++)
+  for (size_t i = 0; i < this->mBuffers.size(); i++)
   {
-    if (this->_buffers[i].rows() == this->_channels && this->_buffers[i].cols() == numFrames)
+    if (this->mBuffers[i].rows() == this->_channels && this->mBuffers[i].cols() == numFrames)
       continue; // Already has correct size
-    this->_buffers[i].resize(this->_channels, numFrames);
-    this->_buffers[i].setZero();
+    this->mBuffers[i].resize(this->_channels, numFrames);
+    this->mBuffers[i].setZero();
   }
 }
 
