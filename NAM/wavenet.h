@@ -154,7 +154,7 @@ private:
   int _channels;
   std::vector<Conv1x1> _layers;
   Conv1x1 _head;
-  activations::Activation* _activation;
+  activations::Activation* mActivation;
 
   // Stores the outputs of the convs *except* the last one, which goes in
   // The array `outputs` provided to .Process()
