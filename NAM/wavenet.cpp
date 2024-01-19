@@ -309,7 +309,7 @@ void nam::wavenet::WaveNet::_advance_buffers_(const int numFrames)
     this->_layer_arrays[i].advance_buffers_(numFrames);
 }
 
-void nam::wavenet::WaveNet::_prepare_for_frames_(const long numFrames)
+void nam::wavenet::WaveNet::PrepareForFrames(const long numFrames)
 {
   for (size_t i = 0; i < this->_layer_arrays.size(); i++)
     this->_layer_arrays[i].prepare_for_frames_(numFrames);
@@ -326,7 +326,7 @@ void nam::wavenet::WaveNet::SetConditionArray(float* input, const int numFrames)
 void nam::wavenet::WaveNet::Process(float* input, float* output, const int numFrames)
 {
   this->SetNumFrames(numFrames);
-  this->_prepare_for_frames_(numFrames);
+  this->PrepareForFrames(numFrames);
   this->SetConditionArray(input, numFrames);
 
   // Main layer arrays:
