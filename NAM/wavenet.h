@@ -153,7 +153,7 @@ public:
 private:
   int _channels;
   std::vector<Conv1x1> _layers;
-  Conv1x1 _head;
+  Conv1x1 mHead;
   activations::Activation* mActivation;
 
   // Stores the outputs of the convs *except* the last one, which goes in
