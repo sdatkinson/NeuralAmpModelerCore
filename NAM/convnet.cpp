@@ -96,7 +96,7 @@ nam::convnet::ConvNet::ConvNet(const int channels, const std::vector<int>& dilat
                                const double expectedSampleRate)
 : Buffer(*std::max_element(dilations.begin(), dilations.end()), expectedSampleRate)
 {
-  this->_verify_weights(channels, dilations, batchnorm, weights.size());
+  this->VerifyWeights(channels, dilations, batchnorm, weights.size());
   this->_blocks.resize(dilations.size());
   weights_it it = weights.begin();
   for (size_t i = 0; i < dilations.size(); i++)
@@ -134,7 +134,7 @@ void nam::convnet::ConvNet::Process(float* input, float* output, const int numFr
     output[s] = this->_head_output(s);
 }
 
-void nam::convnet::ConvNet::_verify_weights(const int channels, const std::vector<int>& dilations, const bool batchnorm,
+void nam::convnet::ConvNet::VerifyWeights(const int channels, const std::vector<int>& dilations, const bool batchnorm,
                                             const size_t actual_weights)
 {
   // TODO
