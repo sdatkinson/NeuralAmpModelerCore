@@ -172,10 +172,10 @@ void nam::Conv1D::SetWeights(weights_it& weights)
   if (this->mWeight.size() > 0)
   {
     const long out_channels = this->mWeight[0].rows();
-    const long in_channels = this->mWeight[0].cols();
+    const long inChannels = this->mWeight[0].cols();
     // Crazy ordering because that's how it gets flattened.
     for (auto i = 0; i < out_channels; i++)
-      for (auto j = 0; j < in_channels; j++)
+      for (auto j = 0; j < inChannels; j++)
         for (size_t k = 0; k < this->mWeight.size(); k++)
           this->mWeight[k](i, j) = *(weights++);
   }
@@ -183,13 +183,13 @@ void nam::Conv1D::SetWeights(weights_it& weights)
     this->mBias(i) = *(weights++);
 }
 
-void nam::Conv1D::SetSize(const int in_channels, const int out_channels, const int kernel_size, const bool doBias,
+void nam::Conv1D::SetSize(const int inChannels, const int out_channels, const int kernel_size, const bool doBias,
                             const int dilation)
 {
   this->mWeight.resize(kernel_size);
   for (size_t i = 0; i < this->mWeight.size(); i++)
     this->mWeight[i].resize(out_channels,
-                            in_channels); // y = Ax, input array (C,L)
+                            inChannels); // y = Ax, input array (C,L)
   if (doBias)
     this->mBias.resize(out_channels);
   else
@@ -197,10 +197,10 @@ void nam::Conv1D::SetSize(const int in_channels, const int out_channels, const i
   this->mDilation = dilation;
 }
 
-void nam::Conv1D::SetSizeAndWeights(const int in_channels, const int out_channels, const int kernel_size,
+void nam::Conv1D::SetSizeAndWeights(const int inChannels, const int out_channels, const int kernel_size,
                                         const int dilation, const bool doBias, weights_it& weights)
 {
-  this->SetSize(in_channels, out_channels, kernel_size, doBias, dilation);
+  this->SetSize(inChannels, out_channels, kernel_size, doBias, dilation);
   this->SetWeights(weights);
 }
 
@@ -228,9 +228,9 @@ long nam::Conv1D::get_num_weights() const
   return num_weights;
 }
 
-nam::Conv1x1::Conv1x1(const int in_channels, const int out_channels, const bool bias)
+nam::Conv1x1::Conv1x1(const int inChannels, const int out_channels, const bool bias)
 {
-  this->mWeight.resize(out_channels, in_channels);
+  this->mWeight.resize(out_channels, inChannels);
   this->mDoBias = bias;
   if (bias)
     this->mBias.resize(out_channels);

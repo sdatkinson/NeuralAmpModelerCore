@@ -46,13 +46,13 @@ void nam::convnet::BatchNorm::Process(Eigen::Ref<Eigen::MatrixXf> x, const long 
   }
 }
 
-void nam::convnet::ConvNetBlock::SetWeights(const int in_channels, const int out_channels, const int dilation,
+void nam::convnet::ConvNetBlock::SetWeights(const int inChannels, const int out_channels, const int dilation,
                                               const bool batchnorm, const std::string activation,
                                               weights_it& weights)
 {
   this->_batchnorm = batchnorm;
   // HACK 2 kernel
-  this->conv.SetSizeAndWeights(in_channels, out_channels, 2, dilation, !batchnorm, weights);
+  this->conv.SetSizeAndWeights(inChannels, out_channels, 2, dilation, !batchnorm, weights);
   if (this->_batchnorm)
     this->batchnorm = BatchNorm(out_channels, weights);
   this->activation = activations::Activation::get_activation(activation);

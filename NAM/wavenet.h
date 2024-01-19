@@ -16,7 +16,7 @@ namespace wavenet
 class _DilatedConv : public Conv1D
 {
 public:
-  _DilatedConv(const int in_channels, const int out_channels, const int kernel_size, const int bias,
+  _DilatedConv(const int inChannels, const int out_channels, const int kernel_size, const int bias,
                const int dilation);
 };
 
