@@ -279,7 +279,7 @@ nam::wavenet::WaveNet::WaveNet(const std::vector<nam::wavenet::LayerArrayParams>
 void nam::wavenet::WaveNet::Finalize(const int numFrames)
 {
   this->DSP::Finalize(numFrames);
-  this->_advance_buffers_(numFrames);
+  this->AdvanceBuffers(numFrames);
 }
 
 void nam::wavenet::WaveNet::SetWeights(const std::vector<float>& weights)
@@ -303,7 +303,7 @@ void nam::wavenet::WaveNet::SetWeights(const std::vector<float>& weights)
   }
 }
 
-void nam::wavenet::WaveNet::_advance_buffers_(const int numFrames)
+void nam::wavenet::WaveNet::AdvanceBuffers(const int numFrames)
 {
   for (size_t i = 0; i < this->_layer_arrays.size(); i++)
     this->_layer_arrays[i].advance_buffers_(numFrames);
