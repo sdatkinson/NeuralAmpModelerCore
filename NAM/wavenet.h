@@ -36,7 +36,7 @@ public:
   void Process(const Eigen::Ref<const Eigen::MatrixXf> input, const Eigen::Ref<const Eigen::MatrixXf> condition, Eigen::Ref<Eigen::MatrixXf> head_input,
                 Eigen::Ref<Eigen::MatrixXf> output, const long i_start, const long j_start);
   void set_num_frames_(const long numFrames);
-  long get_channels() const { return this->_conv.get_in_channels(); };
+  long get_channels() const { return this->_conv.GetInChannels(); };
   int get_dilation() const { return this->_conv.get_dilation(); };
   long get_kernel_size() const { return this->_conv.get_kernel_size(); };
 

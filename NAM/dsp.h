@@ -129,7 +129,7 @@ public:
   //  Indices on output for from j_start (to j_start + i_end - i_start)
   void Process(const Eigen::Ref<const Eigen::MatrixXf> input, Eigen::Ref<Eigen::MatrixXf> output, const long i_start, const long i_end,
                 const long j_start) const;
-  long get_in_channels() const { return this->mWeight.size() > 0 ? this->mWeight[0].cols() : 0; };
+  long GetInChannels() const { return this->mWeight.size() > 0 ? this->mWeight[0].cols() : 0; };
   long get_kernel_size() const { return this->mWeight.size(); };
   long get_num_weights() const;
   long get_out_channels() const { return this->mWeight.size() > 0 ? this->mWeight[0].rows() : 0; };
