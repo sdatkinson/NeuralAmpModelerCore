@@ -191,7 +191,7 @@ private:
 
   void _advance_buffers_(const int numFrames);
   void _prepare_for_frames_(const long numFrames);
-  void process(float* input, float* output, const int numFrames) override;
+  void Process(float* input, float* output, const int numFrames) override;
 
   virtual int _get_condition_dim() const { return 1; };
   // Fill in the "condition" array that's fed into the various parts of the net.

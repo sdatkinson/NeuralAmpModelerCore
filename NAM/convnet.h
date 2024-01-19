@@ -81,7 +81,7 @@ protected:
   void _update_buffers_(float* input, const int numFrames) override;
   void _rewind_buffers_() override;
 
-  void process(float* input, float* output, const int numFrames) override;
+  void Process(float* input, float* output, const int numFrames) override;
 };
 }; // namespace convnet
 }; // namespace nam
