@@ -180,18 +180,18 @@ void nam::wavenet::_LayerArray::RewindBuffers()
 
 // Head =======================================================================
 
-nam::wavenet::Head::Head(const int input_size, const int num_layers, const int channels, const std::string activation)
+nam::wavenet::Head::Head(const int input_size, const int numLayers, const int channels, const std::string activation)
 : _channels(channels)
-, _head(num_layers > 0 ? channels : input_size, 1, true)
+, _head(numLayers > 0 ? channels : input_size, 1, true)
 , _activation(activations::Activation::GetActivation(activation))
 {
-  assert(num_layers > 0);
+  assert(numLayers > 0);
   int dx = input_size;
-  for (int i = 0; i < num_layers; i++)
+  for (int i = 0; i < numLayers; i++)
   {
-    this->_layers.push_back(Conv1x1(dx, i == num_layers - 1 ? 1 : channels, true));
+    this->_layers.push_back(Conv1x1(dx, i == numLayers - 1 ? 1 : channels, true));
     dx = channels;
-    if (i < num_layers - 1)
+    if (i < numLayers - 1)
       this->_buffers.push_back(Eigen::MatrixXf());
   }
 }
@@ -204,17 +204,17 @@ void nam::wavenet::Head::SetWeights(weights_it& weights)
 
 void nam::wavenet::Head::Process(Eigen::Ref<Eigen::MatrixXf> inputs, Eigen::Ref<Eigen::MatrixXf> outputs)
 {
-  const size_t num_layers = this->_layers.size();
+  const size_t numLayers = this->_layers.size();
   this->_apply_activation_(inputs);
-  if (num_layers == 1)
+  if (numLayers == 1)
     outputs = this->_layers[0].Process(inputs);
   else
   {
     this->_buffers[0] = this->_layers[0].Process(inputs);
-    for (size_t i = 1; i < num_layers; i++)
+    for (size_t i = 1; i < numLayers; i++)
     { // Asserted > 0 layers
       this->_apply_activation_(this->_buffers[i - 1]);
-      if (i < num_layers - 1)
+      if (i < numLayers - 1)
         this->_buffers[i] = this->_layers[i].Process(this->_buffers[i - 1]);
       else
         outputs = this->_layers[i].Process(this->_buffers[i - 1]);
