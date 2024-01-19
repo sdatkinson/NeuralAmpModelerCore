@@ -255,7 +255,7 @@ nam::wavenet::WaveNet::WaveNet(const std::vector<nam::wavenet::LayerArrayParams>
       layer_array_params[i].inputSize, layer_array_params[i].condition_size, layer_array_params[i].head_size,
       layer_array_params[i].channels, layer_array_params[i].kernelSize, layer_array_params[i].dilations,
       layer_array_params[i].activation, layer_array_params[i].gated, layer_array_params[i].head_bias));
-    this->_layer_array_outputs.push_back(Eigen::MatrixXf(layer_array_params[i].channels, 0));
+    this->mLayerArrayOutputs.push_back(Eigen::MatrixXf(layer_array_params[i].channels, 0));
     if (i == 0)
       this->mHeadArrays.push_back(Eigen::MatrixXf(layer_array_params[i].channels, 0));
     if (i > 0)
@@ -334,8 +334,8 @@ void nam::wavenet::WaveNet::Process(float* input, float* output, const int numFr
   // Sum on head output
   this->mHeadArrays[0].setZero();
   for (size_t i = 0; i < this->_layer_arrays.size(); i++)
-    this->_layer_arrays[i].Process(i == 0 ? this->mCondition : this->_layer_array_outputs[i - 1], this->mCondition,
-                                    this->mHeadArrays[i], this->_layer_array_outputs[i], this->mHeadArrays[i + 1]);
+    this->_layer_arrays[i].Process(i == 0 ? this->mCondition : this->mLayerArrayOutputs[i - 1], this->mCondition,
+                                    this->mHeadArrays[i], this->mLayerArrayOutputs[i], this->mHeadArrays[i + 1]);
   // this->_head.Process(
   //   this->_head_input,
   //   this->_head_output
@@ -361,8 +361,8 @@ void nam::wavenet::WaveNet::SetNumFrames(const long numFrames)
   this->mCondition.resize(this->GetConditionDim(), numFrames);
   for (size_t i = 0; i < this->mHeadArrays.size(); i++)
     this->mHeadArrays[i].resize(this->mHeadArrays[i].rows(), numFrames);
-  for (size_t i = 0; i < this->_layer_array_outputs.size(); i++)
-    this->_layer_array_outputs[i].resize(this->_layer_array_outputs[i].rows(), numFrames);
+  for (size_t i = 0; i < this->mLayerArrayOutputs.size(); i++)
+    this->mLayerArrayOutputs[i].resize(this->mLayerArrayOutputs[i].rows(), numFrames);
   this->mHeadOutput.resize(this->mHeadOutput.rows(), numFrames);
   this->mHeadOutput.setZero();
 
