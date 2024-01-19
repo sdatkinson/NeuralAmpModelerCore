@@ -92,7 +92,7 @@ public:
               const int kernelSize, const std::vector<int>& dilations, const std::string activation, const bool gated,
               const bool head_bias);
 
-  void advance_buffers_(const int numFrames);
+  void AdvanceBuffers(const int numFrames);
 
   // Preparing for frames:
   // Rewind buffers if needed
