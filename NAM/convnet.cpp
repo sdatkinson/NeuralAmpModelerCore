@@ -104,7 +104,7 @@ nam::convnet::ConvNet::ConvNet(const int channels, const std::vector<int>& dilat
   this->_block_vals.resize(this->_blocks.size() + 1);
   for (auto& matrix : this->_block_vals)
     matrix.setZero();
-  std::fill(this->_input_buffer.begin(), this->_input_buffer.end(), 0.0f);
+  std::fill(this->mInputBuffer.begin(), this->mInputBuffer.end(), 0.0f);
   this->_head = _Head(channels, it);
   if (it != weights.end())
     throw std::runtime_error("Didn't touch all the weights when initializing ConvNet");
@@ -124,7 +124,7 @@ void nam::convnet::ConvNet::Process(float* input, float* output, const int numFr
   const long i_end = i_start + numFrames;
   // TODO one unnecessary copy :/ #speed
   for (auto i = i_start; i < i_end; i++)
-    this->_block_vals[0](0, i) = this->_input_buffer[i];
+    this->_block_vals[0](0, i) = this->mInputBuffer[i];
   for (size_t i = 0; i < this->_blocks.size(); i++)
     this->_blocks[i].process_(this->_block_vals[i], this->_block_vals[i + 1], i_start, i_end);
   // TODO clean up this allocation
@@ -144,7 +144,7 @@ void nam::convnet::ConvNet::UpdateBuffers(float* input, const int numFrames)
 {
   this->Buffer::UpdateBuffers(input, numFrames);
 
-  const size_t buffer_size = this->_input_buffer.size();
+  const size_t buffer_size = this->mInputBuffer.size();
 
   if (this->_block_vals[0].rows() != Eigen::Index(1) || this->_block_vals[0].cols() != Eigen::Index(buffer_size))
   {
