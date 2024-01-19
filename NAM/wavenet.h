@@ -35,7 +35,7 @@ public:
   // :param `output`: to next layer
   void Process(const Eigen::Ref<const Eigen::MatrixXf> input, const Eigen::Ref<const Eigen::MatrixXf> condition, Eigen::Ref<Eigen::MatrixXf> head_input,
                 Eigen::Ref<Eigen::MatrixXf> output, const long i_start, const long j_start);
-  void set_num_frames_(const long numFrames);
+  void SetNumFrames(const long numFrames);
   long get_channels() const { return this->_conv.GetInChannels(); };
   int GetDilation() const { return this->_conv.GetDilation(); };
   long GetKernelSize() const { return this->_conv.GetKernelSize(); };
@@ -107,7 +107,7 @@ public:
                 Eigen::Ref<Eigen::MatrixXf> head_inputs, // Sum up on this.
                 Eigen::Ref<Eigen::MatrixXf> head_outputs // post head-rechannel
   );
-  void set_num_frames_(const long numFrames);
+  void SetNumFrames(const long numFrames);
   void SetWeights(weights_it& it);
 
   // "Zero-indexed" receptive field.
@@ -148,7 +148,7 @@ public:
   // NOTE: the head transforms the provided input by applying a nonlinearity
   // to it in-place!
   void Process(Eigen::Ref<Eigen::MatrixXf> inputs, Eigen::Ref<Eigen::MatrixXf> outputs);
-  void set_num_frames_(const long numFrames);
+  void SetNumFrames(const long numFrames);
 
 private:
   int mChannels;
