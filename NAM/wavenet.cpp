@@ -30,11 +30,11 @@ void nam::wavenet::_Layer::Process(const Eigen::Ref<const Eigen::MatrixXf> input
   // Mix-in condition
   this->_z += this->_input_mixin.Process(condition);
 
-  this->_activation->apply(this->_z);
+  this->_activation->Apply(this->_z);
 
   if (this->_gated)
   {
-    activations::Activation::get_activation("Sigmoid")->apply(this->_z.block(channels, 0, channels, this->_z.cols()));
+    activations::Activation::get_activation("Sigmoid")->Apply(this->_z.block(channels, 0, channels, this->_z.cols()));
 
     this->_z.topRows(channels).array() *= this->_z.bottomRows(channels).array();
     // this->_z.topRows(channels) = this->_z.topRows(channels).cwiseProduct(
@@ -235,7 +235,7 @@ void nam::wavenet::_Head::set_num_frames_(const long numFrames)
 
 void nam::wavenet::_Head::_apply_activation_(Eigen::Ref<Eigen::MatrixXf> x)
 {
-  this->_activation->apply(x);
+  this->_activation->Apply(x);
 }
 
 // WaveNet ====================================================================

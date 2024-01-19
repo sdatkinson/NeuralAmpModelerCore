@@ -66,7 +66,7 @@ void nam::convnet::ConvNetBlock::Process(const Eigen::Ref<const Eigen::MatrixXf>
   if (this->_batchnorm)
     this->batchnorm.Process(output, i_start, i_end);
 
-  this->activation->apply(output.middleCols(i_start, ncols));
+  this->activation->Apply(output.middleCols(i_start, ncols));
 }
 
 long nam::convnet::ConvNetBlock::GetOutChannels() const
