@@ -231,7 +231,7 @@ long nam::Conv1D::get_num_weights() const
 nam::Conv1x1::Conv1x1(const int in_channels, const int out_channels, const bool _bias)
 {
   this->mWeight.resize(out_channels, in_channels);
-  this->_do_bias = _bias;
+  this->mDoBias = _bias;
   if (_bias)
     this->mBias.resize(out_channels);
 }
@@ -241,14 +241,14 @@ void nam::Conv1x1::set_weights_(weights_it& weights)
   for (int i = 0; i < this->mWeight.rows(); i++)
     for (int j = 0; j < this->mWeight.cols(); j++)
       this->mWeight(i, j) = *(weights++);
-  if (this->_do_bias)
+  if (this->mDoBias)
     for (int i = 0; i < this->mBias.size(); i++)
       this->mBias(i) = *(weights++);
 }
 
 Eigen::MatrixXf nam::Conv1x1::Process(const Eigen::Ref<const Eigen::MatrixXf> input) const
 {
-  if (this->_do_bias)
+  if (this->mDoBias)
     return (this->mWeight * input).colwise() + this->mBias;
   else
     return this->mWeight * input;

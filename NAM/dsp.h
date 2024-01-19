@@ -158,7 +158,7 @@ public:
 private:
   Eigen::MatrixXf mWeight;
   Eigen::VectorXf mBias;
-  bool _do_bias;
+  bool mDoBias;
 };
 
 // Utilities ==================================================================
