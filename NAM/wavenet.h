@@ -190,7 +190,7 @@ private:
   Eigen::MatrixXf _head_output;
 
   void _advance_buffers_(const int numFrames);
-  void _prepare_for_frames_(const long numFrames);
+  void PrepareForFrames(const long numFrames);
   void Process(float* input, float* output, const int numFrames) override;
 
   virtual int GetConditionDim() const { return 1; };
