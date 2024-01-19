@@ -27,7 +27,7 @@ nam::lstm::LSTMCell::LSTMCell(const int input_size, const int hidden_size, weigh
     this->_c[i] = *(weights++);
 }
 
-void nam::lstm::LSTMCell::process_(const Eigen::VectorXf& x)
+void nam::lstm::LSTMCell::Process(const Eigen::VectorXf& x)
 {
   const long hidden_size = this->_get_hidden_size();
   const long input_size = this->_get_input_size();
@@ -90,8 +90,8 @@ float nam::lstm::LSTM::_process_sample(const float x)
   if (this->_layers.size() == 0)
     return x;
   this->_input(0) = x;
-  this->_layers[0].process_(this->_input);
+  this->_layers[0].Process(this->_input);
   for (size_t i = 1; i < this->_layers.size(); i++)
-    this->_layers[i].process_(this->_layers[i - 1].get_hidden_state());
+    this->_layers[i].Process(this->_layers[i - 1].get_hidden_state());
   return this->_head_weight.dot(this->_layers[this->_layers.size() - 1].get_hidden_state()) + this->_head_bias;
 }
