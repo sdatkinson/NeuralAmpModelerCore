@@ -55,7 +55,7 @@ void nam::convnet::ConvNetBlock::SetWeights(const int inChannels, const int outC
   this->conv.SetSizeAndWeights(inChannels, outChannels, 2, dilation, !batchnorm, weights);
   if (this->_batchnorm)
     this->batchnorm = BatchNorm(outChannels, weights);
-  this->activation = activations::Activation::get_activation(activation);
+  this->activation = activations::Activation::GetActivation(activation);
 }
 
 void nam::convnet::ConvNetBlock::Process(const Eigen::Ref<const Eigen::MatrixXf> input, Eigen::Ref<Eigen::MatrixXf> output, const long i_start,

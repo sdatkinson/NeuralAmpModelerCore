@@ -53,7 +53,7 @@ public:
   }
   virtual void Apply(float* data, long size) {}
 
-  static Activation* get_activation(const std::string name);
+  static Activation* GetActivation(const std::string name);
   static void enable_fast_tanh();
   static void disable_fast_tanh();
   static bool using_fast_tanh;
