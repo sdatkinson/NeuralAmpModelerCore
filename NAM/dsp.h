@@ -88,7 +88,7 @@ public:
 protected:
   // Input buffer
   const int _input_buffer_channels = 1; // Mono
-  int _receptive_field;
+  int mReceptiveField;
   // First location where we add new samples from the input
   long mInputBufferOffset;
   std::vector<float> mInputBuffer;
