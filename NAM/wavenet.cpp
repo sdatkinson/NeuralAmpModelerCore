@@ -89,7 +89,7 @@ long nam::wavenet::LayerArray::GetReceptiveField() const
   return result;
 }
 
-void nam::wavenet::LayerArray::prepare_for_frames_(const long numFrames)
+void nam::wavenet::LayerArray::PrepareForFrames(const long numFrames)
 {
   // Example:
   // _buffer_start = 0
@@ -312,7 +312,7 @@ void nam::wavenet::WaveNet::AdvanceBuffers(const int numFrames)
 void nam::wavenet::WaveNet::PrepareForFrames(const long numFrames)
 {
   for (size_t i = 0; i < this->mLayerArrays.size(); i++)
-    this->mLayerArrays[i].prepare_for_frames_(numFrames);
+    this->mLayerArrays[i].PrepareForFrames(numFrames);
 }
 
 void nam::wavenet::WaveNet::SetConditionArray(float* input, const int numFrames)

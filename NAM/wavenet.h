@@ -98,7 +98,7 @@ public:
   // Rewind buffers if needed
   // Shift index to prepare
   //
-  void prepare_for_frames_(const long numFrames);
+  void PrepareForFrames(const long numFrames);
 
   // All arrays are "short".
   void Process(const Eigen::Ref<const Eigen::MatrixXf> layerInputs, // Short
