@@ -43,7 +43,7 @@ private:
   Eigen::VectorXf _c;
 
   long GetHiddenSize() const { return this->_b.size() / 4; };
-  long _get_input_size() const { return this->_xh.size() - this->GetHiddenSize(); };
+  long GetInputSize() const { return this->_xh.size() - this->GetHiddenSize(); };
 };
 
 // The multi-layer LSTM model
