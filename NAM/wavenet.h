@@ -179,7 +179,7 @@ private:
   long _num_frames;
   std::vector<_LayerArray> _layer_arrays;
   // Their outputs
-  std::vector<Eigen::MatrixXf> _layer_array_outputs;
+  std::vector<Eigen::MatrixXf> mLayerArrayOutputs;
   // Head _head;
 
   // Element-wise arrays:
