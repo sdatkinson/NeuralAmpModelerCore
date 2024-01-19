@@ -105,7 +105,7 @@ public:
                 const Eigen::Ref<const Eigen::MatrixXf> condition, // Short
                 Eigen::Ref<Eigen::MatrixXf> layer_outputs, // Short
                 Eigen::Ref<Eigen::MatrixXf> head_inputs, // Sum up on this.
-                Eigen::Ref<Eigen::MatrixXf> head_outputs // post head-rechannel
+                Eigen::Ref<Eigen::MatrixXf> headOutputs // post head-rechannel
   );
   void SetNumFrames(const long numFrames);
   void SetWeights(weights_it& it);
