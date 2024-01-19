@@ -30,7 +30,7 @@ public:
   , _1x1(channels, channels, true)
   , _activation(activations::Activation::get_activation(activation))
   , _gated(gated){};
-  void set_weights_(weights_it& weights);
+  void SetWeights(weights_it& weights);
   // :param `input`: from previous layer
   // :param `output`: to next layer
   void Process(const Eigen::Ref<const Eigen::MatrixXf> input, const Eigen::Ref<const Eigen::MatrixXf> condition, Eigen::Ref<Eigen::MatrixXf> head_input,
@@ -108,7 +108,7 @@ public:
                 Eigen::Ref<Eigen::MatrixXf> head_outputs // post head-rechannel
   );
   void set_num_frames_(const long numFrames);
-  void set_weights_(weights_it& it);
+  void SetWeights(weights_it& it);
 
   // "Zero-indexed" receptive field.
   // E.g. a 1x1 convolution has a z.i.r.f. of zero.
@@ -144,7 +144,7 @@ class _Head
 {
 public:
   _Head(const int input_size, const int num_layers, const int channels, const std::string activation);
-  void set_weights_(weights_it& weights);
+  void SetWeights(weights_it& weights);
   // NOTE: the head transforms the provided input by applying a nonlinearity
   // to it in-place!
   void Process(Eigen::Ref<Eigen::MatrixXf> inputs, Eigen::Ref<Eigen::MatrixXf> outputs);
@@ -173,7 +173,7 @@ public:
   ~WaveNet() = default;
 
   void Finalize(const int numFrames) override;
-  void set_weights_(const std::vector<float>& weights);
+  void SetWeights(const std::vector<float>& weights);
 
 private:
   long _num_frames;

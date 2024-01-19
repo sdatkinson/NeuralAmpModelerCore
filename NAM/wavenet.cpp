@@ -12,11 +12,11 @@ nam::wavenet::_DilatedConv::_DilatedConv(const int in_channels, const int out_ch
   this->set_size_(in_channels, out_channels, kernel_size, bias, dilation);
 }
 
-void nam::wavenet::_Layer::set_weights_(weights_it& weights)
+void nam::wavenet::_Layer::SetWeights(weights_it& weights)
 {
-  this->_conv.set_weights_(weights);
-  this->_input_mixin.set_weights_(weights);
-  this->_1x1.set_weights_(weights);
+  this->_conv.SetWeights(weights);
+  this->_input_mixin.SetWeights(weights);
+  this->_1x1.SetWeights(weights);
 }
 
 void nam::wavenet::_Layer::Process(const Eigen::Ref<const Eigen::MatrixXf> input, const Eigen::Ref<const Eigen::MatrixXf> condition,
@@ -143,12 +143,12 @@ void nam::wavenet::_LayerArray::set_num_frames_(const long numFrames)
     this->_layers[i].set_num_frames_(numFrames);
 }
 
-void nam::wavenet::_LayerArray::set_weights_(weights_it& weights)
+void nam::wavenet::_LayerArray::SetWeights(weights_it& weights)
 {
-  this->_rechannel.set_weights_(weights);
+  this->_rechannel.SetWeights(weights);
   for (size_t i = 0; i < this->_layers.size(); i++)
-    this->_layers[i].set_weights_(weights);
-  this->_head_rechannel.set_weights_(weights);
+    this->_layers[i].SetWeights(weights);
+  this->_head_rechannel.SetWeights(weights);
 }
 
 long nam::wavenet::_LayerArray::_get_channels() const
@@ -196,10 +196,10 @@ nam::wavenet::_Head::_Head(const int input_size, const int num_layers, const int
   }
 }
 
-void nam::wavenet::_Head::set_weights_(weights_it& weights)
+void nam::wavenet::_Head::SetWeights(weights_it& weights)
 {
   for (size_t i = 0; i < this->_layers.size(); i++)
-    this->_layers[i].set_weights_(weights);
+    this->_layers[i].SetWeights(weights);
 }
 
 void nam::wavenet::_Head::Process(Eigen::Ref<Eigen::MatrixXf> inputs, Eigen::Ref<Eigen::MatrixXf> outputs)
@@ -269,7 +269,7 @@ nam::wavenet::WaveNet::WaveNet(const std::vector<nam::wavenet::LayerArrayParams>
     this->_head_arrays.push_back(Eigen::MatrixXf(layer_array_params[i].head_size, 0));
   }
   this->_head_output.resize(1, 0); // Mono output!
-  this->set_weights_(weights);
+  this->SetWeights(weights);
 
   mPrewarmSamples = 1;
   for (size_t i = 0; i < this->_layer_arrays.size(); i++)
@@ -282,11 +282,11 @@ void nam::wavenet::WaveNet::Finalize(const int numFrames)
   this->_advance_buffers_(numFrames);
 }
 
-void nam::wavenet::WaveNet::set_weights_(const std::vector<float>& weights)
+void nam::wavenet::WaveNet::SetWeights(const std::vector<float>& weights)
 {
   weights_it it = weights.begin();
   for (size_t i = 0; i < this->_layer_arrays.size(); i++)
-    this->_layer_arrays[i].set_weights_(it);
+    this->_layer_arrays[i].SetWeights(it);
   // this->_head.set_params_(it);
   this->_head_scale = *(it++);
   if (it != weights.end())
