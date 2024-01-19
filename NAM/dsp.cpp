@@ -65,15 +65,15 @@ void nam::DSP::Finalize(const int numFrames) {}
 nam::Buffer::Buffer(const int receptive_field, const double expected_sample_rate)
 : nam::DSP(expected_sample_rate)
 {
-  this->_set_receptive_field(receptive_field);
+  this->SetReceptiveField(receptive_field);
 }
 
-void nam::Buffer::_set_receptive_field(const int new_receptive_field)
+void nam::Buffer::SetReceptiveField(const int new_receptive_field)
 {
-  this->_set_receptive_field(new_receptive_field, _INPUT_BUFFER_SAFETY_FACTOR * new_receptive_field);
+  this->SetReceptiveField(new_receptive_field, _INPUT_BUFFER_SAFETY_FACTOR * new_receptive_field);
 };
 
-void nam::Buffer::_set_receptive_field(const int new_receptive_field, const int input_buffer_size)
+void nam::Buffer::SetReceptiveField(const int new_receptive_field, const int input_buffer_size)
 {
   this->_receptive_field = new_receptive_field;
   this->_input_buffer.resize(input_buffer_size);
