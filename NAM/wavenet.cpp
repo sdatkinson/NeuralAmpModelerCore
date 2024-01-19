@@ -257,7 +257,7 @@ nam::wavenet::WaveNet::WaveNet(const std::vector<nam::wavenet::LayerArrayParams>
       layer_array_params[i].activation, layer_array_params[i].gated, layer_array_params[i].head_bias));
     this->_layer_array_outputs.push_back(Eigen::MatrixXf(layer_array_params[i].channels, 0));
     if (i == 0)
-      this->_head_arrays.push_back(Eigen::MatrixXf(layer_array_params[i].channels, 0));
+      this->mHeadArrays.push_back(Eigen::MatrixXf(layer_array_params[i].channels, 0));
     if (i > 0)
       if (layer_array_params[i].channels != layer_array_params[i - 1].head_size)
       {
@@ -266,7 +266,7 @@ nam::wavenet::WaveNet::WaveNet(const std::vector<nam::wavenet::LayerArrayParams>
            << ") doesn't match head_size of preceding layer (" << layer_array_params[i - 1].head_size << "!\n";
         throw std::runtime_error(ss.str().c_str());
       }
-    this->_head_arrays.push_back(Eigen::MatrixXf(layer_array_params[i].head_size, 0));
+    this->mHeadArrays.push_back(Eigen::MatrixXf(layer_array_params[i].head_size, 0));
   }
   this->mHeadOutput.resize(1, 0); // Mono output!
   this->SetWeights(weights);
@@ -332,10 +332,10 @@ void nam::wavenet::WaveNet::Process(float* input, float* output, const int numFr
   // Main layer arrays:
   // Layer-to-layer
   // Sum on head output
-  this->_head_arrays[0].setZero();
+  this->mHeadArrays[0].setZero();
   for (size_t i = 0; i < this->_layer_arrays.size(); i++)
     this->_layer_arrays[i].Process(i == 0 ? this->_condition : this->_layer_array_outputs[i - 1], this->_condition,
-                                    this->_head_arrays[i], this->_layer_array_outputs[i], this->_head_arrays[i + 1]);
+                                    this->mHeadArrays[i], this->_layer_array_outputs[i], this->mHeadArrays[i + 1]);
   // this->_head.Process(
   //   this->_head_input,
   //   this->_head_output
@@ -344,11 +344,11 @@ void nam::wavenet::WaveNet::Process(float* input, float* output, const int numFr
   //  Hack: apply head scale here; revisit when/if I activate the head.
   //  assert(this->_head_output.rows() == 1);
 
-  const long final_head_array = this->_head_arrays.size() - 1;
-  assert(this->_head_arrays[final_head_array].rows() == 1);
+  const long final_head_array = this->mHeadArrays.size() - 1;
+  assert(this->mHeadArrays[final_head_array].rows() == 1);
   for (int s = 0; s < numFrames; s++)
   {
-    float out = this->mHeadScale * this->_head_arrays[final_head_array](0, s);
+    float out = this->mHeadScale * this->mHeadArrays[final_head_array](0, s);
     output[s] = out;
   }
 }
@@ -359,8 +359,8 @@ void nam::wavenet::WaveNet::SetNumFrames(const long numFrames)
     return;
 
   this->_condition.resize(this->GetConditionDim(), numFrames);
-  for (size_t i = 0; i < this->_head_arrays.size(); i++)
-    this->_head_arrays[i].resize(this->_head_arrays[i].rows(), numFrames);
+  for (size_t i = 0; i < this->mHeadArrays.size(); i++)
+    this->mHeadArrays[i].resize(this->mHeadArrays[i].rows(), numFrames);
   for (size_t i = 0; i < this->_layer_array_outputs.size(); i++)
     this->_layer_array_outputs[i].resize(this->_layer_array_outputs[i].rows(), numFrames);
   this->mHeadOutput.resize(this->mHeadOutput.rows(), numFrames);

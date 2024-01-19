@@ -185,7 +185,7 @@ private:
   // Element-wise arrays:
   Eigen::MatrixXf _condition;
   // One more than total layer arrays
-  std::vector<Eigen::MatrixXf> _head_arrays;
+  std::vector<Eigen::MatrixXf> mHeadArrays;
   float mHeadScale;
   Eigen::MatrixXf mHeadOutput;
 
