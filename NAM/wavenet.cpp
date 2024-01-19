@@ -81,7 +81,7 @@ void nam::wavenet::LayerArray::advance_buffers_(const int numFrames)
   this->mBufferStart += numFrames;
 }
 
-long nam::wavenet::LayerArray::get_receptive_field() const
+long nam::wavenet::LayerArray::GetReceptiveField() const
 {
   long result = 0;
   for (size_t i = 0; i < this->mLayers.size(); i++)
@@ -158,7 +158,7 @@ long nam::wavenet::LayerArray::GetChannels() const
 
 long nam::wavenet::LayerArray::GetReceptiveField() const
 {
-  // TODO remove this and use get_receptive_field() instead!
+  // TODO remove this and use GetReceptiveField() instead!
   long res = 1;
   for (size_t i = 0; i < this->mLayers.size(); i++)
     res += (this->mLayers[i].GetKernelSize() - 1) * this->mLayers[i].GetDilation();
@@ -273,7 +273,7 @@ nam::wavenet::WaveNet::WaveNet(const std::vector<nam::wavenet::LayerArrayParams>
 
   mPrewarmSamples = 1;
   for (size_t i = 0; i < this->mLayerArrays.size(); i++)
-    mPrewarmSamples += this->mLayerArrays[i].get_receptive_field();
+    mPrewarmSamples += this->mLayerArrays[i].GetReceptiveField();
 }
 
 void nam::wavenet::WaveNet::Finalize(const int numFrames)
