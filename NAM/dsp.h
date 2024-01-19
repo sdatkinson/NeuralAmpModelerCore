@@ -86,8 +86,6 @@ public:
   void Finalize(const int numFrames);
 
 protected:
-  // Input buffer
-  const int _input_buffer_channels = 1; // Mono
   int mReceptiveField;
   // First location where we add new samples from the input
   long mInputBufferOffset;
