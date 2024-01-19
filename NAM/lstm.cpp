@@ -75,7 +75,7 @@ nam::lstm::LSTM::LSTM(const int num_layers, const int input_size, const int hidd
   this->_head_weight.resize(hidden_size);
   for (int i = 0; i < hidden_size; i++)
     this->_head_weight[i] = *(it++);
-  this->_head_bias = *(it++);
+  this->mHeadBias = *(it++);
   assert(it == weights.end());
 }
 
@@ -93,5 +93,5 @@ float nam::lstm::LSTM::_process_sample(const float x)
   this->_layers[0].Process(this->_input);
   for (size_t i = 1; i < this->_layers.size(); i++)
     this->_layers[i].Process(this->_layers[i - 1].get_hidden_state());
-  return this->_head_weight.dot(this->_layers[this->_layers.size() - 1].get_hidden_state()) + this->_head_bias;
+  return this->_head_weight.dot(this->_layers[this->_layers.size() - 1].get_hidden_state()) + this->mHeadBias;
 }
