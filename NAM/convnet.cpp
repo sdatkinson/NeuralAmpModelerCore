@@ -135,7 +135,7 @@ void nam::convnet::ConvNet::Process(float* input, float* output, const int numFr
 }
 
 void nam::convnet::ConvNet::VerifyWeights(const int channels, const std::vector<int>& dilations, const bool batchnorm,
-                                            const size_t actual_weights)
+                                            const size_t actualWeights)
 {
   // TODO
 }

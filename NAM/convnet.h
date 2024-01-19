@@ -77,7 +77,7 @@ protected:
   Eigen::VectorXf mHeadOutput;
   _Head mHead;
   void VerifyWeights(const int channels, const std::vector<int>& dilations, const bool batchnorm,
-                       const size_t actual_weights);
+                       const size_t actualWeights);
   void UpdateBuffers(float* input, const int numFrames) override;
   void RewindBuffers() override;
 
