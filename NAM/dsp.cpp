@@ -36,10 +36,10 @@ void nam::DSP::prewarm()
   }
 }
 
-void nam::DSP::process(float* input, float* output, const int num_frames)
+void nam::DSP::process(float* input, float* output, const int numFrames)
 {
   // Default implementation is the null operation
-  for (auto i = 0; i < num_frames; i++)
+  for (auto i = 0; i < numFrames; i++)
     output[i] = input[i];
 }
 
@@ -58,7 +58,7 @@ void nam::DSP::SetLoudness(const double loudness)
   mHasLoudness = true;
 }
 
-void nam::DSP::Finalize(const int num_frames) {}
+void nam::DSP::Finalize(const int numFrames) {}
 
 // Buffer =====================================================================
 
@@ -81,12 +81,12 @@ void nam::Buffer::_set_receptive_field(const int new_receptive_field, const int 
   this->_reset_input_buffer();
 }
 
-void nam::Buffer::_update_buffers_(float* input, const int num_frames)
+void nam::Buffer::_update_buffers_(float* input, const int numFrames)
 {
   // Make sure that the buffer is big enough for the receptive field and the
   // frames needed!
   {
-    const long minimum_input_buffer_size = (long)this->_receptive_field + _INPUT_BUFFER_SAFETY_FACTOR * num_frames;
+    const long minimum_input_buffer_size = (long)this->_receptive_field + _INPUT_BUFFER_SAFETY_FACTOR * numFrames;
     if ((long)this->_input_buffer.size() < minimum_input_buffer_size)
     {
       long new_buffer_size = 2;
@@ -99,13 +99,13 @@ void nam::Buffer::_update_buffers_(float* input, const int num_frames)
 
   // If we'd run off the end of the input buffer, then we need to move the data
   // back to the start of the buffer and start again.
-  if (this->_input_buffer_offset + num_frames > (long)this->_input_buffer.size())
+  if (this->_input_buffer_offset + numFrames > (long)this->_input_buffer.size())
     this->_rewind_buffers_();
   // Put the new samples into the input buffer
-  for (long i = this->_input_buffer_offset, j = 0; j < num_frames; i++, j++)
+  for (long i = this->_input_buffer_offset, j = 0; j < numFrames; i++, j++)
     this->_input_buffer[i] = input[j];
   // And resize the output buffer:
-  this->_output_buffer.resize(num_frames);
+  this->_output_buffer.resize(numFrames);
   std::fill(this->_output_buffer.begin(), this->_output_buffer.end(), 0.0f);
 }
 
@@ -128,10 +128,10 @@ void nam::Buffer::_reset_input_buffer()
   this->_input_buffer_offset = this->_receptive_field;
 }
 
-void nam::Buffer::Finalize(const int num_frames)
+void nam::Buffer::Finalize(const int numFrames)
 {
-  this->nam::DSP::Finalize(num_frames);
-  this->_input_buffer_offset += num_frames;
+  this->nam::DSP::Finalize(numFrames);
+  this->_input_buffer_offset += numFrames;
 }
 
 // Linear =====================================================================
@@ -152,12 +152,12 @@ nam::Linear::Linear(const int receptive_field, const bool _bias, const std::vect
   this->_bias = _bias ? weights[receptive_field] : (float)0.0;
 }
 
-void nam::Linear::process(float* input, float* output, const int num_frames)
+void nam::Linear::process(float* input, float* output, const int numFrames)
 {
-  this->nam::Buffer::_update_buffers_(input, num_frames);
+  this->nam::Buffer::_update_buffers_(input, numFrames);
 
   // Main computation!
-  for (auto i = 0; i < num_frames; i++)
+  for (auto i = 0; i < numFrames; i++)
   {
     const size_t offset = this->_input_buffer_offset - this->_weight.size() + i + 1;
     auto input = Eigen::Map<const Eigen::VectorXf>(&this->_input_buffer[offset], this->_receptive_field);

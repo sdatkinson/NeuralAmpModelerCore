@@ -48,11 +48,11 @@ public:
   // 1. The core DSP algorithm is run (This is what should probably be
   //    overridden in subclasses).
   // 2. The output level is applied and the result stored to `output`.
-  virtual void process(float* input, float* output, const int num_frames);
+  virtual void process(float* input, float* output, const int numFrames);
   // Anything to take care of before next buffer comes in.
   // For example:
   // * Move the buffer index forward
-  virtual void Finalize(const int num_frames);
+  virtual void Finalize(const int numFrames);
   // Expected sample rate, in Hz.
   // TODO throw if it doesn't know.
   double GetExpectedSampleRate() const { return mExpectedSampleRate; };
@@ -83,7 +83,7 @@ class Buffer : public DSP
 {
 public:
   Buffer(const int receptive_field, const double expected_sample_rate = -1.0);
-  void Finalize(const int num_frames);
+  void Finalize(const int numFrames);
 
 protected:
   // Input buffer
@@ -98,7 +98,7 @@ protected:
   void _set_receptive_field(const int new_receptive_field);
   void _reset_input_buffer();
   // Use this->_input_post_gain
-  virtual void _update_buffers_(float* input, int num_frames);
+  virtual void _update_buffers_(float* input, int numFrames);
   virtual void _rewind_buffers_();
 };
 
@@ -108,7 +108,7 @@ class Linear : public Buffer
 public:
   Linear(const int receptive_field, const bool _bias, const std::vector<float>& weights,
          const double expected_sample_rate = -1.0);
-  void process(float* input, float* output, const int num_frames) override;
+  void process(float* input, float* output, const int numFrames) override;
 
 protected:
   Eigen::VectorXf _weight;

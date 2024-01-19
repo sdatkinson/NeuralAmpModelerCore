@@ -46,12 +46,12 @@ void nam::wavenet::_Layer::process_(const Eigen::Ref<const Eigen::MatrixXf> inpu
   output.middleCols(j_start, ncols) = input.middleCols(i_start, ncols) + this->_1x1.process(this->_z.topRows(channels));
 }
 
-void nam::wavenet::_Layer::set_num_frames_(const long num_frames)
+void nam::wavenet::_Layer::set_num_frames_(const long numFrames)
 {
-  if (this->_z.rows() == this->_conv.get_out_channels() && this->_z.cols() == num_frames)
+  if (this->_z.rows() == this->_conv.get_out_channels() && this->_z.cols() == numFrames)
     return; // Already has correct size
 
-  this->_z.resize(this->_conv.get_out_channels(), num_frames);
+  this->_z.resize(this->_conv.get_out_channels(), numFrames);
   this->_z.setZero();
 }
 
@@ -76,9 +76,9 @@ nam::wavenet::_LayerArray::_LayerArray(const int input_size, const int condition
   this->_buffer_start = this->_get_receptive_field() - 1;
 }
 
-void nam::wavenet::_LayerArray::advance_buffers_(const int num_frames)
+void nam::wavenet::_LayerArray::advance_buffers_(const int numFrames)
 {
-  this->_buffer_start += num_frames;
+  this->_buffer_start += numFrames;
 }
 
 long nam::wavenet::_LayerArray::get_receptive_field() const
@@ -89,16 +89,16 @@ long nam::wavenet::_LayerArray::get_receptive_field() const
   return result;
 }
 
-void nam::wavenet::_LayerArray::prepare_for_frames_(const long num_frames)
+void nam::wavenet::_LayerArray::prepare_for_frames_(const long numFrames)
 {
   // Example:
   // _buffer_start = 0
-  // num_frames = 64
+  // numFrames = 64
   // buffer_size = 64
   // -> this will write on indices 0 through 63, inclusive.
   // -> No illegal writes.
   // -> no rewind needed.
-  if (this->_buffer_start + num_frames > this->_get_buffer_size())
+  if (this->_buffer_start + numFrames > this->_get_buffer_size())
     this->_rewind_buffers_();
 }
 
@@ -127,20 +127,20 @@ void nam::wavenet::_LayerArray::process_(const Eigen::Ref<const Eigen::MatrixXf>
   head_outputs = this->_head_rechannel.process(head_inputs);
 }
 
-void nam::wavenet::_LayerArray::set_num_frames_(const long num_frames)
+void nam::wavenet::_LayerArray::set_num_frames_(const long numFrames)
 {
-  // Wavenet checks for unchanged num_frames; if we made it here, there's
+  // Wavenet checks for unchanged numFrames; if we made it here, there's
   // something to do.
-  if (LAYER_ARRAY_BUFFER_SIZE - num_frames < this->_get_receptive_field())
+  if (LAYER_ARRAY_BUFFER_SIZE - numFrames < this->_get_receptive_field())
   {
     std::stringstream ss;
-    ss << "Asked to accept a buffer of " << num_frames << " samples, but the buffer is too short ("
+    ss << "Asked to accept a buffer of " << numFrames << " samples, but the buffer is too short ("
        << LAYER_ARRAY_BUFFER_SIZE << ") to get out of the recptive field (" << this->_get_receptive_field()
        << "); copy errors could occur!\n";
     throw std::runtime_error(ss.str().c_str());
   }
   for (size_t i = 0; i < this->_layers.size(); i++)
-    this->_layers[i].set_num_frames_(num_frames);
+    this->_layers[i].set_num_frames_(numFrames);
 }
 
 void nam::wavenet::_LayerArray::set_weights_(weights_it& weights)
@@ -222,13 +222,13 @@ void nam::wavenet::_Head::process_(Eigen::Ref<Eigen::MatrixXf> inputs, Eigen::Re
   }
 }
 
-void nam::wavenet::_Head::set_num_frames_(const long num_frames)
+void nam::wavenet::_Head::set_num_frames_(const long numFrames)
 {
   for (size_t i = 0; i < this->_buffers.size(); i++)
   {
-    if (this->_buffers[i].rows() == this->_channels && this->_buffers[i].cols() == num_frames)
+    if (this->_buffers[i].rows() == this->_channels && this->_buffers[i].cols() == numFrames)
       continue; // Already has correct size
-    this->_buffers[i].resize(this->_channels, num_frames);
+    this->_buffers[i].resize(this->_channels, numFrames);
     this->_buffers[i].setZero();
   }
 }
@@ -276,10 +276,10 @@ nam::wavenet::WaveNet::WaveNet(const std::vector<nam::wavenet::LayerArrayParams>
     mPrewarmSamples += this->_layer_arrays[i].get_receptive_field();
 }
 
-void nam::wavenet::WaveNet::Finalize(const int num_frames)
+void nam::wavenet::WaveNet::Finalize(const int numFrames)
 {
-  this->DSP::Finalize(num_frames);
-  this->_advance_buffers_(num_frames);
+  this->DSP::Finalize(numFrames);
+  this->_advance_buffers_(numFrames);
 }
 
 void nam::wavenet::WaveNet::set_weights_(const std::vector<float>& weights)
@@ -303,31 +303,31 @@ void nam::wavenet::WaveNet::set_weights_(const std::vector<float>& weights)
   }
 }
 
-void nam::wavenet::WaveNet::_advance_buffers_(const int num_frames)
+void nam::wavenet::WaveNet::_advance_buffers_(const int numFrames)
 {
   for (size_t i = 0; i < this->_layer_arrays.size(); i++)
-    this->_layer_arrays[i].advance_buffers_(num_frames);
+    this->_layer_arrays[i].advance_buffers_(numFrames);
 }
 
-void nam::wavenet::WaveNet::_prepare_for_frames_(const long num_frames)
+void nam::wavenet::WaveNet::_prepare_for_frames_(const long numFrames)
 {
   for (size_t i = 0; i < this->_layer_arrays.size(); i++)
-    this->_layer_arrays[i].prepare_for_frames_(num_frames);
+    this->_layer_arrays[i].prepare_for_frames_(numFrames);
 }
 
-void nam::wavenet::WaveNet::_set_condition_array(float* input, const int num_frames)
+void nam::wavenet::WaveNet::_set_condition_array(float* input, const int numFrames)
 {
-  for (int j = 0; j < num_frames; j++)
+  for (int j = 0; j < numFrames; j++)
   {
     this->_condition(0, j) = input[j];
   }
 }
 
-void nam::wavenet::WaveNet::process(float* input, float* output, const int num_frames)
+void nam::wavenet::WaveNet::process(float* input, float* output, const int numFrames)
 {
-  this->_set_num_frames_(num_frames);
-  this->_prepare_for_frames_(num_frames);
-  this->_set_condition_array(input, num_frames);
+  this->_set_num_frames_(numFrames);
+  this->_prepare_for_frames_(numFrames);
+  this->_set_condition_array(input, numFrames);
 
   // Main layer arrays:
   // Layer-to-layer
@@ -346,28 +346,28 @@ void nam::wavenet::WaveNet::process(float* input, float* output, const int num_f
 
   const long final_head_array = this->_head_arrays.size() - 1;
   assert(this->_head_arrays[final_head_array].rows() == 1);
-  for (int s = 0; s < num_frames; s++)
+  for (int s = 0; s < numFrames; s++)
   {
     float out = this->_head_scale * this->_head_arrays[final_head_array](0, s);
     output[s] = out;
   }
 }
 
-void nam::wavenet::WaveNet::_set_num_frames_(const long num_frames)
+void nam::wavenet::WaveNet::_set_num_frames_(const long numFrames)
 {
-  if (num_frames == this->_num_frames)
+  if (numFrames == this->_num_frames)
     return;
 
-  this->_condition.resize(this->_get_condition_dim(), num_frames);
+  this->_condition.resize(this->_get_condition_dim(), numFrames);
   for (size_t i = 0; i < this->_head_arrays.size(); i++)
-    this->_head_arrays[i].resize(this->_head_arrays[i].rows(), num_frames);
+    this->_head_arrays[i].resize(this->_head_arrays[i].rows(), numFrames);
   for (size_t i = 0; i < this->_layer_array_outputs.size(); i++)
-    this->_layer_array_outputs[i].resize(this->_layer_array_outputs[i].rows(), num_frames);
-  this->_head_output.resize(this->_head_output.rows(), num_frames);
+    this->_layer_array_outputs[i].resize(this->_layer_array_outputs[i].rows(), numFrames);
+  this->_head_output.resize(this->_head_output.rows(), numFrames);
   this->_head_output.setZero();
 
   for (size_t i = 0; i < this->_layer_arrays.size(); i++)
-    this->_layer_arrays[i].set_num_frames_(num_frames);
-  // this->_head.set_num_frames_(num_frames);
-  this->_num_frames = num_frames;
+    this->_layer_arrays[i].set_num_frames_(numFrames);
+  // this->_head.set_num_frames_(numFrames);
+  this->_num_frames = numFrames;
 }

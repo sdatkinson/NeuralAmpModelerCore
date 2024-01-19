@@ -115,13 +115,13 @@ nam::convnet::ConvNet::ConvNet(const int channels, const std::vector<int>& dilat
 }
 
 
-void nam::convnet::ConvNet::process(float* input, float* output, const int num_frames)
+void nam::convnet::ConvNet::process(float* input, float* output, const int numFrames)
 
 {
-  this->_update_buffers_(input, num_frames);
+  this->_update_buffers_(input, numFrames);
   // Main computation!
   const long i_start = this->_input_buffer_offset;
-  const long i_end = i_start + num_frames;
+  const long i_end = i_start + numFrames;
   // TODO one unnecessary copy :/ #speed
   for (auto i = i_start; i < i_end; i++)
     this->_block_vals[0](0, i) = this->_input_buffer[i];
@@ -130,7 +130,7 @@ void nam::convnet::ConvNet::process(float* input, float* output, const int num_f
   // TODO clean up this allocation
   this->_head.process_(this->_block_vals[this->_blocks.size()], this->_head_output, i_start, i_end);
   // Copy to required output array (TODO tighten this up)
-  for (int s = 0; s < num_frames; s++)
+  for (int s = 0; s < numFrames; s++)
     output[s] = this->_head_output(s);
 }
 
@@ -140,9 +140,9 @@ void nam::convnet::ConvNet::_verify_weights(const int channels, const std::vecto
   // TODO
 }
 
-void nam::convnet::ConvNet::_update_buffers_(float* input, const int num_frames)
+void nam::convnet::ConvNet::_update_buffers_(float* input, const int numFrames)
 {
-  this->Buffer::_update_buffers_(input, num_frames);
+  this->Buffer::_update_buffers_(input, numFrames);
 
   const size_t buffer_size = this->_input_buffer.size();
 

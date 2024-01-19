@@ -35,7 +35,7 @@ public:
   // :param `output`: to next layer
   void process_(const Eigen::Ref<const Eigen::MatrixXf> input, const Eigen::Ref<const Eigen::MatrixXf> condition, Eigen::Ref<Eigen::MatrixXf> head_input,
                 Eigen::Ref<Eigen::MatrixXf> output, const long i_start, const long j_start);
-  void set_num_frames_(const long num_frames);
+  void set_num_frames_(const long numFrames);
   long get_channels() const { return this->_conv.get_in_channels(); };
   int get_dilation() const { return this->_conv.get_dilation(); };
   long get_kernel_size() const { return this->_conv.get_kernel_size(); };
@@ -92,13 +92,13 @@ public:
               const int kernel_size, const std::vector<int>& dilations, const std::string activation, const bool gated,
               const bool head_bias);
 
-  void advance_buffers_(const int num_frames);
+  void advance_buffers_(const int numFrames);
 
   // Preparing for frames:
   // Rewind buffers if needed
   // Shift index to prepare
   //
-  void prepare_for_frames_(const long num_frames);
+  void prepare_for_frames_(const long numFrames);
 
   // All arrays are "short".
   void process_(const Eigen::Ref<const Eigen::MatrixXf> layer_inputs, // Short
@@ -107,7 +107,7 @@ public:
                 Eigen::Ref<Eigen::MatrixXf> head_inputs, // Sum up on this.
                 Eigen::Ref<Eigen::MatrixXf> head_outputs // post head-rechannel
   );
-  void set_num_frames_(const long num_frames);
+  void set_num_frames_(const long numFrames);
   void set_weights_(weights_it& it);
 
   // "Zero-indexed" receptive field.
@@ -148,7 +148,7 @@ public:
   // NOTE: the head transforms the provided input by applying a nonlinearity
   // to it in-place!
   void process_(Eigen::Ref<Eigen::MatrixXf> inputs, Eigen::Ref<Eigen::MatrixXf> outputs);
-  void set_num_frames_(const long num_frames);
+  void set_num_frames_(const long numFrames);
 
 private:
   int _channels;
@@ -172,7 +172,7 @@ public:
           const std::vector<float>& weights, const double expected_sample_rate = -1.0);
   ~WaveNet() = default;
 
-  void Finalize(const int num_frames) override;
+  void Finalize(const int numFrames) override;
   void set_weights_(const std::vector<float>& weights);
 
 private:
@@ -189,15 +189,15 @@ private:
   float _head_scale;
   Eigen::MatrixXf _head_output;
 
-  void _advance_buffers_(const int num_frames);
-  void _prepare_for_frames_(const long num_frames);
-  void process(float* input, float* output, const int num_frames) override;
+  void _advance_buffers_(const int numFrames);
+  void _prepare_for_frames_(const long numFrames);
+  void process(float* input, float* output, const int numFrames) override;
 
   virtual int _get_condition_dim() const { return 1; };
   // Fill in the "condition" array that's fed into the various parts of the net.
-  virtual void _set_condition_array(float* input, const int num_frames);
-  // Ensure that all buffer arrays are the right size for this num_frames
-  void _set_num_frames_(const long num_frames);
+  virtual void _set_condition_array(float* input, const int numFrames);
+  // Ensure that all buffer arrays are the right size for this numFrames
+  void _set_num_frames_(const long numFrames);
 };
 }; // namespace wavenet
 }; // namespace nam
