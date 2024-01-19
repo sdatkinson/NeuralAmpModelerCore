@@ -245,7 +245,7 @@ nam::wavenet::WaveNet::WaveNet(const std::vector<nam::wavenet::LayerArrayParams>
                                const double expectedSampleRate)
 : DSP(expectedSampleRate)
 , _num_frames(0)
-, _head_scale(head_scale)
+, mHeadScale(head_scale)
 {
   if (with_head)
     throw std::runtime_error("Head not implemented!");
@@ -288,7 +288,7 @@ void nam::wavenet::WaveNet::SetWeights(const std::vector<float>& weights)
   for (size_t i = 0; i < this->_layer_arrays.size(); i++)
     this->_layer_arrays[i].SetWeights(it);
   // this->_head.set_params_(it);
-  this->_head_scale = *(it++);
+  this->mHeadScale = *(it++);
   if (it != weights.end())
   {
     std::stringstream ss;
@@ -348,7 +348,7 @@ void nam::wavenet::WaveNet::Process(float* input, float* output, const int numFr
   assert(this->_head_arrays[final_head_array].rows() == 1);
   for (int s = 0; s < numFrames; s++)
   {
-    float out = this->_head_scale * this->_head_arrays[final_head_array](0, s);
+    float out = this->mHeadScale * this->_head_arrays[final_head_array](0, s);
     output[s] = out;
   }
 }
