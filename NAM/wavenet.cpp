@@ -46,7 +46,7 @@ void nam::wavenet::_Layer::Process(const Eigen::Ref<const Eigen::MatrixXf> input
   output.middleCols(j_start, ncols) = input.middleCols(i_start, ncols) + this->_1x1.Process(this->_z.topRows(channels));
 }
 
-void nam::wavenet::_Layer::set_num_frames_(const long numFrames)
+void nam::wavenet::_Layer::SetNumFrames(const long numFrames)
 {
   if (this->_z.rows() == this->_conv.GetOutChannels() && this->_z.cols() == numFrames)
     return; // Already has correct size
@@ -127,7 +127,7 @@ void nam::wavenet::LayerArray::Process(const Eigen::Ref<const Eigen::MatrixXf> l
   head_outputs = this->_head_rechannel.Process(head_inputs);
 }
 
-void nam::wavenet::LayerArray::set_num_frames_(const long numFrames)
+void nam::wavenet::LayerArray::SetNumFrames(const long numFrames)
 {
   // Wavenet checks for unchanged numFrames; if we made it here, there's
   // something to do.
@@ -140,7 +140,7 @@ void nam::wavenet::LayerArray::set_num_frames_(const long numFrames)
     throw std::runtime_error(ss.str().c_str());
   }
   for (size_t i = 0; i < this->_layers.size(); i++)
-    this->_layers[i].set_num_frames_(numFrames);
+    this->_layers[i].SetNumFrames(numFrames);
 }
 
 void nam::wavenet::LayerArray::SetWeights(weights_it& weights)
@@ -222,7 +222,7 @@ void nam::wavenet::Head::Process(Eigen::Ref<Eigen::MatrixXf> inputs, Eigen::Ref<
   }
 }
 
-void nam::wavenet::Head::set_num_frames_(const long numFrames)
+void nam::wavenet::Head::SetNumFrames(const long numFrames)
 {
   for (size_t i = 0; i < this->mBuffers.size(); i++)
   {
@@ -367,7 +367,7 @@ void nam::wavenet::WaveNet::SetNumFrames(const long numFrames)
   this->mHeadOutput.setZero();
 
   for (size_t i = 0; i < this->mLayerArrays.size(); i++)
-    this->mLayerArrays[i].set_num_frames_(numFrames);
-  // this->_head.set_num_frames_(numFrames);
+    this->mLayerArrays[i].SetNumFrames(numFrames);
+  // this->_head.SetNumFrames(numFrames);
   this->mNumFrames = numFrames;
 }
