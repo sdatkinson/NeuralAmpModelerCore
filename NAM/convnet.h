@@ -78,7 +78,7 @@ protected:
   _Head _head;
   void _verify_weights(const int channels, const std::vector<int>& dilations, const bool batchnorm,
                        const size_t actual_weights);
-  void _update_buffers_(float* input, const int numFrames) override;
+  void UpdateBuffers(float* input, const int numFrames) override;
   void _rewind_buffers_() override;
 
   void Process(float* input, float* output, const int numFrames) override;
