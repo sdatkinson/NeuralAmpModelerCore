@@ -152,7 +152,7 @@ public:
 
 private:
   int _channels;
-  std::vector<Conv1x1> _layers;
+  std::vector<Conv1x1> mLayers;
   Conv1x1 mHead;
   activations::Activation* mActivation;
 
