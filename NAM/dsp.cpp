@@ -68,14 +68,14 @@ nam::Buffer::Buffer(const int receptive_field, const double expected_sample_rate
   this->SetReceptiveField(receptive_field);
 }
 
-void nam::Buffer::SetReceptiveField(const int new_receptive_field)
+void nam::Buffer::SetReceptiveField(const int newReceptiveField)
 {
-  this->SetReceptiveField(new_receptive_field, _INPUT_BUFFER_SAFETY_FACTOR * new_receptive_field);
+  this->SetReceptiveField(newReceptiveField, _INPUT_BUFFER_SAFETY_FACTOR * newReceptiveField);
 };
 
-void nam::Buffer::SetReceptiveField(const int new_receptive_field, const int input_buffer_size)
+void nam::Buffer::SetReceptiveField(const int newReceptiveField, const int input_buffer_size)
 {
-  this->mReceptiveField = new_receptive_field;
+  this->mReceptiveField = newReceptiveField;
   this->mInputBuffer.resize(input_buffer_size);
   std::fill(this->mInputBuffer.begin(), this->mInputBuffer.end(), 0.0f);
   this->ResetInputBuffer();
