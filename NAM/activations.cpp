@@ -13,7 +13,7 @@ std::unordered_map<std::string, nam::activations::Activation*> nam::activations:
 
 nam::activations::Activation* tanh_bak = nullptr;
 
-nam::activations::Activation* nam::activations::Activation::get_activation(const std::string name)
+nam::activations::Activation* nam::activations::Activation::GetActivation(const std::string name)
 {
   if (_activations.find(name) == _activations.end())
     return nullptr;

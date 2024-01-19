@@ -34,7 +34,7 @@ void nam::wavenet::_Layer::Process(const Eigen::Ref<const Eigen::MatrixXf> input
 
   if (this->_gated)
   {
-    activations::Activation::get_activation("Sigmoid")->Apply(this->_z.block(channels, 0, channels, this->_z.cols()));
+    activations::Activation::GetActivation("Sigmoid")->Apply(this->_z.block(channels, 0, channels, this->_z.cols()));
 
     this->_z.topRows(channels).array() *= this->_z.bottomRows(channels).array();
     // this->_z.topRows(channels) = this->_z.topRows(channels).cwiseProduct(
@@ -183,7 +183,7 @@ void nam::wavenet::_LayerArray::RewindBuffers()
 nam::wavenet::_Head::_Head(const int input_size, const int num_layers, const int channels, const std::string activation)
 : _channels(channels)
 , _head(num_layers > 0 ? channels : input_size, 1, true)
-, _activation(activations::Activation::get_activation(activation))
+, _activation(activations::Activation::GetActivation(activation))
 {
   assert(num_layers > 0);
   int dx = input_size;
