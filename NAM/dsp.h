@@ -200,5 +200,5 @@ std::unique_ptr<DSP> GetDSP(const std::filesystem::path modelFile, dspData& retu
 // Instantiates a DSP object from dsp_config struct.
 std::unique_ptr<DSP> GetDSP(dspData& conf);
 // Legacy loader for directory-type DSPs
-std::unique_ptr<DSP> get_dsp_legacy(const std::filesystem::path dirname);
+std::unique_ptr<DSP> GetDSPLegacy(const std::filesystem::path dirname);
 }; // namespace nam
