@@ -128,10 +128,10 @@ void nam::convnet::ConvNet::Process(float* input, float* output, const int numFr
   for (size_t i = 0; i < this->_blocks.size(); i++)
     this->_blocks[i].Process(this->_block_vals[i], this->_block_vals[i + 1], i_start, i_end);
   // TODO clean up this allocation
-  this->mHead.Process(this->_block_vals[this->_blocks.size()], this->_head_output, i_start, i_end);
+  this->mHead.Process(this->_block_vals[this->_blocks.size()], this->mHeadOutput, i_start, i_end);
   // Copy to required output array (TODO tighten this up)
   for (int s = 0; s < numFrames; s++)
-    output[s] = this->_head_output(s);
+    output[s] = this->mHeadOutput(s);
 }
 
 void nam::convnet::ConvNet::VerifyWeights(const int channels, const std::vector<int>& dilations, const bool batchnorm,
