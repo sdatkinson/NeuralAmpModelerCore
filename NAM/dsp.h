@@ -119,7 +119,7 @@ class Conv1D
 {
 public:
   Conv1D() { this->mDilation = 1; };
-  void set_weights_(weights_it& weights);
+  void SetWeights(weights_it& weights);
   void set_size_(const int in_channels, const int out_channels, const int kernel_size, const bool doBias,
                  const int dilation);
   void set_size_and_weights_(const int in_channels, const int out_channels, const int kernel_size, const int dilation,
@@ -148,7 +148,7 @@ class Conv1x1
 {
 public:
   Conv1x1(const int in_channels, const int out_channels, const bool bias);
-  void set_weights_(weights_it& weights);
+  void SetWeights(weights_it& weights);
   // :param input: (N,Cin) or (Cin,)
   // :return: (N,Cout) or (Cout,), respectively
   Eigen::MatrixXf Process(const Eigen::Ref<const Eigen::MatrixXf> input) const;

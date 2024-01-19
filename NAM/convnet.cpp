@@ -46,7 +46,7 @@ void nam::convnet::BatchNorm::Process(Eigen::Ref<Eigen::MatrixXf> x, const long 
   }
 }
 
-void nam::convnet::ConvNetBlock::set_weights_(const int in_channels, const int out_channels, const int dilation,
+void nam::convnet::ConvNetBlock::SetWeights(const int in_channels, const int out_channels, const int dilation,
                                               const bool batchnorm, const std::string activation,
                                               weights_it& weights)
 {
@@ -100,7 +100,7 @@ nam::convnet::ConvNet::ConvNet(const int channels, const std::vector<int>& dilat
   this->_blocks.resize(dilations.size());
   weights_it it = weights.begin();
   for (size_t i = 0; i < dilations.size(); i++)
-    this->_blocks[i].set_weights_(i == 0 ? 1 : channels, channels, dilations[i], batchnorm, activation, it);
+    this->_blocks[i].SetWeights(i == 0 ? 1 : channels, channels, dilations[i], batchnorm, activation, it);
   this->_block_vals.resize(this->_blocks.size() + 1);
   for (auto& matrix : this->_block_vals)
     matrix.setZero();
