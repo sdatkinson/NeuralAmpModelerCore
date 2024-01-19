@@ -133,7 +133,7 @@ public:
   long GetKernelSize() const { return this->mWeight.size(); };
   long GetNumWeights() const;
   long GetOutChannels() const { return this->mWeight.size() > 0 ? this->mWeight[0].rows() : 0; };
-  int get_dilation() const { return this->mDilation; };
+  int GetDilation() const { return this->mDilation; };
 
 private:
   // Gonna wing this...
