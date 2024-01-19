@@ -76,7 +76,7 @@ nam::wavenet::LayerArray::LayerArray(const int inputSize, const int condition_si
   this->mBufferStart = this->GetReceptiveField() - 1;
 }
 
-void nam::wavenet::LayerArray::advance_buffers_(const int numFrames)
+void nam::wavenet::LayerArray::AdvanceBuffers(const int numFrames)
 {
   this->mBufferStart += numFrames;
 }
@@ -306,7 +306,7 @@ void nam::wavenet::WaveNet::SetWeights(const std::vector<float>& weights)
 void nam::wavenet::WaveNet::AdvanceBuffers(const int numFrames)
 {
   for (size_t i = 0; i < this->mLayerArrays.size(); i++)
-    this->mLayerArrays[i].advance_buffers_(numFrames);
+    this->mLayerArrays[i].AdvanceBuffers(numFrames);
 }
 
 void nam::wavenet::WaveNet::PrepareForFrames(const long numFrames)
