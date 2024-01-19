@@ -80,13 +80,13 @@ std::vector<float> GetWeights(nlohmann::json const& j, const std::filesystem::pa
     throw std::runtime_error("Corrupted model file is missing weights.");
 }
 
-std::unique_ptr<DSP> get_dsp(const std::filesystem::path config_filename)
+std::unique_ptr<DSP> GetDSP(const std::filesystem::path config_filename)
 {
   dspData temp;
-  return get_dsp(config_filename, temp);
+  return GetDSP(config_filename, temp);
 }
 
-std::unique_ptr<DSP> get_dsp(const std::filesystem::path config_filename, dspData& returnedConfig)
+std::unique_ptr<DSP> GetDSP(const std::filesystem::path config_filename, dspData& returnedConfig)
 {
   if (!std::filesystem::exists(config_filename))
     throw std::runtime_error("Config JSON doesn't exist!\n");
@@ -113,16 +113,16 @@ std::unique_ptr<DSP> get_dsp(const std::filesystem::path config_filename, dspDat
   }
 
 
-  /*Copy to a new dsp_config object for get_dsp below,
+  /*Copy to a new dsp_config object for GetDSP below,
    since not sure if weights actually get modified as being non-const references on some
-   model constructors inside get_dsp(dsp_config& conf).
+   model constructors inside GetDSP(dsp_config& conf).
    We need to return unmodified version of dsp_config via returnedConfig.*/
   dspData conf = returnedConfig;
 
-  return get_dsp(conf);
+  return GetDSP(conf);
 }
 
-std::unique_ptr<DSP> get_dsp(dspData& conf)
+std::unique_ptr<DSP> GetDSP(dspData& conf)
 {
   VerifyConfigVersion(conf.version);
 
