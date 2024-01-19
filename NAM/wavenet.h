@@ -103,7 +103,7 @@ public:
   // All arrays are "short".
   void Process(const Eigen::Ref<const Eigen::MatrixXf> layer_inputs, // Short
                 const Eigen::Ref<const Eigen::MatrixXf> condition, // Short
-                Eigen::Ref<Eigen::MatrixXf> layer_outputs, // Short
+                Eigen::Ref<Eigen::MatrixXf> layerOutputs, // Short
                 Eigen::Ref<Eigen::MatrixXf> headInputs, // Sum up on this.
                 Eigen::Ref<Eigen::MatrixXf> headOutputs // post head-rechannel
   );
