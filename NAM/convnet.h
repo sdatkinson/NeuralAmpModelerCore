@@ -47,8 +47,8 @@ public:
   Conv1D conv;
 
 private:
-  BatchNorm batchnorm;
-  bool _batchnorm = false;
+  BatchNorm mBatchnorm;
+  bool mDoBatchNorm = false;
   activations::Activation* activation = nullptr;
 };
 
