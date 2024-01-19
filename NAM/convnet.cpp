@@ -120,7 +120,7 @@ void nam::convnet::ConvNet::Process(float* input, float* output, const int numFr
 {
   this->UpdateBuffers(input, numFrames);
   // Main computation!
-  const long i_start = this->_input_buffer_offset;
+  const long i_start = this->mInputBufferOffset;
   const long i_end = i_start + numFrames;
   // TODO one unnecessary copy :/ #speed
   for (auto i = i_start; i < i_end; i++)
@@ -173,8 +173,8 @@ void nam::convnet::ConvNet::RewindBuffers()
     // We actually don't need to pull back a lot...just as far as the first
     // input sample would grab from dilation
     const long _dilation = this->_blocks[k].conv.get_dilation();
-    for (long i = this->_receptive_field - _dilation, j = this->_input_buffer_offset - _dilation;
-         j < this->_input_buffer_offset; i++, j++)
+    for (long i = this->_receptive_field - _dilation, j = this->mInputBufferOffset - _dilation;
+         j < this->mInputBufferOffset; i++, j++)
       for (long r = 0; r < this->_block_vals[k].rows(); r++)
         this->_block_vals[k](r, i) = this->_block_vals[k](r, j);
   }

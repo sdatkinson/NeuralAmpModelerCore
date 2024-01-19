@@ -99,10 +99,10 @@ void nam::Buffer::UpdateBuffers(float* input, const int numFrames)
 
   // If we'd run off the end of the input buffer, then we need to move the data
   // back to the start of the buffer and start again.
-  if (this->_input_buffer_offset + numFrames > (long)this->mInputBuffer.size())
+  if (this->mInputBufferOffset + numFrames > (long)this->mInputBuffer.size())
     this->RewindBuffers();
   // Put the new samples into the input buffer
-  for (long i = this->_input_buffer_offset, j = 0; j < numFrames; i++, j++)
+  for (long i = this->mInputBufferOffset, j = 0; j < numFrames; i++, j++)
     this->mInputBuffer[i] = input[j];
   // And resize the output buffer:
   this->mOutputBuffer.resize(numFrames);
@@ -113,25 +113,25 @@ void nam::Buffer::RewindBuffers()
 {
   // Copy the input buffer back
   // RF-1 samples because we've got at least one new one inbound.
-  for (long i = 0, j = this->_input_buffer_offset - this->_receptive_field; i < this->_receptive_field; i++, j++)
+  for (long i = 0, j = this->mInputBufferOffset - this->_receptive_field; i < this->_receptive_field; i++, j++)
     this->mInputBuffer[i] = this->mInputBuffer[j];
   // And reset the offset.
   // Even though we could be stingy about that one sample that we won't be using
   // (because a new set is incoming) it's probably not worth the
   // hyper-optimization and liable for bugs. And the code looks way tidier this
   // way.
-  this->_input_buffer_offset = this->_receptive_field;
+  this->mInputBufferOffset = this->_receptive_field;
 }
 
 void nam::Buffer::ResetInputBuffer()
 {
-  this->_input_buffer_offset = this->_receptive_field;
+  this->mInputBufferOffset = this->_receptive_field;
 }
 
 void nam::Buffer::Finalize(const int numFrames)
 {
   this->nam::DSP::Finalize(numFrames);
-  this->_input_buffer_offset += numFrames;
+  this->mInputBufferOffset += numFrames;
 }
 
 // Linear =====================================================================
@@ -159,7 +159,7 @@ void nam::Linear::Process(float* input, float* output, const int numFrames)
   // Main computation!
   for (auto i = 0; i < numFrames; i++)
   {
-    const size_t offset = this->_input_buffer_offset - this->_weight.size() + i + 1;
+    const size_t offset = this->mInputBufferOffset - this->_weight.size() + i + 1;
     auto input = Eigen::Map<const Eigen::VectorXf>(&this->mInputBuffer[offset], this->_receptive_field);
     output[i] = this->_bias + this->_weight.dot(input);
   }
