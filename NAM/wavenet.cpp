@@ -325,7 +325,7 @@ void nam::wavenet::WaveNet::_set_condition_array(float* input, const int numFram
 
 void nam::wavenet::WaveNet::Process(float* input, float* output, const int numFrames)
 {
-  this->_set_num_frames_(numFrames);
+  this->SetNumFrames(numFrames);
   this->_prepare_for_frames_(numFrames);
   this->_set_condition_array(input, numFrames);
 
@@ -353,7 +353,7 @@ void nam::wavenet::WaveNet::Process(float* input, float* output, const int numFr
   }
 }
 
-void nam::wavenet::WaveNet::_set_num_frames_(const long numFrames)
+void nam::wavenet::WaveNet::SetNumFrames(const long numFrames)
 {
   if (numFrames == this->_num_frames)
     return;
