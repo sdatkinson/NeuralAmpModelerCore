@@ -110,7 +110,7 @@ public:
 
 protected:
   Eigen::VectorXf _weight;
-  float _bias;
+  float mBias;
 };
 
 // NN modules =================================================================
@@ -139,7 +139,7 @@ private:
   // Gonna wing this...
   // conv[kernel](cout, cin)
   std::vector<Eigen::MatrixXf> _weight;
-  Eigen::VectorXf _bias;
+  Eigen::VectorXf mBias;
   int _dilation;
 };
 
@@ -157,7 +157,7 @@ public:
 
 private:
   Eigen::MatrixXf _weight;
-  Eigen::VectorXf _bias;
+  Eigen::VectorXf mBias;
   bool _do_bias;
 };
 

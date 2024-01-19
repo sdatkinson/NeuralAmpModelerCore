@@ -61,7 +61,7 @@ public:
 
 private:
   Eigen::VectorXf _weight;
-  float _bias = 0.0f;
+  float mBias = 0.0f;
 };
 
 class ConvNet : public Buffer

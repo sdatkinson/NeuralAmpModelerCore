@@ -79,7 +79,7 @@ nam::convnet::_Head::_Head(const int channels, weights_it& weights)
   this->_weight.resize(channels);
   for (int i = 0; i < channels; i++)
     this->_weight[i] = *(weights++);
-  this->_bias = *(weights++);
+  this->mBias = *(weights++);
 }
 
 void nam::convnet::_Head::process_(const Eigen::Ref<const Eigen::MatrixXf> input, Eigen::VectorXf& output, const long i_start,
@@ -88,7 +88,7 @@ void nam::convnet::_Head::process_(const Eigen::Ref<const Eigen::MatrixXf> input
   const long length = i_end - i_start;
   output.resize(length);
   for (long i = 0, j = i_start; i < length; i++, j++)
-    output(i) = this->_bias + input.col(j).dot(this->_weight);
+    output(i) = this->mBias + input.col(j).dot(this->_weight);
 }
 
 nam::convnet::ConvNet::ConvNet(const int channels, const std::vector<int>& dilations, const bool batchnorm,
