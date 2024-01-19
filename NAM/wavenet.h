@@ -130,7 +130,7 @@ private:
   Conv1x1 _head_rechannel;
 
   long _get_buffer_size() const { return this->_layer_buffers.size() > 0 ? this->_layer_buffers[0].cols() : 0; };
-  long _get_channels() const;
+  long GetChannels() const;
   // "One-indexed" receptive field
   // TODO remove!
   // E.g. a 1x1 convolution has a o.i.r.f. of one.

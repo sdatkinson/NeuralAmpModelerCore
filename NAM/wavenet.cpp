@@ -151,7 +151,7 @@ void nam::wavenet::LayerArray::SetWeights(weights_it& weights)
   this->_head_rechannel.SetWeights(weights);
 }
 
-long nam::wavenet::LayerArray::_get_channels() const
+long nam::wavenet::LayerArray::GetChannels() const
 {
   return this->_layers.size() > 0 ? this->_layers[0].get_channels() : 0;
 }
