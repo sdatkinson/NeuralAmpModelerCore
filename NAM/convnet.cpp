@@ -97,11 +97,11 @@ nam::convnet::ConvNet::ConvNet(const int channels, const std::vector<int>& dilat
 : Buffer(*std::max_element(dilations.begin(), dilations.end()), expectedSampleRate)
 {
   this->VerifyWeights(channels, dilations, batchnorm, weights.size());
-  this->_blocks.resize(dilations.size());
+  this->mBlocks.resize(dilations.size());
   weights_it it = weights.begin();
   for (size_t i = 0; i < dilations.size(); i++)
-    this->_blocks[i].SetWeights(i == 0 ? 1 : channels, channels, dilations[i], batchnorm, activation, it);
-  this->mBlockVals.resize(this->_blocks.size() + 1);
+    this->mBlocks[i].SetWeights(i == 0 ? 1 : channels, channels, dilations[i], batchnorm, activation, it);
+  this->mBlockVals.resize(this->mBlocks.size() + 1);
   for (auto& matrix : this->mBlockVals)
     matrix.setZero();
   std::fill(this->mInputBuffer.begin(), this->mInputBuffer.end(), 0.0f);
@@ -125,10 +125,10 @@ void nam::convnet::ConvNet::Process(float* input, float* output, const int numFr
   // TODO one unnecessary copy :/ #speed
   for (auto i = i_start; i < i_end; i++)
     this->mBlockVals[0](0, i) = this->mInputBuffer[i];
-  for (size_t i = 0; i < this->_blocks.size(); i++)
-    this->_blocks[i].Process(this->mBlockVals[i], this->mBlockVals[i + 1], i_start, i_end);
+  for (size_t i = 0; i < this->mBlocks.size(); i++)
+    this->mBlocks[i].Process(this->mBlockVals[i], this->mBlockVals[i + 1], i_start, i_end);
   // TODO clean up this allocation
-  this->mHead.Process(this->mBlockVals[this->_blocks.size()], this->mHeadOutput, i_start, i_end);
+  this->mHead.Process(this->mBlockVals[this->mBlocks.size()], this->mHeadOutput, i_start, i_end);
   // Copy to required output array (TODO tighten this up)
   for (int s = 0; s < numFrames; s++)
     output[s] = this->mHeadOutput(s);
@@ -154,10 +154,10 @@ void nam::convnet::ConvNet::UpdateBuffers(float* input, const int numFrames)
 
   for (size_t i = 1; i < this->mBlockVals.size(); i++)
   {
-    if (this->mBlockVals[i].rows() == this->_blocks[i - 1].GetOutChannels()
+    if (this->mBlockVals[i].rows() == this->mBlocks[i - 1].GetOutChannels()
         && this->mBlockVals[i].cols() == Eigen::Index(buffer_size))
       continue; // Already has correct size
-    this->mBlockVals[i].resize(this->_blocks[i - 1].GetOutChannels(), buffer_size);
+    this->mBlockVals[i].resize(this->mBlocks[i - 1].GetOutChannels(), buffer_size);
     this->mBlockVals[i].setZero();
   }
 }
@@ -172,7 +172,7 @@ void nam::convnet::ConvNet::RewindBuffers()
   {
     // We actually don't need to pull back a lot...just as far as the first
     // input sample would grab from dilation
-    const long dilation = this->_blocks[k].conv.GetDilation();
+    const long dilation = this->mBlocks[k].conv.GetDilation();
     for (long i = this->mReceptiveField - dilation, j = this->mInputBufferOffset - dilation;
          j < this->mInputBufferOffset; i++, j++)
       for (long r = 0; r < this->mBlockVals[k].rows(); r++)
