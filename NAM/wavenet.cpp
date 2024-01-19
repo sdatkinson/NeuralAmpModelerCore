@@ -181,7 +181,7 @@ void nam::wavenet::LayerArray::RewindBuffers()
 // Head =======================================================================
 
 nam::wavenet::Head::Head(const int inputSize, const int numLayers, const int channels, const std::string activation)
-: _channels(channels)
+: mChannels(channels)
 , mHead(numLayers > 0 ? channels : inputSize, 1, true)
 , mActivation(activations::Activation::GetActivation(activation))
 {
@@ -226,9 +226,9 @@ void nam::wavenet::Head::set_num_frames_(const long numFrames)
 {
   for (size_t i = 0; i < this->mBuffers.size(); i++)
   {
-    if (this->mBuffers[i].rows() == this->_channels && this->mBuffers[i].cols() == numFrames)
+    if (this->mBuffers[i].rows() == this->mChannels && this->mBuffers[i].cols() == numFrames)
       continue; // Already has correct size
-    this->mBuffers[i].resize(this->_channels, numFrames);
+    this->mBuffers[i].resize(this->mChannels, numFrames);
     this->mBuffers[i].setZero();
   }
 }
