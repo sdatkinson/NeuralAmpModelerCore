@@ -131,7 +131,7 @@ public:
                 const long j_start) const;
   long GetInChannels() const { return this->mWeight.size() > 0 ? this->mWeight[0].cols() : 0; };
   long GetKernelSize() const { return this->mWeight.size(); };
-  long get_num_weights() const;
+  long GetNumWeights() const;
   long get_out_channels() const { return this->mWeight.size() > 0 ? this->mWeight[0].rows() : 0; };
   int get_dilation() const { return this->mDilation; };
 
