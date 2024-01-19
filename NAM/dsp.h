@@ -82,7 +82,7 @@ protected:
 class Buffer : public DSP
 {
 public:
-  Buffer(const int receptive_field, const double expected_sample_rate = -1.0);
+  Buffer(const int receptiveField, const double expected_sample_rate = -1.0);
   void Finalize(const int numFrames);
 
 protected:
@@ -104,7 +104,7 @@ protected:
 class Linear : public Buffer
 {
 public:
-  Linear(const int receptive_field, const bool _bias, const std::vector<float>& weights,
+  Linear(const int receptiveField, const bool _bias, const std::vector<float>& weights,
          const double expected_sample_rate = -1.0);
   void Process(float* input, float* output, const int numFrames) override;
 

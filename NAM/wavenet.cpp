@@ -67,10 +67,10 @@ nam::wavenet::_LayerArray::_LayerArray(const int input_size, const int condition
 {
   for (size_t i = 0; i < dilations.size(); i++)
     this->_layers.push_back(_Layer(condition_size, channels, kernel_size, dilations[i], activation, gated));
-  const long receptive_field = this->_get_receptive_field();
+  const long receptiveField = this->_get_receptive_field();
   for (size_t i = 0; i < dilations.size(); i++)
   {
-    this->_layer_buffers.push_back(Eigen::MatrixXf(channels, LAYER_ARRAY_BUFFER_SIZE + receptive_field - 1));
+    this->_layer_buffers.push_back(Eigen::MatrixXf(channels, LAYER_ARRAY_BUFFER_SIZE + receptiveField - 1));
     this->_layer_buffers[i].setZero();
   }
   this->_buffer_start = this->_get_receptive_field() - 1;

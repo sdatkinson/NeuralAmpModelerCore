@@ -62,10 +62,10 @@ void nam::DSP::Finalize(const int numFrames) {}
 
 // Buffer =====================================================================
 
-nam::Buffer::Buffer(const int receptive_field, const double expected_sample_rate)
+nam::Buffer::Buffer(const int receptiveField, const double expected_sample_rate)
 : nam::DSP(expected_sample_rate)
 {
-  this->SetReceptiveField(receptive_field);
+  this->SetReceptiveField(receptiveField);
 }
 
 void nam::Buffer::SetReceptiveField(const int newReceptiveField)
@@ -136,11 +136,11 @@ void nam::Buffer::Finalize(const int numFrames)
 
 // Linear =====================================================================
 
-nam::Linear::Linear(const int receptive_field, const bool _bias, const std::vector<float>& weights,
+nam::Linear::Linear(const int receptiveField, const bool _bias, const std::vector<float>& weights,
                     const double expected_sample_rate)
-: nam::Buffer(receptive_field, expected_sample_rate)
+: nam::Buffer(receptiveField, expected_sample_rate)
 {
-  if ((int)weights.size() != (receptive_field + (_bias ? 1 : 0)))
+  if ((int)weights.size() != (receptiveField + (_bias ? 1 : 0)))
     throw std::runtime_error(
       "Params vector does not match expected size based "
       "on architecture parameters");
@@ -148,8 +148,8 @@ nam::Linear::Linear(const int receptive_field, const bool _bias, const std::vect
   this->_weight.resize(this->mReceptiveField);
   // Pass in in reverse order so that dot products work out of the box.
   for (int i = 0; i < this->mReceptiveField; i++)
-    this->_weight(i) = weights[receptive_field - 1 - i];
-  this->_bias = _bias ? weights[receptive_field] : (float)0.0;
+    this->_weight(i) = weights[receptiveField - 1 - i];
+  this->_bias = _bias ? weights[receptiveField] : (float)0.0;
 }
 
 void nam::Linear::Process(float* input, float* output, const int numFrames)
