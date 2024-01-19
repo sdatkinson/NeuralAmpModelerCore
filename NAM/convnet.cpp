@@ -47,14 +47,14 @@ void nam::convnet::BatchNorm::Process(Eigen::Ref<Eigen::MatrixXf> x, const long 
 }
 
 void nam::convnet::ConvNetBlock::SetWeights(const int inChannels, const int outChannels, const int dilation,
-                                              const bool batchnorm, const std::string activation,
+                                              const bool doBatchNorm, const std::string activation,
                                               weights_it& weights)
 {
-  this->_batchnorm = batchnorm;
+  this->mDoBatchNorm = doBatchNorm;
   // HACK 2 kernel
-  this->conv.SetSizeAndWeights(inChannels, outChannels, 2, dilation, !batchnorm, weights);
-  if (this->_batchnorm)
-    this->batchnorm = BatchNorm(outChannels, weights);
+  this->conv.SetSizeAndWeights(inChannels, outChannels, 2, dilation, !doBatchNorm, weights);
+  if (this->mDoBatchNorm)
+    this->mBatchnorm = BatchNorm(outChannels, weights);
   this->activation = activations::Activation::GetActivation(activation);
 }
 
@@ -63,8 +63,8 @@ void nam::convnet::ConvNetBlock::Process(const Eigen::Ref<const Eigen::MatrixXf>
 {
   const long ncols = i_end - i_start;
   this->conv.Process(input, output, i_start, ncols, i_start);
-  if (this->_batchnorm)
-    this->batchnorm.Process(output, i_start, i_end);
+  if (this->mDoBatchNorm)
+    this->mBatchnorm.Process(output, i_start, i_end);
 
   this->activation->Apply(output.middleCols(i_start, ncols));
 }
