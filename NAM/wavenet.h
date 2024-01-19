@@ -127,7 +127,7 @@ private:
   std::vector<_Layer> _layers;
 
   // Rechannel for the head
-  Conv1x1 _head_rechannel;
+  Conv1x1 mHeadRechannel;
 
   long GetBufferSize() const { return this->mLayerBuffers.size() > 0 ? this->mLayerBuffers[0].cols() : 0; };
   long GetChannels() const;

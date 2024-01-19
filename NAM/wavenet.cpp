@@ -63,7 +63,7 @@ nam::wavenet::LayerArray::LayerArray(const int inputSize, const int condition_si
                                        const int channels, const int kernelSize, const std::vector<int>& dilations,
                                        const std::string activation, const bool gated, const bool head_bias)
 : _rechannel(inputSize, channels, false)
-, _head_rechannel(channels, head_size, head_bias)
+, mHeadRechannel(channels, head_size, head_bias)
 {
   for (size_t i = 0; i < dilations.size(); i++)
     this->_layers.push_back(_Layer(condition_size, channels, kernelSize, dilations[i], activation, gated));
@@ -124,7 +124,7 @@ void nam::wavenet::LayerArray::Process(const Eigen::Ref<const Eigen::MatrixXf> l
     }
 
   }
-  head_outputs = this->_head_rechannel.Process(head_inputs);
+  head_outputs = this->mHeadRechannel.Process(head_inputs);
 }
 
 void nam::wavenet::LayerArray::SetNumFrames(const long numFrames)
@@ -148,7 +148,7 @@ void nam::wavenet::LayerArray::SetWeights(weights_it& weights)
   this->_rechannel.SetWeights(weights);
   for (size_t i = 0; i < this->_layers.size(); i++)
     this->_layers[i].SetWeights(weights);
-  this->_head_rechannel.SetWeights(weights);
+  this->mHeadRechannel.SetWeights(weights);
 }
 
 long nam::wavenet::LayerArray::GetChannels() const
