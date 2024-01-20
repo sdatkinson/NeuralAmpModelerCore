@@ -95,7 +95,7 @@ protected:
   void SetReceptiveField(const int newReceptiveField, const int inputBufferSize);
   void SetReceptiveField(const int newReceptiveField);
   void ResetInputBuffer();
-  // Use this->_input_post_gain
+  // Use _input_post_gain
   virtual void UpdateBuffers(float* input, int numFrames);
   virtual void RewindBuffers();
 };
@@ -118,7 +118,7 @@ protected:
 class Conv1D
 {
 public:
-  Conv1D() { this->mDilation = 1; };
+  Conv1D() { mDilation = 1; };
   void SetWeights(weights_it& weights);
   void SetSize(const int inChannels, const int outChannels, const int kernelSize, const bool doBias,
                  const int dilation);
@@ -129,11 +129,11 @@ public:
   //  Indices on output for from j_start (to j_start + i_end - i_start)
   void Process(const Eigen::Ref<const Eigen::MatrixXf> input, Eigen::Ref<Eigen::MatrixXf> output, const long i_start, const long i_end,
                 const long j_start) const;
-  long GetInChannels() const { return this->mWeight.size() > 0 ? this->mWeight[0].cols() : 0; };
-  long GetKernelSize() const { return this->mWeight.size(); };
+  long GetInChannels() const { return mWeight.size() > 0 ? mWeight[0].cols() : 0; };
+  long GetKernelSize() const { return mWeight.size(); };
   long GetNumWeights() const;
-  long GetOutChannels() const { return this->mWeight.size() > 0 ? this->mWeight[0].rows() : 0; };
-  int GetDilation() const { return this->mDilation; };
+  long GetOutChannels() const { return mWeight.size() > 0 ? mWeight[0].rows() : 0; };
+  int GetDilation() const { return mDilation; };
 
 private:
   // Gonna wing this...
@@ -153,7 +153,7 @@ public:
   // :return: (N,Cout) or (Cout,), respectively
   Eigen::MatrixXf Process(const Eigen::Ref<const Eigen::MatrixXf> input) const;
 
-  long GetOutChannels() const { return this->mWeight.rows(); };
+  long GetOutChannels() const { return mWeight.rows(); };
 
 private:
   Eigen::MatrixXf mWeight;
