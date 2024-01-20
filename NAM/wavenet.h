@@ -25,7 +25,7 @@ class Layer
 public:
   Layer(const int condition_size, const int channels, const int kernelSize, const int dilation,
          const std::string activation, const bool gated)
-  : _conv(channels, gated ? 2 * channels : channels, kernelSize, true, dilation)
+  : mConv(channels, gated ? 2 * channels : channels, kernelSize, true, dilation)
   , _input_mixin(condition_size, gated ? 2 * channels : channels, false)
   , _1x1(channels, channels, true)
   , mActivation(activations::Activation::GetActivation(activation))
@@ -36,13 +36,13 @@ public:
   void Process(const Eigen::Ref<const Eigen::MatrixXf> input, const Eigen::Ref<const Eigen::MatrixXf> condition, Eigen::Ref<Eigen::MatrixXf> head_input,
                 Eigen::Ref<Eigen::MatrixXf> output, const long i_start, const long j_start);
   void SetNumFrames(const long numFrames);
-  long get_channels() const { return this->_conv.GetInChannels(); };
-  int GetDilation() const { return this->_conv.GetDilation(); };
-  long GetKernelSize() const { return this->_conv.GetKernelSize(); };
+  long get_channels() const { return this->mConv.GetInChannels(); };
+  int GetDilation() const { return this->mConv.GetDilation(); };
+  long GetKernelSize() const { return this->mConv.GetKernelSize(); };
 
 private:
   // The dilated convolution at the front of the block
-  _DilatedConv _conv;
+  _DilatedConv mConv;
   // Input mixin
   Conv1x1 _input_mixin;
   // The post-activation 1x1 convolution
