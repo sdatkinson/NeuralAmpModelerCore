@@ -49,7 +49,7 @@ public:
 private:
   BatchNorm mBatchnorm;
   bool mDoBatchNorm = false;
-  activations::Activation* activation = nullptr;
+  activations::Activation* mActivation = nullptr;
 };
 
 class Head
