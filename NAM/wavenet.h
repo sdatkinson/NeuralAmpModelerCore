@@ -28,7 +28,7 @@ public:
   : _conv(channels, gated ? 2 * channels : channels, kernelSize, true, dilation)
   , _input_mixin(condition_size, gated ? 2 * channels : channels, false)
   , _1x1(channels, channels, true)
-  , _activation(activations::Activation::GetActivation(activation))
+  , mActivation(activations::Activation::GetActivation(activation))
   , mGated(gated){};
   void SetWeights(weights_it& weights);
   // :param `input`: from previous layer
@@ -50,7 +50,7 @@ private:
   // The internal state
   Eigen::MatrixXf _z;
 
-  activations::Activation* _activation;
+  activations::Activation* mActivation;
   const bool mGated;
 };
 
