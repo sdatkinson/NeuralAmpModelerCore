@@ -24,7 +24,7 @@ void nam::wavenet::Layer::Process(const Eigen::Ref<const Eigen::MatrixXf> input,
                                     const long j_start)
 {
   const long ncols = condition.cols();
-  const long channels = this->get_channels();
+  const long channels = this->GetChannels();
   // Input dilated conv
   this->mConv.Process(input, this->_z, i_start, ncols, 0);
   // Mix-in condition
@@ -153,7 +153,7 @@ void nam::wavenet::LayerArray::SetWeights(weights_it& weights)
 
 long nam::wavenet::LayerArray::GetChannels() const
 {
-  return this->mLayers.size() > 0 ? this->mLayers[0].get_channels() : 0;
+  return this->mLayers.size() > 0 ? this->mLayers[0].GetChannels() : 0;
 }
 
 long nam::wavenet::LayerArray::_GetReceptiveField() const // TODO: why two?
