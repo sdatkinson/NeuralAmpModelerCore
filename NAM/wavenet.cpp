@@ -156,7 +156,7 @@ long nam::wavenet::LayerArray::GetChannels() const
   return this->mLayers.size() > 0 ? this->mLayers[0].get_channels() : 0;
 }
 
-long nam::wavenet::LayerArray::GetReceptiveField() const
+long nam::wavenet::LayerArray::_GetReceptiveField() const // TODO: why two?
 {
   // TODO remove this and use GetReceptiveField() instead!
   long res = 1;
