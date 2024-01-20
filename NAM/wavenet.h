@@ -13,10 +13,10 @@ namespace nam
 namespace wavenet
 {
 // Rework the initialization API slightly. Merge w/ dsp.h later.
-class _DilatedConv : public Conv1D
+class DilatedConv : public Conv1D
 {
 public:
-  _DilatedConv(const int inChannels, const int outChannels, const int kernelSize, const int bias,
+  DilatedConv(const int inChannels, const int outChannels, const int kernelSize, const int bias,
                const int dilation);
 };
 
@@ -42,7 +42,7 @@ public:
 
 private:
   // The dilated convolution at the front of the block
-  _DilatedConv mConv;
+  DilatedConv mConv;
   // Input mixin
   Conv1x1 mInputMixin;
   // The post-activation 1x1 convolution
