@@ -29,7 +29,7 @@ public:
   , _input_mixin(condition_size, gated ? 2 * channels : channels, false)
   , _1x1(channels, channels, true)
   , _activation(activations::Activation::GetActivation(activation))
-  , _gated(gated){};
+  , mGated(gated){};
   void SetWeights(weights_it& weights);
   // :param `input`: from previous layer
   // :param `output`: to next layer
@@ -51,7 +51,7 @@ private:
   Eigen::MatrixXf _z;
 
   activations::Activation* _activation;
-  const bool _gated;
+  const bool mGated;
 };
 
 class LayerArrayParams

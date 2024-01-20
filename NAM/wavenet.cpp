@@ -32,7 +32,7 @@ void nam::wavenet::Layer::Process(const Eigen::Ref<const Eigen::MatrixXf> input,
 
   this->_activation->Apply(this->_z);
 
-  if (this->_gated)
+  if (this->mGated)
   {
     activations::Activation::GetActivation("Sigmoid")->Apply(this->_z.block(channels, 0, channels, this->_z.cols()));
 
