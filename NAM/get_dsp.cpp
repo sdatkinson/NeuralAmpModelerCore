@@ -66,7 +66,7 @@ void VerifyConfigVersion(const std::string versionStr)
   }
 }
 
-std::vector<float> GetWeights(nlohmann::json const& j, const std::filesystem::path config_path)
+std::vector<float> GetWeights(nlohmann::json const& j, const std::filesystem::path& config_path)
 {
   if (j.find("weights") != j.end())
   {
@@ -80,13 +80,13 @@ std::vector<float> GetWeights(nlohmann::json const& j, const std::filesystem::pa
     throw std::runtime_error("Corrupted model file is missing weights.");
 }
 
-std::unique_ptr<DSP> GetDSP(const std::filesystem::path config_filename)
+std::unique_ptr<DSP> GetDSP(const std::filesystem::path& config_filename)
 {
   dspData temp;
   return GetDSP(config_filename, temp);
 }
 
-std::unique_ptr<DSP> GetDSP(const std::filesystem::path config_filename, dspData& returnedConfig)
+std::unique_ptr<DSP> GetDSP(const std::filesystem::path& config_filename, dspData& returnedConfig)
 {
   if (!std::filesystem::exists(config_filename))
     throw std::runtime_error("Config JSON doesn't exist!\n");
