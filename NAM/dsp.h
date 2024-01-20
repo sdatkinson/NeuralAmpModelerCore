@@ -18,7 +18,7 @@
 
 namespace nam
 {
-using weights_it = std::vector<float>::const_iterator;
+using weightsIterator = std::vector<float>::const_iterator;
 
 enum EArchitectures
 {
@@ -119,11 +119,11 @@ class Conv1D
 {
 public:
   Conv1D() { mDilation = 1; };
-  void SetWeights(weights_it& weights);
+  void SetWeights(weightsIterator& weights);
   void SetSize(const int inChannels, const int outChannels, const int kernelSize, const bool doBias,
                  const int dilation);
   void SetSizeAndWeights(const int inChannels, const int outChannels, const int kernelSize, const int dilation,
-                             const bool doBias, weights_it& weights);
+                             const bool doBias, weightsIterator& weights);
   // Process from input to output
   //  Rightmost indices of input go from i_start to i_end,
   //  Indices on output for from j_start (to j_start + i_end - i_start)
@@ -148,7 +148,7 @@ class Conv1x1
 {
 public:
   Conv1x1(const int inChannels, const int outChannels, const bool bias);
-  void SetWeights(weights_it& weights);
+  void SetWeights(weightsIterator& weights);
   // :param input: (N,Cin) or (Cin,)
   // :return: (N,Cout) or (Cout,), respectively
   Eigen::MatrixXf Process(const Eigen::Ref<const Eigen::MatrixXf> input) const;

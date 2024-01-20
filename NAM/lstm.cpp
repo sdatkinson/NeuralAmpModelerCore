@@ -5,7 +5,7 @@
 #include "dsp.h"
 #include "lstm.h"
 
-nam::lstm::LSTMCell::LSTMCell(const int inputSize, const int hiddenSize, weights_it& weights)
+nam::lstm::LSTMCell::LSTMCell(const int inputSize, const int hiddenSize, weightsIterator& weights)
 {
   // Resize arrays
   _w.resize(4 * hiddenSize, inputSize + hiddenSize);

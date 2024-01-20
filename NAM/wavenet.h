@@ -30,7 +30,7 @@ public:
   , _1x1(channels, channels, true)
   , mActivation(activations::Activation::GetActivation(activation))
   , mGated(gated){};
-  void SetWeights(weights_it& weights);
+  void SetWeights(weightsIterator& weights);
   // :param `input`: from previous layer
   // :param `output`: to next layer
   void Process(const Eigen::Ref<const Eigen::MatrixXf> input, const Eigen::Ref<const Eigen::MatrixXf> condition, Eigen::Ref<Eigen::MatrixXf> headInput,
@@ -108,7 +108,7 @@ public:
                 Eigen::Ref<Eigen::MatrixXf> headOutputs // post head-rechannel
   );
   void SetNumFrames(const long numFrames);
-  void SetWeights(weights_it& it);
+  void SetWeights(weightsIterator& it);
 
   // "Zero-indexed" receptive field.
   // E.g. a 1x1 convolution has a z.i.r.f. of zero.
@@ -144,7 +144,7 @@ class Head
 {
 public:
   Head(const int inputSize, const int numLayers, const int channels, const std::string activation);
-  void SetWeights(weights_it& weights);
+  void SetWeights(weightsIterator& weights);
   // NOTE: the head transforms the provided input by applying a nonlinearity
   // to it in-place!
   void Process(Eigen::Ref<Eigen::MatrixXf> inputs, Eigen::Ref<Eigen::MatrixXf> outputs);
