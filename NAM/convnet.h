@@ -41,7 +41,7 @@ class ConvNetBlock
 public:
   ConvNetBlock(){};
   void SetWeights(const int inChannels, const int outChannels, const int dilation, const bool batchnorm,
-                    const std::string activation, weightsIterator& weights);
+                    const std::string& activation, weightsIterator& weights);
   void Process(const Eigen::Ref<const Eigen::MatrixXf> input, Eigen::Ref<Eigen::MatrixXf> output, const long i_start, const long i_end) const;
   long GetOutChannels() const;
   Conv1D conv;
@@ -67,7 +67,7 @@ private:
 class ConvNet : public Buffer
 {
 public:
-  ConvNet(const int channels, const std::vector<int>& dilations, const bool batchnorm, const std::string activation,
+  ConvNet(const int channels, const std::vector<int>& dilations, const bool batchnorm, const std::string& activation,
           std::vector<float>& weights, const double expectedSampleRate = -1.0);
   ~ConvNet() = default;
 

@@ -47,7 +47,7 @@ void nam::convnet::BatchNorm::Process(Eigen::Ref<Eigen::MatrixXf> x, const long 
 }
 
 void nam::convnet::ConvNetBlock::SetWeights(const int inChannels, const int outChannels, const int dilation,
-                                              const bool doBatchNorm, const std::string activation,
+                                              const bool doBatchNorm, const std::string& activation,
                                               weightsIterator& weights)
 {
   mDoBatchNorm = doBatchNorm;
@@ -92,7 +92,7 @@ void nam::convnet::Head::Process(const Eigen::Ref<const Eigen::MatrixXf> input, 
 }
 
 nam::convnet::ConvNet::ConvNet(const int channels, const std::vector<int>& dilations, const bool batchnorm,
-                               const std::string activation, std::vector<float>& weights,
+                               const std::string& activation, std::vector<float>& weights,
                                const double expectedSampleRate)
 : Buffer(*std::max_element(dilations.begin(), dilations.end()), expectedSampleRate)
 {

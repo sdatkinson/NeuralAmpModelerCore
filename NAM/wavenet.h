@@ -24,7 +24,7 @@ class Layer
 {
 public:
   Layer(const int conditionSize, const int channels, const int kernelSize, const int dilation,
-         const std::string activation, const bool gated)
+         const std::string& activation, const bool gated)
   : mConv(channels, gated ? 2 * channels : channels, kernelSize, true, dilation)
   , mInputMixin(conditionSize, gated ? 2 * channels : channels, false)
   , _1x1(channels, channels, true)
@@ -58,7 +58,7 @@ class LayerArrayParams
 {
 public:
   LayerArrayParams(const int inputSize, const int conditionSize, const int headSize, const int channels,
-                   const int kernelSize, const std::vector<int>& dilations, const std::string activation,
+                   const int kernelSize, const std::vector<int>& dilations, const std::string& activation,
                    const bool gated, const bool headBias)
   : mInputSize(inputSize)
   , mConditionSize(conditionSize)
@@ -89,7 +89,7 @@ class LayerArray
 {
 public:
   LayerArray(const int inputSize, const int condition_size, const int head_size, const int channels,
-              const int kernelSize, const std::vector<int>& dilations, const std::string activation, const bool gated,
+              const int kernelSize, const std::vector<int>& dilations, const std::string& activation, const bool gated,
               const bool head_bias);
 
   void AdvanceBuffers(const int numFrames);
@@ -143,7 +143,7 @@ private:
 class Head
 {
 public:
-  Head(const int inputSize, const int numLayers, const int channels, const std::string activation);
+  Head(const int inputSize, const int numLayers, const int channels, const std::string& activation);
   void SetWeights(weightsIterator& weights);
   // NOTE: the head transforms the provided input by applying a nonlinearity
   // to it in-place!

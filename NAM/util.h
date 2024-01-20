@@ -9,6 +9,6 @@ namespace nam
 {
 namespace util
 {
-std::string lowercase(const std::string& s);
+std::string lowercase(const std::string&& s);
 }; // namespace util
 }; // namespace nam

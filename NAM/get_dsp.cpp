@@ -53,7 +53,7 @@ Version ParseVersion(const std::string& versionStr)
   return version;
 }
 
-void VerifyConfigVersion(const std::string versionStr)
+void VerifyConfigVersion(const std::string& versionStr)
 {
   Version version = ParseVersion(versionStr);
   if (version.major != 0 || version.minor != 5)
@@ -156,7 +156,7 @@ std::unique_ptr<DSP> GetDSP(dspData& conf)
     std::vector<int> dilations;
     for (size_t i = 0; i < config["dilations"].size(); i++)
       dilations.push_back(config["dilations"][i]);
-    const std::string activation = config["activation"];
+    auto activation = config["activation"];
     out = std::make_unique<convnet::ConvNet>(channels, dilations, batchnorm, activation, weights, expectedSampleRate);
   }
   else if (architecture == "LSTM")

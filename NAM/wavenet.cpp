@@ -61,7 +61,7 @@ void nam::wavenet::Layer::SetNumFrames(const long numFrames)
 
 nam::wavenet::LayerArray::LayerArray(const int inputSize, const int condition_size, const int head_size,
                                        const int channels, const int kernelSize, const std::vector<int>& dilations,
-                                       const std::string activation, const bool gated, const bool head_bias)
+                                       const std::string& activation, const bool gated, const bool head_bias)
 : mReChannel(inputSize, channels, false)
 , mHeadRechannel(channels, head_size, head_bias)
 {
@@ -180,7 +180,7 @@ void nam::wavenet::LayerArray::RewindBuffers()
 
 // Head =======================================================================
 
-nam::wavenet::Head::Head(const int inputSize, const int numLayers, const int channels, const std::string activation)
+nam::wavenet::Head::Head(const int inputSize, const int numLayers, const int channels, const std::string& activation)
 : mChannels(channels)
 , mHead(numLayers > 0 ? channels : inputSize, 1, true)
 , mActivation(activations::Activation::GetActivation(activation))
