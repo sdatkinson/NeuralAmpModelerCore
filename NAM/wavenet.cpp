@@ -12,7 +12,7 @@ nam::wavenet::DilatedConv::DilatedConv(const int inChannels, const int outChanne
   SetSize(inChannels, outChannels, kernelSize, bias, dilation);
 }
 
-void nam::wavenet::Layer::SetWeights(weights_it& weights)
+void nam::wavenet::Layer::SetWeights(weightsIterator& weights)
 {
   mConv.SetWeights(weights);
   mInputMixin.SetWeights(weights);
@@ -143,7 +143,7 @@ void nam::wavenet::LayerArray::SetNumFrames(const long numFrames)
     mLayers[i].SetNumFrames(numFrames);
 }
 
-void nam::wavenet::LayerArray::SetWeights(weights_it& weights)
+void nam::wavenet::LayerArray::SetWeights(weightsIterator& weights)
 {
   mReChannel.SetWeights(weights);
   for (size_t i = 0; i < mLayers.size(); i++)
@@ -196,7 +196,7 @@ nam::wavenet::Head::Head(const int inputSize, const int numLayers, const int cha
   }
 }
 
-void nam::wavenet::Head::SetWeights(weights_it& weights)
+void nam::wavenet::Head::SetWeights(weightsIterator& weights)
 {
   for (size_t i = 0; i < mLayers.size(); i++)
     mLayers[i].SetWeights(weights);
@@ -284,7 +284,7 @@ void nam::wavenet::WaveNet::Finalize(const int numFrames)
 
 void nam::wavenet::WaveNet::SetWeights(const std::vector<float>& weights)
 {
-  weights_it it = weights.begin();
+  weightsIterator it = weights.begin();
   for (size_t i = 0; i < mLayerArrays.size(); i++)
     mLayerArrays[i].SetWeights(it);
   // _head.set_params_(it);

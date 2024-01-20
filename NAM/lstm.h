@@ -22,7 +22,7 @@ namespace lstm
 class LSTMCell
 {
 public:
-  LSTMCell(const int inputSize, const int hiddenSize, weights_it& weights);
+  LSTMCell(const int inputSize, const int hiddenSize, weightsIterator& weights);
   Eigen::VectorXf GetHiddenState() const { return _xh(Eigen::placeholders::lastN(GetHiddenSize())); };
   void Process(const Eigen::VectorXf& x);
 

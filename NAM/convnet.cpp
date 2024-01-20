@@ -10,7 +10,7 @@
 #include "dsp.h"
 #include "convnet.h"
 
-nam::convnet::BatchNorm::BatchNorm(const int dim, weights_it& weights)
+nam::convnet::BatchNorm::BatchNorm(const int dim, weightsIterator& weights)
 {
   // Extract from param buffer
   Eigen::VectorXf running_mean(dim);
@@ -48,7 +48,7 @@ void nam::convnet::BatchNorm::Process(Eigen::Ref<Eigen::MatrixXf> x, const long 
 
 void nam::convnet::ConvNetBlock::SetWeights(const int inChannels, const int outChannels, const int dilation,
                                               const bool doBatchNorm, const std::string activation,
-                                              weights_it& weights)
+                                              weightsIterator& weights)
 {
   mDoBatchNorm = doBatchNorm;
   // HACK 2 kernel
@@ -74,7 +74,7 @@ long nam::convnet::ConvNetBlock::GetOutChannels() const
   return conv.GetOutChannels();
 }
 
-nam::convnet::Head::Head(const int channels, weights_it& weights)
+nam::convnet::Head::Head(const int channels, weightsIterator& weights)
 {
   mWeight.resize(channels);
   for (int i = 0; i < channels; i++)
@@ -98,7 +98,7 @@ nam::convnet::ConvNet::ConvNet(const int channels, const std::vector<int>& dilat
 {
   VerifyWeights(channels, dilations, batchnorm, weights.size());
   mBlocks.resize(dilations.size());
-  weights_it it = weights.begin();
+  weightsIterator it = weights.begin();
   for (size_t i = 0; i < dilations.size(); i++)
     mBlocks[i].SetWeights(i == 0 ? 1 : channels, channels, dilations[i], batchnorm, activation, it);
   mBlockVals.resize(mBlocks.size() + 1);
