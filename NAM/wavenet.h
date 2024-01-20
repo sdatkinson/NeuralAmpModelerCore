@@ -88,7 +88,7 @@ public:
 class LayerArray
 {
 public:
-  LayerArray(const int inputSize, const int condition_size, const int head_size, const int channels,
+  LayerArray(const int inputSize, const int conditionSize, const int head_size, const int channels,
               const int kernelSize, const std::vector<int>& dilations, const std::string& activation, const bool gated,
               const bool head_bias);
 
