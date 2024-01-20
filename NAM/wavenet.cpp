@@ -344,11 +344,11 @@ void nam::wavenet::WaveNet::Process(float* input, float* output, const int numFr
   //  Hack: apply head scale here; revisit when/if I activate the head.
   //  assert(_head_output.rows() == 1);
 
-  const long final_head_array = mHeadArrays.size() - 1;
-  assert(mHeadArrays[final_head_array].rows() == 1);
+  const long finalHeadArray = mHeadArrays.size() - 1;
+  assert(mHeadArrays[finalHeadArray].rows() == 1);
   for (int s = 0; s < numFrames; s++)
   {
-    float out = mHeadScale * mHeadArrays[final_head_array](0, s);
+    float out = mHeadScale * mHeadArrays[finalHeadArray](0, s);
     output[s] = out;
   }
 }
