@@ -33,7 +33,7 @@ public:
   void SetWeights(weights_it& weights);
   // :param `input`: from previous layer
   // :param `output`: to next layer
-  void Process(const Eigen::Ref<const Eigen::MatrixXf> input, const Eigen::Ref<const Eigen::MatrixXf> condition, Eigen::Ref<Eigen::MatrixXf> head_input,
+  void Process(const Eigen::Ref<const Eigen::MatrixXf> input, const Eigen::Ref<const Eigen::MatrixXf> condition, Eigen::Ref<Eigen::MatrixXf> headInput,
                 Eigen::Ref<Eigen::MatrixXf> output, const long i_start, const long j_start);
   void SetNumFrames(const long numFrames);
   long GetChannels() const { return mConv.GetInChannels(); };
