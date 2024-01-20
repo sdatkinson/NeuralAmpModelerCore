@@ -30,7 +30,7 @@ void nam::wavenet::Layer::Process(const Eigen::Ref<const Eigen::MatrixXf> input,
   // Mix-in condition
   this->_z += this->_input_mixin.Process(condition);
 
-  this->_activation->Apply(this->_z);
+  this->mActivation->Apply(this->_z);
 
   if (this->mGated)
   {
