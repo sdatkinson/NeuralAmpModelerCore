@@ -30,8 +30,8 @@ void nam::DSP::Prewarm()
   // pre-warm the model for a model-specific number of samples
   for (long i = 0; i < mPrewarmSamples; i++)
   {
-    this->Process(sample_ptr, sample_ptr, 1);
-    this->Finalize(1);
+    Process(sample_ptr, sample_ptr, 1);
+    Finalize(1);
     sample = 0;
   }
 }
@@ -65,20 +65,20 @@ void nam::DSP::Finalize(const int numFrames) {}
 nam::Buffer::Buffer(const int receptiveField, const double expectedSampleRate)
 : nam::DSP(expectedSampleRate)
 {
-  this->SetReceptiveField(receptiveField);
+  SetReceptiveField(receptiveField);
 }
 
 void nam::Buffer::SetReceptiveField(const int newReceptiveField)
 {
-  this->SetReceptiveField(newReceptiveField, _INPUT_BUFFER_SAFETY_FACTOR * newReceptiveField);
+  SetReceptiveField(newReceptiveField, _INPUT_BUFFER_SAFETY_FACTOR * newReceptiveField);
 };
 
 void nam::Buffer::SetReceptiveField(const int newReceptiveField, const int inputBufferSize)
 {
-  this->mReceptiveField = newReceptiveField;
-  this->mInputBuffer.resize(inputBufferSize);
-  std::fill(this->mInputBuffer.begin(), this->mInputBuffer.end(), 0.0f);
-  this->ResetInputBuffer();
+  mReceptiveField = newReceptiveField;
+  mInputBuffer.resize(inputBufferSize);
+  std::fill(mInputBuffer.begin(), mInputBuffer.end(), 0.0f);
+  ResetInputBuffer();
 }
 
 void nam::Buffer::UpdateBuffers(float* input, const int numFrames)
@@ -86,52 +86,52 @@ void nam::Buffer::UpdateBuffers(float* input, const int numFrames)
   // Make sure that the buffer is big enough for the receptive field and the
   // frames needed!
   {
-    const long minimum_input_buffer_size = (long)this->mReceptiveField + _INPUT_BUFFER_SAFETY_FACTOR * numFrames;
-    if ((long)this->mInputBuffer.size() < minimum_input_buffer_size)
+    const long minimum_input_buffer_size = (long)mReceptiveField + _INPUT_BUFFER_SAFETY_FACTOR * numFrames;
+    if ((long)mInputBuffer.size() < minimum_input_buffer_size)
     {
       long new_buffer_size = 2;
       while (new_buffer_size < minimum_input_buffer_size)
         new_buffer_size *= 2;
-      this->mInputBuffer.resize(new_buffer_size);
-      std::fill(this->mInputBuffer.begin(), this->mInputBuffer.end(), 0.0f);
+      mInputBuffer.resize(new_buffer_size);
+      std::fill(mInputBuffer.begin(), mInputBuffer.end(), 0.0f);
     }
   }
 
   // If we'd run off the end of the input buffer, then we need to move the data
   // back to the start of the buffer and start again.
-  if (this->mInputBufferOffset + numFrames > (long)this->mInputBuffer.size())
-    this->RewindBuffers();
+  if (mInputBufferOffset + numFrames > (long)mInputBuffer.size())
+    RewindBuffers();
   // Put the new samples into the input buffer
-  for (long i = this->mInputBufferOffset, j = 0; j < numFrames; i++, j++)
-    this->mInputBuffer[i] = input[j];
+  for (long i = mInputBufferOffset, j = 0; j < numFrames; i++, j++)
+    mInputBuffer[i] = input[j];
   // And resize the output buffer:
-  this->mOutputBuffer.resize(numFrames);
-  std::fill(this->mOutputBuffer.begin(), this->mOutputBuffer.end(), 0.0f);
+  mOutputBuffer.resize(numFrames);
+  std::fill(mOutputBuffer.begin(), mOutputBuffer.end(), 0.0f);
 }
 
 void nam::Buffer::RewindBuffers()
 {
   // Copy the input buffer back
   // RF-1 samples because we've got at least one new one inbound.
-  for (long i = 0, j = this->mInputBufferOffset - this->mReceptiveField; i < this->mReceptiveField; i++, j++)
-    this->mInputBuffer[i] = this->mInputBuffer[j];
+  for (long i = 0, j = mInputBufferOffset - mReceptiveField; i < mReceptiveField; i++, j++)
+    mInputBuffer[i] = mInputBuffer[j];
   // And reset the offset.
   // Even though we could be stingy about that one sample that we won't be using
   // (because a new set is incoming) it's probably not worth the
   // hyper-optimization and liable for bugs. And the code looks way tidier this
   // way.
-  this->mInputBufferOffset = this->mReceptiveField;
+  mInputBufferOffset = mReceptiveField;
 }
 
 void nam::Buffer::ResetInputBuffer()
 {
-  this->mInputBufferOffset = this->mReceptiveField;
+  mInputBufferOffset = mReceptiveField;
 }
 
 void nam::Buffer::Finalize(const int numFrames)
 {
-  this->nam::DSP::Finalize(numFrames);
-  this->mInputBufferOffset += numFrames;
+  nam::DSP::Finalize(numFrames);
+  mInputBufferOffset += numFrames;
 }
 
 // Linear =====================================================================
@@ -145,23 +145,23 @@ nam::Linear::Linear(const int receptiveField, const bool bias, const std::vector
       "Params vector does not match expected size based "
       "on architecture parameters");
 
-  this->mWeight.resize(this->mReceptiveField);
+  mWeight.resize(mReceptiveField);
   // Pass in in reverse order so that dot products work out of the box.
-  for (int i = 0; i < this->mReceptiveField; i++)
-    this->mWeight(i) = weights[receptiveField - 1 - i];
-  this->mBias = bias ? weights[receptiveField] : (float)0.0;
+  for (int i = 0; i < mReceptiveField; i++)
+    mWeight(i) = weights[receptiveField - 1 - i];
+  mBias = bias ? weights[receptiveField] : (float)0.0;
 }
 
 void nam::Linear::Process(float* input, float* output, const int numFrames)
 {
-  this->nam::Buffer::UpdateBuffers(input, numFrames);
+  nam::Buffer::UpdateBuffers(input, numFrames);
 
   // Main computation!
   for (auto i = 0; i < numFrames; i++)
   {
-    const size_t offset = this->mInputBufferOffset - this->mWeight.size() + i + 1;
-    auto input = Eigen::Map<const Eigen::VectorXf>(&this->mInputBuffer[offset], this->mReceptiveField);
-    output[i] = this->mBias + this->mWeight.dot(input);
+    const size_t offset = mInputBufferOffset - mWeight.size() + i + 1;
+    auto input = Eigen::Map<const Eigen::VectorXf>(&mInputBuffer[offset], mReceptiveField);
+    output[i] = mBias + mWeight.dot(input);
   }
 }
 
@@ -169,87 +169,87 @@ void nam::Linear::Process(float* input, float* output, const int numFrames)
 
 void nam::Conv1D::SetWeights(weights_it& weights)
 {
-  if (this->mWeight.size() > 0)
+  if (mWeight.size() > 0)
   {
-    const long outChannels = this->mWeight[0].rows();
-    const long inChannels = this->mWeight[0].cols();
+    const long outChannels = mWeight[0].rows();
+    const long inChannels = mWeight[0].cols();
     // Crazy ordering because that's how it gets flattened.
     for (auto i = 0; i < outChannels; i++)
       for (auto j = 0; j < inChannels; j++)
-        for (size_t k = 0; k < this->mWeight.size(); k++)
-          this->mWeight[k](i, j) = *(weights++);
+        for (size_t k = 0; k < mWeight.size(); k++)
+          mWeight[k](i, j) = *(weights++);
   }
-  for (long i = 0; i < this->mBias.size(); i++)
-    this->mBias(i) = *(weights++);
+  for (long i = 0; i < mBias.size(); i++)
+    mBias(i) = *(weights++);
 }
 
 void nam::Conv1D::SetSize(const int inChannels, const int outChannels, const int kernelSize, const bool doBias,
                             const int dilation)
 {
-  this->mWeight.resize(kernelSize);
-  for (size_t i = 0; i < this->mWeight.size(); i++)
-    this->mWeight[i].resize(outChannels,
+  mWeight.resize(kernelSize);
+  for (size_t i = 0; i < mWeight.size(); i++)
+    mWeight[i].resize(outChannels,
                             inChannels); // y = Ax, input array (C,L)
   if (doBias)
-    this->mBias.resize(outChannels);
+    mBias.resize(outChannels);
   else
-    this->mBias.resize(0);
-  this->mDilation = dilation;
+    mBias.resize(0);
+  mDilation = dilation;
 }
 
 void nam::Conv1D::SetSizeAndWeights(const int inChannels, const int outChannels, const int kernelSize,
                                         const int dilation, const bool doBias, weights_it& weights)
 {
-  this->SetSize(inChannels, outChannels, kernelSize, doBias, dilation);
-  this->SetWeights(weights);
+  SetSize(inChannels, outChannels, kernelSize, doBias, dilation);
+  SetWeights(weights);
 }
 
 void nam::Conv1D::Process(const Eigen::Ref<const Eigen::MatrixXf> input, Eigen::Ref<Eigen::MatrixXf> output, const long i_start, const long ncols,
                            const long j_start) const
 {
   // This is the clever part ;)
-  for (size_t k = 0; k < this->mWeight.size(); k++)
+  for (size_t k = 0; k < mWeight.size(); k++)
   {
-    const long offset = this->mDilation * (k + 1 - this->mWeight.size());
+    const long offset = mDilation * (k + 1 - mWeight.size());
     if (k == 0)
-      output.middleCols(j_start, ncols) = this->mWeight[k] * input.middleCols(i_start + offset, ncols);
+      output.middleCols(j_start, ncols) = mWeight[k] * input.middleCols(i_start + offset, ncols);
     else
-      output.middleCols(j_start, ncols) += this->mWeight[k] * input.middleCols(i_start + offset, ncols);
+      output.middleCols(j_start, ncols) += mWeight[k] * input.middleCols(i_start + offset, ncols);
   }
-  if (this->mBias.size() > 0)
-    output.middleCols(j_start, ncols).colwise() += this->mBias;
+  if (mBias.size() > 0)
+    output.middleCols(j_start, ncols).colwise() += mBias;
 }
 
 long nam::Conv1D::GetNumWeights() const
 {
-  long num_weights = this->mBias.size();
-  for (size_t i = 0; i < this->mWeight.size(); i++)
-    num_weights += this->mWeight[i].size();
+  long num_weights = mBias.size();
+  for (size_t i = 0; i < mWeight.size(); i++)
+    num_weights += mWeight[i].size();
   return num_weights;
 }
 
 nam::Conv1x1::Conv1x1(const int inChannels, const int outChannels, const bool bias)
 {
-  this->mWeight.resize(outChannels, inChannels);
-  this->mDoBias = bias;
+  mWeight.resize(outChannels, inChannels);
+  mDoBias = bias;
   if (bias)
-    this->mBias.resize(outChannels);
+    mBias.resize(outChannels);
 }
 
 void nam::Conv1x1::SetWeights(weights_it& weights)
 {
-  for (int i = 0; i < this->mWeight.rows(); i++)
-    for (int j = 0; j < this->mWeight.cols(); j++)
-      this->mWeight(i, j) = *(weights++);
-  if (this->mDoBias)
-    for (int i = 0; i < this->mBias.size(); i++)
-      this->mBias(i) = *(weights++);
+  for (int i = 0; i < mWeight.rows(); i++)
+    for (int j = 0; j < mWeight.cols(); j++)
+      mWeight(i, j) = *(weights++);
+  if (mDoBias)
+    for (int i = 0; i < mBias.size(); i++)
+      mBias(i) = *(weights++);
 }
 
 Eigen::MatrixXf nam::Conv1x1::Process(const Eigen::Ref<const Eigen::MatrixXf> input) const
 {
-  if (this->mDoBias)
-    return (this->mWeight * input).colwise() + this->mBias;
+  if (mDoBias)
+    return (mWeight * input).colwise() + mBias;
   else
-    return this->mWeight * input;
+    return mWeight * input;
 }

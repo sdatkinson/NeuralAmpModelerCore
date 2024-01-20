@@ -36,9 +36,9 @@ public:
   void Process(const Eigen::Ref<const Eigen::MatrixXf> input, const Eigen::Ref<const Eigen::MatrixXf> condition, Eigen::Ref<Eigen::MatrixXf> head_input,
                 Eigen::Ref<Eigen::MatrixXf> output, const long i_start, const long j_start);
   void SetNumFrames(const long numFrames);
-  long GetChannels() const { return this->mConv.GetInChannels(); };
-  int GetDilation() const { return this->mConv.GetDilation(); };
-  long GetKernelSize() const { return this->mConv.GetKernelSize(); };
+  long GetChannels() const { return mConv.GetInChannels(); };
+  int GetDilation() const { return mConv.GetDilation(); };
+  long GetKernelSize() const { return mConv.GetKernelSize(); };
 
 private:
   // The dilated convolution at the front of the block
@@ -70,7 +70,7 @@ public:
   , mHeadBias(headBias)
   {
     for (size_t i = 0; i < dilations.size(); i++)
-      this->mDilations.push_back(dilations[i]);
+      mDilations.push_back(dilations[i]);
   };
 
   const int mInputSize;
@@ -129,7 +129,7 @@ private:
   // Rechannel for the head
   Conv1x1 mHeadRechannel;
 
-  long GetBufferSize() const { return this->mLayerBuffers.size() > 0 ? this->mLayerBuffers[0].cols() : 0; };
+  long GetBufferSize() const { return mLayerBuffers.size() > 0 ? mLayerBuffers[0].cols() : 0; };
   long GetChannels() const;
   // "One-indexed" receptive field
   // TODO remove!

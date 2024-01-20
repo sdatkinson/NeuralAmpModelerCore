@@ -23,7 +23,7 @@ class LSTMCell
 {
 public:
   LSTMCell(const int inputSize, const int hiddenSize, weights_it& weights);
-  Eigen::VectorXf GetHiddenState() const { return this->_xh(Eigen::placeholders::lastN(this->GetHiddenSize())); };
+  Eigen::VectorXf GetHiddenState() const { return _xh(Eigen::placeholders::lastN(GetHiddenSize())); };
   void Process(const Eigen::VectorXf& x);
 
 private:
@@ -42,8 +42,8 @@ private:
   // Cell state
   Eigen::VectorXf _c;
 
-  long GetHiddenSize() const { return this->_b.size() / 4; };
-  long GetInputSize() const { return this->_xh.size() - this->GetHiddenSize(); };
+  long GetHiddenSize() const { return _b.size() / 4; };
+  long GetInputSize() const { return _xh.size() - GetHiddenSize(); };
 };
 
 // The multi-layer LSTM model
