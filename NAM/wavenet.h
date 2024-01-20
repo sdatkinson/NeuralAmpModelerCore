@@ -57,31 +57,31 @@ private:
 class LayerArrayParams
 {
 public:
-  LayerArrayParams(const int input_size_, const int condition_size_, const int head_size_, const int channels_,
-                   const int kernel_size_, const std::vector<int>& dilations_, const std::string activation_,
-                   const bool gated_, const bool head_bias_)
-  : inputSize(input_size_)
-  , condition_size(condition_size_)
-  , head_size(head_size_)
-  , channels(channels_)
-  , kernelSize(kernel_size_)
-  , activation(activation_)
-  , gated(gated_)
-  , head_bias(head_bias_)
+  LayerArrayParams(const int inputSize, const int conditionSize, const int headSize, const int channels,
+                   const int kernelSize, const std::vector<int>& dilations, const std::string activation,
+                   const bool gated, const bool headBias)
+  : mInputSize(inputSize)
+  , mConditionSize(conditionSize)
+  , mHeadSize(headSize)
+  , mChannels(channels)
+  , mKernelSize(kernelSize)
+  , mActivation(activation)
+  , mGated(gated)
+  , mHeadBias(headBias)
   {
-    for (size_t i = 0; i < dilations_.size(); i++)
-      this->dilations.push_back(dilations_[i]);
+    for (size_t i = 0; i < dilations.size(); i++)
+      this->mDilations.push_back(dilations[i]);
   };
 
-  const int inputSize;
-  const int condition_size;
-  const int head_size;
-  const int channels;
-  const int kernelSize;
-  std::vector<int> dilations;
-  const std::string activation;
-  const bool gated;
-  const bool head_bias;
+  const int mInputSize;
+  const int mConditionSize;
+  const int mHeadSize;
+  const int mChannels;
+  const int mKernelSize;
+  std::vector<int> mDilations;
+  const std::string mActivation;
+  const bool mGated;
+  const bool mHeadBias;
 };
 
 // An array of layers with the same channels, kernel sizes, activations.
