@@ -171,14 +171,14 @@ std::unique_ptr<DSP> GetDSP(dspData& conf)
     std::vector<wavenet::LayerArrayParams> layerArrayParams;
     for (size_t i = 0; i < config["layers"].size(); i++)
     {
-      nlohmann::json layer_config = config["layers"][i];
+      nlohmann::json layerConfig = config["layers"][i];
       std::vector<int> dilations;
-      for (size_t j = 0; j < layer_config["dilations"].size(); j++)
-        dilations.push_back(layer_config["dilations"][j]);
+      for (size_t j = 0; j < layerConfig["dilations"].size(); j++)
+        dilations.push_back(layerConfig["dilations"][j]);
       layerArrayParams.push_back(
-        wavenet::LayerArrayParams(layer_config["input_size"], layer_config["condition_size"], layer_config["head_size"],
-                                  layer_config["channels"], layer_config["kernel_size"], dilations,
-                                  layer_config["activation"], layer_config["gated"], layer_config["head_bias"]));
+        wavenet::LayerArrayParams(layerConfig["input_size"], layerConfig["condition_size"], layerConfig["head_size"],
+                                  layerConfig["channels"], layerConfig["kernel_size"], dilations,
+                                  layerConfig["activation"], layerConfig["gated"], layerConfig["head_bias"]));
     }
     const bool withHead = config["head"] == NULL;
     const float headScale = config["head_scale"];
