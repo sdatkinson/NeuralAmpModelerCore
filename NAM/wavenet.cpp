@@ -15,7 +15,7 @@ nam::wavenet::_DilatedConv::_DilatedConv(const int inChannels, const int outChan
 void nam::wavenet::Layer::SetWeights(weights_it& weights)
 {
   this->mConv.SetWeights(weights);
-  this->_input_mixin.SetWeights(weights);
+  this->mInputMixin.SetWeights(weights);
   this->_1x1.SetWeights(weights);
 }
 
@@ -28,7 +28,7 @@ void nam::wavenet::Layer::Process(const Eigen::Ref<const Eigen::MatrixXf> input,
   // Input dilated conv
   this->mConv.Process(input, this->_z, i_start, ncols, 0);
   // Mix-in condition
-  this->_z += this->_input_mixin.Process(condition);
+  this->_z += this->mInputMixin.Process(condition);
 
   this->mActivation->Apply(this->_z);
 

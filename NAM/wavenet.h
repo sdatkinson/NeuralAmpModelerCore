@@ -26,7 +26,7 @@ public:
   Layer(const int condition_size, const int channels, const int kernelSize, const int dilation,
          const std::string activation, const bool gated)
   : mConv(channels, gated ? 2 * channels : channels, kernelSize, true, dilation)
-  , _input_mixin(condition_size, gated ? 2 * channels : channels, false)
+  , mInputMixin(condition_size, gated ? 2 * channels : channels, false)
   , _1x1(channels, channels, true)
   , mActivation(activations::Activation::GetActivation(activation))
   , mGated(gated){};
@@ -44,7 +44,7 @@ private:
   // The dilated convolution at the front of the block
   _DilatedConv mConv;
   // Input mixin
-  Conv1x1 _input_mixin;
+  Conv1x1 mInputMixin;
   // The post-activation 1x1 convolution
   Conv1x1 _1x1;
   // The internal state
