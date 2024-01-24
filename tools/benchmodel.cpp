@@ -11,7 +11,7 @@ using std::chrono::milliseconds;
 
 #define AUDIO_BUFFER_SIZE 64
 
-double buffer[AUDIO_BUFFER_SIZE];
+float buffer[AUDIO_BUFFER_SIZE];
 
 int main(int argc, char* argv[])
 {
