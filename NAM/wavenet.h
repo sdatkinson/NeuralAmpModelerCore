@@ -79,7 +79,7 @@ public:
   const int mChannels;
   const int mKernelSize;
   std::vector<int> mDilations;
-  const std::string& mActivation;
+  const std::string mActivation;
   const bool mGated;
   const bool mHeadBias;
 };
