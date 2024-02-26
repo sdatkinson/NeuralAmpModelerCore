@@ -22,9 +22,9 @@ namespace lstm
 class LSTMCell
 {
 public:
-  LSTMCell(const int input_size, const int hidden_size, std::vector<float>::iterator& weights);
-  Eigen::VectorXf get_hidden_state() const { return this->_xh(Eigen::placeholders::lastN(this->_get_hidden_size())); };
-  void process_(const Eigen::VectorXf& x);
+  LSTMCell(const int inputSize, const int hiddenSize, weightsIterator& weights);
+  Eigen::VectorXf GetHiddenState() const { return _xh(Eigen::placeholders::lastN(GetHiddenSize())); };
+  void Process(const Eigen::VectorXf& x);
 
 private:
   // Parameters
@@ -42,29 +42,29 @@ private:
   // Cell state
   Eigen::VectorXf _c;
 
-  long _get_hidden_size() const { return this->_b.size() / 4; };
-  long _get_input_size() const { return this->_xh.size() - this->_get_hidden_size(); };
+  long GetHiddenSize() const { return _b.size() / 4; };
+  long GetInputSize() const { return _xh.size() - GetHiddenSize(); };
 };
 
 // The multi-layer LSTM model
 class LSTM : public DSP
 {
 public:
-  LSTM(const int num_layers, const int input_size, const int hidden_size, std::vector<float>& weights,
-       const double expected_sample_rate = -1.0);
+  LSTM(const int numLayers, const int inputSize, const int hiddenSize, const std::vector<float>& weights,
+       const double expectedSampleRate = -1.0);
   ~LSTM() = default;
 
 protected:
-  Eigen::VectorXf _head_weight;
-  float _head_bias;
-  void process(NAM_SAMPLE* input, NAM_SAMPLE* output, const int num_frames) override;
-  std::vector<LSTMCell> _layers;
+  Eigen::VectorXf mHeadWeight;
+  float mHeadBias;
+  void Process(float* input, float* output, const int numFrames) override;
+  std::vector<LSTMCell> mLayers;
 
-  float _process_sample(const float x);
+  float ProcessSample(const float x);
 
   // Input to the LSTM.
   // Since this is assumed to not be a parametric model, its shape should be (1,)
-  Eigen::VectorXf _input;
+  Eigen::VectorXf mInput;
 };
 }; // namespace lstm
 }; // namespace nam

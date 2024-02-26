@@ -13,191 +13,191 @@ namespace nam
 namespace wavenet
 {
 // Rework the initialization API slightly. Merge w/ dsp.h later.
-class _DilatedConv : public Conv1D
+class DilatedConv : public Conv1D
 {
 public:
-  _DilatedConv(const int in_channels, const int out_channels, const int kernel_size, const int bias,
+  DilatedConv(const int inChannels, const int outChannels, const int kernelSize, const int bias,
                const int dilation);
 };
 
-class _Layer
+class Layer
 {
 public:
-  _Layer(const int condition_size, const int channels, const int kernel_size, const int dilation,
-         const std::string activation, const bool gated)
-  : _conv(channels, gated ? 2 * channels : channels, kernel_size, true, dilation)
-  , _input_mixin(condition_size, gated ? 2 * channels : channels, false)
+  Layer(const int conditionSize, const int channels, const int kernelSize, const int dilation,
+         const std::string& activation, const bool gated)
+  : mConv(channels, gated ? 2 * channels : channels, kernelSize, true, dilation)
+  , mInputMixin(conditionSize, gated ? 2 * channels : channels, false)
   , _1x1(channels, channels, true)
-  , _activation(activations::Activation::get_activation(activation))
-  , _gated(gated){};
-  void set_weights_(std::vector<float>::iterator& weights);
+  , mActivation(activations::Activation::GetActivation(activation))
+  , mGated(gated){};
+  void SetWeights(weightsIterator& weights);
   // :param `input`: from previous layer
   // :param `output`: to next layer
-  void process_(const Eigen::MatrixXf& input, const Eigen::MatrixXf& condition, Eigen::MatrixXf& head_input,
-                Eigen::MatrixXf& output, const long i_start, const long j_start);
-  void set_num_frames_(const long num_frames);
-  long get_channels() const { return this->_conv.get_in_channels(); };
-  int get_dilation() const { return this->_conv.get_dilation(); };
-  long get_kernel_size() const { return this->_conv.get_kernel_size(); };
+  void Process(const Eigen::Ref<const Eigen::MatrixXf> input, const Eigen::Ref<const Eigen::MatrixXf> condition, Eigen::Ref<Eigen::MatrixXf> headInput,
+                Eigen::Ref<Eigen::MatrixXf> output, const long i_start, const long j_start);
+  void SetNumFrames(const long numFrames);
+  long GetChannels() const { return mConv.GetInChannels(); };
+  int GetDilation() const { return mConv.GetDilation(); };
+  long GetKernelSize() const { return mConv.GetKernelSize(); };
 
 private:
   // The dilated convolution at the front of the block
-  _DilatedConv _conv;
+  DilatedConv mConv;
   // Input mixin
-  Conv1x1 _input_mixin;
+  Conv1x1 mInputMixin;
   // The post-activation 1x1 convolution
   Conv1x1 _1x1;
   // The internal state
   Eigen::MatrixXf _z;
 
-  activations::Activation* _activation;
-  const bool _gated;
+  activations::Activation* mActivation;
+  const bool mGated;
 };
 
 class LayerArrayParams
 {
 public:
-  LayerArrayParams(const int input_size_, const int condition_size_, const int head_size_, const int channels_,
-                   const int kernel_size_, const std::vector<int>& dilations_, const std::string activation_,
-                   const bool gated_, const bool head_bias_)
-  : input_size(input_size_)
-  , condition_size(condition_size_)
-  , head_size(head_size_)
-  , channels(channels_)
-  , kernel_size(kernel_size_)
-  , activation(activation_)
-  , gated(gated_)
-  , head_bias(head_bias_)
+  LayerArrayParams(const int inputSize, const int conditionSize, const int headSize, const int channels,
+                   const int kernelSize, const std::vector<int>& dilations, const std::string& activation,
+                   const bool gated, const bool headBias)
+  : mInputSize(inputSize)
+  , mConditionSize(conditionSize)
+  , mHeadSize(headSize)
+  , mChannels(channels)
+  , mKernelSize(kernelSize)
+  , mActivation(activation)
+  , mGated(gated)
+  , mHeadBias(headBias)
   {
-    for (size_t i = 0; i < dilations_.size(); i++)
-      this->dilations.push_back(dilations_[i]);
+    for (size_t i = 0; i < dilations.size(); i++)
+      mDilations.push_back(dilations[i]);
   };
 
-  const int input_size;
-  const int condition_size;
-  const int head_size;
-  const int channels;
-  const int kernel_size;
-  std::vector<int> dilations;
-  const std::string activation;
-  const bool gated;
-  const bool head_bias;
+  const int mInputSize;
+  const int mConditionSize;
+  const int mHeadSize;
+  const int mChannels;
+  const int mKernelSize;
+  std::vector<int> mDilations;
+  const std::string mActivation;
+  const bool mGated;
+  const bool mHeadBias;
 };
 
 // An array of layers with the same channels, kernel sizes, activations.
-class _LayerArray
+class LayerArray
 {
 public:
-  _LayerArray(const int input_size, const int condition_size, const int head_size, const int channels,
-              const int kernel_size, const std::vector<int>& dilations, const std::string activation, const bool gated,
+  LayerArray(const int inputSize, const int conditionSize, const int headSize, const int channels,
+              const int kernelSize, const std::vector<int>& dilations, const std::string& activation, const bool gated,
               const bool head_bias);
 
-  void advance_buffers_(const int num_frames);
+  void AdvanceBuffers(const int numFrames);
 
   // Preparing for frames:
   // Rewind buffers if needed
   // Shift index to prepare
   //
-  void prepare_for_frames_(const long num_frames);
+  void PrepareForFrames(const long numFrames);
 
   // All arrays are "short".
-  void process_(const Eigen::MatrixXf& layer_inputs, // Short
-                const Eigen::MatrixXf& condition, // Short
-                Eigen::MatrixXf& layer_outputs, // Short
-                Eigen::MatrixXf& head_inputs, // Sum up on this.
-                Eigen::MatrixXf& head_outputs // post head-rechannel
+  void Process(const Eigen::Ref<const Eigen::MatrixXf> layerInputs, // Short
+                const Eigen::Ref<const Eigen::MatrixXf> condition, // Short
+                Eigen::Ref<Eigen::MatrixXf> layerOutputs, // Short
+                Eigen::Ref<Eigen::MatrixXf> headInputs, // Sum up on this.
+                Eigen::Ref<Eigen::MatrixXf> headOutputs // post head-rechannel
   );
-  void set_num_frames_(const long num_frames);
-  void set_weights_(std::vector<float>::iterator& it);
+  void SetNumFrames(const long numFrames);
+  void SetWeights(weightsIterator& it);
 
   // "Zero-indexed" receptive field.
   // E.g. a 1x1 convolution has a z.i.r.f. of zero.
-  long get_receptive_field() const;
+  long GetReceptiveField() const;
 
 private:
-  long _buffer_start;
+  long mBufferStart;
   // The rechannel before the layers
-  Conv1x1 _rechannel;
+  Conv1x1 mReChannel;
 
   // Buffers in between layers.
   // buffer [i] is the input to layer [i].
   // the last layer outputs to a short array provided by outside.
-  std::vector<Eigen::MatrixXf> _layer_buffers;
+  std::vector<Eigen::MatrixXf> mLayerBuffers;
   // The layer objects
-  std::vector<_Layer> _layers;
+  std::vector<Layer> mLayers;
 
   // Rechannel for the head
-  Conv1x1 _head_rechannel;
+  Conv1x1 mHeadRechannel;
 
-  long _get_buffer_size() const { return this->_layer_buffers.size() > 0 ? this->_layer_buffers[0].cols() : 0; };
-  long _get_channels() const;
+  long GetBufferSize() const { return mLayerBuffers.size() > 0 ? mLayerBuffers[0].cols() : 0; };
+  long GetChannels() const;
   // "One-indexed" receptive field
   // TODO remove!
   // E.g. a 1x1 convolution has a o.i.r.f. of one.
-  long _get_receptive_field() const;
-  void _rewind_buffers_();
+  long _GetReceptiveField() const; // TODO: why two!
+  void RewindBuffers();
 };
 
 // The head module
 // [Act->Conv] x L
-class _Head
+class Head
 {
 public:
-  _Head(const int input_size, const int num_layers, const int channels, const std::string activation);
-  void set_weights_(std::vector<float>::iterator& weights);
+  Head(const int inputSize, const int numLayers, const int channels, const std::string& activation);
+  void SetWeights(weightsIterator& weights);
   // NOTE: the head transforms the provided input by applying a nonlinearity
   // to it in-place!
-  void process_(Eigen::MatrixXf& inputs, Eigen::MatrixXf& outputs);
-  void set_num_frames_(const long num_frames);
+  void Process(Eigen::Ref<Eigen::MatrixXf> inputs, Eigen::Ref<Eigen::MatrixXf> outputs);
+  void SetNumFrames(const long numFrames);
 
 private:
-  int _channels;
-  std::vector<Conv1x1> _layers;
-  Conv1x1 _head;
-  activations::Activation* _activation;
+  int mChannels;
+  std::vector<Conv1x1> mLayers;
+  Conv1x1 mHead;
+  activations::Activation* mActivation;
 
   // Stores the outputs of the convs *except* the last one, which goes in
-  // The array `outputs` provided to .process_()
-  std::vector<Eigen::MatrixXf> _buffers;
+  // The array `outputs` provided to .Process()
+  std::vector<Eigen::MatrixXf> mBuffers;
 
   // Apply the activation to the provided array, in-place
-  void _apply_activation_(Eigen::MatrixXf& x);
+  void ApplyActivation(Eigen::Ref<Eigen::MatrixXf> x);
 };
 
 // The main WaveNet model
 class WaveNet : public DSP
 {
 public:
-  WaveNet(const std::vector<LayerArrayParams>& layer_array_params, const float head_scale, const bool with_head,
-          std::vector<float> weights, const double expected_sample_rate = -1.0);
+  WaveNet(const std::vector<LayerArrayParams>& layerArrayParams, const float headScale, const bool withHead,
+          const std::vector<float>& weights, const double expectedSampleRate = -1.0);
   ~WaveNet() = default;
 
-  void finalize_(const int num_frames) override;
-  void set_weights_(std::vector<float>& weights);
+  void Finalize(const int numFrames) override;
+  void SetWeights(const std::vector<float>& weights);
 
 private:
-  long _num_frames;
-  std::vector<_LayerArray> _layer_arrays;
+  long mNumFrames;
+  std::vector<LayerArray> mLayerArrays;
   // Their outputs
-  std::vector<Eigen::MatrixXf> _layer_array_outputs;
+  std::vector<Eigen::MatrixXf> mLayerArrayOutputs;
   // Head _head;
 
   // Element-wise arrays:
-  Eigen::MatrixXf _condition;
+  Eigen::MatrixXf mCondition;
   // One more than total layer arrays
-  std::vector<Eigen::MatrixXf> _head_arrays;
-  float _head_scale;
-  Eigen::MatrixXf _head_output;
+  std::vector<Eigen::MatrixXf> mHeadArrays;
+  float mHeadScale;
+  Eigen::MatrixXf mHeadOutput;
 
-  void _advance_buffers_(const int num_frames);
-  void _prepare_for_frames_(const long num_frames);
-  void process(NAM_SAMPLE* input, NAM_SAMPLE* output, const int num_frames) override;
+  void AdvanceBuffers(const int numFrames);
+  void PrepareForFrames(const long numFrames);
+  void Process(float* input, float* output, const int numFrames) override;
 
-  virtual int _get_condition_dim() const { return 1; };
+  virtual int GetConditionDim() const { return 1; };
   // Fill in the "condition" array that's fed into the various parts of the net.
-  virtual void _set_condition_array(NAM_SAMPLE* input, const int num_frames);
-  // Ensure that all buffer arrays are the right size for this num_frames
-  void _set_num_frames_(const long num_frames);
+  virtual void SetConditionArray(float* input, const int numFrames);
+  // Ensure that all buffer arrays are the right size for this numFrames
+  void SetNumFrames(const long numFrames);
 };
 }; // namespace wavenet
 }; // namespace nam

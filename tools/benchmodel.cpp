@@ -1,4 +1,3 @@
-#include "malloc.h"
 #include <iostream>
 #include <chrono>
 
@@ -11,7 +10,7 @@ using std::chrono::milliseconds;
 
 #define AUDIO_BUFFER_SIZE 64
 
-double buffer[AUDIO_BUFFER_SIZE];
+float buffer[AUDIO_BUFFER_SIZE];
 
 int main(int argc, char* argv[])
 {
@@ -22,12 +21,12 @@ int main(int argc, char* argv[])
     std::cout << "Loading model " << modelPath << "\n";
 
     // Turn on fast tanh approximation
-    nam::activations::Activation::enable_fast_tanh();
+    nam::activations::Activation::EnableFastTanh();
 
     std::unique_ptr<nam::DSP> model;
 
     model.reset();
-    model = std::move(nam::get_dsp(modelPath));
+    model = std::move(nam::GetDSP(modelPath));
 
     if (model == nullptr)
     {
@@ -45,8 +44,8 @@ int main(int argc, char* argv[])
 
     for (size_t i = 0; i < numBuffers; i++)
     {
-      model->process(buffer, buffer, AUDIO_BUFFER_SIZE);
-      model->finalize_(AUDIO_BUFFER_SIZE);
+      model->Process(buffer, buffer, AUDIO_BUFFER_SIZE);
+      model->Finalize(AUDIO_BUFFER_SIZE);
     }
 
     std::cout << "Finished\n";

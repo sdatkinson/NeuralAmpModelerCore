@@ -12,17 +12,14 @@
 #include "activations.h"
 #include "json.hpp"
 
-#ifdef NAM_SAMPLE_FLOAT
-  #define NAM_SAMPLE float
-#else
-  #define NAM_SAMPLE double
-#endif
 // Use a sample rate of -1 if we don't know what the model expects to be run at.
 // TODO clean this up and track a bool for whether it knows.
 #define NAM_UNKNOWN_EXPECTED_SAMPLE_RATE -1.0
 
 namespace nam
 {
+using weightsIterator = std::vector<float>::const_iterator;
+
 enum EArchitectures
 {
   kLinear = 0,
@@ -40,22 +37,22 @@ public:
   // Older models won't know, but newer ones will come with a loudness from the training based on their response to a
   // standardized input.
   // We may choose to have the models figure out for themselves how loud they are in here in the future.
-  DSP(const double expected_sample_rate);
+  DSP(const double expectedSampleRate);
   virtual ~DSP() = default;
-  // prewarm() does any required intial work required to "settle" model initial conditions
+  // Prewarm() does any required intial work required to "settle" model initial conditions
   // it can be somewhat expensive, so should not be called during realtime audio processing
-  virtual void prewarm();
-  // process() does all of the processing requried to take `input` array and
+  virtual void Prewarm();
+  // Process() does all of the processing requried to take `input` array and
   // fill in the required values on `output`.
   // To do this:
   // 1. The core DSP algorithm is run (This is what should probably be
   //    overridden in subclasses).
   // 2. The output level is applied and the result stored to `output`.
-  virtual void process(NAM_SAMPLE* input, NAM_SAMPLE* output, const int num_frames);
+  virtual void Process(float* input, float* output, const int numFrames);
   // Anything to take care of before next buffer comes in.
   // For example:
   // * Move the buffer index forward
-  virtual void finalize_(const int num_frames);
+  virtual void Finalize(const int numFrames);
   // Expected sample rate, in Hz.
   // TODO throw if it doesn't know.
   double GetExpectedSampleRate() const { return mExpectedSampleRate; };
@@ -76,7 +73,7 @@ protected:
   // What sample rate does the model expect?
   double mExpectedSampleRate;
   // How many samples should be processed during "pre-warming"
-  int _prewarm_samples = 0;
+  int mPrewarmSamples = 0;
 };
 
 // Class where an input buffer is kept so that long-time effects can be
@@ -85,37 +82,35 @@ protected:
 class Buffer : public DSP
 {
 public:
-  Buffer(const int receptive_field, const double expected_sample_rate = -1.0);
-  void finalize_(const int num_frames);
+  Buffer(const int receptiveField, const double expectedSampleRate = -1.0);
+  void Finalize(const int numFrames);
 
 protected:
-  // Input buffer
-  const int _input_buffer_channels = 1; // Mono
-  int _receptive_field;
+  int mReceptiveField;
   // First location where we add new samples from the input
-  long _input_buffer_offset;
-  std::vector<float> _input_buffer;
-  std::vector<float> _output_buffer;
+  long mInputBufferOffset;
+  std::vector<float> mInputBuffer;
+  std::vector<float> mOutputBuffer;
 
-  void _set_receptive_field(const int new_receptive_field, const int input_buffer_size);
-  void _set_receptive_field(const int new_receptive_field);
-  void _reset_input_buffer();
-  // Use this->_input_post_gain
-  virtual void _update_buffers_(NAM_SAMPLE* input, int num_frames);
-  virtual void _rewind_buffers_();
+  void SetReceptiveField(const int newReceptiveField, const int inputBufferSize);
+  void SetReceptiveField(const int newReceptiveField);
+  void ResetInputBuffer();
+  // Use _input_post_gain
+  virtual void UpdateBuffers(float* input, int numFrames);
+  virtual void RewindBuffers();
 };
 
 // Basic linear model (an IR!)
 class Linear : public Buffer
 {
 public:
-  Linear(const int receptive_field, const bool _bias, const std::vector<float>& weights,
-         const double expected_sample_rate = -1.0);
-  void process(NAM_SAMPLE* input, NAM_SAMPLE* output, const int num_frames) override;
+  Linear(const int receptiveField, const bool bias, const std::vector<float>& weights,
+         const double expectedSampleRate = -1.0);
+  void Process(float* input, float* output, const int numFrames) override;
 
 protected:
-  Eigen::VectorXf _weight;
-  float _bias;
+  Eigen::VectorXf mWeight;
+  float mBias;
 };
 
 // NN modules =================================================================
@@ -123,55 +118,55 @@ protected:
 class Conv1D
 {
 public:
-  Conv1D() { this->_dilation = 1; };
-  void set_weights_(std::vector<float>::iterator& weights);
-  void set_size_(const int in_channels, const int out_channels, const int kernel_size, const bool do_bias,
-                 const int _dilation);
-  void set_size_and_weights_(const int in_channels, const int out_channels, const int kernel_size, const int _dilation,
-                             const bool do_bias, std::vector<float>::iterator& weights);
+  Conv1D() { mDilation = 1; };
+  void SetWeights(weightsIterator& weights);
+  void SetSize(const int inChannels, const int outChannels, const int kernelSize, const bool doBias,
+                 const int dilation);
+  void SetSizeAndWeights(const int inChannels, const int outChannels, const int kernelSize, const int dilation,
+                             const bool doBias, weightsIterator& weights);
   // Process from input to output
   //  Rightmost indices of input go from i_start to i_end,
   //  Indices on output for from j_start (to j_start + i_end - i_start)
-  void process_(const Eigen::MatrixXf& input, Eigen::MatrixXf& output, const long i_start, const long i_end,
+  void Process(const Eigen::Ref<const Eigen::MatrixXf> input, Eigen::Ref<Eigen::MatrixXf> output, const long i_start, const long i_end,
                 const long j_start) const;
-  long get_in_channels() const { return this->_weight.size() > 0 ? this->_weight[0].cols() : 0; };
-  long get_kernel_size() const { return this->_weight.size(); };
-  long get_num_weights() const;
-  long get_out_channels() const { return this->_weight.size() > 0 ? this->_weight[0].rows() : 0; };
-  int get_dilation() const { return this->_dilation; };
+  long GetInChannels() const { return mWeight.size() > 0 ? mWeight[0].cols() : 0; };
+  long GetKernelSize() const { return mWeight.size(); };
+  long GetNumWeights() const;
+  long GetOutChannels() const { return mWeight.size() > 0 ? mWeight[0].rows() : 0; };
+  int GetDilation() const { return mDilation; };
 
 private:
   // Gonna wing this...
   // conv[kernel](cout, cin)
-  std::vector<Eigen::MatrixXf> _weight;
-  Eigen::VectorXf _bias;
-  int _dilation;
+  std::vector<Eigen::MatrixXf> mWeight;
+  Eigen::VectorXf mBias;
+  int mDilation;
 };
 
 // Really just a linear layer
 class Conv1x1
 {
 public:
-  Conv1x1(const int in_channels, const int out_channels, const bool _bias);
-  void set_weights_(std::vector<float>::iterator& weights);
+  Conv1x1(const int inChannels, const int outChannels, const bool bias);
+  void SetWeights(weightsIterator& weights);
   // :param input: (N,Cin) or (Cin,)
   // :return: (N,Cout) or (Cout,), respectively
-  Eigen::MatrixXf process(const Eigen::MatrixXf& input) const;
+  Eigen::MatrixXf Process(const Eigen::Ref<const Eigen::MatrixXf> input) const;
 
-  long get_out_channels() const { return this->_weight.rows(); };
+  long GetOutChannels() const { return mWeight.rows(); };
 
 private:
-  Eigen::MatrixXf _weight;
-  Eigen::VectorXf _bias;
-  bool _do_bias;
+  Eigen::MatrixXf mWeight;
+  Eigen::VectorXf mBias;
+  bool mDoBias;
 };
 
 // Utilities ==================================================================
-// Implemented in get_dsp.cpp
+// Implemented in GetDSP.cpp
 
 // Data for a DSP object
 // :param version: Data version. Follows the conventions established in the trainer code.
-// :param architecture: Defines the high-level architecture. Supported are (as per `get-dsp()` in get_dsp.cpp):
+// :param architecture: Defines the high-level architecture. Supported are (as per `get-dsp()` in GetDSP.cpp):
 //     * "CatLSTM"
 //     * "CatWaveNet"
 //     * "ConvNet"
@@ -181,7 +176,7 @@ private:
 // :param config:
 // :param metadata:
 // :param weights: The model weights
-// :param expected_sample_rate: Most NAM models implicitly assume that data will be provided to them at some sample
+// :param expectedSampleRate: Most NAM models implicitly assume that data will be provided to them at some sample
 //     rate. This captures it for other components interfacing with the model to understand its needs. Use -1.0 for "I
 //     don't know".
 struct dspData
@@ -191,19 +186,21 @@ struct dspData
   nlohmann::json config;
   nlohmann::json metadata;
   std::vector<float> weights;
-  double expected_sample_rate;
+  double expectedSampleRate;
 };
 
 // Verify that the config that we are building our model from is supported by
 // this plugin version.
-void verify_config_version(const std::string version);
+void VerifyConfigVersion(const std::string& version);
 
 // Takes the model file and uses it to instantiate an instance of DSP.
-std::unique_ptr<DSP> get_dsp(const std::filesystem::path model_file);
+std::unique_ptr<DSP> GetDSP(const std::filesystem::path& modelFile);
 // Creates an instance of DSP. Also returns a dspData struct that holds the data of the model.
-std::unique_ptr<DSP> get_dsp(const std::filesystem::path model_file, dspData& returnedConfig);
+std::unique_ptr<DSP> GetDSP(const std::filesystem::path& modelFile, dspData& returnedConfig);
+// Creates an instance of DSP. Also returns a dspData struct that holds the data of the model.
+std::unique_ptr<DSP> GetDSP(const char* jsonStr, dspData& returnedConfig);
 // Instantiates a DSP object from dsp_config struct.
-std::unique_ptr<DSP> get_dsp(dspData& conf);
+std::unique_ptr<DSP> GetDSP(dspData& conf);
 // Legacy loader for directory-type DSPs
-std::unique_ptr<DSP> get_dsp_legacy(const std::filesystem::path dirname);
+std::unique_ptr<DSP> GetDSPLegacy(const std::filesystem::path& dirname);
 }; // namespace nam

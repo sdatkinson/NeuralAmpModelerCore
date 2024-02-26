@@ -53,7 +53,7 @@ Version ParseVersion(const std::string& versionStr)
   return version;
 }
 
-void verify_config_version(const std::string versionStr)
+void VerifyConfigVersion(const std::string& versionStr)
 {
   Version version = ParseVersion(versionStr);
   if (version.major != 0 || version.minor != 5)
@@ -66,7 +66,7 @@ void verify_config_version(const std::string versionStr)
   }
 }
 
-std::vector<float> GetWeights(nlohmann::json const& j, const std::filesystem::path config_path)
+std::vector<float> GetWeights(nlohmann::json const& j)
 {
   if (j.find("weights") != j.end())
   {
@@ -77,54 +77,82 @@ std::vector<float> GetWeights(nlohmann::json const& j, const std::filesystem::pa
     return weights;
   }
   else
-    throw std::runtime_error("Corrupted model file is missing weights.");
+    throw std::runtime_error("Corrupted model is missing weights.");
 }
 
-std::unique_ptr<DSP> get_dsp(const std::filesystem::path config_filename)
+std::unique_ptr<DSP> GetDSP(const std::filesystem::path& configFileName)
 {
   dspData temp;
-  return get_dsp(config_filename, temp);
+  return GetDSP(configFileName, temp);
 }
 
-std::unique_ptr<DSP> get_dsp(const std::filesystem::path config_filename, dspData& returnedConfig)
+std::unique_ptr<DSP> GetDSP(const std::filesystem::path& configFileName, dspData& config)
 {
-  if (!std::filesystem::exists(config_filename))
+  if (!std::filesystem::exists(configFileName))
     throw std::runtime_error("Config JSON doesn't exist!\n");
-  std::ifstream i(config_filename);
+  std::ifstream i(configFileName);
   nlohmann::json j;
   i >> j;
-  verify_config_version(j["version"]);
+  VerifyConfigVersion(j["version"]);
 
   auto architecture = j["architecture"];
-  nlohmann::json config = j["config"];
-  std::vector<float> weights = GetWeights(j, config_filename);
+  std::vector<float> weights = GetWeights(j);
 
-  // Assign values to returnedConfig
-  returnedConfig.version = j["version"];
-  returnedConfig.architecture = j["architecture"];
-  returnedConfig.config = j["config"];
-  returnedConfig.metadata = j["metadata"];
-  returnedConfig.weights = weights;
+  // Assign values to config
+  config.version = j["version"];
+  config.architecture = j["architecture"];
+  config.config = j["config"];
+  config.metadata = j["metadata"];
+  config.weights = weights;
   if (j.find("sample_rate") != j.end())
-    returnedConfig.expected_sample_rate = j["sample_rate"];
+    config.expectedSampleRate = j["sample_rate"];
   else
   {
-    returnedConfig.expected_sample_rate = -1.0;
+    config.expectedSampleRate = -1.0;
   }
 
-
-  /*Copy to a new dsp_config object for get_dsp below,
+  /*Copy to a new dsp_config object for GetDSP below,
    since not sure if weights actually get modified as being non-const references on some
-   model constructors inside get_dsp(dsp_config& conf).
+   model constructors inside GetDSP(dsp_config& conf).
    We need to return unmodified version of dsp_config via returnedConfig.*/
-  dspData conf = returnedConfig;
+  dspData conf = config;
 
-  return get_dsp(conf);
+  return GetDSP(conf);
 }
 
-std::unique_ptr<DSP> get_dsp(dspData& conf)
+std::unique_ptr<DSP> GetDSP(const char* jsonStr, dspData& config)
 {
-  verify_config_version(conf.version);
+  nlohmann::json j = nlohmann::json::parse(jsonStr);
+  VerifyConfigVersion(j["version"]);
+
+  auto architecture = j["architecture"];
+  std::vector<float> weights = GetWeights(j);
+
+  // Assign values to config
+  config.version = j["version"];
+  config.architecture = j["architecture"];
+  config.config = j["config"];
+  config.metadata = j["metadata"];
+  config.weights = weights;
+  if (j.find("sample_rate") != j.end())
+    config.expectedSampleRate = j["sample_rate"];
+  else
+  {
+    config.expectedSampleRate = -1.0;
+  }
+
+  /*Copy to a new dsp_config object for GetDSP below,
+   since not sure if weights actually get modified as being non-const references on some
+   model constructors inside GetDSP(dsp_config& conf).
+   We need to return unmodified version of dsp_config via returnedConfig.*/
+  dspData conf = config;
+
+  return GetDSP(conf);
+}
+
+std::unique_ptr<DSP> GetDSP(dspData& conf)
+{
+  VerifyConfigVersion(conf.version);
 
   auto& architecture = conf.architecture;
   nlohmann::json& config = conf.config;
@@ -140,14 +168,14 @@ std::unique_ptr<DSP> get_dsp(dspData& conf)
       haveLoudness = true;
     }
   }
-  const double expectedSampleRate = conf.expected_sample_rate;
+  const double expectedSampleRate = conf.expectedSampleRate;
 
   std::unique_ptr<DSP> out = nullptr;
   if (architecture == "Linear")
   {
-    const int receptive_field = config["receptive_field"];
-    const bool _bias = config["bias"];
-    out = std::make_unique<Linear>(receptive_field, _bias, weights, expectedSampleRate);
+    const int receptiveField = config["receptiveField"];
+    const bool bias = config["bias"];
+    out = std::make_unique<Linear>(receptiveField, bias, weights, expectedSampleRate);
   }
   else if (architecture == "ConvNet")
   {
@@ -156,33 +184,33 @@ std::unique_ptr<DSP> get_dsp(dspData& conf)
     std::vector<int> dilations;
     for (size_t i = 0; i < config["dilations"].size(); i++)
       dilations.push_back(config["dilations"][i]);
-    const std::string activation = config["activation"];
+    auto activation = config["activation"];
     out = std::make_unique<convnet::ConvNet>(channels, dilations, batchnorm, activation, weights, expectedSampleRate);
   }
   else if (architecture == "LSTM")
   {
-    const int num_layers = config["num_layers"];
-    const int input_size = config["input_size"];
-    const int hidden_size = config["hidden_size"];
-    out = std::make_unique<lstm::LSTM>(num_layers, input_size, hidden_size, weights, expectedSampleRate);
+    const int numLayers = config["num_layers"];
+    const int inputSize = config["input_size"];
+    const int hiddenSize = config["hidden_size"];
+    out = std::make_unique<lstm::LSTM>(numLayers, inputSize, hiddenSize, weights, expectedSampleRate);
   }
   else if (architecture == "WaveNet")
   {
-    std::vector<wavenet::LayerArrayParams> layer_array_params;
+    std::vector<wavenet::LayerArrayParams> layerArrayParams;
     for (size_t i = 0; i < config["layers"].size(); i++)
     {
-      nlohmann::json layer_config = config["layers"][i];
+      nlohmann::json layerConfig = config["layers"][i];
       std::vector<int> dilations;
-      for (size_t j = 0; j < layer_config["dilations"].size(); j++)
-        dilations.push_back(layer_config["dilations"][j]);
-      layer_array_params.push_back(
-        wavenet::LayerArrayParams(layer_config["input_size"], layer_config["condition_size"], layer_config["head_size"],
-                                  layer_config["channels"], layer_config["kernel_size"], dilations,
-                                  layer_config["activation"], layer_config["gated"], layer_config["head_bias"]));
+      for (size_t j = 0; j < layerConfig["dilations"].size(); j++)
+        dilations.push_back(layerConfig["dilations"][j]);
+      layerArrayParams.push_back(
+        wavenet::LayerArrayParams(layerConfig["input_size"], layerConfig["condition_size"], layerConfig["head_size"],
+                                  layerConfig["channels"], layerConfig["kernel_size"], dilations,
+                                  layerConfig["activation"], layerConfig["gated"], layerConfig["head_bias"]));
     }
-    const bool with_head = config["head"] == NULL;
-    const float head_scale = config["head_scale"];
-    out = std::make_unique<wavenet::WaveNet>(layer_array_params, head_scale, with_head, weights, expectedSampleRate);
+    const bool withHead = config["head"] == NULL;
+    const float headScale = config["head_scale"];
+    out = std::make_unique<wavenet::WaveNet>(layerArrayParams, headScale, withHead, weights, expectedSampleRate);
   }
   else
   {
@@ -194,7 +222,7 @@ std::unique_ptr<DSP> get_dsp(dspData& conf)
   }
 
   // "pre-warm" the model to settle initial conditions
-  out->prewarm();
+  out->Prewarm();
 
   return out;
 }

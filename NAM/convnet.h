@@ -23,8 +23,8 @@ class BatchNorm
 {
 public:
   BatchNorm(){};
-  BatchNorm(const int dim, std::vector<float>::iterator& weights);
-  void process_(Eigen::MatrixXf& input, const long i_start, const long i_end) const;
+  BatchNorm(const int dim, weightsIterator& weights);
+  void Process(Eigen::Ref<Eigen::MatrixXf> input, const long i_start, const long i_end) const;
 
 private:
   // TODO simplify to just ax+b
@@ -32,56 +32,56 @@ private:
   // y = ax+b
   // a = w / sqrt(v+eps)
   // b = a * m + bias
-  Eigen::VectorXf scale;
-  Eigen::VectorXf loc;
+  Eigen::VectorXf mScale;
+  Eigen::VectorXf mLoc;
 };
 
 class ConvNetBlock
 {
 public:
   ConvNetBlock(){};
-  void set_weights_(const int in_channels, const int out_channels, const int _dilation, const bool batchnorm,
-                    const std::string activation, std::vector<float>::iterator& weights);
-  void process_(const Eigen::MatrixXf& input, Eigen::MatrixXf& output, const long i_start, const long i_end) const;
-  long get_out_channels() const;
+  void SetWeights(const int inChannels, const int outChannels, const int dilation, const bool batchnorm,
+                    const std::string& activation, weightsIterator& weights);
+  void Process(const Eigen::Ref<const Eigen::MatrixXf> input, Eigen::Ref<Eigen::MatrixXf> output, const long i_start, const long i_end) const;
+  long GetOutChannels() const;
   Conv1D conv;
 
 private:
-  BatchNorm batchnorm;
-  bool _batchnorm = false;
-  activations::Activation* activation = nullptr;
+  BatchNorm mBatchnorm;
+  bool mDoBatchNorm = false;
+  activations::Activation* mActivation = nullptr;
 };
 
-class _Head
+class Head
 {
 public:
-  _Head(){};
-  _Head(const int channels, std::vector<float>::iterator& weights);
-  void process_(const Eigen::MatrixXf& input, Eigen::VectorXf& output, const long i_start, const long i_end) const;
+  Head(){};
+  Head(const int channels, weightsIterator& weights);
+  void Process(const Eigen::Ref<const Eigen::MatrixXf> input, Eigen::VectorXf& output, const long i_start, const long i_end) const;
 
 private:
-  Eigen::VectorXf _weight;
-  float _bias = 0.0f;
+  Eigen::VectorXf mWeight;
+  float mBias = 0.0f;
 };
 
 class ConvNet : public Buffer
 {
 public:
-  ConvNet(const int channels, const std::vector<int>& dilations, const bool batchnorm, const std::string activation,
-          std::vector<float>& weights, const double expected_sample_rate = -1.0);
+  ConvNet(const int channels, const std::vector<int>& dilations, const bool batchnorm, const std::string& activation,
+          std::vector<float>& weights, const double expectedSampleRate = -1.0);
   ~ConvNet() = default;
 
 protected:
-  std::vector<ConvNetBlock> _blocks;
-  std::vector<Eigen::MatrixXf> _block_vals;
-  Eigen::VectorXf _head_output;
-  _Head _head;
-  void _verify_weights(const int channels, const std::vector<int>& dilations, const bool batchnorm,
-                       const size_t actual_weights);
-  void _update_buffers_(NAM_SAMPLE* input, const int num_frames) override;
-  void _rewind_buffers_() override;
+  std::vector<ConvNetBlock> mBlocks;
+  std::vector<Eigen::MatrixXf> mBlockVals;
+  Eigen::VectorXf mHeadOutput;
+  Head mHead;
+  void VerifyWeights(const int channels, const std::vector<int>& dilations, const bool batchnorm,
+                       const size_t actualWeights);
+  void UpdateBuffers(float* input, const int numFrames) override;
+  void RewindBuffers() override;
 
-  void process(NAM_SAMPLE* input, NAM_SAMPLE* output, const int num_frames) override;
+  void Process(float* input, float* output, const int numFrames) override;
 };
 }; // namespace convnet
 }; // namespace nam
