@@ -23,6 +23,8 @@
 
 namespace nam
 {
+using weights_it = std::vector<float>::const_iterator;
+
 enum EArchitectures
 {
   kLinear = 0,
@@ -124,15 +126,15 @@ class Conv1D
 {
 public:
   Conv1D() { this->_dilation = 1; };
-  void set_weights_(std::vector<float>::iterator& weights);
+  void set_weights_(weights_it& weights);
   void set_size_(const int in_channels, const int out_channels, const int kernel_size, const bool do_bias,
                  const int _dilation);
   void set_size_and_weights_(const int in_channels, const int out_channels, const int kernel_size, const int _dilation,
-                             const bool do_bias, std::vector<float>::iterator& weights);
+                             const bool do_bias, weights_it& weights);
   // Process from input to output
   //  Rightmost indices of input go from i_start to i_end,
   //  Indices on output for from j_start (to j_start + i_end - i_start)
-  void process_(const Eigen::MatrixXf& input, Eigen::MatrixXf& output, const long i_start, const long i_end,
+  void process_(const Eigen::Ref<const Eigen::MatrixXf> input, Eigen::Ref<Eigen::MatrixXf> output, const long i_start, const long i_end,
                 const long j_start) const;
   long get_in_channels() const { return this->_weight.size() > 0 ? this->_weight[0].cols() : 0; };
   long get_kernel_size() const { return this->_weight.size(); };
@@ -153,10 +155,10 @@ class Conv1x1
 {
 public:
   Conv1x1(const int in_channels, const int out_channels, const bool _bias);
-  void set_weights_(std::vector<float>::iterator& weights);
+  void set_weights_(weights_it& weights);
   // :param input: (N,Cin) or (Cin,)
   // :return: (N,Cout) or (Cout,), respectively
-  Eigen::MatrixXf process(const Eigen::MatrixXf& input) const;
+  Eigen::MatrixXf process(const Eigen::Ref<const Eigen::MatrixXf> input) const;
 
   long get_out_channels() const { return this->_weight.rows(); };
 

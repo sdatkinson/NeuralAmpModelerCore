@@ -2,9 +2,10 @@
 #include <string>
 #include <vector>
 
+#include "dsp.h"
 #include "lstm.h"
 
-nam::lstm::LSTMCell::LSTMCell(const int input_size, const int hidden_size, std::vector<float>::iterator& weights)
+nam::lstm::LSTMCell::LSTMCell(const int input_size, const int hidden_size, weights_it& weights)
 {
   // Resize arrays
   this->_w.resize(4 * hidden_size, input_size + hidden_size);
@@ -63,12 +64,12 @@ void nam::lstm::LSTMCell::process_(const Eigen::VectorXf& x)
   }
 }
 
-nam::lstm::LSTM::LSTM(const int num_layers, const int input_size, const int hidden_size, std::vector<float>& weights,
+nam::lstm::LSTM::LSTM(const int num_layers, const int input_size, const int hidden_size, const std::vector<float>& weights,
                       const double expected_sample_rate)
 : DSP(expected_sample_rate)
 {
   this->_input.resize(1);
-  std::vector<float>::iterator it = weights.begin();
+  auto it = weights.begin();
   for (int i = 0; i < num_layers; i++)
     this->_layers.push_back(LSTMCell(i == 0 ? input_size : hidden_size, hidden_size, it));
   this->_head_weight.resize(hidden_size);
@@ -80,7 +81,7 @@ nam::lstm::LSTM::LSTM(const int num_layers, const int input_size, const int hidd
 
 void nam::lstm::LSTM::process(NAM_SAMPLE* input, NAM_SAMPLE* output, const int num_frames)
 {
-  for (size_t i = 0; i < num_frames; i++)
+  for (auto i = 0; i < num_frames; i++)
     output[i] = this->_process_sample(input[i]);
 }
 

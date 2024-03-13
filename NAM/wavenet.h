@@ -30,11 +30,11 @@ public:
   , _1x1(channels, channels, true)
   , _activation(activations::Activation::get_activation(activation))
   , _gated(gated){};
-  void set_weights_(std::vector<float>::iterator& weights);
+  void set_weights_(weights_it& weights);
   // :param `input`: from previous layer
   // :param `output`: to next layer
-  void process_(const Eigen::MatrixXf& input, const Eigen::MatrixXf& condition, Eigen::MatrixXf& head_input,
-                Eigen::MatrixXf& output, const long i_start, const long j_start);
+  void process_(const Eigen::Ref<const Eigen::MatrixXf> input, const Eigen::Ref<const Eigen::MatrixXf> condition, Eigen::Ref<Eigen::MatrixXf> head_input,
+                Eigen::Ref<Eigen::MatrixXf> output, const long i_start, const long j_start);
   void set_num_frames_(const long num_frames);
   long get_channels() const { return this->_conv.get_in_channels(); };
   int get_dilation() const { return this->_conv.get_dilation(); };
@@ -101,14 +101,14 @@ public:
   void prepare_for_frames_(const long num_frames);
 
   // All arrays are "short".
-  void process_(const Eigen::MatrixXf& layer_inputs, // Short
-                const Eigen::MatrixXf& condition, // Short
-                Eigen::MatrixXf& layer_outputs, // Short
-                Eigen::MatrixXf& head_inputs, // Sum up on this.
-                Eigen::MatrixXf& head_outputs // post head-rechannel
+  void process_(const Eigen::Ref<const Eigen::MatrixXf> layer_inputs, // Short
+                const Eigen::Ref<const Eigen::MatrixXf> condition, // Short
+                Eigen::Ref<Eigen::MatrixXf> layer_outputs, // Short
+                Eigen::Ref<Eigen::MatrixXf> head_inputs, // Sum up on this.
+                Eigen::Ref<Eigen::MatrixXf> head_outputs // post head-rechannel
   );
   void set_num_frames_(const long num_frames);
-  void set_weights_(std::vector<float>::iterator& it);
+  void set_weights_(weights_it& it);
 
   // "Zero-indexed" receptive field.
   // E.g. a 1x1 convolution has a z.i.r.f. of zero.
@@ -144,10 +144,10 @@ class _Head
 {
 public:
   _Head(const int input_size, const int num_layers, const int channels, const std::string activation);
-  void set_weights_(std::vector<float>::iterator& weights);
+  void set_weights_(weights_it& weights);
   // NOTE: the head transforms the provided input by applying a nonlinearity
   // to it in-place!
-  void process_(Eigen::MatrixXf& inputs, Eigen::MatrixXf& outputs);
+  void process_(Eigen::Ref<Eigen::MatrixXf> inputs, Eigen::Ref<Eigen::MatrixXf> outputs);
   void set_num_frames_(const long num_frames);
 
 private:
@@ -161,7 +161,7 @@ private:
   std::vector<Eigen::MatrixXf> _buffers;
 
   // Apply the activation to the provided array, in-place
-  void _apply_activation_(Eigen::MatrixXf& x);
+  void _apply_activation_(Eigen::Ref<Eigen::MatrixXf> x);
 };
 
 // The main WaveNet model
@@ -169,11 +169,11 @@ class WaveNet : public DSP
 {
 public:
   WaveNet(const std::vector<LayerArrayParams>& layer_array_params, const float head_scale, const bool with_head,
-          std::vector<float> weights, const double expected_sample_rate = -1.0);
+          const std::vector<float>& weights, const double expected_sample_rate = -1.0);
   ~WaveNet() = default;
 
   void finalize_(const int num_frames) override;
-  void set_weights_(std::vector<float>& weights);
+  void set_weights_(const std::vector<float>& weights);
 
 private:
   long _num_frames;

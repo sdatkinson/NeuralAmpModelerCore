@@ -39,7 +39,7 @@ void nam::DSP::prewarm()
 void nam::DSP::process(NAM_SAMPLE* input, NAM_SAMPLE* output, const int num_frames)
 {
   // Default implementation is the null operation
-  for (size_t i = 0; i < num_frames; i++)
+  for (auto i = 0; i < num_frames; i++)
     output[i] = input[i];
 }
 
@@ -157,7 +157,7 @@ void nam::Linear::process(NAM_SAMPLE* input, NAM_SAMPLE* output, const int num_f
   this->nam::Buffer::_update_buffers_(input, num_frames);
 
   // Main computation!
-  for (size_t i = 0; i < num_frames; i++)
+  for (auto i = 0; i < num_frames; i++)
   {
     const size_t offset = this->_input_buffer_offset - this->_weight.size() + i + 1;
     auto input = Eigen::Map<const Eigen::VectorXf>(&this->_input_buffer[offset], this->_receptive_field);
@@ -167,7 +167,7 @@ void nam::Linear::process(NAM_SAMPLE* input, NAM_SAMPLE* output, const int num_f
 
 // NN modules =================================================================
 
-void nam::Conv1D::set_weights_(std::vector<float>::iterator& weights)
+void nam::Conv1D::set_weights_(weights_it& weights)
 {
   if (this->_weight.size() > 0)
   {
@@ -198,13 +198,13 @@ void nam::Conv1D::set_size_(const int in_channels, const int out_channels, const
 }
 
 void nam::Conv1D::set_size_and_weights_(const int in_channels, const int out_channels, const int kernel_size,
-                                        const int _dilation, const bool do_bias, std::vector<float>::iterator& weights)
+                                        const int _dilation, const bool do_bias, weights_it& weights)
 {
   this->set_size_(in_channels, out_channels, kernel_size, do_bias, _dilation);
   this->set_weights_(weights);
 }
 
-void nam::Conv1D::process_(const Eigen::MatrixXf& input, Eigen::MatrixXf& output, const long i_start, const long ncols,
+void nam::Conv1D::process_(const Eigen::Ref<const Eigen::MatrixXf> input, Eigen::Ref<Eigen::MatrixXf> output, const long i_start, const long ncols,
                            const long j_start) const
 {
   // This is the clever part ;)
@@ -236,7 +236,7 @@ nam::Conv1x1::Conv1x1(const int in_channels, const int out_channels, const bool 
     this->_bias.resize(out_channels);
 }
 
-void nam::Conv1x1::set_weights_(std::vector<float>::iterator& weights)
+void nam::Conv1x1::set_weights_(weights_it& weights)
 {
   for (int i = 0; i < this->_weight.rows(); i++)
     for (int j = 0; j < this->_weight.cols(); j++)
@@ -246,7 +246,7 @@ void nam::Conv1x1::set_weights_(std::vector<float>::iterator& weights)
       this->_bias(i) = *(weights++);
 }
 
-Eigen::MatrixXf nam::Conv1x1::process(const Eigen::MatrixXf& input) const
+Eigen::MatrixXf nam::Conv1x1::process(const Eigen::Ref<const Eigen::MatrixXf> input) const
 {
   if (this->_do_bias)
     return (this->_weight * input).colwise() + this->_bias;
