@@ -4,7 +4,7 @@
 
 #include "lstm.h"
 
-nam::lstm::LSTMCell::LSTMCell(const int input_size, const int hidden_size, std::vector<float>::iterator& weights)
+nam::lstm::LSTMCell::LSTMCell(const int input_size, const int hidden_size, std::vector<float>::const_iterator& weights)
 {
   // Resize arrays
   this->_w.resize(4 * hidden_size, input_size + hidden_size);
@@ -63,12 +63,12 @@ void nam::lstm::LSTMCell::process_(const Eigen::VectorXf& x)
   }
 }
 
-nam::lstm::LSTM::LSTM(const int num_layers, const int input_size, const int hidden_size, std::vector<float>& weights,
+nam::lstm::LSTM::LSTM(const int num_layers, const int input_size, const int hidden_size, const std::vector<float>& weights,
                       const double expected_sample_rate)
 : DSP(expected_sample_rate)
 {
   this->_input.resize(1);
-  std::vector<float>::iterator it = weights.begin();
+  std::vector<float>::const_iterator it = weights.begin();
   for (int i = 0; i < num_layers; i++)
     this->_layers.push_back(LSTMCell(i == 0 ? input_size : hidden_size, hidden_size, it));
   this->_head_weight.resize(hidden_size);

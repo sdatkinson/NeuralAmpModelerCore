@@ -22,7 +22,7 @@ namespace lstm
 class LSTMCell
 {
 public:
-  LSTMCell(const int input_size, const int hidden_size, std::vector<float>::iterator& weights);
+  LSTMCell(const int input_size, const int hidden_size, std::vector<float>::const_iterator& weights);
   Eigen::VectorXf get_hidden_state() const { return this->_xh(Eigen::placeholders::lastN(this->_get_hidden_size())); };
   void process_(const Eigen::VectorXf& x);
 
@@ -50,7 +50,7 @@ private:
 class LSTM : public DSP
 {
 public:
-  LSTM(const int num_layers, const int input_size, const int hidden_size, std::vector<float>& weights,
+  LSTM(const int num_layers, const int input_size, const int hidden_size, const std::vector<float>& weights,
        const double expected_sample_rate = -1.0);
   ~LSTM() = default;
 
