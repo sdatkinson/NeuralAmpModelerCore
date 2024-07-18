@@ -130,7 +130,7 @@ public:
   void set_size_and_weights_(const int in_channels, const int out_channels, const int kernel_size, const int _dilation,
                              const bool do_bias, std::vector<float>::iterator& weights);
   // Process from input to output
-  //  Rightmost indices of input go from i_start to ncols,
+  //  Rightmost indices of input go from i_start for ncols,
   //  Indices on output for from j_start (to j_start + ncols - i_start)
   void process_(const Eigen::MatrixXf& input, Eigen::MatrixXf& output, const long i_start, const long ncols,
                 const long j_start) const;
