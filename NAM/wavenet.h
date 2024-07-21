@@ -58,20 +58,19 @@ class LayerArrayParams
 {
 public:
   LayerArrayParams(const int input_size_, const int condition_size_, const int head_size_, const int channels_,
-                   const int kernel_size_, const std::vector<int>& dilations_, const std::string activation_,
+                   const int kernel_size_, const std::vector<int>&& dilations_, const std::string activation_,
                    const bool gated_, const bool head_bias_)
   : input_size(input_size_)
   , condition_size(condition_size_)
   , head_size(head_size_)
   , channels(channels_)
   , kernel_size(kernel_size_)
+  , dilations(std::move(dilations_))
   , activation(activation_)
   , gated(gated_)
   , head_bias(head_bias_)
   {
-    for (size_t i = 0; i < dilations_.size(); i++)
-      this->dilations.push_back(dilations_[i]);
-  };
+  }
 
   const int input_size;
   const int condition_size;

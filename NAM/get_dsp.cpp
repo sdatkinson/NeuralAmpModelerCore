@@ -68,13 +68,10 @@ void verify_config_version(const std::string versionStr)
 
 std::vector<float> GetWeights(nlohmann::json const& j, const std::filesystem::path config_path)
 {
-  if (j.find("weights") != j.end())
+  auto it = j.find("weights");
+  if (it != j.end())
   {
-    auto weight_list = j["weights"];
-    std::vector<float> weights;
-    for (auto it = weight_list.begin(); it != weight_list.end(); ++it)
-      weights.push_back(*it);
-    return weights;
+    return *it;
   }
   else
     throw std::runtime_error("Corrupted model file is missing weights.");
@@ -153,9 +150,7 @@ std::unique_ptr<DSP> get_dsp(dspData& conf)
   {
     const int channels = config["channels"];
     const bool batchnorm = config["batchnorm"];
-    std::vector<int> dilations;
-    for (size_t i = 0; i < config["dilations"].size(); i++)
-      dilations.push_back(config["dilations"][i]);
+    std::vector<int> dilations = config["dilations"];
     const std::string activation = config["activation"];
     out = std::make_unique<convnet::ConvNet>(channels, dilations, batchnorm, activation, weights, expectedSampleRate);
   }
@@ -172,12 +167,9 @@ std::unique_ptr<DSP> get_dsp(dspData& conf)
     for (size_t i = 0; i < config["layers"].size(); i++)
     {
       nlohmann::json layer_config = config["layers"][i];
-      std::vector<int> dilations;
-      for (size_t j = 0; j < layer_config["dilations"].size(); j++)
-        dilations.push_back(layer_config["dilations"][j]);
       layer_array_params.push_back(
         wavenet::LayerArrayParams(layer_config["input_size"], layer_config["condition_size"], layer_config["head_size"],
-                                  layer_config["channels"], layer_config["kernel_size"], dilations,
+                                  layer_config["channels"], layer_config["kernel_size"], layer_config["dilations"],
                                   layer_config["activation"], layer_config["gated"], layer_config["head_bias"]));
     }
     const bool with_head = config["head"] == NULL;
