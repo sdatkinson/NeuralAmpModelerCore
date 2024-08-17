@@ -172,7 +172,7 @@ std::unique_ptr<DSP> get_dsp(dspData& conf)
                                   layer_config["channels"], layer_config["kernel_size"], layer_config["dilations"],
                                   layer_config["activation"], layer_config["gated"], layer_config["head_bias"]));
     }
-    const bool with_head = config["head"] == NULL;
+    const bool with_head = !config["head"].is_null();
     const float head_scale = config["head_scale"];
     out = std::make_unique<wavenet::WaveNet>(layer_array_params, head_scale, with_head, weights, expectedSampleRate);
   }
