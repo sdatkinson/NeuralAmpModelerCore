@@ -124,11 +124,11 @@ class Conv1D
 {
 public:
   Conv1D() { this->_dilation = 1; };
-  void set_weights_(std::vector<float>::iterator& weights);
+  void set_weights_(std::vector<float>::const_iterator& weights);
   void set_size_(const int in_channels, const int out_channels, const int kernel_size, const bool do_bias,
                  const int _dilation);
   void set_size_and_weights_(const int in_channels, const int out_channels, const int kernel_size, const int _dilation,
-                             const bool do_bias, std::vector<float>::iterator& weights);
+                             const bool do_bias, std::vector<float>::const_iterator& weights);
   // Process from input to output
   //  Rightmost indices of input go from i_start for ncols,
   //  Indices on output for from j_start (to j_start + ncols - i_start)
@@ -153,7 +153,7 @@ class Conv1x1
 {
 public:
   Conv1x1(const int in_channels, const int out_channels, const bool _bias);
-  void set_weights_(std::vector<float>::iterator& weights);
+  void set_weights_(std::vector<float>::const_iterator& weights);
   // :param input: (N,Cin) or (Cin,)
   // :return: (N,Cout) or (Cout,), respectively
   Eigen::MatrixXf process(const Eigen::MatrixXf& input) const;

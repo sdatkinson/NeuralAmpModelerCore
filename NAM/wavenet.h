@@ -30,7 +30,7 @@ public:
   , _1x1(channels, channels, true)
   , _activation(activations::Activation::get_activation(activation))
   , _gated(gated){};
-  void set_weights_(std::vector<float>::iterator& weights);
+  void set_weights_(std::vector<float>::const_iterator& weights);
   // :param `input`: from previous layer
   // :param `output`: to next layer
   void process_(const Eigen::MatrixXf& input, const Eigen::MatrixXf& condition, Eigen::MatrixXf& head_input,
@@ -107,7 +107,7 @@ public:
                 Eigen::MatrixXf& head_outputs // post head-rechannel
   );
   void set_num_frames_(const long num_frames);
-  void set_weights_(std::vector<float>::iterator& it);
+  void set_weights_(std::vector<float>::const_iterator& it);
 
   // "Zero-indexed" receptive field.
   // E.g. a 1x1 convolution has a z.i.r.f. of zero.
@@ -143,7 +143,7 @@ class _Head
 {
 public:
   _Head(const int input_size, const int num_layers, const int channels, const std::string activation);
-  void set_weights_(std::vector<float>::iterator& weights);
+  void set_weights_(std::vector<float>::const_iterator& weights);
   // NOTE: the head transforms the provided input by applying a nonlinearity
   // to it in-place!
   void process_(Eigen::MatrixXf& inputs, Eigen::MatrixXf& outputs);
@@ -168,11 +168,11 @@ class WaveNet : public DSP
 {
 public:
   WaveNet(const std::vector<LayerArrayParams>& layer_array_params, const float head_scale, const bool with_head,
-          std::vector<float> weights, const double expected_sample_rate = -1.0);
+          const std::vector<float>& weights, const double expected_sample_rate = -1.0);
   ~WaveNet() = default;
 
   void finalize_(const int num_frames) override;
-  void set_weights_(std::vector<float>& weights);
+  void set_weights_(const std::vector<float>& weights);
 
 private:
   long _num_frames;
