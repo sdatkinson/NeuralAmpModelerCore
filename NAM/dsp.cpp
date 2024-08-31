@@ -246,6 +246,19 @@ void nam::Conv1x1::set_weights_(std::vector<float>::iterator& weights)
       this->_bias(i) = *(weights++);
 }
 
+
+void nam::Conv1x1::process(const Eigen::MatrixXf& input, Eigen::MatrixXf &output) 
+{
+  if (this->_do_bias)
+  {
+    // (this->_weight * input).colwise() + this->_bias (with no temporary allocations)
+    _tmpMul.noalias() = (this->_weight * input);  
+
+    output.noalias() =  _tmpMul.colwise() + this->_bias;
+  }
+  else
+    output.noalias() = this->_weight * input;
+}
 Eigen::MatrixXf nam::Conv1x1::process(const Eigen::MatrixXf& input) const
 {
   if (this->_do_bias)

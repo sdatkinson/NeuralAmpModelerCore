@@ -141,6 +141,7 @@ public:
   int get_dilation() const { return this->_dilation; };
 
 private:
+  Eigen::MatrixXf _tmpMul;
   // Gonna wing this...
   // conv[kernel](cout, cin)
   std::vector<Eigen::MatrixXf> _weight;
@@ -156,11 +157,15 @@ public:
   void set_weights_(std::vector<float>::iterator& weights);
   // :param input: (N,Cin) or (Cin,)
   // :return: (N,Cout) or (Cout,), respectively
-  Eigen::MatrixXf process(const Eigen::MatrixXf& input) const;
+
+  void process(const Eigen::MatrixXf& input, Eigen::MatrixXf &output);
 
   long get_out_channels() const { return this->_weight.rows(); };
 
 private:
+  Eigen::MatrixXf process(const Eigen::MatrixXf& input) const;// yyy remove me
+
+  Eigen::MatrixXf _tmpMul;
   Eigen::MatrixXf _weight;
   Eigen::VectorXf _bias;
   bool _do_bias;

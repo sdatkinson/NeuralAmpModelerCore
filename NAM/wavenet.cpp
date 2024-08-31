@@ -2,6 +2,14 @@
 #include <iostream>
 #include <math.h>
 
+// Prevent intellisense errors in VSCode, VStudio when compiling for aarch64
+#if __INTELLISENSE__
+#undef __ARM_NEON
+#undef __ARM_NEON__
+#endif
+
+
+
 #include <Eigen/Dense>
 
 #include "wavenet.h"
@@ -28,7 +36,8 @@ void nam::wavenet::_Layer::process_(const Eigen::MatrixXf& input, const Eigen::M
   // Input dilated conv
   this->_conv.process_(input, this->_z, i_start, ncols, 0);
   // Mix-in condition
-  this->_z += this->_input_mixin.process(condition);
+  this->_input_mixin.process(condition,_tmpMixin);
+  this->_z += _tmpMixin;
 
   
 
@@ -49,7 +58,12 @@ void nam::wavenet::_Layer::process_(const Eigen::MatrixXf& input, const Eigen::M
   }
 
   head_input += this->_z.topRows(channels);
-  output.middleCols(j_start, ncols) = input.middleCols(i_start, ncols) + this->_1x1.process(this->_z.topRows(channels));
+
+  // output.middleCols(j_start, ncols) = input.middleCols(i_start, ncols) + this->_1x1.process(this->_z.topRows(channels));
+  // (without using temporaries)
+  this->_tmpTopRows =  this->_z.topRows(channels);
+  this->_1x1.process(_tmpTopRows,_tmpConv1x1);
+  output.middleCols(j_start, ncols) = input.middleCols(i_start, ncols) + _tmpConv1x1;
 }
 
 void nam::wavenet::_Layer::set_num_frames_(const long num_frames)
@@ -109,10 +123,12 @@ void nam::wavenet::_LayerArray::prepare_for_frames_(const long num_frames)
 }
 
 void nam::wavenet::_LayerArray::process_(const Eigen::MatrixXf& layer_inputs, const Eigen::MatrixXf& condition,
-                                         Eigen::MatrixXf& head_inputs, Eigen::MatrixXf& layer_outputs,
-                                         Eigen::MatrixXf& head_outputs)
+                                    Eigen::MatrixXf& head_inputs, Eigen::MatrixXf& layer_outputs,
+                                    Eigen::MatrixXf& head_outputs)
 {
-  this->_layer_buffers[0].middleCols(this->_buffer_start, layer_inputs.cols()) = this->_rechannel.process(layer_inputs);
+
+  this->_rechannel.process(layer_inputs,_tmpConv1x1Process);
+  _layer_buffers[0].middleCols(this->_buffer_start, layer_inputs.cols()) = _tmpConv1x1Process;
   const size_t last_layer = this->_layers.size() - 1;
   for (size_t i = 0; i < this->_layers.size(); i++)
   {
@@ -120,7 +136,8 @@ void nam::wavenet::_LayerArray::process_(const Eigen::MatrixXf& layer_inputs, co
                               i == last_layer ? layer_outputs : this->_layer_buffers[i + 1], this->_buffer_start,
                               i == last_layer ? 0 : this->_buffer_start);
   }
-  head_outputs = this->_head_rechannel.process(head_inputs);
+  this->_head_rechannel.process(head_inputs,_tmpHeadProcess);
+  head_outputs = _tmpHeadProcess;
 }
 
 void nam::wavenet::_LayerArray::set_num_frames_(const long num_frames)
@@ -203,17 +220,19 @@ void nam::wavenet::_Head::process_(Eigen::MatrixXf& inputs, Eigen::MatrixXf& out
   const size_t num_layers = this->_layers.size();
   this->_apply_activation_(inputs);
   if (num_layers == 1)
-    outputs = this->_layers[0].process(inputs);
+  {
+    this->_layers[0].process(inputs,outputs);
+  }
   else
   {
-    this->_buffers[0] = this->_layers[0].process(inputs);
+    this->_layers[0].process(inputs,this->_buffers[0]);
     for (size_t i = 1; i < num_layers; i++)
     { // Asserted > 0 layers
       this->_apply_activation_(this->_buffers[i - 1]);
       if (i < num_layers - 1)
-        this->_buffers[i] = this->_layers[i].process(this->_buffers[i - 1]);
+        this->_layers[i].process(this->_buffers[i - 1],this->_buffers[i]);
       else
-        outputs = this->_layers[i].process(this->_buffers[i - 1]);
+        this->_layers[i].process(this->_buffers[i - 1],outputs);
     }
   }
 }

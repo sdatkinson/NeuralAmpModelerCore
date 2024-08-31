@@ -41,6 +41,10 @@ public:
   long get_kernel_size() const { return this->_conv.get_kernel_size(); };
 
 private:
+  Eigen::MatrixXf _tmpMixin;
+  Eigen::MatrixXf _tmpConv1x1;
+  Eigen::MatrixXf _tmpTopRows;
+
   // The dilated convolution at the front of the block
   _DilatedConv _conv;
   // Input mixin
@@ -114,6 +118,9 @@ public:
   long get_receptive_field() const;
 
 private:
+  Eigen::MatrixXf _tmpConv1x1Process;
+  Eigen::MatrixXf _tmpHeadProcess;
+
   long _buffer_start;
   // The rechannel before the layers
   Conv1x1 _rechannel;
