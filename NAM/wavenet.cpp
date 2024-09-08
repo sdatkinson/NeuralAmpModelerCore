@@ -30,7 +30,6 @@ void nam::wavenet::_Layer::process_(const Eigen::MatrixXf& input, const Eigen::M
   // Mix-in condition
   this->_z += this->_input_mixin.process(condition);
 
-  
 
   if (!this->_gated)
   {
@@ -40,7 +39,8 @@ void nam::wavenet::_Layer::process_(const Eigen::MatrixXf& input, const Eigen::M
   {
     this->_activation->apply(this->_z.topRows(channels));
     activations::Activation::get_activation("Sigmoid")->apply(this->_z.bottomRows(channels));
-    //activations::Activation::get_activation("Sigmoid")->apply(this->_z.block(channels, 0, channels, this->_z.cols()));
+    // activations::Activation::get_activation("Sigmoid")->apply(this->_z.block(channels, 0, channels,
+    // this->_z.cols()));
 
     this->_z.topRows(channels).array() *= this->_z.bottomRows(channels).array();
     // this->_z.topRows(channels) = this->_z.topRows(channels).cwiseProduct(
