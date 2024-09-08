@@ -64,8 +64,15 @@ public:
   // Get whether the model knows how loud it is.
   bool HasLoudness() const { return mHasLoudness; };
   // General function for resetting the DSP unit.
-  // NAMs might do warmup under this.
+  // This doesn't call prewarm(). If you want to do that, then you might want to use ResetAndPrewarm().
+  // See https://github.com/sdatkinson/NeuralAmpModelerCore/issues/96 for the reasoning.
   virtual void Reset(const double sampleRate, const int maxBufferSize);
+  // Reset(), then prewarm()
+  void ResetAndPrewarm(const double sampleRate, const int maxBufferSize)
+  {
+    Reset(sampleRate, maxBufferSize);
+    prewarm();
+  }
   // Set the loudness, in dB.
   // This is usually defined to be the loudness to a standardized input. The trainer has its own, but you can always
   // use this to define it a different way if you like yours better.
