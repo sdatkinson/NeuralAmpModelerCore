@@ -64,10 +64,16 @@ public:
   double GetLoudness() const;
   // Get whether the model knows how loud it is.
   bool HasLoudness() const { return mHasLoudness; };
+  // General function for resetting the DSP unit.
+  // NAMs might do warmup under this.
+  virtual void Reset(const double sampleRate, const int maxBufferSize);
   // Set the loudness, in dB.
   // This is usually defined to be the loudness to a standardized input. The trainer has its own, but you can always
   // use this to define it a different way if you like yours better.
   void SetLoudness(const double loudness);
+  // Run some zeroes through the DSP unit until it's ready.
+  // This is helpful for things that have a history dependence (LSTMs, Convolutions, etc)
+  void Warmup();
 
 protected:
   bool mHasLoudness = false;
@@ -77,6 +83,14 @@ protected:
   double mExpectedSampleRate;
   // How many samples should be processed during "pre-warming"
   int _prewarm_samples = 0;
+  // Have we been told what the external sample rate is? If so, what is it?
+  bool mHaveExternalSampleRate = false;
+  double mExternalSampleRate = -1.0;
+  // The largest buffer I expect to be told to process:
+  int mMaxBufferSize;
+
+  // How many samples should be processed for me to be considered "warmed up"?
+  virtual int WarmupSamples() { return 0; };
 };
 
 // Class where an input buffer is kept so that long-time effects can be
@@ -87,6 +101,8 @@ class Buffer : public DSP
 public:
   Buffer(const int receptive_field, const double expected_sample_rate = -1.0);
   void finalize_(const int num_frames);
+  // TODO Could set buffer sizes etc
+  // virtual void Reset(const double sampleRate, const int maxBufferSize) override;
 
 protected:
   // Input buffer
@@ -120,6 +136,7 @@ protected:
 
 // NN modules =================================================================
 
+// TODO conv could take care of its own ring buffer.
 class Conv1D
 {
 public:

@@ -52,6 +52,14 @@ double nam::DSP::GetLoudness() const
   return mLoudness;
 }
 
+void nam::DSP::Reset(const double sampleRate, const int maxBufferSize)
+{
+  // Some subclasses might want to throw an exception if the sample rate is "wrong".
+  // This could be under a debugging flag potentially.
+  mExternalSampleRate = sampleRate;
+  mHaveExternalSampleRate = true;
+  mMaxBufferSize = maxBufferSize;
+}
 void nam::DSP::SetLoudness(const double loudness)
 {
   mLoudness = loudness;
