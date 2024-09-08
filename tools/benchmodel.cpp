@@ -46,7 +46,6 @@ int main(int argc, char* argv[])
     for (size_t i = 0; i < numBuffers; i++)
     {
       model->process(buffer, buffer, AUDIO_BUFFER_SIZE);
-      model->finalize_(AUDIO_BUFFER_SIZE);
     }
 
     std::cout << "Finished\n";
