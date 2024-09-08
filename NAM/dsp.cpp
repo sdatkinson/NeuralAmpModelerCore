@@ -21,14 +21,15 @@ nam::DSP::DSP(const double expected_sample_rate)
 
 void nam::DSP::prewarm()
 {
-  if (_prewarm_samples == 0)
+  const int prewarmSamples = PrewarmSamples();
+  if (prewarmSamples == 0)
     return;
 
   NAM_SAMPLE sample = 0;
   NAM_SAMPLE* sample_ptr = &sample;
 
   // pre-warm the model for a model-specific number of samples
-  for (long i = 0; i < _prewarm_samples; i++)
+  for (long i = 0; i < prewarmSamples; i++)
   {
     this->process(sample_ptr, sample_ptr, 1);
     sample = 0;
@@ -58,6 +59,9 @@ void nam::DSP::Reset(const double sampleRate, const int maxBufferSize)
   mExternalSampleRate = sampleRate;
   mHaveExternalSampleRate = true;
   mMaxBufferSize = maxBufferSize;
+
+  // Subclasses might also want to pre-warm, but let them call that themselves in case
+  // they want to e.g. do some allocations first.
 }
 void nam::DSP::SetLoudness(const double loudness)
 {

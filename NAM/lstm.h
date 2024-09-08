@@ -44,6 +44,8 @@ private:
 
   long _get_hidden_size() const { return this->_b.size() / 4; };
   long _get_input_size() const { return this->_xh.size() - this->_get_hidden_size(); };
+  // Hacky, but a half-second seems to work for most models.
+  int PrewarmSamples() override;
 };
 
 // The multi-layer LSTM model

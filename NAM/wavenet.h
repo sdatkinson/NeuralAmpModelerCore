@@ -196,6 +196,9 @@ private:
   virtual void _set_condition_array(NAM_SAMPLE* input, const int num_frames);
   // Ensure that all buffer arrays are the right size for this num_frames
   void _set_num_frames_(const long num_frames);
+
+  int mPrewarmSamples = 0; // Pre-compute during initialization
+  int PrewarmSamples() override { return mPrewarmSamples; };
 };
 }; // namespace wavenet
 }; // namespace nam

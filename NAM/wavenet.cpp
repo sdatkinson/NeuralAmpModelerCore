@@ -267,9 +267,9 @@ nam::wavenet::WaveNet::WaveNet(const std::vector<nam::wavenet::LayerArrayParams>
   this->_head_output.resize(1, 0); // Mono output!
   this->set_weights_(weights);
 
-  _prewarm_samples = 1;
+  mPrewarmSamples = 1;
   for (size_t i = 0; i < this->_layer_arrays.size(); i++)
-    _prewarm_samples += this->_layer_arrays[i].get_receptive_field();
+    mPrewarmSamples += this->_layer_arrays[i].get_receptive_field();
 }
 
 void nam::wavenet::WaveNet::set_weights_(std::vector<float>& weights)
