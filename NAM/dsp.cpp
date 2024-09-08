@@ -25,14 +25,22 @@ void nam::DSP::prewarm()
   if (prewarmSamples == 0)
     return;
 
-  NAM_SAMPLE sample = 0;
-  NAM_SAMPLE* sample_ptr = &sample;
-
-  // pre-warm the model for a model-specific number of samples
-  for (long i = 0; i < prewarmSamples; i++)
+  const size_t bufferSize = std::max(mMaxBufferSize, 1);
+  std::vector<NAM_SAMPLE> inputBuffer, outputBuffer;
+  inputBuffer.resize(bufferSize);
+  outputBuffer.resize(bufferSize);
+  for (auto it = inputBuffer.begin(); it != inputBuffer.end(); ++it)
   {
-    this->process(sample_ptr, sample_ptr, 1);
-    sample = 0;
+    (*it) = (NAM_SAMPLE)0.0;
+  }
+
+  NAM_SAMPLE* inputPtr = inputBuffer.data();
+  NAM_SAMPLE* outputPtr = outputBuffer.data();
+  int samplesProcessed = 0;
+  while (samplesProcessed < prewarmSamples)
+  {
+    this->process(inputPtr, outputPtr, bufferSize);
+    samplesProcessed += bufferSize;
   }
 }
 
