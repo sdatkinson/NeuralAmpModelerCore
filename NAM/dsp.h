@@ -88,7 +88,7 @@ protected:
   bool mHaveExternalSampleRate = false;
   double mExternalSampleRate = -1.0;
   // The largest buffer I expect to be told to process:
-  int mMaxBufferSize;
+  int mMaxBufferSize = 512;
 
   // How many samples should be processed for me to be considered "warmed up"?
   virtual int PrewarmSamples() { return 0; };
