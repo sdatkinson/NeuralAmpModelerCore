@@ -84,6 +84,14 @@ void nam::lstm::LSTM::process(NAM_SAMPLE* input, NAM_SAMPLE* output, const int n
     output[i] = this->_process_sample(input[i]);
 }
 
+int nam::lstm::LSTM::PrewarmSamples()
+{
+  int result = (int)(0.5 * mExpectedSampleRate);
+  // If the expected sample rate wasn't provided, it'll be -1.
+  // Make sure something still happens.
+  return result <= 0 ? 1 : result;
+}
+
 float nam::lstm::LSTM::_process_sample(const float x)
 {
   if (this->_layers.size() == 0)

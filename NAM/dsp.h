@@ -44,6 +44,9 @@ public:
   virtual ~DSP() = default;
   // prewarm() does any required intial work required to "settle" model initial conditions
   // it can be somewhat expensive, so should not be called during realtime audio processing
+  // Important: don't expect the model to be outputting zeroes after this. Neural networks
+  // Don't know that there's anything special about "zero", and forcing this gets rid of
+  // some possibilities that I dont' want to rule out (e.g. models that "are noisy").
   virtual void prewarm();
   // process() does all of the processing requried to take `input` array and
   // fill in the required values on `output`.
@@ -60,6 +63,16 @@ public:
   double GetLoudness() const;
   // Get whether the model knows how loud it is.
   bool HasLoudness() const { return mHasLoudness; };
+  // General function for resetting the DSP unit.
+  // This doesn't call prewarm(). If you want to do that, then you might want to use ResetAndPrewarm().
+  // See https://github.com/sdatkinson/NeuralAmpModelerCore/issues/96 for the reasoning.
+  virtual void Reset(const double sampleRate, const int maxBufferSize);
+  // Reset(), then prewarm()
+  void ResetAndPrewarm(const double sampleRate, const int maxBufferSize)
+  {
+    Reset(sampleRate, maxBufferSize);
+    prewarm();
+  }
   // Set the loudness, in dB.
   // This is usually defined to be the loudness to a standardized input. The trainer has its own, but you can always
   // use this to define it a different way if you like yours better.
@@ -71,8 +84,14 @@ protected:
   double mLoudness = 0.0;
   // What sample rate does the model expect?
   double mExpectedSampleRate;
-  // How many samples should be processed during "pre-warming"
-  int _prewarm_samples = 0;
+  // Have we been told what the external sample rate is? If so, what is it?
+  bool mHaveExternalSampleRate = false;
+  double mExternalSampleRate = -1.0;
+  // The largest buffer I expect to be told to process:
+  int mMaxBufferSize;
+
+  // How many samples should be processed for me to be considered "warmed up"?
+  virtual int PrewarmSamples() { return 0; };
 };
 
 // Class where an input buffer is kept so that long-time effects can be
@@ -116,6 +135,7 @@ protected:
 
 // NN modules =================================================================
 
+// TODO conv could take care of its own ring buffer.
 class Conv1D
 {
 public:
