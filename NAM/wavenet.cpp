@@ -30,7 +30,6 @@ void nam::wavenet::_Layer::process_(const Eigen::MatrixXf& input, const Eigen::M
   // Mix-in condition
   this->_z += this->_input_mixin.process(condition);
 
-  
 
   if (!this->_gated)
   {
@@ -40,7 +39,8 @@ void nam::wavenet::_Layer::process_(const Eigen::MatrixXf& input, const Eigen::M
   {
     this->_activation->apply(this->_z.topRows(channels));
     activations::Activation::get_activation("Sigmoid")->apply(this->_z.bottomRows(channels));
-    //activations::Activation::get_activation("Sigmoid")->apply(this->_z.block(channels, 0, channels, this->_z.cols()));
+    // activations::Activation::get_activation("Sigmoid")->apply(this->_z.block(channels, 0, channels,
+    // this->_z.cols()));
 
     this->_z.topRows(channels).array() *= this->_z.bottomRows(channels).array();
     // this->_z.topRows(channels) = this->_z.topRows(channels).cwiseProduct(
@@ -272,12 +272,6 @@ nam::wavenet::WaveNet::WaveNet(const std::vector<nam::wavenet::LayerArrayParams>
     _prewarm_samples += this->_layer_arrays[i].get_receptive_field();
 }
 
-void nam::wavenet::WaveNet::finalize_(const int num_frames)
-{
-  this->DSP::finalize_(num_frames);
-  this->_advance_buffers_(num_frames);
-}
-
 void nam::wavenet::WaveNet::set_weights_(std::vector<float>& weights)
 {
   std::vector<float>::iterator it = weights.begin();
@@ -347,6 +341,9 @@ void nam::wavenet::WaveNet::process(NAM_SAMPLE* input, NAM_SAMPLE* output, const
     float out = this->_head_scale * this->_head_arrays[final_head_array](0, s);
     output[s] = out;
   }
+
+  // Finalize to rpepare for the next call:
+  this->_advance_buffers_(num_frames);
 }
 
 void nam::wavenet::WaveNet::_set_num_frames_(const long num_frames)

@@ -132,6 +132,9 @@ void nam::convnet::ConvNet::process(NAM_SAMPLE* input, NAM_SAMPLE* output, const
   // Copy to required output array (TODO tighten this up)
   for (int s = 0; s < num_frames; s++)
     output[s] = this->_head_output(s);
+
+  // Prepare for next call:
+  nam::Buffer::_advance_input_buffer_(num_frames);
 }
 
 void nam::convnet::ConvNet::_verify_weights(const int channels, const std::vector<int>& dilations, const bool batchnorm,

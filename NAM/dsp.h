@@ -52,10 +52,6 @@ public:
   //    overridden in subclasses).
   // 2. The output level is applied and the result stored to `output`.
   virtual void process(NAM_SAMPLE* input, NAM_SAMPLE* output, const int num_frames);
-  // Anything to take care of before next buffer comes in.
-  // For example:
-  // * Move the buffer index forward
-  virtual void finalize_(const int num_frames);
   // Expected sample rate, in Hz.
   // TODO throw if it doesn't know.
   double GetExpectedSampleRate() const { return mExpectedSampleRate; };
@@ -86,7 +82,6 @@ class Buffer : public DSP
 {
 public:
   Buffer(const int receptive_field, const double expected_sample_rate = -1.0);
-  void finalize_(const int num_frames);
 
 protected:
   // Input buffer
@@ -97,6 +92,7 @@ protected:
   std::vector<float> _input_buffer;
   std::vector<float> _output_buffer;
 
+  void _advance_input_buffer_(const int num_frames);
   void _set_receptive_field(const int new_receptive_field, const int input_buffer_size);
   void _set_receptive_field(const int new_receptive_field);
   void _reset_input_buffer();

@@ -31,7 +31,6 @@ void nam::DSP::prewarm()
   for (long i = 0; i < _prewarm_samples; i++)
   {
     this->process(sample_ptr, sample_ptr, 1);
-    this->finalize_(1);
     sample = 0;
   }
 }
@@ -57,8 +56,6 @@ void nam::DSP::SetLoudness(const double loudness)
   mLoudness = loudness;
   mHasLoudness = true;
 }
-
-void nam::DSP::finalize_(const int num_frames) {}
 
 // Buffer =====================================================================
 
@@ -128,9 +125,8 @@ void nam::Buffer::_reset_input_buffer()
   this->_input_buffer_offset = this->_receptive_field;
 }
 
-void nam::Buffer::finalize_(const int num_frames)
+void nam::Buffer::_advance_input_buffer_(const int num_frames)
 {
-  this->nam::DSP::finalize_(num_frames);
   this->_input_buffer_offset += num_frames;
 }
 
@@ -163,6 +159,9 @@ void nam::Linear::process(NAM_SAMPLE* input, NAM_SAMPLE* output, const int num_f
     auto input = Eigen::Map<const Eigen::VectorXf>(&this->_input_buffer[offset], this->_receptive_field);
     output[i] = this->_bias + this->_weight.dot(input);
   }
+
+  // Prepare for next call:
+  nam::Buffer::_advance_input_buffer_(num_frames);
 }
 
 // NN modules =================================================================
