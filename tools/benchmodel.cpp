@@ -11,7 +11,8 @@ using std::chrono::milliseconds;
 
 #define AUDIO_BUFFER_SIZE 64
 
-double buffer[AUDIO_BUFFER_SIZE];
+double inputBuffer[AUDIO_BUFFER_SIZE];
+double outputBuffer[AUDIO_BUFFER_SIZE];
 
 int main(int argc, char* argv[])
 {
@@ -38,14 +39,22 @@ int main(int argc, char* argv[])
 
     auto t1 = high_resolution_clock::now();
 
-    size_t bufferSize = 64;
-    size_t numBuffers = (48000 / 64) * 2;
+    size_t bufferSize = AUDIO_BUFFER_SIZE;
+    model->Reset(model->GetExpectedSampleRate(), bufferSize);
+    size_t numBuffers = (48000 / bufferSize) * 2;
+
+    // Fill input buffer with zeroes.
+    // Output buffer doesn't matter.
+    for (int i = 0; i < AUDIO_BUFFER_SIZE; i++)
+    {
+      inputBuffer[i] = 0.0;
+    }
 
     std::cout << "Running benchmark\n";
 
     for (size_t i = 0; i < numBuffers; i++)
     {
-      model->process(buffer, buffer, AUDIO_BUFFER_SIZE);
+      model->process(inputBuffer, outputBuffer, AUDIO_BUFFER_SIZE);
     }
 
     std::cout << "Finished\n";
