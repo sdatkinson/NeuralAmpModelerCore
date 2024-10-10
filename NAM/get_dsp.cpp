@@ -86,7 +86,7 @@ std::unique_ptr<DSP> get_dsp(const std::filesystem::path config_filename)
 std::unique_ptr<DSP> get_dsp(const std::filesystem::path config_filename, dspData& returnedConfig)
 {
   if (!std::filesystem::exists(config_filename))
-    throw std::runtime_error("Config JSON doesn't exist!\n");
+    throw std::runtime_error("Config file doesn't exist!\n");
   std::ifstream i(config_filename);
   nlohmann::json j;
   i >> j;
