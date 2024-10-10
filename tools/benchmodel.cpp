@@ -1,4 +1,3 @@
-#include "malloc.h"
 #include <iostream>
 #include <chrono>
 
@@ -28,7 +27,7 @@ int main(int argc, char* argv[])
     std::unique_ptr<nam::DSP> model;
 
     model.reset();
-    model = std::move(nam::get_dsp(modelPath));
+    model = nam::get_dsp(modelPath);
 
     if (model == nullptr)
     {
@@ -72,7 +71,7 @@ int main(int argc, char* argv[])
   }
   else
   {
-    std::cerr << "Usage: loadmodel <model_path>\n";
+    std::cerr << "Usage: benchmodel <model_path>\n";
   }
 
   exit(0);
