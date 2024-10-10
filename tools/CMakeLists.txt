@@ -11,6 +11,7 @@ include_directories(tools ${NAM_DEPS_PATH}/nlohmann)
 
 add_executable(loadmodel loadmodel.cpp ${NAM_SOURCES})
 add_executable(benchmodel benchmodel.cpp ${NAM_SOURCES})
+add_executable(run_tests run_tests.cpp ${NAM_SOURCES})
 
 source_group(NAM ${CMAKE_CURRENT_SOURCE_DIR} FILES ${NAM_SOURCES})
 
