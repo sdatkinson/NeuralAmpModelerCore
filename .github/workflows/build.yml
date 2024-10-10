@@ -22,3 +22,9 @@ jobs:
       run: |
         cmake .. -DCMAKE_BUILD_TYPE=$BUILD_TYPE
         cmake --build . --config $BUILD_TYPE -j4
+    
+    - name: Run tests
+      working-directory: ${{github.workspace}}
+      run: |
+        ./build/tools/benchmodel example_models/wavenet.nam
+        ./build/tools/benchmodel example_models/lstm.nam
