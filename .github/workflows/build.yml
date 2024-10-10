@@ -26,5 +26,5 @@ jobs:
     - name: Run tests
       working-directory: ${{github.workspace}}
       run: |
-        ./build/tools/benchmodel example_models/wavenet.nam
-        ./build/tools/benchmodel example_models/lstm.nam
+        ./build/tools/benchmodel ./example_models/wavenet.nam
+        ./build/tools/benchmodel ./example_models/lstm.nam
