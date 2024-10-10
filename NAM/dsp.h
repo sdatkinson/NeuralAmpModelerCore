@@ -58,11 +58,21 @@ public:
   // Expected sample rate, in Hz.
   // TODO throw if it doesn't know.
   double GetExpectedSampleRate() const { return mExpectedSampleRate; };
+  // Input Level, in dBu, corresponding to 0 dBFS for a sine wave
+  // You should call HasInputLevel() first to be safe.
+  double GetInputLevel() {return mInputLevel.level;};
   // Get how loud this model is, in dB.
   // Throws a std::runtime_error if the model doesn't know how loud it is.
   double GetLoudness() const;
+  // Output Level, in dBu, corresponding to 0 dBFS for a sine wave
+  // You should call HasOutputLevel() first to be safe.
+  double GetOutputLevel() {return mOutputLevel.level;};
+  // Does this model know its output level?
+  bool HasInputLevel() {return mInputLevel.haveLevel;};
   // Get whether the model knows how loud it is.
   bool HasLoudness() const { return mHasLoudness; };
+  // Does this model know its output level?
+  bool HasOutputLevel() {return mOutputLevel.haveLevel;};
   // General function for resetting the DSP unit.
   // This doesn't call prewarm(). If you want to do that, then you might want to use ResetAndPrewarm().
   // See https://github.com/sdatkinson/NeuralAmpModelerCore/issues/96 for the reasoning.
@@ -73,10 +83,12 @@ public:
     Reset(sampleRate, maxBufferSize);
     prewarm();
   }
+  void SetInputLevel(const double inputLevel) {mInputLevel.haveLevel = true; mInputLevel.level = inputLevel;};
   // Set the loudness, in dB.
   // This is usually defined to be the loudness to a standardized input. The trainer has its own, but you can always
   // use this to define it a different way if you like yours better.
   void SetLoudness(const double loudness);
+  void SetOutputLevel(const double outputLevel) {mOutputLevel.haveLevel = true; mOutputLevel.level = outputLevel;};
 
 protected:
   bool mHasLoudness = false;
@@ -92,6 +104,14 @@ protected:
 
   // How many samples should be processed for me to be considered "warmed up"?
   virtual int PrewarmSamples() { return 0; };
+
+private:
+  struct Level {
+    bool haveLevel=false;
+    float level = 0.0;
+  };
+  Level mInputLevel;
+  Level mOutputLevel;
 };
 
 // Class where an input buffer is kept so that long-time effects can be
