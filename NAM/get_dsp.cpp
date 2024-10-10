@@ -66,7 +66,7 @@ void verify_config_version(const std::string versionStr)
   }
 }
 
-std::vector<float> GetWeights(nlohmann::json const& j, const std::filesystem::path config_path)
+std::vector<float> GetWeights(nlohmann::json const& j)
 {
   auto it = j.find("weights");
   if (it != j.end())
@@ -94,7 +94,7 @@ std::unique_ptr<DSP> get_dsp(const std::filesystem::path config_filename, dspDat
 
   auto architecture = j["architecture"];
   nlohmann::json config = j["config"];
-  std::vector<float> weights = GetWeights(j, config_filename);
+  std::vector<float> weights = GetWeights(j);
 
   // Assign values to returnedConfig
   returnedConfig.version = j["version"];
