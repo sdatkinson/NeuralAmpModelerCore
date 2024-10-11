@@ -47,7 +47,7 @@ void nam::DSP::prewarm()
 void nam::DSP::process(NAM_SAMPLE* input, NAM_SAMPLE* output, const int num_frames)
 {
   // Default implementation is the null operation
-  for (size_t i = 0; i < num_frames; i++)
+  for (int i = 0; i < num_frames; i++)
     output[i] = input[i];
 }
 
@@ -173,9 +173,9 @@ void nam::Linear::process(NAM_SAMPLE* input, NAM_SAMPLE* output, const int num_f
   this->nam::Buffer::_update_buffers_(input, num_frames);
 
   // Main computation!
-  for (size_t i = 0; i < num_frames; i++)
+  for (int i = 0; i < num_frames; i++)
   {
-    const size_t offset = this->_input_buffer_offset - this->_weight.size() + i + 1;
+    const long offset = this->_input_buffer_offset - this->_weight.size() + i + 1;
     auto input = Eigen::Map<const Eigen::VectorXf>(&this->_input_buffer[offset], this->_receptive_field);
     output[i] = this->_bias + this->_weight.dot(input);
   }
