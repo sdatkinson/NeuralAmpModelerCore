@@ -80,7 +80,7 @@ nam::lstm::LSTM::LSTM(const int num_layers, const int input_size, const int hidd
 
 void nam::lstm::LSTM::process(NAM_SAMPLE* input, NAM_SAMPLE* output, const int num_frames)
 {
-  for (size_t i = 0; i < num_frames; i++)
+  for (int i = 0; i < num_frames; i++)
     output[i] = this->_process_sample(input[i]);
 }
 
