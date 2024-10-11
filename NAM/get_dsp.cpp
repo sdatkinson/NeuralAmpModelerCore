@@ -119,6 +119,12 @@ std::unique_ptr<DSP> get_dsp(const std::filesystem::path config_filename, dspDat
   return get_dsp(conf);
 }
 
+struct OptionalValue
+{
+  bool have = false;
+  double value = 0.0;
+};
+
 std::unique_ptr<DSP> get_dsp(dspData& conf)
 {
   verify_config_version(conf.version);
@@ -126,16 +132,21 @@ std::unique_ptr<DSP> get_dsp(dspData& conf)
   auto& architecture = conf.architecture;
   nlohmann::json& config = conf.config;
   std::vector<float>& weights = conf.weights;
-  bool haveLoudness = false;
-  double loudness = 0.0;
+  OptionalValue loudness, inputLevel, outputLevel;
+
+  auto AssignOptional = [&conf](const std::string key, OptionalValue& v) {
+    if (conf.metadata.find(key) != conf.metadata.end())
+    {
+      v.value = conf.metadata[key];
+      v.have = true;
+    }
+  };
 
   if (!conf.metadata.is_null())
   {
-    if (conf.metadata.find("loudness") != conf.metadata.end())
-    {
-      loudness = conf.metadata["loudness"];
-      haveLoudness = true;
-    }
+    AssignOptional("loudness", loudness);
+    AssignOptional("input_level_dbu", inputLevel);
+    AssignOptional("output_level_dbu", outputLevel);
   }
   const double expectedSampleRate = conf.expected_sample_rate;
 
@@ -180,9 +191,17 @@ std::unique_ptr<DSP> get_dsp(dspData& conf)
   {
     throw std::runtime_error("Unrecognized architecture");
   }
-  if (haveLoudness)
+  if (loudness.have)
   {
-    out->SetLoudness(loudness);
+    out->SetLoudness(loudness.value);
+  }
+  if (inputLevel.have)
+  {
+    out->SetInputLevel(inputLevel.value);
+  }
+  if (outputLevel.have)
+  {
+    out->SetOutputLevel(outputLevel.value);
   }
 
   // "pre-warm" the model to settle initial conditions
