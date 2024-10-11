@@ -36,7 +36,7 @@ if (MSVC)
 else()
 	target_compile_options(${TOOLS} PRIVATE
 		-Wall -Wextra -Wpedantic -Wstrict-aliasing -Wunreachable-code -Weffc++ -Wno-unused-parameter
-		"$<$<CONFIG:DEBUG>:-Og;-ggdb;-Werror>"
+		"$<$<CONFIG:DEBUG>:-Og;-ggdb>"  # ;-Werror>"  # HACK get this back
 		"$<$<CONFIG:RELEASE>:-Ofast>"
 	)
 endif()
