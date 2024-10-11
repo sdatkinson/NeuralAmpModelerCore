@@ -29,7 +29,7 @@ public:
   , _input_mixin(condition_size, gated ? 2 * channels : channels, false)
   , _1x1(channels, channels, true)
   , _activation(activations::Activation::get_activation(activation))
-  , _gated(gated){};
+  , _gated(gated) {};
   void set_weights_(std::vector<float>::iterator& weights);
   // :param `input`: from previous layer
   // :param `output`: to next layer

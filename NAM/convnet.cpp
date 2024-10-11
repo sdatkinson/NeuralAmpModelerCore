@@ -147,7 +147,7 @@ void nam::convnet::ConvNet::_update_buffers_(NAM_SAMPLE* input, const int num_fr
 {
   this->Buffer::_update_buffers_(input, num_frames);
 
-  const size_t buffer_size = this->_input_buffer.size();
+  const long buffer_size = (long)this->_input_buffer.size();
 
   if (this->_block_vals[0].rows() != 1 || this->_block_vals[0].cols() != buffer_size)
   {

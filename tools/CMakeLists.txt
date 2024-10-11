@@ -40,3 +40,8 @@ else()
 		"$<$<CONFIG:RELEASE>:-Ofast>"
 	)
 endif()
+
+# There's an error in eigen's
+# /Users/steve/src/NeuralAmpModelerCore/Dependencies/eigen/Eigen/src/Core/products/GeneralBlockPanelKernel.h
+# Don't let this break my build on debug:
+set_source_files_properties(../NAM/dsp.cpp PROPERTIES COMPILE_FLAGS "-Wno-error")
