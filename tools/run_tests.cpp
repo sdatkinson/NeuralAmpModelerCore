@@ -10,7 +10,7 @@ int main()
 {
   std::cout << "Running tests..." << std::endl;
   // TODO Automatically loop, catch exceptions, log results
-  
+
   test_activations::TestLeakyReLU::test_core_function();
   test_activations::TestLeakyReLU::test_get_by_init();
   test_activations::TestLeakyReLU::test_get_by_str();
