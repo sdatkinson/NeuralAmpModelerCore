@@ -22,7 +22,7 @@ namespace convnet
 class BatchNorm
 {
 public:
-  BatchNorm() {};
+  BatchNorm(){};
   BatchNorm(const int dim, std::vector<float>::iterator& weights);
   void process_(Eigen::MatrixXf& input, const long i_start, const long i_end) const;
 
@@ -39,7 +39,7 @@ private:
 class ConvNetBlock
 {
 public:
-  ConvNetBlock() {};
+  ConvNetBlock(){};
   void set_weights_(const int in_channels, const int out_channels, const int _dilation, const bool batchnorm,
                     const std::string activation, std::vector<float>::iterator& weights);
   void process_(const Eigen::MatrixXf& input, Eigen::MatrixXf& output, const long i_start, const long i_end) const;
@@ -55,7 +55,7 @@ private:
 class _Head
 {
 public:
-  _Head() {};
+  _Head(){};
   _Head(const int channels, std::vector<float>::iterator& weights);
   void process_(const Eigen::MatrixXf& input, Eigen::VectorXf& output, const long i_start, const long i_end) const;
 

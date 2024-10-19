@@ -39,6 +39,13 @@ inline float fast_sigmoid(const float x)
   return 0.5f * (fast_tanh(x * 0.5f) + 1.0f);
 }
 
+// Assumes PyTorch default of 0.01 for negative slope. This may change to be
+// configurable in the future.
+inline float leaky_relu(float x)
+{
+  const float negative_slope = 0.01;
+  return x > 0.0f ? x : negative_slope * x;
+}
 
 class Activation
 {
@@ -106,6 +113,18 @@ public:
     for (long pos = 0; pos < size; pos++)
     {
       data[pos] = relu(data[pos]);
+    }
+  }
+};
+
+class ActivationLeakyReLU : public Activation
+{
+public:
+  void apply(float* data, long size) override
+  {
+    for (long pos = 0; pos < size; pos++)
+    {
+      data[pos] = leaky_relu(data[pos]);
     }
   }
 };
