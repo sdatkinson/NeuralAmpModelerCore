@@ -1,5 +1,7 @@
 #include <fstream>
 
+#include "dsp.h"
+
 namespace nam
 {
 // Get NAM from a .nam file at the provided location

@@ -137,8 +137,11 @@ std::unique_ptr<DSP> get_dsp(dspData& conf)
   auto AssignOptional = [&conf](const std::string key, OptionalValue& v) {
     if (conf.metadata.find(key) != conf.metadata.end())
     {
-      v.value = conf.metadata[key];
-      v.have = true;
+      if (!conf.metadata[key].is_null())
+      {
+        v.value = conf.metadata[key];
+        v.have = true;
+      }
     }
   };
 
