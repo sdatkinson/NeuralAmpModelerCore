@@ -37,10 +37,15 @@ void nam::wavenet::_Layer::process_(const Eigen::MatrixXf& input, const Eigen::M
   }
   else
   {
-    this->_activation->apply(this->_z.topRows(channels));
-    activations::Activation::get_activation("Sigmoid")->apply(this->_z.bottomRows(channels));
-    // activations::Activation::get_activation("Sigmoid")->apply(this->_z.block(channels, 0, channels,
-    // this->_z.cols()));
+    // CAREFUL: .topRows() and .bottomRows() won't be memory-contiguous for a column-major matrix (Issue 125). Need to
+    // do this column-wise:
+    for (long i = 0; i < _z.cols(); i++)
+    {
+      this->_activation->apply(this->_z.block(0, i, channels, 1));
+      activations::Activation::get_activation("Sigmoid")->apply(this->_z.block(channels, i, channels, 1));
+      // activations::Activation::get_activation("Sigmoid")->apply(this->_z.block(channels, 0, channels,
+      // this->_z.cols()));
+    }
 
     this->_z.topRows(channels).array() *= this->_z.bottomRows(channels).array();
     // this->_z.topRows(channels) = this->_z.topRows(channels).cwiseProduct(
