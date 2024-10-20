@@ -43,14 +43,8 @@ void nam::wavenet::_Layer::process_(const Eigen::MatrixXf& input, const Eigen::M
     {
       this->_activation->apply(this->_z.block(0, i, channels, 1));
       activations::Activation::get_activation("Sigmoid")->apply(this->_z.block(channels, i, channels, 1));
-      // activations::Activation::get_activation("Sigmoid")->apply(this->_z.block(channels, 0, channels,
-      // this->_z.cols()));
     }
-
     this->_z.topRows(channels).array() *= this->_z.bottomRows(channels).array();
-    // this->_z.topRows(channels) = this->_z.topRows(channels).cwiseProduct(
-    //   this->_z.bottomRows(channels)
-    // );
   }
 
   head_input += this->_z.topRows(channels);
