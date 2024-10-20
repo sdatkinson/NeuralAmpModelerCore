@@ -208,6 +208,7 @@ std::unique_ptr<DSP> get_dsp(dspData& conf)
   }
 
   // "pre-warm" the model to settle initial conditions
+  // Can this be removed now that it's part of Reset()?
   out->prewarm();
 
   return out;
