@@ -178,6 +178,9 @@ protected:
   Eigen::MatrixXf _condition;
   // Fill in the "condition" array that's fed into the various parts of the net.
   virtual void _set_condition_array(NAM_SAMPLE* input, const int num_frames);
+  // How many conditioning inputs are there.
+  // Just one--the audio.
+  virtual int _get_condition_dim() const { return 1; };
 
 private:
   long _num_frames;
@@ -194,7 +197,7 @@ private:
   void _advance_buffers_(const int num_frames);
   void _prepare_for_frames_(const long num_frames);
 
-  virtual int _get_condition_dim() const { return 1; };
+  
   // Ensure that all buffer arrays are the right size for this num_frames
   void _set_num_frames_(const long num_frames);
 
