@@ -12,6 +12,13 @@ nam::wavenet::_DilatedConv::_DilatedConv(const int in_channels, const int out_ch
   this->set_size_(in_channels, out_channels, kernel_size, bias, dilation);
 }
 
+// Layer ======================================================================
+
+void nam::wavenet::_Layer::Reset(const double sampleRate, const int maxBufferSize)
+{
+  _z.resize(get_channels(), maxBufferSize);
+}
+
 void nam::wavenet::_Layer::set_weights_(std::vector<float>::iterator& weights)
 {
   this->_conv.set_weights_(weights);
@@ -79,6 +86,14 @@ nam::wavenet::_LayerArray::_LayerArray(const int input_size, const int condition
     this->_layer_buffers[i].setZero();
   }
   this->_buffer_start = this->_get_receptive_field() - 1;
+}
+
+void nam::wavenet::_LayerArray::Reset(const double sampleRate, const int maxBufferSize)
+{
+  for (auto it = _layers.begin(); it != _layers.end(); ++it)
+  {
+    it->Reset(sampleRate, maxBufferSize);
+  }
 }
 
 void nam::wavenet::_LayerArray::advance_buffers_(const int num_frames)
@@ -191,6 +206,11 @@ nam::wavenet::_Head::_Head(const int input_size, const int num_layers, const int
   }
 }
 
+void nam::wavenet::_Head::Reset(const double sampleRate, const int maxBufferSize)
+{
+  set_num_frames_((long)maxBufferSize);
+}
+
 void nam::wavenet::_Head::set_weights_(std::vector<float>::iterator& weights)
 {
   for (size_t i = 0; i < this->_layers.size(); i++)
@@ -224,7 +244,7 @@ void nam::wavenet::_Head::set_num_frames_(const long num_frames)
     if (this->_buffers[i].rows() == this->_channels && this->_buffers[i].cols() == num_frames)
       continue; // Already has correct size
     this->_buffers[i].resize(this->_channels, num_frames);
-    this->_buffers[i].setZero();
+    this->_buffers[i].setZero(); // Shouldn't be needed--these are written to before they're used.
   }
 }
 
@@ -269,6 +289,12 @@ nam::wavenet::WaveNet::WaveNet(const std::vector<nam::wavenet::LayerArrayParams>
   mPrewarmSamples = 1;
   for (size_t i = 0; i < this->_layer_arrays.size(); i++)
     mPrewarmSamples += this->_layer_arrays[i].get_receptive_field();
+}
+
+void nam::wavenet::WaveNet::Reset(const double sampleRate, const int maxBufferSize)
+{
+  nam::DSP::Reset(sampleRate, maxBufferSize);
+  _set_num_frames_(maxBufferSize);
 }
 
 void nam::wavenet::WaveNet::set_weights_(std::vector<float>& weights)

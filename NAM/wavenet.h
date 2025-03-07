@@ -30,6 +30,7 @@ public:
   , _1x1(channels, channels, true)
   , _activation(activations::Activation::get_activation(activation))
   , _gated(gated) {};
+  void Reset(const double sampleRate, const int maxBufferSize);
   void set_weights_(std::vector<float>::iterator& weights);
   // :param `input`: from previous layer
   // :param `output`: to next layer
@@ -91,6 +92,8 @@ public:
               const int kernel_size, const std::vector<int>& dilations, const std::string activation, const bool gated,
               const bool head_bias);
 
+  void Reset(const double sampleRate, const int maxBufferSize);
+
   void advance_buffers_(const int num_frames);
 
   // Preparing for frames:
@@ -143,6 +146,7 @@ class _Head
 {
 public:
   _Head(const int input_size, const int num_layers, const int channels, const std::string activation);
+  void Reset(const double sampleRate, const int maxBufferSize);
   void set_weights_(std::vector<float>::iterator& weights);
   // NOTE: the head transforms the provided input by applying a nonlinearity
   // to it in-place!
@@ -170,6 +174,7 @@ public:
   WaveNet(const std::vector<LayerArrayParams>& layer_array_params, const float head_scale, const bool with_head,
           std::vector<float> weights, const double expected_sample_rate = -1.0);
   ~WaveNet() = default;
+  void Reset(const double sampleRate, const int maxBufferSize) override;
   void process(NAM_SAMPLE* input, NAM_SAMPLE* output, const int num_frames) override;
   void set_weights_(std::vector<float>& weights);
 
@@ -187,7 +192,7 @@ private:
   std::vector<_LayerArray> _layer_arrays;
   // Their outputs
   std::vector<Eigen::MatrixXf> _layer_array_outputs;
-  // Head _head;
+  // _Head _head;
 
   // One more than total layer arrays
   std::vector<Eigen::MatrixXf> _head_arrays;
@@ -197,7 +202,6 @@ private:
   void _advance_buffers_(const int num_frames);
   void _prepare_for_frames_(const long num_frames);
 
-  
   // Ensure that all buffer arrays are the right size for this num_frames
   void _set_num_frames_(const long num_frames);
 
