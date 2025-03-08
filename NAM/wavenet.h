@@ -30,12 +30,12 @@ public:
   , _1x1(channels, channels, true)
   , _activation(activations::Activation::get_activation(activation))
   , _gated(gated) {};
-  void Reset(const double sampleRate, const int maxBufferSize);
+  void SetMaxBufferSize(const int maxBufferSize);
   void set_weights_(std::vector<float>::iterator& weights);
   // :param `input`: from previous layer
   // :param `output`: to next layer
   void process_(const Eigen::MatrixXf& input, const Eigen::MatrixXf& condition, Eigen::MatrixXf& head_input,
-                Eigen::MatrixXf& output, const long i_start, const long j_start);
+                Eigen::MatrixXf& output, const long i_start, const long j_start, const int num_frames);
   void set_num_frames_(const long num_frames);
   long get_channels() const { return this->_conv.get_in_channels(); };
   int get_dilation() const { return this->_conv.get_dilation(); };
@@ -92,7 +92,7 @@ public:
               const int kernel_size, const std::vector<int>& dilations, const std::string activation, const bool gated,
               const bool head_bias);
 
-  void Reset(const double sampleRate, const int maxBufferSize);
+  void SetMaxBufferSize(const int maxBufferSize);
 
   void advance_buffers_(const int num_frames);
 
@@ -107,8 +107,8 @@ public:
                 const Eigen::MatrixXf& condition, // Short
                 Eigen::MatrixXf& layer_outputs, // Short
                 Eigen::MatrixXf& head_inputs, // Sum up on this.
-                Eigen::MatrixXf& head_outputs // post head-rechannel
-  );
+                Eigen::MatrixXf& head_outputs, // post head-rechannel
+                const int num_frames);
   void set_num_frames_(const long num_frames);
   void set_weights_(std::vector<float>::iterator& it);
 
@@ -174,13 +174,14 @@ public:
   WaveNet(const std::vector<LayerArrayParams>& layer_array_params, const float head_scale, const bool with_head,
           std::vector<float> weights, const double expected_sample_rate = -1.0);
   ~WaveNet() = default;
-  void Reset(const double sampleRate, const int maxBufferSize) override;
   void process(NAM_SAMPLE* input, NAM_SAMPLE* output, const int num_frames) override;
   void set_weights_(std::vector<float>& weights);
 
 protected:
   // Element-wise arrays:
   Eigen::MatrixXf _condition;
+
+  void SetMaxBufferSize(const int maxBufferSize) override;
   // Fill in the "condition" array that's fed into the various parts of the net.
   virtual void _set_condition_array(NAM_SAMPLE* input, const int num_frames);
   // How many conditioning inputs are there.
@@ -188,7 +189,6 @@ protected:
   virtual int _get_condition_dim() const { return 1; };
 
 private:
-  long _num_frames;
   std::vector<_LayerArray> _layer_arrays;
   // Their outputs
   std::vector<Eigen::MatrixXf> _layer_array_outputs;
