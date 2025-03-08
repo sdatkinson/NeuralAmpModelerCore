@@ -201,7 +201,7 @@ class Conv1x1
 public:
   Conv1x1(const int in_channels, const int out_channels, const bool _bias);
   Eigen::Block<Eigen::MatrixXf> GetOutput(const int num_frames);
-  void SetMaxBufferSize(const int maxBufferSize) override;
+  void SetMaxBufferSize(const int maxBufferSize);
   void set_weights_(std::vector<float>::iterator& weights);
   // :param input: (N,Cin) or (Cin,)
   // :return: (N,Cout) or (Cout,), respectively
