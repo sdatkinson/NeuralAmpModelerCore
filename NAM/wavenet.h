@@ -30,11 +30,12 @@ public:
   , _1x1(channels, channels, true)
   , _activation(activations::Activation::get_activation(activation))
   , _gated(gated) {};
+  void SetMaxBufferSize(const int maxBufferSize);
   void set_weights_(std::vector<float>::iterator& weights);
   // :param `input`: from previous layer
   // :param `output`: to next layer
   void process_(const Eigen::MatrixXf& input, const Eigen::MatrixXf& condition, Eigen::MatrixXf& head_input,
-                Eigen::MatrixXf& output, const long i_start, const long j_start);
+                Eigen::MatrixXf& output, const long i_start, const long j_start, const int num_frames);
   void set_num_frames_(const long num_frames);
   long get_channels() const { return this->_conv.get_in_channels(); };
   int get_dilation() const { return this->_conv.get_dilation(); };
@@ -91,6 +92,8 @@ public:
               const int kernel_size, const std::vector<int>& dilations, const std::string activation, const bool gated,
               const bool head_bias);
 
+  void SetMaxBufferSize(const int maxBufferSize);
+
   void advance_buffers_(const int num_frames);
 
   // Preparing for frames:
@@ -104,8 +107,8 @@ public:
                 const Eigen::MatrixXf& condition, // Short
                 Eigen::MatrixXf& layer_outputs, // Short
                 Eigen::MatrixXf& head_inputs, // Sum up on this.
-                Eigen::MatrixXf& head_outputs // post head-rechannel
-  );
+                Eigen::MatrixXf& head_outputs, // post head-rechannel
+                const int num_frames);
   void set_num_frames_(const long num_frames);
   void set_weights_(std::vector<float>::iterator& it);
 
@@ -143,6 +146,7 @@ class _Head
 {
 public:
   _Head(const int input_size, const int num_layers, const int channels, const std::string activation);
+  void Reset(const double sampleRate, const int maxBufferSize);
   void set_weights_(std::vector<float>::iterator& weights);
   // NOTE: the head transforms the provided input by applying a nonlinearity
   // to it in-place!
@@ -176,6 +180,8 @@ public:
 protected:
   // Element-wise arrays:
   Eigen::MatrixXf _condition;
+
+  void SetMaxBufferSize(const int maxBufferSize) override;
   // Fill in the "condition" array that's fed into the various parts of the net.
   virtual void _set_condition_array(NAM_SAMPLE* input, const int num_frames);
   // How many conditioning inputs are there.
@@ -183,11 +189,10 @@ protected:
   virtual int _get_condition_dim() const { return 1; };
 
 private:
-  long _num_frames;
   std::vector<_LayerArray> _layer_arrays;
   // Their outputs
   std::vector<Eigen::MatrixXf> _layer_array_outputs;
-  // Head _head;
+  // _Head _head;
 
   // One more than total layer arrays
   std::vector<Eigen::MatrixXf> _head_arrays;
@@ -197,7 +202,6 @@ private:
   void _advance_buffers_(const int num_frames);
   void _prepare_for_frames_(const long num_frames);
 
-  
   // Ensure that all buffer arrays are the right size for this num_frames
   void _set_num_frames_(const long num_frames);
 

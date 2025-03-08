@@ -109,7 +109,6 @@ std::unique_ptr<DSP> get_dsp(const std::filesystem::path config_filename, dspDat
     returnedConfig.expected_sample_rate = -1.0;
   }
 
-
   /*Copy to a new dsp_config object for get_dsp below,
    since not sure if weights actually get modified as being non-const references on some
    model constructors inside get_dsp(dsp_config& conf).

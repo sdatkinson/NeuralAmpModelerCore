@@ -108,10 +108,12 @@ protected:
   bool mHaveExternalSampleRate = false;
   double mExternalSampleRate = -1.0;
   // The largest buffer I expect to be told to process:
-  int mMaxBufferSize = 512;
+  int mMaxBufferSize = 0;
 
   // How many samples should be processed for me to be considered "warmed up"?
   virtual int PrewarmSamples() { return 0; };
+
+  virtual void SetMaxBufferSize(const int maxBufferSize);
 
 private:
   struct Level
@@ -198,16 +200,22 @@ class Conv1x1
 {
 public:
   Conv1x1(const int in_channels, const int out_channels, const bool _bias);
+  Eigen::Block<Eigen::MatrixXf> GetOutput(const int num_frames);
+  void SetMaxBufferSize(const int maxBufferSize);
   void set_weights_(std::vector<float>::iterator& weights);
   // :param input: (N,Cin) or (Cin,)
   // :return: (N,Cout) or (Cout,), respectively
-  Eigen::MatrixXf process(const Eigen::MatrixXf& input) const;
+  Eigen::MatrixXf process(const Eigen::MatrixXf& input) const { return process(input, (int)input.cols()); };
+  Eigen::MatrixXf process(const Eigen::MatrixXf& input, const int num_frames) const;
+  // Store output to pre-allocated _output; access with GetOutput()
+  void process_(const Eigen::MatrixXf& input, const int num_frames);
 
   long get_out_channels() const { return this->_weight.rows(); };
 
 private:
   Eigen::MatrixXf _weight;
   Eigen::VectorXf _bias;
+  Eigen::MatrixXf _output;
   bool _do_bias;
 };
 

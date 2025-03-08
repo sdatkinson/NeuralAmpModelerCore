@@ -52,7 +52,7 @@ void test_gated()
   headInput.setZero();
   output.setZero();
 
-  layer.process_(input, condition, headInput, output, 0, 0);
+  layer.process_(input, condition, headInput, output, 0, 0, (int)numFrames);
 
   // 0.25 + 0.25 -> 0.5 for conv & input mixin top channel
   // (0 on bottom channel)
