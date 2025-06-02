@@ -59,9 +59,12 @@ To build the WebAssembly version of the library, you'll need to install Emscript
    ./build.bash
    ```
 
-The build script will create the WebAssembly files in the `build` directory. The main output files will be:
-- `nam.js` - JavaScript wrapper
-- `nam.wasm` - WebAssembly binary
+The build script will create the WebAssembly files in the `build/wasm` directory. The main output files will be:
+- `t3k-wasm-model.js` - JavaScript wrapper
+- `t3k-wasm-model.wasm` - WebAssembly binary
+- `t3k-wasm-model.worker.js` - Web Worker implementation for parallel processing
+- `t3k-wasm-model.aw.js` - Audio Worklet implementation for real-time audio processing
+- `t3k-wasm-model.ww.js` - Web Worker wrapper for thread management
 
 ## Sharp edges
 This library uses [Eigen](http://eigen.tuxfamily.org) to do the linear algebra routines that its neural networks require. Since these models hold their parameters as eigen object members, there is a risk with certain compilers and compiler optimizations that their memory is not aligned properly. This can be worked around by providing two preprocessor macros: `EIGEN_MAX_ALIGN_BYTES 0` and `EIGEN_DONT_VECTORIZE`, though this will probably harm performance. See [Structs Having Eigen Members](http://eigen.tuxfamily.org/dox-3.2/group__TopicStructHavingEigenMembers.html) for more information. This is being tracked as [Issue 67](https://github.com/sdatkinson/NeuralAmpModelerCore/issues/67).
