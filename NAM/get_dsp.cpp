@@ -118,6 +118,51 @@ std::unique_ptr<DSP> get_dsp(const std::filesystem::path config_filename, dspDat
   return get_dsp(conf);
 }
 
+// This JSON string-based loader is specifically needed for WASM builds where we can't directly
+// access the filesystem. Instead, the model configuration is passed as a JSON string from
+// JavaScript/TypeScript, allowing the WASM module to load models without filesystem access.
+// See previous work by Kutalia: https://github.com/Kutalia/NeuralAmpModelerCore_WASM
+//
+// Parameters:
+//   jsonStr - A null-terminated C string containing the model configuration in JSON format.
+//             The JSON must contain: version, architecture, config, metadata, and weights fields.
+// Returns:
+//   A unique pointer to a DSP object configured according to the JSON specification.
+// Throws:
+//   - std::runtime_error if the JSON is invalid or missing required fields
+//   - std::invalid_argument if the model version is unsupported
+std::unique_ptr<DSP> get_dsp(const char* jsonStr)
+{
+  // Parse the JSON string into a JSON object
+  nlohmann::json j = nlohmann::json::parse(jsonStr);
+  verify_config_version(j["version"]);
+
+  dspData tempConfig;
+
+  // Extract required fields from JSON
+  auto architecture = j["architecture"];
+  nlohmann::json config = j["config"];
+  std::vector<float> weights = GetWeights(j);
+
+  // Populate the configuration object with all model parameters
+  tempConfig.version = j["version"];
+  tempConfig.architecture = j["architecture"];
+  tempConfig.config = j["config"];
+  tempConfig.metadata = j["metadata"];
+  tempConfig.weights = weights;
+  if (j.find("sample_rate") != j.end())
+    tempConfig.expected_sample_rate = j["sample_rate"];
+  else
+  {
+    tempConfig.expected_sample_rate = -1.0;
+  }
+
+  // Return unmodified version of dsp_config
+  dspData conf = tempConfig;
+
+  return get_dsp(conf);
+}
+
 struct OptionalValue
 {
   bool have = false;

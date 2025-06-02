@@ -259,4 +259,6 @@ std::unique_ptr<DSP> get_dsp(const std::filesystem::path model_file, dspData& re
 std::unique_ptr<DSP> get_dsp(dspData& conf);
 // Legacy loader for directory-type DSPs
 std::unique_ptr<DSP> get_dsp_legacy(const std::filesystem::path dirname);
+// Instantiate a DSP object from a JSON string. For use in WASM builds.
+std::unique_ptr<DSP> get_dsp(const char* jsonStr);
 }; // namespace nam

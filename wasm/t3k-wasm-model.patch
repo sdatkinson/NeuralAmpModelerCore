@@ -1,0 +1,68 @@
+# This patch modifies the WebAssembly memory allocation and handling in loadwebmodel.js:
+# 1. Adds mobile device detection for iOS devices
+# 2. Adjusts memory allocation limits:
+#    - Sets 1GB initial memory for both mobile and desktop
+#    - Sets 1GB maximum memory for mobile devices
+#    - Sets 2GB maximum memory for desktop devices
+# 3. Fixes the path to t3k-wasm-model.aw.js to use absolute path
+#
+--- t3k-wasm-model.js	2025-06-02 15:32:01
++++ t3k-wasm-model.js	2025-06-02 15:34:40
+@@ -1,3 +1,18 @@
++function isMobileDevice() {
++  if (
++    ENVIRONMENT_IS_NODE ||
++    ENVIRONMENT_IS_WORKER ||
++    ENVIRONMENT_IS_AUDIO_WORKLET
++  ) {
++    return false;
++  }
++  try {
++    return ENVIRONMENT_IS_WEB && /iPhone|iPad|iPod/i.test(navigator.userAgent);
++  } catch (e) {
++    return false;
++  }
++}
++
+ function GROWABLE_HEAP_I8() {
+   if (wasmMemory.buffer != HEAP8.buffer) {
+     updateMemoryViews();
+@@ -154,7 +169,11 @@
+   Module["HEAPF32"] = HEAPF32 = new Float32Array(b);
+   Module["HEAPF64"] = HEAPF64 = new Float64Array(b);
+ }
+-var INITIAL_MEMORY = Module["INITIAL_MEMORY"] || 1073741824;
++
++// console.log('isMobileDevice() 1 GB', isMobileDevice());
++var INITIAL_MEMORY =
++  Module["INITIAL_MEMORY"] || (isMobileDevice() ? 1073741824 : 1073741824); // 1GB for both
++
+ assert(
+   INITIAL_MEMORY >= 536870912,
+   "INITIAL_MEMORY should be larger than STACK_SIZE, was " +
+@@ -171,7 +190,7 @@
+   } else {
+     wasmMemory = new WebAssembly.Memory({
+       initial: INITIAL_MEMORY / 65536,
+-      maximum: 2147483648 / 65536,
++      maximum: isMobileDevice() ? 1073741824 / 65536 : 2147483648 / 65536, // 1GB max for mobile, 2GB for desktop
+       shared: true,
+     });
+     if (!(wasmMemory.buffer instanceof SharedArrayBuffer)) {
+@@ -187,6 +206,7 @@
+     }
+   }
+ }
++wasmMemory.buffer;
+ updateMemoryViews();
+ INITIAL_MEMORY = wasmMemory.buffer.byteLength;
+ var wasmTable;
+@@ -1354,7 +1374,7 @@
+     return audioWorkletCreationFailed();
+   }
+   audioWorklet
+-    .addModule("t3k-wasm-model.aw.js")
++    .addModule("/t3k-wasm-model.aw.js")
+     .then(() => {
+       audioWorklet.bootstrapMessage = new AudioWorkletNode(
+         audioContext,

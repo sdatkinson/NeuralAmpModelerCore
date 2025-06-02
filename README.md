@@ -7,5 +7,61 @@ For an example how to use, see [NeuralAmpModelerPlugin](https://github.com/sdatk
 A workflow for testing the library is provided in `.github/workflows/build.yml`.
 You should be able to run it locally to test if you'd like.
 
+## Building
+Before building the project, you need to initialize the required submodules:
+
+```bash
+git submodule update --init --recursive
+```
+
+This will fetch and initialize the Eigen library and other dependencies required for building.
+
+## WebAssembly (WASM) Build
+To build the WebAssembly version of the library, you'll need to install Emscripten and Node.js first:
+
+1. Install Node.js and npm (which includes npx):
+   ```bash
+   # On macOS with Homebrew
+   brew install node
+
+   # On Ubuntu/Debian
+   curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
+   sudo apt-get install -y nodejs
+
+   # On Windows
+   # Download and install from https://nodejs.org/
+   ```
+
+2. Install Emscripten:
+   ```bash
+   # Clone the emsdk repository
+   git clone https://github.com/emscripten-core/emsdk.git
+   cd emsdk
+   
+   # Install and activate the latest version
+   ./emsdk install 3.1.41
+   ./emsdk activate 3.1.41
+   
+   # Set up the environment variables
+   source ./emsdk_env.sh
+
+   # Add Emscripten to your PATH permanently
+   # For bash/zsh, add this line to your ~/.bashrc or ~/.zshrc:
+   echo 'source "$HOME/emsdk/emsdk_env.sh"' >> ~/.bashrc  # or ~/.zshrc
+   # Then reload your shell configuration:
+   source ~/.bashrc  # or source ~/.zshrc
+   ```
+
+3. Build the WASM version:
+   ```bash
+   cd wasm
+   # Run the WASM build script
+   ./build.bash
+   ```
+
+The build script will create the WebAssembly files in the `build` directory. The main output files will be:
+- `nam.js` - JavaScript wrapper
+- `nam.wasm` - WebAssembly binary
+
 ## Sharp edges
 This library uses [Eigen](http://eigen.tuxfamily.org) to do the linear algebra routines that its neural networks require. Since these models hold their parameters as eigen object members, there is a risk with certain compilers and compiler optimizations that their memory is not aligned properly. This can be worked around by providing two preprocessor macros: `EIGEN_MAX_ALIGN_BYTES 0` and `EIGEN_DONT_VECTORIZE`, though this will probably harm performance. See [Structs Having Eigen Members](http://eigen.tuxfamily.org/dox-3.2/group__TopicStructHavingEigenMembers.html) for more information. This is being tracked as [Issue 67](https://github.com/sdatkinson/NeuralAmpModelerCore/issues/67).
