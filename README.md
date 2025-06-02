@@ -38,7 +38,7 @@ To build the WebAssembly version of the library, you'll need to install Emscript
    git clone https://github.com/emscripten-core/emsdk.git
    cd emsdk
    
-   # Install and activate the latest version
+   # Install and activate Emscripten
    ./emsdk install 3.1.41
    ./emsdk activate 3.1.41
    
