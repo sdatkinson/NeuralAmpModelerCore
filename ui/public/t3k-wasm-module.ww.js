@@ -1,0 +1,1 @@
+onmessage=function(d){onmessage=null;d=d.data;self.Module=d;d["instantiateWasm"]=(info,receiveInstance)=>{var instance=new WebAssembly.Instance(d["wasm"],info);receiveInstance(instance,d["wasm"]);return instance.exports};importScripts(d.js);d.wasm=d.mem=d.js=0};

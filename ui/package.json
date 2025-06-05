@@ -1,0 +1,47 @@
+{
+  "name": "neural-amp-modeler-wasm",
+  "version": "1.0.0",
+  "description": "Neural Amp Modeler WebAssembly React Component",
+  "type": "module",
+  "main": "dist/index.js",
+  "module": "dist/index.esm.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "rollup -c rollup.config.mjs",
+    "dev": "rollup -c rollup.config.mjs -w",
+    "clean": "rimraf dist",
+    "prepare": "npm run clean && npm run build",
+    "preview": "vite preview",
+    "start": "npm run copy-wasm && vite",
+    "copy-wasm": "mkdir -p public && cp ../build/wasm/t3k-wasm-module.* public/"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0"
+  },
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "^24.0.0",
+    "@rollup/plugin-node-resolve": "^15.0.0",
+    "@rollup/plugin-typescript": "^11.0.0",
+    "@types/react": "^18.0.0",
+    "@types/react-dom": "^18.0.0",
+    "@vitejs/plugin-react": "^4.2.0",
+    "autoprefixer": "^10.4.21",
+    "postcss": "^8.5.4",
+    "rimraf": "^5.0.0",
+    "rollup": "^3.0.0",
+    "rollup-plugin-postcss": "^4.0.2",
+    "tailwindcss": "^3.4.1",
+    "tslib": "^2.5.0",
+    "typescript": "^5.0.0",
+    "vite": "^5.0.0"
+  },
+  "author": "woodybury",
+  "license": "ISC",
+  "dependencies": {
+    "lucide-react": "^0.513.0"
+  }
+}

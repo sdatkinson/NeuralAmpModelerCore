@@ -22,10 +22,10 @@ emcmake cmake .. -DCMAKE_BUILD_TYPE="Release" && cmake --build . --config=releas
 
 # Format the generated JavaScript file for to prep for patching
 cd wasm
-npx prettier --write t3k-wasm-model.js
+npx prettier --write t3k-wasm-module.js
 
 # Apply custom patch to the generated JavaScript file
-patch -p0 < ../../wasm/t3k-wasm-model.patch
+patch -p0 < ../../wasm/t3k-wasm-module.patch
 
 # Minify the JavaScript file to reduce its size
-npx terser t3k-wasm-model.js -o t3k-wasm-model.js
+npx terser t3k-wasm-module.js -o t3k-wasm-module.js

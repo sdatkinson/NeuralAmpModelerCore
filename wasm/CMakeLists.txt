@@ -2,7 +2,7 @@
 file(GLOB_RECURSE NAM_SOURCES ../NAM/*.cpp ../NAM/*.c ../NAM*.h)
 
 # Define the tools we want to build
-set(TOOLS t3k-wasm-model)
+set(TOOLS t3k-wasm-module)
 
 # Create a custom target that depends on all tools
 add_custom_target(tools ALL
@@ -13,8 +13,8 @@ include_directories(tools ..)
 include_directories(tools ${NAM_DEPS_PATH}/eigen)  # Eigen library for matrix operations
 include_directories(tools ${NAM_DEPS_PATH}/nlohmann)  # JSON library
 
-# Create the t3k-wasm-model executable
-add_executable(t3k-wasm-model t3k-wasm-model.cpp ${NAM_SOURCES})
+# Create the t3k-wasm-module executable
+add_executable(t3k-wasm-module t3k-wasm-module.cpp ${NAM_SOURCES})
 
 # Define compilation flags for Web Audio compatibility
 # Web Audio API only supports 32-bit float processing
@@ -36,8 +36,8 @@ set_target_properties(${TOOLS}
 	PREFIX ""  # Remove the 'lib' prefix from output files
 )
 
-# Set specific compilation flags for t3k-wasm-model
-set_target_properties(t3k-wasm-model PROPERTIES COMPILE_FLAGS "-Os -pthread")
+# Set specific compilation flags for t3k-wasm-module
+set_target_properties(t3k-wasm-module PROPERTIES COMPILE_FLAGS "-Os -pthread")
 
 # Configure Emscripten-specific linker flags for WebAssembly compilation
 # These flags enable:
@@ -46,10 +46,10 @@ set_target_properties(t3k-wasm-model PROPERTIES COMPILE_FLAGS "-Os -pthread")
 # - Memory growth
 # - Async operations
 # - Threading support
-set_target_properties(t3k-wasm-model PROPERTIES LINK_FLAGS "-Os -sEXPORTED_FUNCTIONS=stringToUTF8,_malloc,_setDsp,_free -sENVIRONMENT=web,worker -sEXPORTED_RUNTIME_METHODS=ccall -sAUDIO_WORKLET -sWASM_WORKERS -sALLOW_MEMORY_GROWTH -sINITIAL_MEMORY=1024MB -sTOTAL_STACK=512MB -sASYNCIFY -pthread")
+set_target_properties(t3k-wasm-module PROPERTIES LINK_FLAGS "-Os -sEXPORTED_FUNCTIONS=stringToUTF8,_malloc,_setDsp,_free -sENVIRONMENT=web,worker -sEXPORTED_RUNTIME_METHODS=ccall -sAUDIO_WORKLET -sWASM_WORKERS -sALLOW_MEMORY_GROWTH -sINITIAL_MEMORY=1024MB -sTOTAL_STACK=512MB -sASYNCIFY -pthread")
 
 # TODO: Support JS Modules
-# set_target_properties(t3k-wasm-model PROPERTIES LINK_FLAGS "-Os -sEXPORTED_FUNCTIONS=stringToUTF8,_malloc,_setDsp,_free -sENVIRONMENT=web,worker -sEXPORTED_RUNTIME_METHODS=ccall -sAUDIO_WORKLET -sWASM_WORKERS -sALLOW_MEMORY_GROWTH -sINITIAL_MEMORY=1024MB -sTOTAL_STACK=512MB -sASYNCIFY -sMODULARIZE -sASSERTIONS -sWEBAUDIO_DEBUG -sEXPORT_NAME=coreModule -sEXPORT_ES6=1")
+# set_target_properties(t3k-wasm-module PROPERTIES LINK_FLAGS "-Os -sEXPORTED_FUNCTIONS=stringToUTF8,_malloc,_setDsp,_free -sENVIRONMENT=web,worker -sEXPORTED_RUNTIME_METHODS=ccall -sAUDIO_WORKLET -sWASM_WORKERS -sALLOW_MEMORY_GROWTH -sINITIAL_MEMORY=1024MB -sTOTAL_STACK=512MB -sASYNCIFY -sMODULARIZE -sASSERTIONS -sWEBAUDIO_DEBUG -sEXPORT_NAME=coreModule -sEXPORT_ES6=1")
 
 # Windows-specific definitions
 if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
