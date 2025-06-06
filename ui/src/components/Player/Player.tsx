@@ -7,6 +7,7 @@ import { Skip } from '../ui/Skip';
 import { Select } from '../ui/Select';
 import { ToggleSimple } from '../ui/ToggleSimple';
 import { Pause } from '../ui/Pause';
+import { LogoSm } from '../ui/LogoSm';
 
 const PlayerFC: React.FC<T3kPlayerProps> = ({ models, irs, inputs }) => {
   const {
@@ -204,7 +205,7 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({ models, irs, inputs }) => {
   };
 
   return (
-    <div className="bg-zinc-900 border border-zinc-700 text-white p-4 lg:p-8 pt-0 lg:pt-2 rounded-xl w-full">
+    <div className="bg-zinc-900 border border-zinc-700 text-white p-4 lg:p-8 pt-0 lg:pt-2 rounded-xl w-full flex flex-col gap-6">
       <div className="flex items-center gap-4 overflow-hidden">
         <button
           onClick={togglePlay}
@@ -289,6 +290,10 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({ models, irs, inputs }) => {
           </div>
         </div>
       </div>
+      <a href="https://www.tone3000.com" target='_blank' className="flex flex-row gap-2 items-center self-end">
+        <p className="text-zinc-400 text-xs">Powered by</p>
+        <LogoSm width={42} height={14} />
+      </a>
     </div>
   );
 };

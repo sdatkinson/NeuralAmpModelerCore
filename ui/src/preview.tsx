@@ -7,7 +7,7 @@ import './index.css';
 const PreviewContent: React.FC = () => {
   return (
     <div className="p-5 flex justify-center items-center">
-        <div className="flex flex-col gap-4 max-w-[800px] w-full">
+        <div className="flex flex-col gap-4 max-w-[700px] w-full">
             <T3kPlayer
                 models={[]}
                 irs={[]}

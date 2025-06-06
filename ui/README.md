@@ -16,12 +16,13 @@ npm install neural-amp-modeler-wasm
 
 Before using the component, you need to host the WebAssembly files at the root of your project. These files are required for the component to function:
 
-1. Copy the following files from the `build/wasm` directory to your project's public directory:
-   - `t3k-wasm-module.js`
-   - `t3k-wasm-module.wasm`
-   - `t3k-wasm-module.worker.js`
-   - `t3k-wasm-module.aw.js`
-   - `t3k-wasm-module.ww.js`
+1. Copy the following files from the repository to your project's public directory:
+
+   - [t3k-wasm-module.js](https://raw.githubusercontent.com/tone-3000/neural-amp-modeler-wasm/refs/heads/main/ui/public/t3k-wasm-module.js)
+   - [t3k-wasm-module.wasm](https://raw.githubusercontent.com/tone-3000/neural-amp-modeler-wasm/refs/heads/main/ui/public/t3k-wasm-module.wasm)
+   - [t3k-wasm-module.worker.js](https://raw.githubusercontent.com/tone-3000/neural-amp-modeler-wasm/refs/heads/main/ui/public/t3k-wasm-module.worker.js)
+   - [t3k-wasm-module.aw.js](https://raw.githubusercontent.com/tone-3000/neural-amp-modeler-wasm/refs/heads/main/ui/public/t3k-wasm-module.aw.js)
+   - [t3k-wasm-module.ww.js](https://raw.githubusercontent.com/tone-3000/neural-amp-modeler-wasm/refs/heads/main/ui/public/t3k-wasm-module.ww.js)
 
 2. Make sure these files are accessible at the root of your web server (e.g., `https://your-domain.com/t3k-wasm-module.wasm`)
 
@@ -100,19 +101,12 @@ Optional boolean to show loading state
 
 ## Requirements
 
-- React 18 or higher
-- Modern browser with WebAssembly support
-- The WebAssembly files must be hosted at the root of your project
-
-## Features
-
-- WebAssembly-powered audio processing
-- Real-time guitar amp modeling
-- React-based UI components
-- TypeScript support
-- Built-in audio player with model switching
-- Impulse Response (IR) support
-- Multiple input audio support
+- Your web server must include the following CORS headers to enable WebAssembly and SharedArrayBuffer support:
+  ```http
+  Cross-Origin-Embedder-Policy: require-corp
+  Cross-Origin-Opener-Policy: same-origin
+  ```
+  These headers are required because WebAssembly audio processing uses SharedArrayBuffer, which requires these security policies to be enabled.
 
 ## Development
 

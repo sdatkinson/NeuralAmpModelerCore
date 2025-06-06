@@ -1,6 +1,6 @@
 {
   "name": "neural-amp-modeler-wasm",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Neural Amp Modeler WebAssembly React Component",
   "type": "module",
   "main": "dist/index.js",
@@ -19,7 +19,9 @@
     "webassembly",
     "react",
     "audio",
-    "dsp"
+    "dsp",
+    "web-audio",
+    "web-audio-api"
   ],
   "homepage": "https://github.com/tone-3000/neural-amp-modeler-wasm#readme",
   "scripts": {
