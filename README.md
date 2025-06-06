@@ -4,6 +4,8 @@ This is a [TONE3000](https://tone3000.com) fork of [Steve Atkinson's Neural Amp 
 
 The original Neural Amp Modeler Core is a C++ DSP library for NAM plugins. This fork extends its capabilities to the web platform, allowing you to run Neural Amp Modeler models in any modern web browser.
 
+![screenshot](https://raw.githubusercontent.com/tone-3000/neural-amp-modeler-wasm/refs/heads/main/ui/public/screenshot.png)
+
 ## Testing
 A workflow for testing the library is provided in `.github/workflows/build.yml`.
 You should be able to run it locally to test if you'd like.
