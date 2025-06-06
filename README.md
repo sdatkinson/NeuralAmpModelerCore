@@ -1,6 +1,6 @@
 # Neural Amp Modeler Wasm
 
-This is a TONE3000 fork of [Steve Atkinson's Neural Amp Modeler Core](https://github.com/sdatkinson/NeuralAmpModelerCore) DSP library, specifically adapted to run Neural Amp Modeler inference in web browsers using WebAssembly. This enables real-time guitar amp modeling directly in the browser without requiring native plugins.
+This is a [TONE3000](https://tone3000.com) fork of [Steve Atkinson's Neural Amp Modeler Core](https://github.com/sdatkinson/NeuralAmpModelerCore) DSP library, specifically adapted to run Neural Amp Modeler inference in web browsers using WebAssembly. This enables real-time guitar amp modeling directly in the browser without requiring native plugins.
 
 The original Neural Amp Modeler Core is a C++ DSP library for NAM plugins. This fork extends its capabilities to the web platform, allowing you to run Neural Amp Modeler models in any modern web browser.
 
@@ -92,6 +92,78 @@ The project includes a React-based UI for testing and demonstrating the WebAssem
    npm run build
    ```
    This will create a production build in the `ui/dist` directory.
+
+## Using the T3kPlayer Component
+The project exports a React component that can be used in other projects. To use it:
+
+1. Install the package:
+   ```bash
+   npm install neural-amp-modeler-wasm
+   ```
+
+2. Import and use the component in your React application:
+   ```tsx
+   import { T3kPlayer, T3kPlayerContextProvider } from 'neural-amp-modeler-wasm';
+   import 'neural-amp-modeler-wasm/dist/styles.css';
+
+   function App() {
+     return (
+       <T3kPlayerContextProvider>
+         <T3kPlayer
+           models={[
+             {
+               name: "Vox AC10",
+               model_url: "https://www.tone3000.com/nams/ac10.nam"
+             },
+             {
+               name: "Fender Deluxe Reverb",
+               model_url: "https://www.tone3000.com/nams/deluxe.nam"
+             }
+           ]}
+           irs={[
+             {
+               name: "Celestion",
+               ir_url: "https://www.tone3000.com/irs/celestion.wav"
+             },
+             {
+               name: "EMT 140 Plate Reverb",
+               ir_url: "https://www.tone3000.com/irs/plate.wav",
+               mix: 0.5,  // Optional: wet/dry mix (0-1)
+               gain: 1.0  // Optional: gain adjustment
+             }
+           ]}
+           inputs={[
+             {
+               name: "Mayer - Guitar",
+               input_url: "https://www.tone3000.com/samples/Mayer%20-%20Guitar.wav"
+             },
+             {
+               name: "Downtown - Bass",
+               input_url: "https://www.tone3000.com/samples/Downtown%20-%20Bass.wav"
+             }
+           ]}
+           isLoading={false}
+         />
+       </T3kPlayerContextProvider>
+     );
+   }
+   ```
+
+The component must be wrapped in a `T3kPlayerContextProvider` which handles the WebAssembly module initialization and audio context setup. The provider manages the audio processing pipeline and ensures proper cleanup of resources.
+
+The component accepts the following props:
+- `models`: Array of model objects, each containing:
+  - `name`: Display name for the model
+  - `model_url`: URL to the NAM model file
+- `irs`: Array of IR (Impulse Response) objects, each containing:
+  - `name`: Display name for the IR
+  - `ir_url`: URL to the IR file
+  - `mix`: Optional wet/dry mix ratio (0-1)
+  - `gain`: Optional gain adjustment
+- `inputs`: Array of input audio objects, each containing:
+  - `name`: Display name for the input
+  - `input_url`: URL to the audio file
+- `isLoading`: Optional boolean to show loading state
 
 ## Sharp edges
 This library uses [Eigen](http://eigen.tuxfamily.org) to do the linear algebra routines that its neural networks require. Since these models hold their parameters as eigen object members, there is a risk with certain compilers and compiler optimizations that their memory is not aligned properly. This can be worked around by providing two preprocessor macros: `EIGEN_MAX_ALIGN_BYTES 0` and `EIGEN_DONT_VECTORIZE`, though this will probably harm performance. See [Structs Having Eigen Members](http://eigen.tuxfamily.org/dox-3.2/group__TopicStructHavingEigenMembers.html) for more information. This is being tracked as [Issue 67](https://github.com/sdatkinson/NeuralAmpModelerCore/issues/67).
