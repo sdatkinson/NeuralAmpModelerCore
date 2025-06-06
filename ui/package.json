@@ -1,6 +1,6 @@
 {
   "name": "neural-amp-modeler-wasm",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Neural Amp Modeler WebAssembly React Component",
   "type": "module",
   "main": "dist/index.js",
@@ -11,7 +11,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/tone3000/neural-amp-modeler-wasm"
+    "url": "https://github.com/tone-3000/neural-amp-modeler-wasm"
   },
   "keywords": [
     "neural-amp-modeler",
@@ -21,7 +21,7 @@
     "audio",
     "dsp"
   ],
-  "homepage": "https://github.com/tone3000/neural-amp-modeler-wasm#readme",
+  "homepage": "https://github.com/tone-3000/neural-amp-modeler-wasm#readme",
   "scripts": {
     "build": "rollup -c rollup.config.mjs",
     "dev": "rollup -c rollup.config.mjs -w",
@@ -52,7 +52,7 @@
     "typescript": "^5.0.0",
     "vite": "^5.0.0"
   },
-  "author": "tone3000",
+  "author": "woodybury",
   "license": "ISC",
   "dependencies": {
     "lucide-react": "^0.513.0"
