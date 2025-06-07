@@ -1,7 +1,7 @@
 /**
  * Neural Amp Modeler (NAM) WebAssembly Audio Processing Module
  * This module handles real-time audio processing using WebAssembly and Web Audio API
- * for neural network-based guitar amp modeling.
+ * for neural network-based audio modeling.
  * See previous work by Kutalia: https://github.com/Kutalia/NeuralAmpModelerCore_WASM
  * @author: @woodybury
  * @date: 2025-06-02
@@ -29,12 +29,24 @@ float output_level = 0; // Target output gain in dB
 bool loading = false; // Flag to indicate model loading state
 
 unsigned int sampleRate = 48000; // Default sample rate
+float dcBlockerCoeff = 0.995f; // DC blocker coefficient (will be updated based on sample rate)
 
 // Current neural network model instance
 std::unique_ptr<nam::DSP> currentModel = nullptr;
 // DC blocking filter state
 float prevDCInput = 0;
 float prevDCOutput = 0;
+
+/**
+ * Updates the DC blocker coefficient based on the current sample rate
+ * Uses a cutoff frequency of 10Hz for the high-pass filter
+ */
+void updateDCBlockerCoeff() {
+    const float cutoffFreq = 10.0f; // 10Hz cutoff frequency
+    const float pi = 3.14159265358979323846f;
+    float omega = 2.0f * pi * cutoffFreq / sampleRate;
+    dcBlockerCoeff = 1.0f - omega;
+}
 
 /**
  * Main audio processing function that handles:
@@ -117,8 +129,8 @@ void process(float* audio_in, float* audio_out, int n_samples)
   {
     float dcInput = audio_out[i];
 
-    // dc blocker
-    audio_out[i] = audio_out[i] - prevDCInput + 0.995 * prevDCOutput;
+    // dc blocker with sample rate dependent coefficient
+    audio_out[i] = audio_out[i] - prevDCInput + dcBlockerCoeff * prevDCOutput;
 
     prevDCInput = dcInput;
     prevDCOutput = audio_out[i];
@@ -241,6 +253,8 @@ void setDsp(const char* jsonStr)
     currentModel = std::move(tmp);
 
     sampleRate = query_sample_rate_of_audiocontexts();
+    updateDCBlockerCoeff(); // Update DC blocker coefficient for the current sample rate
+    
     EmscriptenWebAudioCreateAttributes attrs = {.latencyHint = "interactive", .sampleRate = sampleRate};
 
     EMSCRIPTEN_WEBAUDIO_T context = emscripten_create_audio_context(&attrs);
