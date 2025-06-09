@@ -17,6 +17,8 @@ export const DEFAULT_IRS = [
     {
         name: 'EMT 140 Plate Reverb',
         ir_url: 'https://www.tone3000.com/irs/plate.wav',
+        mix: 0.5,
+        gain: 1,
     },
 ];
 
