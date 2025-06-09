@@ -1,6 +1,11 @@
 import React from 'react';
 
-export const LogoSm = ({ width = 94, height = 32 }) => (
+interface LogoSmProps {
+  width?: number;
+  height?: number;
+}
+
+export const LogoSm = ({ width = 94, height = 32 }: LogoSmProps) => (
     <svg
       width={width}
       height={height}
