@@ -27,10 +27,10 @@ export const ToggleSimple = ({
       }`}
     >
       {label && <span className={`text-sm text-zinc-400`}>{label}</span>}
-      <div className="relative">
+      <div className='relative'>
         <input
-          type="checkbox"
-          className="sr-only"
+          type='checkbox'
+          className='sr-only'
           checked={isChecked}
           onChange={handleToggle}
           disabled={disabled}

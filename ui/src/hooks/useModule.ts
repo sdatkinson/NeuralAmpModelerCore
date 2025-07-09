@@ -12,7 +12,8 @@ declare global {
 }
 
 export const useModule = (): Promise<ModuleType> | null => {
-  const [modulePromise, setModulePromise] = useState<Promise<ModuleType> | null>(null);
+  const [modulePromise, setModulePromise] =
+    useState<Promise<ModuleType> | null>(null);
 
   useEffect(() => {
     const loadModule = (): Promise<ModuleType> => {
@@ -28,7 +29,7 @@ export const useModule = (): Promise<ModuleType> | null => {
         // Add error handler for worker loading
         window.addEventListener(
           'error',
-          (e) => {
+          e => {
             console.error(
               'Global error: ' +
                 JSON.stringify({
@@ -44,7 +45,7 @@ export const useModule = (): Promise<ModuleType> | null => {
         );
 
         // Add error handler for worker
-        window.addEventListener('unhandledrejection', (e) => {
+        window.addEventListener('unhandledrejection', e => {
           console.error(
             'Unhandled rejection: ' +
               JSON.stringify({
@@ -103,7 +104,9 @@ export const useModule = (): Promise<ModuleType> | null => {
             const finalState = window.Module
               ? JSON.stringify({
                   keys: Object.keys(window.Module),
-                  asmKeys: window.Module.asm ? Object.keys(window.Module.asm) : 'no asm',
+                  asmKeys: window.Module.asm
+                    ? Object.keys(window.Module.asm)
+                    : 'no asm',
                   wasmMemory: !!window.Module.wasmMemory,
                   wasmTable: !!window.Module.wasmTable,
                   runtimeInitialized: !!window.Module.runtimeInitialized,

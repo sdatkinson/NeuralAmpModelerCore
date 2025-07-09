@@ -1,4 +1,10 @@
-import React, { ReactNode, useEffect, useRef, useState, useCallback } from 'react';
+import React, {
+  ReactNode,
+  useEffect,
+  useRef,
+  useState,
+  useCallback,
+} from 'react';
 import { ChevronDown } from 'lucide-react';
 
 interface Option {
@@ -29,7 +35,9 @@ export const Select = ({
 }: SelectProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedOption, setSelectedOption] = useState(
-    defaultOption ? options.find((opt) => opt.value === defaultOption) || options[0] : options[0]
+    defaultOption
+      ? options.find(opt => opt.value === defaultOption) || options[0]
+      : options[0]
   );
   const containerRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -41,7 +49,10 @@ export const Select = ({
 
   useEffect(() => {
     const handleOutsideClick = (event: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(event.target as Node)
+      ) {
         setIsOpen(false);
       }
     };
@@ -74,7 +85,9 @@ export const Select = ({
         if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown') {
           e.preventDefault();
           setIsOpen(true);
-          setActiveIndex(options.findIndex((opt) => opt.value === selectedOption.value));
+          setActiveIndex(
+            options.findIndex(opt => opt.value === selectedOption.value)
+          );
         }
         return;
       }
@@ -90,13 +103,13 @@ export const Select = ({
         case 'ArrowDown':
           e.preventDefault();
           if (activeIndex < options.length - 1) {
-            setActiveIndex((prev) => prev + 1);
+            setActiveIndex(prev => prev + 1);
           }
           break;
         case 'ArrowUp':
           e.preventDefault();
           if (activeIndex > 0) {
-            setActiveIndex((prev) => prev - 1);
+            setActiveIndex(prev => prev - 1);
           }
           break;
         case 'Escape':
@@ -124,7 +137,9 @@ export const Select = ({
   useEffect(() => {
     if (!isOpen || activeIndex < 0 || !listRef.current) return;
 
-    const activeElement = document.getElementById(`${selectId}-option-${activeIndex}`);
+    const activeElement = document.getElementById(
+      `${selectId}-option-${activeIndex}`
+    );
     if (!activeElement) return;
 
     const listElement = listRef.current;
@@ -141,28 +156,31 @@ export const Select = ({
   useEffect(() => {
     if (!value) return;
     if (value !== selectedOption?.value) {
-      setSelectedOption(options.find((opt) => opt.value === value) || options[0]);
+      setSelectedOption(options.find(opt => opt.value === value) || options[0]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value]);
 
   return (
-    <div ref={containerRef} className={'inline-flex flex-1 flex-col gap-1 w-full'}>
+    <div
+      ref={containerRef}
+      className={'inline-flex flex-1 flex-col gap-1 w-full'}
+    >
       <div className={'flex justify-between items-end'}>
         {label && (
-          <span className="text-sm text-zinc-400" id={`${selectId}-label`}>
+          <span className='text-sm text-zinc-400' id={`${selectId}-label`}>
             {label}
           </span>
         )}
         {!!infoModal && infoModal}
       </div>
-      <div className="relative flex-1">
+      <div className='relative flex-1'>
         <button
           ref={buttonRef}
           className={`flex items-center justify-between w-full overflow-hidden px-4 py-3 text-md border border-zinc-700 rounded-md bg-transparent focus:outline-none ${disabled ? 'touch-none cursor-not-allowed' : ''}`}
           onClick={() => setIsOpen(!isOpen)}
           disabled={disabled}
-          aria-haspopup="listbox"
+          aria-haspopup='listbox'
           aria-expanded={isOpen}
           aria-labelledby={`${selectId}-label`}
           aria-controls={`${selectId}-options`}
@@ -171,15 +189,17 @@ export const Select = ({
           <span className={'text-ellipsis text-nowrap overflow-hidden min-w-0'}>
             {selectedOption?.label}
           </span>
-          <ChevronDown className="flex-shrink-0" size={24} />
+          <ChevronDown className='flex-shrink-0' size={24} />
         </button>
         {isOpen && (
-          <div className={`absolute z-10 w-full mt-1 ${backgroundColor} rounded-md shadow-lg`}>
+          <div
+            className={`absolute z-10 w-full mt-1 ${backgroundColor} rounded-md shadow-lg`}
+          >
             <ul
               ref={listRef}
               id={`${selectId}-options`}
-              role="listbox"
-              className="py-1 overflow-auto text-base rounded-md max-h-48 focus:outline-none border border-zinc-700"
+              role='listbox'
+              className='py-1 overflow-auto text-base rounded-md max-h-48 focus:outline-none border border-zinc-700'
               aria-label={label || 'Options'}
               aria-labelledby={`${selectId}-label`}
             >
@@ -187,7 +207,7 @@ export const Select = ({
                 <li
                   key={option.value + `${index}`}
                   id={`${selectId}-option-${index}`}
-                  role="option"
+                  role='option'
                   aria-selected={selectedOption.value === option.value}
                   className={`text-ellipsis text-nowrap overflow-hidden cursor-default select-none relative py-2 pl-3 pr-9 ${
                     activeIndex === index ? 'bg-zinc-800' : 'hover:bg-zinc-800'

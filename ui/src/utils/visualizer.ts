@@ -4,7 +4,7 @@ const rafIter = () => {
   let id: number;
   return {
     async next() {
-      const promise = new Promise<number>((resolve) => {
+      const promise = new Promise<number>(resolve => {
         id = requestAnimationFrame(resolve);
       });
       await promise;
@@ -113,4 +113,4 @@ export const initVisualizer = ({
   canvasCtx.moveTo(0, height / 2);
   canvasCtx.lineTo(width, height / 2);
   canvasCtx.stroke();
-}; 
+};
