@@ -117,21 +117,23 @@ The project exports a React component that can be used in other projects. To use
            models={[
              {
                name: "Vox AC10",
-               model_url: "https://www.tone3000.com/nams/ac10.nam"
+               url: "https://raw.githubusercontent.com/tone-3000/neural-amp-modeler-wasm/refs/heads/main/ui/public/models/ac10.nam",
+               default: true
              },
              {
                name: "Fender Deluxe Reverb",
-               model_url: "https://www.tone3000.com/nams/deluxe.nam"
+               url: "https://raw.githubusercontent.com/tone-3000/neural-amp-modeler-wasm/refs/heads/main/ui/public/models/deluxe.nam"
              }
            ]}
            irs={[
              {
                name: "Celestion",
-               ir_url: "https://www.tone3000.com/irs/celestion.wav"
+               url: "https://raw.githubusercontent.com/tone-3000/neural-amp-modeler-wasm/refs/heads/main/ui/public/irs/celestion.wav",
+               default: true
              },
              {
                name: "EMT 140 Plate Reverb",
-               ir_url: "https://www.tone3000.com/irs/plate.wav",
+               url: "https://raw.githubusercontent.com/tone-3000/neural-amp-modeler-wasm/refs/heads/main/ui/public/irs/plate.wav",
                mix: 0.5,  // Optional: wet/dry mix (0-1)
                gain: 1.0  // Optional: gain adjustment
              }
@@ -139,14 +141,14 @@ The project exports a React component that can be used in other projects. To use
            inputs={[
              {
                name: "Mayer - Guitar",
-               input_url: "https://www.tone3000.com/samples/Mayer%20-%20Guitar.wav"
+               url: "https://raw.githubusercontent.com/tone-3000/neural-amp-modeler-wasm/refs/heads/main/ui/public/inputs/Mayer%20-%20Guitar.wav",
+               default: true
              },
              {
                name: "Downtown - Bass",
-               input_url: "https://www.tone3000.com/samples/Downtown%20-%20Bass.wav"
+               url: "https://raw.githubusercontent.com/tone-3000/neural-amp-modeler-wasm/refs/heads/main/ui/public/inputs/Downtown%20-%20Bass.wav"
              }
            ]}
-           isLoading={false}
          />
        </T3kPlayerContextProvider>
      );
@@ -155,19 +157,66 @@ The project exports a React component that can be used in other projects. To use
 
 The component must be wrapped in a `T3kPlayerContextProvider` which handles the WebAssembly module initialization and audio context setup. The provider manages the audio processing pipeline and ensures proper cleanup of resources.
 
-The component accepts the following props:
-- `models`: Array of model objects, each containing:
-  - `name`: Display name for the model
-  - `model_url`: URL to the NAM model file
-- `irs`: Array of IR (Impulse Response) objects, each containing:
-  - `name`: Display name for the IR
-  - `ir_url`: URL to the IR file
-  - `mix`: Optional wet/dry mix ratio (0-1)
-  - `gain`: Optional gain adjustment
-- `inputs`: Array of input audio objects, each containing:
-  - `name`: Display name for the input
-  - `input_url`: URL to the audio file
-- `isLoading`: Optional boolean to show loading state
+## Component Props
+
+The `T3kPlayer` component accepts the following props:
+
+### models
+Array of model objects, each containing:
+- `name`: Display name for the model
+- `url`: URL to the NAM model file
+- `default`: Optional boolean to mark as default selection
+
+### irs
+Array of IR (Impulse Response) objects, each containing:
+- `name`: Display name for the IR
+- `url`: URL to the IR file (use empty string for "None")
+- `mix`: Optional wet/dry mix ratio (0-1)
+- `gain`: Optional gain adjustment
+- `default`: Optional boolean to mark as default selection
+
+### inputs
+Array of input audio objects, each containing:
+- `name`: Display name for the input
+- `url`: URL to the audio file
+- `default`: Optional boolean to mark as default selection
+
+### previewMode
+Optional enum value to control the preview mode:
+- `PREVIEW_MODE.MODEL`: Show model selection interface (default)
+- `PREVIEW_MODE.IR`: Show IR selection interface
+
+### isLoading
+Optional boolean to show loading state
+
+### Event Callbacks
+
+#### onPlay
+Callback function triggered when audio playback starts:
+```tsx
+onPlay?: ({ model, ir, input }: { 
+  model: Model, 
+  ir: IR, 
+  input: Input 
+}) => void;
+```
+
+#### onModelChange
+Callback function triggered when model selection changes:
+```tsx
+onModelChange?: (model: Model) => void;
+```
+
+#### onInputChange
+Callback function triggered when input selection changes:
+```tsx
+onInputChange?: (input: Input) => void;
+```
+
+#### onIrChange
+Callback function triggered when IR selection changes:
+```tsx
+onIrChange?: (ir: IR) => void;
 
 ## Sharp edges
 This library uses [Eigen](http://eigen.tuxfamily.org) to do the linear algebra routines that its neural networks require. Since these models hold their parameters as eigen object members, there is a risk with certain compilers and compiler optimizations that their memory is not aligned properly. This can be worked around by providing two preprocessor macros: `EIGEN_MAX_ALIGN_BYTES 0` and `EIGEN_DONT_VECTORIZE`, though this will probably harm performance. See [Structs Having Eigen Members](http://eigen.tuxfamily.org/dox-3.2/group__TopicStructHavingEigenMembers.html) for more information. This is being tracked as [Issue 67](https://github.com/sdatkinson/NeuralAmpModelerCore/issues/67).

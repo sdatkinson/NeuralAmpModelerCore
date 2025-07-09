@@ -9,6 +9,7 @@ import React, {
 } from 'react';
 import { useModule } from '../hooks/useModule';
 import { readProfile } from '../utils/readProfile';
+import { DEFAULT_AUDIO_SRC } from '../constants';
 
 interface T3kPlayerContextType {
   audioContext: AudioContext | null;
@@ -29,16 +30,25 @@ interface T3kPlayerContextType {
   isProfileLoaded: boolean;
   cleanup: () => void;
   resetProfile: () => void;
-  loadIr: (irUrl: string, wetAmount?: number, gainAmount?: number) => Promise<void>;
+  loadIr: (
+    irUrl: string,
+    wetAmount?: number,
+    gainAmount?: number
+  ) => Promise<void>;
   removeIr: () => void;
   isIrLoaded: boolean;
 }
 
 const T3kPlayerContext = createContext<T3kPlayerContextType | null>(null);
 
-export function T3kPlayerContextProvider({ children }: { children: ReactNode }) {
+export function T3kPlayerContextProvider({
+  children,
+}: {
+  children: ReactNode;
+}) {
   const [audioContext, setAudioContext] = useState<AudioContext | null>(null);
-  const [audioWorkletNode, setAudioWorkletNode] = useState<AudioWorkletNode | null>(null);
+  const [audioWorkletNode, setAudioWorkletNode] =
+    useState<AudioWorkletNode | null>(null);
   const [isProfileLoaded, setIsProfileLoaded] = useState(false);
   const [irNode, setIrNode] = useState<ConvolverNode | null>(null);
   const [isIrLoaded, setIsIrLoaded] = useState(false);
@@ -69,8 +79,7 @@ export function T3kPlayerContextProvider({ children }: { children: ReactNode }) 
     audioElementRef.current = audio;
     document.body.appendChild(audio);
 
-    const defaultAudioSrc = 'https://www.tone3000.com/samples/Mayer%20-%20Guitar.wav';
-    audio.src = defaultAudioSrc;
+    audio.src = DEFAULT_AUDIO_SRC;
     audio.load();
 
     // Initialize audio context and nodes
@@ -79,14 +88,20 @@ export function T3kPlayerContextProvider({ children }: { children: ReactNode }) 
       script.src = '/t3k-wasm-module.js';
       script.async = true;
 
-      script.onerror = (error) => {
-        console.error('Failed to load t3k-wasm-module.js:', JSON.stringify(error));
+      script.onerror = error => {
+        console.error(
+          'Failed to load t3k-wasm-module.js:',
+          JSON.stringify(error)
+        );
       };
 
       document.body.appendChild(script);
 
       // @ts-ignore
-      window.wasmAudioWorkletCreated = (node1: AudioWorkletNode, node2: AudioContext) => {
+      window.wasmAudioWorkletCreated = (
+        node1: AudioWorkletNode,
+        node2: AudioContext
+      ) => {
         const audioWorkletNode = node1;
         const context = node2;
 
@@ -100,7 +115,9 @@ export function T3kPlayerContextProvider({ children }: { children: ReactNode }) 
         bypassNodeRef.current = new GainNode(context, { gain: 0 });
 
         // Create and store source node
-        sourceNodeRef.current = context.createMediaElementSource(audioElementRef.current!);
+        sourceNodeRef.current = context.createMediaElementSource(
+          audioElementRef.current!
+        );
 
         // Connect nodes
         sourceNodeRef.current.connect(inputGainNodeRef.current);
@@ -133,7 +150,7 @@ export function T3kPlayerContextProvider({ children }: { children: ReactNode }) 
         setAudioWorkletNode(null);
       }
 
-      [inputGainNodeRef, outputGainNodeRef, bypassNodeRef].forEach((ref) => {
+      [inputGainNodeRef, outputGainNodeRef, bypassNodeRef].forEach(ref => {
         if (ref.current) {
           ref.current.disconnect();
           ref.current = null;
@@ -211,26 +228,40 @@ export function T3kPlayerContextProvider({ children }: { children: ReactNode }) 
 
   const loadIr = useCallback(
     async (irUrl: string, wetAmount: number = 1, gainAmount: number = 1) => {
-      if (!audioContext || !audioWorkletNode || !outputGainNodeRef.current) return;
+      if (!audioContext || !audioWorkletNode || !outputGainNodeRef.current)
+        return;
 
       try {
         // Create/update wet/dry mix nodes
         if (!irWetGainRef.current) {
-          irWetGainRef.current = new GainNode(audioContext, { gain: wetAmount });
+          irWetGainRef.current = new GainNode(audioContext, {
+            gain: wetAmount,
+          });
         } else {
-          irWetGainRef.current.gain.setValueAtTime(wetAmount, audioContext.currentTime);
+          irWetGainRef.current.gain.setValueAtTime(
+            wetAmount,
+            audioContext.currentTime
+          );
         }
         if (!irDryGainRef.current) {
-          irDryGainRef.current = new GainNode(audioContext, { gain: 1 - wetAmount });
+          irDryGainRef.current = new GainNode(audioContext, {
+            gain: 1 - wetAmount,
+          });
         } else {
-          irDryGainRef.current.gain.setValueAtTime(1 - wetAmount, audioContext.currentTime);
+          irDryGainRef.current.gain.setValueAtTime(
+            1 - wetAmount,
+            audioContext.currentTime
+          );
         }
 
         // Create/update IR gain node
         if (!irGainRef.current) {
           irGainRef.current = new GainNode(audioContext, { gain: gainAmount });
         } else {
-          irGainRef.current.gain.setValueAtTime(gainAmount, audioContext.currentTime);
+          irGainRef.current.gain.setValueAtTime(
+            gainAmount,
+            audioContext.currentTime
+          );
         }
 
         // Create new convolver node
@@ -324,7 +355,12 @@ export function T3kPlayerContextProvider({ children }: { children: ReactNode }) 
     if (bypassNodeRef.current.gain.value === 0) {
       try {
         // When bypassing
-        if (irNode && irWetGainRef.current && irDryGainRef.current && irGainRef.current) {
+        if (
+          irNode &&
+          irWetGainRef.current &&
+          irDryGainRef.current &&
+          irGainRef.current
+        ) {
           // If IR is present, disconnect both wet and dry paths
           audioWorkletNode.disconnect(irNode);
           audioWorkletNode.disconnect(irDryGainRef.current);
@@ -343,7 +379,12 @@ export function T3kPlayerContextProvider({ children }: { children: ReactNode }) 
     } else {
       try {
         // When un-bypassing
-        if (irNode && irWetGainRef.current && irDryGainRef.current && irGainRef.current) {
+        if (
+          irNode &&
+          irWetGainRef.current &&
+          irDryGainRef.current &&
+          irGainRef.current
+        ) {
           // If IR is present, reconnect both wet and dry paths
           audioWorkletNode.connect(irNode);
           irNode.connect(irGainRef.current);
@@ -381,13 +422,19 @@ export function T3kPlayerContextProvider({ children }: { children: ReactNode }) 
     isIrLoaded,
   };
 
-  return <T3kPlayerContext.Provider value={value}>{children}</T3kPlayerContext.Provider>;
+  return (
+    <T3kPlayerContext.Provider value={value}>
+      {children}
+    </T3kPlayerContext.Provider>
+  );
 }
 
 export const useT3kPlayerContext = () => {
   const context = useContext(T3kPlayerContext);
   if (!context) {
-    throw new Error('useAudioContext must be used within an AudioContextProvider');
+    throw new Error(
+      'useAudioContext must be used within an AudioContextProvider'
+    );
   }
   return context;
-}; 
+};

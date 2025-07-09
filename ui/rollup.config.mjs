@@ -24,10 +24,7 @@ export default {
     resolve(),
     commonjs(),
     postcss({
-      plugins: [
-        tailwindcss,
-        autoprefixer,
-      ],
+      plugins: [tailwindcss, autoprefixer],
       extract: 'styles.css',
     }),
     typescript({
@@ -36,4 +33,4 @@ export default {
       declarationDir: 'dist',
     }),
   ],
-}; 
+};

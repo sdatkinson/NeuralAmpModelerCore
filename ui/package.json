@@ -1,6 +1,6 @@
 {
   "name": "neural-amp-modeler-wasm",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "description": "Neural Amp Modeler WebAssembly React Component",
   "type": "module",
   "main": "dist/index.js",
@@ -31,7 +31,9 @@
     "prepare": "npm run clean && npm run build",
     "preview": "vite preview",
     "start": "npm run copy-wasm && vite",
-    "copy-wasm": "mkdir -p public && cp ../build/wasm/t3k-wasm-module.* public/"
+    "copy-wasm": "mkdir -p public && cp ../build/wasm/t3k-wasm-module.* public/",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "peerDependencies": {
     "react": "^18.0.0",
@@ -46,6 +48,7 @@
     "@vitejs/plugin-react": "^4.2.0",
     "autoprefixer": "^10.4.21",
     "postcss": "^8.5.4",
+    "prettier": "^3.6.2",
     "rimraf": "^5.0.0",
     "rollup": "^3.0.0",
     "rollup-plugin-postcss": "^4.0.2",

@@ -17,7 +17,6 @@ npm install neural-amp-modeler-wasm
 Before using the component, you need to host the WebAssembly files at the root of your project. These files are required for the component to function:
 
 1. Copy the following files from the repository to your project's public directory:
-
    - [t3k-wasm-module.js](https://raw.githubusercontent.com/tone-3000/neural-amp-modeler-wasm/refs/heads/main/ui/public/t3k-wasm-module.js)
    - [t3k-wasm-module.wasm](https://raw.githubusercontent.com/tone-3000/neural-amp-modeler-wasm/refs/heads/main/ui/public/t3k-wasm-module.wasm)
    - [t3k-wasm-module.worker.js](https://raw.githubusercontent.com/tone-3000/neural-amp-modeler-wasm/refs/heads/main/ui/public/t3k-wasm-module.worker.js)
@@ -29,7 +28,11 @@ Before using the component, you need to host the WebAssembly files at the root o
 ## Usage
 
 ```tsx
-import { T3kPlayer, T3kPlayerContextProvider } from 'neural-amp-modeler-wasm';
+import {
+  T3kPlayer,
+  T3kPlayerContextProvider,
+  PREVIEW_MODE,
+} from 'neural-amp-modeler-wasm';
 import 'neural-amp-modeler-wasm/dist/styles.css';
 
 function App() {
@@ -38,37 +41,57 @@ function App() {
       <T3kPlayer
         models={[
           {
-            name: "Vox AC10",
-            model_url: "https://www.tone3000.com/nams/ac10.nam"
+            name: 'Vox AC10',
+            url: 'https://raw.githubusercontent.com/tone-3000/neural-amp-modeler-wasm/refs/heads/main/ui/public/models/ac10.nam',
+            default: true,
           },
           {
-            name: "Fender Deluxe Reverb",
-            model_url: "https://www.tone3000.com/nams/deluxe.nam"
-          }
+            name: 'Fender Deluxe Reverb',
+            url: 'https://raw.githubusercontent.com/tone-3000/neural-amp-modeler-wasm/refs/heads/main/ui/public/models/deluxe.nam',
+          },
         ]}
         irs={[
           {
-            name: "Celestion",
-            ir_url: "https://www.tone3000.com/irs/celestion.wav"
+            name: 'None',
+            url: '',
           },
           {
-            name: "EMT 140 Plate Reverb",
-            ir_url: "https://www.tone3000.com/irs/plate.wav",
-            mix: 0.5,  // Optional: wet/dry mix (0-1)
-            gain: 1.0  // Optional: gain adjustment
-          }
+            name: 'Celestion',
+            url: 'https://raw.githubusercontent.com/tone-3000/neural-amp-modeler-wasm/refs/heads/main/ui/public/irs/celestion.wav',
+            default: true,
+          },
+          {
+            name: 'EMT 140 Plate Reverb',
+            url: 'https://raw.githubusercontent.com/tone-3000/neural-amp-modeler-wasm/refs/heads/main/ui/public/irs/plate.wav',
+            mix: 0.5, // Optional: wet/dry mix (0-1)
+            gain: 1.0, // Optional: gain adjustment
+          },
         ]}
         inputs={[
           {
-            name: "Mayer - Guitar",
-            input_url: "https://www.tone3000.com/samples/Mayer%20-%20Guitar.wav"
+            name: 'Mayer - Guitar',
+            url: 'https://raw.githubusercontent.com/tone-3000/neural-amp-modeler-wasm/refs/heads/main/ui/public/inputs/Mayer%20-%20Guitar.wav',
+            default: true,
           },
           {
-            name: "Downtown - Bass",
-            input_url: "https://www.tone3000.com/samples/Downtown%20-%20Bass.wav"
-          }
+            name: 'Downtown - Bass',
+            url: 'https://raw.githubusercontent.com/tone-3000/neural-amp-modeler-wasm/refs/heads/main/ui/public/inputs/Downtown%20-%20Bass.wav',
+          },
         ]}
+        previewMode={PREVIEW_MODE.MODEL}
         isLoading={false}
+        onPlay={({ model, ir, input }) => {
+          console.log('Playing with:', { model, ir, input });
+        }}
+        onModelChange={model => {
+          console.log('Model changed to:', model);
+        }}
+        onInputChange={input => {
+          console.log('Input changed to:', input);
+        }}
+        onIrChange={ir => {
+          console.log('IR changed to:', ir);
+        }}
       />
     </T3kPlayerContextProvider>
   );
@@ -80,24 +103,79 @@ function App() {
 The `T3kPlayer` component accepts the following props:
 
 ### models
+
 Array of model objects, each containing:
+
 - `name`: Display name for the model
-- `model_url`: URL to the NAM model file
+- `url`: URL to the NAM model file
+- `default`: Optional boolean to mark as default selection
 
 ### irs
+
 Array of IR (Impulse Response) objects, each containing:
+
 - `name`: Display name for the IR
-- `ir_url`: URL to the IR file
+- `url`: URL to the IR file (use empty string for "None")
 - `mix`: Optional wet/dry mix ratio (0-1)
 - `gain`: Optional gain adjustment
+- `default`: Optional boolean to mark as default selection
 
 ### inputs
+
 Array of input audio objects, each containing:
+
 - `name`: Display name for the input
-- `input_url`: URL to the audio file
+- `url`: URL to the audio file
+- `default`: Optional boolean to mark as default selection
+
+### previewMode
+
+Optional enum value to control the preview mode:
+
+- `PREVIEW_MODE.MODEL`: Show model selection interface (default)
+- `PREVIEW_MODE.IR`: Show IR selection interface
 
 ### isLoading
+
 Optional boolean to show loading state
+
+### Event Callbacks
+
+#### onPlay
+
+Callback function triggered when audio playback starts:
+
+```tsx
+onPlay?: ({ model, ir, input }: {
+  model: Model,
+  ir: IR,
+  input: Input
+}) => void;
+```
+
+#### onModelChange
+
+Callback function triggered when model selection changes:
+
+```tsx
+onModelChange?: (model: Model) => void;
+```
+
+#### onInputChange
+
+Callback function triggered when input selection changes:
+
+```tsx
+onInputChange?: (input: Input) => void;
+```
+
+#### onIrChange
+
+Callback function triggered when IR selection changes:
+
+```tsx
+onIrChange?: (ir: IR) => void;
+```
 
 ## Requirements
 
@@ -114,4 +192,4 @@ This package is part of the [neural-amp-modeler-wasm](https://github.com/tone-30
 
 ## License
 
-MIT 
+MIT
