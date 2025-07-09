@@ -1,4 +1,3 @@
-'use client';
 import React, {
   createContext,
   useContext,
@@ -384,6 +383,11 @@ export function T3kPlayerContextProvider({
     isIrLoaded,
     init,
   };
+
+  // Check if we're on the client side
+  if (typeof window === 'undefined') {
+    return <>{children}</>;
+  }
 
   return (
     <T3kPlayerContext.Provider value={value}>
