@@ -1,7 +1,8 @@
 import './index.css';
 
 export { default as T3kPlayer } from './components/T3kPlayer';
-export type { T3kPlayerProps, PREVIEW_MODE } from './types';
+export type { T3kPlayerProps } from './types';
+export { PREVIEW_MODE } from './types';
 export {
   T3kPlayerContextProvider,
   useT3kPlayerContext,

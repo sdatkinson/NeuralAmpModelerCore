@@ -120,7 +120,7 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
       audioElement.removeEventListener('ended', handleEnded);
       audioElement.removeEventListener('loadedmetadata', handleLoadedMetadata);
     };
-  }, [selectedInput]);
+  }, [selectedInput, audioElement]);
 
   // Visualizer setup
   useEffect(() => {
