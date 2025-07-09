@@ -433,7 +433,7 @@ export const useT3kPlayerContext = () => {
   const context = useContext(T3kPlayerContext);
   if (!context) {
     throw new Error(
-      'useAudioContext must be used within an AudioContextProvider'
+      'useT3kPlayerContext must be used within a T3kPlayerContextProvider'
     );
   }
   return context;
