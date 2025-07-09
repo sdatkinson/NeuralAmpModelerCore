@@ -1,7 +1,6 @@
 import React, {
   createContext,
   useContext,
-  useEffect,
   useRef,
   useState,
   ReactNode,
@@ -21,11 +20,8 @@ interface T3kPlayerContextType {
   irNode: ConvolverNode | null;
   loadProfile: (
     modelUrl: string,
-    irUrl?: string,
-    wetAmount?: number,
-    gainAmount?: number
   ) => Promise<void>;
-  setAudioSource: (src: string) => void;
+  loadAudio: (src: string) => void;
   toggleBypass: () => void;
   isProfileLoaded: boolean;
   cleanup: () => void;
@@ -37,6 +33,7 @@ interface T3kPlayerContextType {
   ) => Promise<void>;
   removeIr: () => void;
   isIrLoaded: boolean;
+  init: () => void;
 }
 
 const T3kPlayerContext = createContext<T3kPlayerContextType | null>(null);
@@ -58,6 +55,7 @@ export function T3kPlayerContextProvider({
   const bypassNodeRef = useRef<GainNode | null>(null);
   const sourceNodeRef = useRef<MediaElementAudioSourceNode | null>(null);
   const modulePromise = useModule();
+  const [isInitialized, setIsInitialized] = useState(false);
 
   // Add ref for IR wet gain node
   const irWetGainRef = useRef<GainNode | null>(null);
@@ -66,7 +64,8 @@ export function T3kPlayerContextProvider({
   // Add ref for IR gain node
   const irGainRef = useRef<GainNode | null>(null);
 
-  useEffect(() => {
+  const init = () => {
+    if (isInitialized) return;
     if (typeof window !== 'undefined') {
       if (!window.AudioContext || !window.AudioWorklet) {
         console.error('AudioWorklet not supported in this browser');
@@ -83,8 +82,7 @@ export function T3kPlayerContextProvider({
     audio.load();
 
     // Initialize audio context and nodes
-    const initAudio = async () => {
-      const script = document.createElement('script');
+    const script = document.createElement('script');
       script.src = '/t3k-wasm-module.js';
       script.async = true;
 
@@ -127,48 +125,9 @@ export function T3kPlayerContextProvider({
         audioWorkletNode.connect(outputGainNodeRef.current);
         outputGainNodeRef.current.connect(context.destination);
       };
-    };
 
-    initAudio();
-
-    return () => {
-      // Enhanced cleanup
-      if (audioElementRef.current) {
-        audioElementRef.current.pause();
-        audioElementRef.current.currentTime = 0;
-        audioElementRef.current.remove();
-        audioElementRef.current = null;
-      }
-
-      if (audioContext) {
-        audioContext.close();
-        setAudioContext(null);
-      }
-
-      if (audioWorkletNode) {
-        audioWorkletNode.disconnect();
-        setAudioWorkletNode(null);
-      }
-
-      [inputGainNodeRef, outputGainNodeRef, bypassNodeRef].forEach(ref => {
-        if (ref.current) {
-          ref.current.disconnect();
-          ref.current = null;
-        }
-      });
-
-      setIsProfileLoaded(false);
-      if (irNode) {
-        irNode.disconnect();
-        setIrNode(null);
-      }
-
-      if (sourceNodeRef.current) {
-        sourceNodeRef.current.disconnect();
-        sourceNodeRef.current = null;
-      }
-    };
-  }, []);
+      setIsInitialized(true);
+  }
 
   const loadProfile = async (modelUrl: string) => {
     try {
@@ -219,10 +178,12 @@ export function T3kPlayerContextProvider({
     }
   };
 
-  const setAudioSource = (src: string) => {
+  const loadAudio = (src: string) => {
     if (audioElementRef.current) {
       audioElementRef.current.src = src;
       audioElementRef.current.load();
+    } else {
+      console.warn('audioElementRef.current is not ready');
     }
   };
 
@@ -412,7 +373,7 @@ export function T3kPlayerContextProvider({
     bypassNode: bypassNodeRef.current,
     irNode,
     loadProfile,
-    setAudioSource,
+    loadAudio,
     toggleBypass,
     isProfileLoaded,
     cleanup,
@@ -420,6 +381,7 @@ export function T3kPlayerContextProvider({
     loadIr,
     removeIr,
     isIrLoaded,
+    init,
   };
 
   return (

@@ -26,36 +26,27 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
     outputGainNode,
     audioWorkletNode,
     loadProfile,
-    setAudioSource,
+    loadAudio,
     toggleBypass,
     isProfileLoaded,
     resetProfile,
     loadIr,
     removeIr,
     isIrLoaded,
+    init,
     cleanup,
   } = useT3kPlayerContext();
 
-  // Helper functions to get defaults
-  const getDefaultModel = () => {
-    const defaultModel = models.find(m => m.default);
-    return defaultModel || models[0];
-  };
-
-  const getDefaultInput = () => {
-    const defaultInput = inputs.find(i => i.default);
-    return defaultInput ? defaultInput : inputs[0];
-  };
-
-  const getDefaultIr = () => {
-    const defaultIr = irs.find(i => i.default);
-    return defaultIr ? defaultIr : irs[0];
+  // Helper function to get default item from array
+  const getDefault = <T extends { default?: boolean }>(items: T[]): T => {
+    const defaultItem = items.find(item => item.default);
+    return defaultItem || items[0];
   };
 
   // State
-  const [selectedModel, setSelectedModel] = useState<Model>(getDefaultModel());
-  const [selectedInput, setSelectedInput] = useState<Input>(getDefaultInput());
-  const [selectedIr, setSelectedIr] = useState<IR>(getDefaultIr());
+  const [selectedModel, setSelectedModel] = useState<Model>(getDefault(models));
+  const [selectedInput, setSelectedInput] = useState<Input>(getDefault(inputs));
+  const [selectedIr, setSelectedIr] = useState<IR>(getDefault(irs));
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -109,7 +100,6 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
   // Audio element event listeners
   useEffect(() => {
     if (!audioElement) return;
-
     const handleTimeUpdate = () => setCurrentTime(audioElement.currentTime);
     const handleEnded = () => {
       setIsPlaying(false);
@@ -130,7 +120,7 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
       audioElement.removeEventListener('ended', handleEnded);
       audioElement.removeEventListener('loadedmetadata', handleLoadedMetadata);
     };
-  }, [audioElement, selectedInput, onPlay, selectedModel, selectedIr]);
+  }, [selectedInput]);
 
   // Visualizer setup
   useEffect(() => {
@@ -140,6 +130,7 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
       outputGainNode &&
       visualizerRef.current
     ) {
+      console.log('audioElement and audioContext and outputGainNode and visualizerRef are ready');
       // Disconnect old visualizer if it exists
       if (visualizerNodeRef.current) {
         visualizerNodeRef.current.disconnect();
@@ -159,23 +150,17 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
         }
       };
     }
-  }, [audioElement, audioContext, outputGainNode]);
+  }, [audioContext]);
 
   // Initialize
   useEffect(() => {
-    resetProfile();
-  }, []);
-
-  // Initialize audio source
-  useEffect(() => {
-    setAudioSource(selectedInput.url);
+    init();
+    loadAudio(selectedInput.url);
     return () => {
       cleanup();
       setIsPlaying(false);
     };
-
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [!!audioElement]);
+  }, []);
 
   // IR loading
   useEffect(() => {
@@ -192,8 +177,6 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
     selectedIr,
     isIrLoaded,
     audioContext,
-    outputGainNode,
-    audioWorkletNode,
     loadIr,
   ]);
 
@@ -254,7 +237,7 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
 
     const selectedInput = inputs.find(input => input.url === String(value))!;
     setSelectedInput(selectedInput);
-    setAudioSource(selectedInput.url);
+    loadAudio(selectedInput.url);
 
     if (wasPlaying && audioElement) {
       audioElement.addEventListener(
