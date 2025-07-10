@@ -34,8 +34,7 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
     removeIr,
     isIrLoaded,
     init,
-    cleanup,
-  } = useT3kPlayerContext();
+  } = useT3kPlayerContext()!;
 
   // Helper function to get default item from array
   const getDefault = <T extends { default?: boolean }>(items: T[]): T => {
@@ -130,7 +129,6 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
       outputGainNode &&
       visualizerRef.current
     ) {
-      console.log('audioElement and audioContext and outputGainNode and visualizerRef are ready');
       // Disconnect old visualizer if it exists
       if (visualizerNodeRef.current) {
         visualizerNodeRef.current.disconnect();
@@ -157,7 +155,7 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
     init();
     loadAudio(selectedInput.url);
     return () => {
-      cleanup();
+      resetProfile();
       setIsPlaying(false);
     };
   }, []);

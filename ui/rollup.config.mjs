@@ -4,6 +4,7 @@ import resolve from '@rollup/plugin-node-resolve';
 import postcss from 'rollup-plugin-postcss';
 import tailwindcss from 'tailwindcss';
 import autoprefixer from 'autoprefixer';
+import replace from '@rollup/plugin-replace';
 
 export default {
   input: 'src/index.ts',
@@ -21,6 +22,10 @@ export default {
   ],
   external: ['react', 'react-dom'],
   plugins: [
+    replace({
+      preventAssignment: true,
+      'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'production'),
+    }),
     resolve(),
     commonjs(),
     postcss({

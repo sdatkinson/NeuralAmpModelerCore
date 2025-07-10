@@ -61,8 +61,16 @@ const inputs = [
     url: '/inputs/John - Guitar.wav',
   },
   {
+    name: 'Lunar - Guitar', // Lunar is contributed by Aditya Mhatre
+    url: '/inputs/Lunar - Guitar.wav',
+  },
+  {
     name: 'Mayer - Guitar',
     url: '/inputs/Mayer - Guitar.wav',
+  },
+  {
+    name: 'Metalcore - Guitar', // Metalcore is contributed by Aditya Mhatre
+    url: '/inputs/Metalcore - Guitar.wav',
   },
   {
     name: 'Pluck - Guitar',
@@ -141,6 +149,12 @@ const irs = [
     gain: 3,
   },
   {
+    name: 'Ampeg 8x10',
+    url: '/irs/ampeg.wav',
+    mix: 1,
+    gain: 1.25,
+  },
+  {
     name: 'EMT 140 Plate Reverb',
     url: '/irs/plate.wav',
     mix: 0.3,
@@ -173,6 +187,10 @@ const models = [
     url: '/models/dumble.nam',
   },
   {
+    name: 'Ampeg V-2',
+    url: '/models/ampeg.nam',
+  },
+  {
     name: 'Roland JC-120',
     url: '/models/jc.nam',
   },
@@ -188,7 +206,7 @@ export const DEFAULT_MODELS = isDev ? models : models.map(model => ({
 
 export const DEFAULT_IRS = isDev ? irs : irs.map(ir => ({
   ...ir,
-  url: `${githubBaseUrl}${ir.url}`
+  url: ir.url ? `${githubBaseUrl}${ir.url}` : '' // Empty string if no url
 }));
 
 export const DEFAULT_INPUTS = isDev ? inputs : inputs.map(input => ({

@@ -146,7 +146,7 @@ export function T3kPlayerContextProvider({
         return;
       }
 
-      const module = await modulePromise;
+      const module = await modulePromise();
 
       if (!module || !module._malloc || !module.stringToUTF8 || !module.ccall) {
         console.error('Module missing required functions');
@@ -384,11 +384,6 @@ export function T3kPlayerContextProvider({
     init,
   };
 
-  // Check if we're on the client side
-  if (typeof window === 'undefined') {
-    return <>{children}</>;
-  }
-
   return (
     <T3kPlayerContext.Provider value={value}>
       {children}
@@ -397,6 +392,28 @@ export function T3kPlayerContextProvider({
 }
 
 export const useT3kPlayerContext = () => {
+  if (typeof window === 'undefined') {
+    // Return sensible defaults for SSR
+    return {
+      audioContext: null,
+      audioElement: null,
+      audioWorkletNode: null,
+      inputGainNode: null,
+      outputGainNode: null,
+      bypassNode: null,
+      irNode: null,
+      loadProfile: async () => {},
+      loadAudio: () => {},
+      toggleBypass: () => {},
+      isProfileLoaded: false,
+      cleanup: () => {},
+      resetProfile: () => {},
+      loadIr: async () => {},
+      removeIr: () => {},
+      isIrLoaded: false,
+      init: () => {},
+    };
+  }
   const context = useContext(T3kPlayerContext);
   if (!context) {
     throw new Error(

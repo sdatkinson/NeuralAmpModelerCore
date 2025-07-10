@@ -1,5 +1,3 @@
-import { useState, useEffect } from 'react';
-
 interface ModuleType {
   asm: unknown;
   [key: string]: any; // @todo: Add more specific types
@@ -11,12 +9,8 @@ declare global {
   }
 }
 
-export const useModule = (): Promise<ModuleType> | null => {
-  const [modulePromise, setModulePromise] =
-    useState<Promise<ModuleType> | null>(null);
-
-  useEffect(() => {
-    const loadModule = (): Promise<ModuleType> => {
+export const useModule = (): (() => Promise<ModuleType>) => {
+    const modulePromise = (): Promise<ModuleType> => {
       return new Promise((resolve, reject) => {
         // console.log('Starting to load WASM module - ' + JSON.stringify({
         //   hasWebAssembly: !!window.WebAssembly,
@@ -125,9 +119,6 @@ export const useModule = (): Promise<ModuleType> | null => {
         return () => clearInterval(interval);
       });
     };
-
-    setModulePromise(loadModule());
-  }, []);
 
   return modulePromise;
 };
