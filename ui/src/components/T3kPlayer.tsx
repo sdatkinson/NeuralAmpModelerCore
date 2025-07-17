@@ -9,7 +9,7 @@ export const T3kPlayer: React.FC<T3kPlayerProps> = ({
   ...props
 }) => {
   if (isLoading) {
-    return <PlayerSkeleton previewMode={previewMode} />;
+    return <div className='neural-amp-modeler'><PlayerSkeleton previewMode={previewMode} /></div>;
   }
 
   return (
