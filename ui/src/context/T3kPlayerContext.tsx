@@ -25,7 +25,6 @@ interface T3kPlayerContextType {
   toggleBypass: () => void;
   isProfileLoaded: boolean;
   cleanup: () => void;
-  resetProfile: () => void;
   loadIr: (
     irUrl: string,
     wetAmount?: number,
@@ -300,14 +299,8 @@ export function T3kPlayerContextProvider({
       audioWorkletNode.connect(outputGainNodeRef.current);
       setIsIrLoaded(false);
     }
-  };
 
-  const resetProfile = () => {
-    cleanup();
-    if (audioWorkletNode && outputGainNodeRef.current) {
-      // Don't disconnect the worklet, just reset the profile loaded state
-      setIsProfileLoaded(false);
-    }
+    setIsProfileLoaded(false);
   };
 
   const toggleBypass = () => {
@@ -377,7 +370,6 @@ export function T3kPlayerContextProvider({
     toggleBypass,
     isProfileLoaded,
     cleanup,
-    resetProfile,
     loadIr,
     removeIr,
     isIrLoaded,
@@ -407,7 +399,6 @@ export const useT3kPlayerContext = () => {
       toggleBypass: () => {},
       isProfileLoaded: false,
       cleanup: () => {},
-      resetProfile: () => {},
       loadIr: async () => {},
       removeIr: () => {},
       isIrLoaded: false,

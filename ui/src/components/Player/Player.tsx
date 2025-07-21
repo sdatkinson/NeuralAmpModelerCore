@@ -29,7 +29,7 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
     loadAudio,
     toggleBypass,
     isProfileLoaded,
-    resetProfile,
+    cleanup,
     loadIr,
     removeIr,
     isIrLoaded,
@@ -155,7 +155,7 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
     init();
     loadAudio(selectedInput.url);
     return () => {
-      resetProfile();
+      cleanup();
       setIsPlaying(false);
     };
   }, []);
