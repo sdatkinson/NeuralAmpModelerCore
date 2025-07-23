@@ -36,7 +36,9 @@ SOFTWARE.
 
 #include <algorithm> // all_of, find, for_each
 #include <cassert> // assert
+#ifndef __APPLE__
 #include <ciso646> // and, not, or
+#endif
 #include <cstddef> // nullptr_t, ptrdiff_t, size_t
 #include <functional> // hash, less
 #include <initializer_list> // initializer_list
@@ -58,7 +60,9 @@ SOFTWARE.
 
 #include <algorithm> // transform
 #include <array> // array
+#ifndef __APPLE__
 #include <ciso646> // and, not
+#endif
 #include <forward_list> // forward_list
 #include <iterator> // inserter, front_inserter, end
 #include <map> // map
@@ -2177,8 +2181,9 @@ class other_error : public exception
 
 // #include <nlohmann/detail/meta/cpp_future.hpp>
 
-
+#ifndef __APPLE__
 #include <ciso646> // not
+#endif
 #include <cstddef> // size_t
 #include <type_traits> // conditional, enable_if, false_type, integral_constant, is_constructible, is_integral, is_same, remove_cv, remove_reference, true_type
 
@@ -2242,8 +2247,9 @@ constexpr T static_const<T>::value;
 
 // #include <nlohmann/detail/meta/type_traits.hpp>
 
-
+#ifndef __APPLE__
 #include <ciso646> // not
+#endif
 #include <limits> // numeric_limits
 #include <type_traits> // false_type, is_constructible, is_integral, is_same, true_type
 #include <utility> // declval
@@ -2814,7 +2820,9 @@ struct is_constructible_tuple<T1, std::tuple<Args...>> : conjunction<std::is_con
 
 
 #include <array> // array
+#ifndef __APPLE__
 #include <ciso646> // and
+#endif
 #include <cstddef> // size_t
 #include <cstdint> // uint8_t
 #include <string> // string
@@ -3263,7 +3271,9 @@ constexpr const auto& from_json = detail::static_const<detail::from_json_fn>::va
 
 
 #include <algorithm> // copy
+#ifndef __APPLE__
 #include <ciso646> // or, and, not
+#endif
 #include <iterator> // begin, end
 #include <string> // string
 #include <tuple> // tuple, get
@@ -9298,8 +9308,9 @@ template<typename BasicJsonType> struct internal_iterator
 
 // #include <nlohmann/detail/iterators/iter_impl.hpp>
 
-
+#ifndef __APPLE__
 #include <ciso646> // not
+#endif
 #include <iterator> // iterator, random_access_iterator_tag, bidirectional_iterator_tag, advance, next
 #include <type_traits> // conditional, is_const, remove_const
 
@@ -12634,7 +12645,9 @@ class binary_writer
 #include <algorithm> // reverse, remove, fill, find, none_of
 #include <array> // array
 #include <cassert> // assert
+#ifndef __APPLE__
 #include <ciso646> // and, or
+#endif
 #include <clocale> // localeconv, lconv
 #include <cmath> // labs, isfinite, isnan, signbit
 #include <cstddef> // size_t, ptrdiff_t
@@ -12650,7 +12663,9 @@ class binary_writer
 
 #include <array> // array
 #include <cassert> // assert
+#ifndef __APPLE__
 #include <ciso646> // or, and, not
+#endif
 #include <cmath>   // signbit, isfinite
 #include <cstdint> // intN_t, uintN_t
 #include <cstring> // memcpy, memmove
