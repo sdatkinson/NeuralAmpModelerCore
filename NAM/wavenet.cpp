@@ -17,7 +17,7 @@ nam::wavenet::_DilatedConv::_DilatedConv(const int in_channels, const int out_ch
 void nam::wavenet::_Layer::SetMaxBufferSize(const int maxBufferSize)
 {
   _input_mixin.SetMaxBufferSize(maxBufferSize);
-  _z.resize(get_channels(), maxBufferSize);
+  _z.resize(_conv.get_out_channels(), maxBufferSize);
   this->_z.setZero();
   _1x1.SetMaxBufferSize(maxBufferSize);
 }
