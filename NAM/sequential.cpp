@@ -22,13 +22,12 @@ Sequential::Sequential(std::vector<std::unique_ptr<DSP>>&& models)
 void Sequential::ValidateModels() const
 {
   const double expectedSampleRate = mModels[0]->GetExpectedSampleRate();
-  
+
   for (size_t i = 1; i < mModels.size(); ++i)
   {
     const double modelSampleRate = mModels[i]->GetExpectedSampleRate();
-    if (std::abs(modelSampleRate - expectedSampleRate) > 1e-6 && 
-        modelSampleRate != NAM_UNKNOWN_EXPECTED_SAMPLE_RATE &&
-        expectedSampleRate != NAM_UNKNOWN_EXPECTED_SAMPLE_RATE)
+    if (std::abs(modelSampleRate - expectedSampleRate) > 1e-6 && modelSampleRate != NAM_UNKNOWN_EXPECTED_SAMPLE_RATE
+        && expectedSampleRate != NAM_UNKNOWN_EXPECTED_SAMPLE_RATE)
     {
       throw std::invalid_argument("All models in Sequential must have the same expected sample rate");
     }
@@ -108,7 +107,7 @@ void Sequential::process(NAM_SAMPLE* input, NAM_SAMPLE* output, const int num_fr
     {
       mIntermediateBuffer[j] = output[j];
     }
-    
+
     // Process through the next model
     mModels[i]->process(mIntermediateBuffer.data(), output, num_frames);
   }
