@@ -25,7 +25,7 @@ void nam::DSP::prewarm()
   {
     SetMaxBufferSize(4096);
   }
-  const int prewarmSamples = PrewarmSamples();
+  const int prewarmSamples = GetReceptiveField();
   if (prewarmSamples == 0)
     return;
 
@@ -240,9 +240,13 @@ void nam::Conv1D::process_(const Eigen::MatrixXf& input, Eigen::MatrixXf& output
   {
     const long offset = this->_dilation * (k + 1 - this->_weight.size());
     if (k == 0)
+    {
       output.middleCols(j_start, ncols).noalias() = this->_weight[k] * input.middleCols(i_start + offset, ncols);
+    }
     else
+    {
       output.middleCols(j_start, ncols).noalias() += this->_weight[k] * input.middleCols(i_start + offset, ncols);
+    }
   }
   if (this->_bias.size() > 0)
   {

@@ -67,6 +67,9 @@ public:
   // Output Level, in dBu, corresponding to 0 dBFS for a sine wave
   // You should call HasOutputLevel() first to be safe.
   double GetOutputLevel() { return mOutputLevel.level; };
+  // Gets the number of samples beyond which the input doesn't really affect the models' behavior.
+  // For things like convolutional models, this is exact. For RNNs, it's approximate.
+  int GetReceptiveField() { return PrewarmSamples(); };
   // Does this model know its output level?
   bool HasInputLevel() { return mInputLevel.haveLevel; };
   // Get whether the model knows how loud it is.
@@ -92,6 +95,9 @@ public:
   // This is usually defined to be the loudness to a standardized input. The trainer has its own, but you can always
   // use this to define it a different way if you like yours better.
   void SetLoudness(const double loudness);
+  // Set the max buffer size.
+  virtual void SetMaxBufferSize(const int maxBufferSize);
+  // Set the output level, in dBu RMS, corresponding to 0 dBFS peak for a sine wave
   void SetOutputLevel(const double outputLevel)
   {
     mOutputLevel.haveLevel = true;
@@ -111,9 +117,8 @@ protected:
   int mMaxBufferSize = 0;
 
   // How many samples should be processed for me to be considered "warmed up"?
+  // TODO remove for GetReceptiveField()
   virtual int PrewarmSamples() { return 0; };
-
-  virtual void SetMaxBufferSize(const int maxBufferSize);
 
 private:
   struct Level
