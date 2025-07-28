@@ -175,13 +175,13 @@ public:
           std::vector<float> weights, const double expected_sample_rate = -1.0);
   ~WaveNet() = default;
   void process(NAM_SAMPLE* input, NAM_SAMPLE* output, const int num_frames) override;
+  void SetMaxBufferSize(const int maxBufferSize) override;
   void set_weights_(std::vector<float>& weights);
 
 protected:
   // Element-wise arrays:
   Eigen::MatrixXf _condition;
 
-  void SetMaxBufferSize(const int maxBufferSize) override;
   // Fill in the "condition" array that's fed into the various parts of the net.
   virtual void _set_condition_array(NAM_SAMPLE* input, const int num_frames);
   // How many conditioning inputs are there.
@@ -201,9 +201,6 @@ private:
 
   void _advance_buffers_(const int num_frames);
   void _prepare_for_frames_(const long num_frames);
-
-  // Ensure that all buffer arrays are the right size for this num_frames
-  void _set_num_frames_(const long num_frames);
 
   int mPrewarmSamples = 0; // Pre-compute during initialization
   int PrewarmSamples() override { return mPrewarmSamples; };

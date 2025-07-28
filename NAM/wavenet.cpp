@@ -18,6 +18,7 @@ void nam::wavenet::_Layer::SetMaxBufferSize(const int maxBufferSize)
 {
   _input_mixin.SetMaxBufferSize(maxBufferSize);
   _z.resize(get_channels(), maxBufferSize);
+  this->_z.setZero();
   _1x1.SetMaxBufferSize(maxBufferSize);
 }
 
@@ -71,11 +72,7 @@ void nam::wavenet::_Layer::process_(const Eigen::MatrixXf& input, const Eigen::M
 
 void nam::wavenet::_Layer::set_num_frames_(const long num_frames)
 {
-  if (this->_z.rows() == this->_conv.get_out_channels() && this->_z.cols() == num_frames)
-    return; // Already has correct size
-
-  this->_z.resize(this->_conv.get_out_channels(), num_frames);
-  this->_z.setZero();
+  throw std::runtime_error("set_num_frames_ is deprecated. Use SetMaxBufferSize instead.");
 }
 
 // LayerArray =================================================================

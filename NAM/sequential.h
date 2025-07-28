@@ -17,13 +17,12 @@ public:
   virtual ~Sequential() = default;
 
   // Override DSP interface methods
-  void prewarm() override;
   void process(NAM_SAMPLE* input, NAM_SAMPLE* output, const int num_frames) override;
   void Reset(const double sampleRate, const int maxBufferSize) override;
+  void SetMaxBufferSize(const int maxBufferSize) override;
 
 protected:
   int PrewarmSamples() override;
-  void SetMaxBufferSize(const int maxBufferSize) override;
 
 private:
   std::vector<std::unique_ptr<DSP>> mModels;
@@ -32,7 +31,6 @@ private:
   // Helper methods
   void ValidateModels() const;
   void InitializeLevelsAndLoudness();
-  int ComputeMaxBufferSize() const;
 };
 
 } // namespace nam
