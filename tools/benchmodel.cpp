@@ -36,7 +36,6 @@ int main(int argc, char* argv[])
       exit(1);
     }
 
-
     size_t bufferSize = AUDIO_BUFFER_SIZE;
     model->Reset(model->GetExpectedSampleRate(), bufferSize);
     size_t numBuffers = (48000 / bufferSize) * 2;
@@ -47,8 +46,6 @@ int main(int argc, char* argv[])
     {
       inputBuffer[i] = 0.0;
     }
-    // Run once outside to trigger any pre-allocation
-    model->process(inputBuffer, outputBuffer, AUDIO_BUFFER_SIZE);
 
     std::cout << "Running benchmark\n";
     auto t1 = high_resolution_clock::now();

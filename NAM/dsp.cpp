@@ -21,6 +21,10 @@ nam::DSP::DSP(const double expected_sample_rate)
 
 void nam::DSP::prewarm()
 {
+  if (mMaxBufferSize == 0)
+  {
+    SetMaxBufferSize(4096);
+  }
   const int prewarmSamples = PrewarmSamples();
   if (prewarmSamples == 0)
     return;
@@ -66,15 +70,20 @@ void nam::DSP::Reset(const double sampleRate, const int maxBufferSize)
   // This could be under a debugging flag potentially.
   mExternalSampleRate = sampleRate;
   mHaveExternalSampleRate = true;
-  mMaxBufferSize = maxBufferSize;
+  SetMaxBufferSize(maxBufferSize);
 
-  // Subclasses might also want to pre-warm, but let them call that themselves in case
-  // they want to e.g. do some allocations first.
+  prewarm();
 }
+
 void nam::DSP::SetLoudness(const double loudness)
 {
   mLoudness = loudness;
   mHasLoudness = true;
+}
+
+void nam::DSP::SetMaxBufferSize(const int maxBufferSize)
+{
+  mMaxBufferSize = maxBufferSize;
 }
 
 // Buffer =====================================================================
@@ -231,12 +240,14 @@ void nam::Conv1D::process_(const Eigen::MatrixXf& input, Eigen::MatrixXf& output
   {
     const long offset = this->_dilation * (k + 1 - this->_weight.size());
     if (k == 0)
-      output.middleCols(j_start, ncols) = this->_weight[k] * input.middleCols(i_start + offset, ncols);
+      output.middleCols(j_start, ncols).noalias() = this->_weight[k] * input.middleCols(i_start + offset, ncols);
     else
-      output.middleCols(j_start, ncols) += this->_weight[k] * input.middleCols(i_start + offset, ncols);
+      output.middleCols(j_start, ncols).noalias() += this->_weight[k] * input.middleCols(i_start + offset, ncols);
   }
   if (this->_bias.size() > 0)
+  {
     output.middleCols(j_start, ncols).colwise() += this->_bias;
+  }
 }
 
 long nam::Conv1D::get_num_weights() const
@@ -255,6 +266,16 @@ nam::Conv1x1::Conv1x1(const int in_channels, const int out_channels, const bool 
     this->_bias.resize(out_channels);
 }
 
+Eigen::Block<Eigen::MatrixXf> nam::Conv1x1::GetOutput(const int num_frames)
+{
+  return _output.block(0, 0, _output.rows(), num_frames);
+}
+
+void nam::Conv1x1::SetMaxBufferSize(const int maxBufferSize)
+{
+  _output.resize(get_out_channels(), maxBufferSize);
+}
+
 void nam::Conv1x1::set_weights_(std::vector<float>::iterator& weights)
 {
   for (int i = 0; i < this->_weight.rows(); i++)
@@ -265,10 +286,20 @@ void nam::Conv1x1::set_weights_(std::vector<float>::iterator& weights)
       this->_bias(i) = *(weights++);
 }
 
-Eigen::MatrixXf nam::Conv1x1::process(const Eigen::MatrixXf& input) const
+Eigen::MatrixXf nam::Conv1x1::process(const Eigen::MatrixXf& input, const int num_frames) const
 {
   if (this->_do_bias)
-    return (this->_weight * input).colwise() + this->_bias;
+    return (this->_weight * input.leftCols(num_frames)).colwise() + this->_bias;
   else
-    return this->_weight * input;
+    return this->_weight * input.leftCols(num_frames);
+}
+
+void nam::Conv1x1::process_(const Eigen::MatrixXf& input, const int num_frames)
+{
+  assert(num_frames <= _output.cols());
+  _output.leftCols(num_frames).noalias() = this->_weight * input.leftCols(num_frames);
+  if (this->_do_bias)
+  {
+    _output.leftCols(num_frames).colwise() += this->_bias;
+  }
 }
