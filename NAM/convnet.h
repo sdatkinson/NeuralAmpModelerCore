@@ -86,5 +86,10 @@ protected:
   int mPrewarmSamples = 0; // Pre-compute during initialization
   int PrewarmSamples() override { return mPrewarmSamples; };
 };
+
+// Factory
+std::unique_ptr<DSP> Factory(const nlohmann::json& config, std::vector<float>& weights,
+                             const double expectedSampleRate);
+
 }; // namespace convnet
 }; // namespace nam

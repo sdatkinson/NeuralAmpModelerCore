@@ -8,6 +8,7 @@
 #include <unordered_set>
 
 #include "dsp.h"
+#include "registry.h"
 #include "convnet.h"
 
 nam::convnet::BatchNorm::BatchNorm(const int dim, std::vector<float>::iterator& weights)
@@ -183,4 +184,21 @@ void nam::convnet::ConvNet::_rewind_buffers_()
   }
   // Now we can do the rest of the rewind
   this->Buffer::_rewind_buffers_();
+}
+
+// Factory
+std::unique_ptr<nam::DSP> nam::convnet::Factory(const nlohmann::json& config, std::vector<float>& weights,
+                                                const double expectedSampleRate)
+{
+  const int channels = config["channels"];
+  const std::vector<int> dilations = config["dilations"];
+  const bool batchnorm = config["batchnorm"];
+  const std::string activation = config["activation"];
+  return std::make_unique<nam::convnet::ConvNet>(
+    channels, dilations, batchnorm, activation, weights, expectedSampleRate);
+}
+
+namespace
+{
+static nam::factory::Helper _register_ConvNet("ConvNet", nam::convnet::Factory);
 }
