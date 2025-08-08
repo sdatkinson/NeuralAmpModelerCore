@@ -30,15 +30,27 @@ public:
   , _1x1(channels, channels, true)
   , _activation(activations::Activation::get_activation(activation))
   , _gated(gated) {};
+  // Resize all arrays to be able to process `maxBufferSize` frames.
   void SetMaxBufferSize(const int maxBufferSize);
+  // Set the parameters of this module
   void set_weights_(std::vector<float>::iterator& weights);
+  // Process a block of frames.
   // :param `input`: from previous layer
+  // :param `condition`: conditioning input (input to the WaveNet / "skip-in")
+  // :param `head_input`: input to the head ("skip-out")
   // :param `output`: to next layer
+  // :param `i_start`: Index of the first column of the input samples that the conv layer's first kernel will process
+  // :param `j_start`: Index of the first column of the output block that will be written to
+  // :param `num_frames`: number of frames to process
   void process_(const Eigen::MatrixXf& input, const Eigen::MatrixXf& condition, Eigen::MatrixXf& head_input,
                 Eigen::MatrixXf& output, const long i_start, const long j_start, const int num_frames);
+  // DEPRECATED - use SetMaxBufferSize() instead
   void set_num_frames_(const long num_frames);
+  // The number of channels expected as input/output from this layer
   long get_channels() const { return this->_conv.get_in_channels(); };
+  // Dilation of the input convolution layer
   int get_dilation() const { return this->_conv.get_dilation(); };
+  // Kernel size of the input convolution layer
   long get_kernel_size() const { return this->_conv.get_kernel_size(); };
 
 private:

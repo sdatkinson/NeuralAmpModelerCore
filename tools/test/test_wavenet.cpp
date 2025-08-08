@@ -36,7 +36,7 @@ void test_gated()
   assert(it == weights.end());
 
   const long numFrames = 4;
-  layer.set_num_frames_(numFrames);
+  layer.SetMaxBufferSize(numFrames);
 
   Eigen::MatrixXf input, condition, headInput, output;
   input.resize(channels, numFrames);

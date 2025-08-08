@@ -17,7 +17,7 @@ nam::wavenet::_DilatedConv::_DilatedConv(const int in_channels, const int out_ch
 void nam::wavenet::_Layer::SetMaxBufferSize(const int maxBufferSize)
 {
   _input_mixin.SetMaxBufferSize(maxBufferSize);
-  _z.resize(get_channels(), maxBufferSize);
+  _z.resize(this->_conv.get_out_channels(), maxBufferSize);
   _1x1.SetMaxBufferSize(maxBufferSize);
 }
 
@@ -71,6 +71,7 @@ void nam::wavenet::_Layer::process_(const Eigen::MatrixXf& input, const Eigen::M
 
 void nam::wavenet::_Layer::set_num_frames_(const long num_frames)
 {
+  // TODO deprecate for SetMaxBufferSize()
   if (this->_z.rows() == this->_conv.get_out_channels() && this->_z.cols() == num_frames)
     return; // Already has correct size
 
