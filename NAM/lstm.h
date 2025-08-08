@@ -3,6 +3,7 @@
 
 #include <map>
 #include <vector>
+#include <memory>
 
 #include <Eigen/Dense>
 
@@ -69,5 +70,10 @@ protected:
   // Since this is assumed to not be a parametric model, its shape should be (1,)
   Eigen::VectorXf _input;
 };
+
+// Factory to instantiate from nlohmann json
+std::unique_ptr<DSP> Factory(const nlohmann::json& config, std::vector<float>& weights,
+                             const double expectedSampleRate);
+
 }; // namespace lstm
 }; // namespace nam
