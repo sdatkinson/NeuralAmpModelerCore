@@ -5,7 +5,6 @@
 
 #include "registry.h"
 #include "lstm.h"
-#include "get_dsp.h"
 
 nam::lstm::LSTMCell::LSTMCell(const int input_size, const int hidden_size, std::vector<float>::iterator& weights)
 {

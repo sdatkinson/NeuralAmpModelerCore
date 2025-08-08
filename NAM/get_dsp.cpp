@@ -9,6 +9,7 @@
 #include "lstm.h"
 #include "convnet.h"
 #include "wavenet.h"
+#include "get_dsp.h"
 
 namespace nam
 {
@@ -103,12 +104,7 @@ std::unique_ptr<DSP> get_dsp(const std::filesystem::path config_filename, dspDat
   returnedConfig.config = j["config"];
   returnedConfig.metadata = j["metadata"];
   returnedConfig.weights = weights;
-  if (j.find("sample_rate") != j.end())
-    returnedConfig.expected_sample_rate = j["sample_rate"];
-  else
-  {
-    returnedConfig.expected_sample_rate = -1.0;
-  }
+  returnedConfig.expected_sample_rate = nam::get_sample_rate_from_nam_file(j);
 
   /*Copy to a new dsp_config object for get_dsp below,
    since not sure if weights actually get modified as being non-const references on some
@@ -192,4 +188,13 @@ std::unique_ptr<DSP> get_dsp(dspData& conf)
 
   return out;
 }
+
+double get_sample_rate_from_nam_file(const nlohmann::json& j)
+{
+  if (j.find("sample_rate") != j.end())
+    return j["sample_rate"];
+  else
+    return -1.0;
+}
+
 }; // namespace nam

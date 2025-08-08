@@ -193,13 +193,6 @@ void nam::Linear::process(NAM_SAMPLE* input, NAM_SAMPLE* output, const int num_f
   nam::Buffer::_advance_input_buffer_(num_frames);
 }
 
-// Register factories for instantiating DSP objects
-nam::FactoryRegistry& nam::FactoryRegistry::instance()
-{
-  static FactoryRegistry inst;
-  return inst;
-}
-
 // NN modules =================================================================
 
 void nam::Conv1D::set_weights_(std::vector<float>::iterator& weights)
