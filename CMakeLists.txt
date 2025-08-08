@@ -5,8 +5,6 @@ project(NAM VERSION 0.3.0)
 
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
-
-
 if (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
 	include_directories(SYSTEM /usr/local/include)
 elseif (CMAKE_SYSTEM_NAME STREQUAL "Linux")
