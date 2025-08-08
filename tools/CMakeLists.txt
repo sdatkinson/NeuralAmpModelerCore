@@ -1,13 +1,13 @@
 file(GLOB_RECURSE NAM_SOURCES ../NAM/*.cpp ../NAM/*.c ../NAM*.h)
 
-set(TOOLS benchmodel)
+set(TOOLS loadmodel benchmodel run_tests)
 
 add_custom_target(tools ALL
 	DEPENDS ${TOOLS})
 
-include_directories(tools ..)
-include_directories(tools ${NAM_DEPS_PATH}/eigen)
-include_directories(tools ${NAM_DEPS_PATH}/nlohmann)
+include_directories(..)
+include_directories(${NAM_DEPS_PATH}/eigen)
+include_directories(${NAM_DEPS_PATH}/nlohmann)
 
 add_executable(loadmodel loadmodel.cpp ${NAM_SOURCES})
 add_executable(benchmodel benchmodel.cpp ${NAM_SOURCES})
@@ -15,7 +15,7 @@ add_executable(run_tests run_tests.cpp ${NAM_SOURCES})
 
 source_group(NAM ${CMAKE_CURRENT_SOURCE_DIR} FILES ${NAM_SOURCES})
 
-target_compile_features(${TOOLS} PUBLIC cxx_std_17)
+target_compile_features(${TOOLS} PUBLIC cxx_std_20)
 
 set_target_properties(${TOOLS}
 	PROPERTIES

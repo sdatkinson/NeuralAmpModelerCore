@@ -1,5 +1,4 @@
 #include <algorithm> // std::max_element
-#include <algorithm>
 #include <cmath> // pow, tanh, expf
 #include <filesystem>
 #include <fstream>
