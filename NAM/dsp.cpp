@@ -7,6 +7,7 @@
 #include <unordered_set>
 
 #include "dsp.h"
+#include "registry.h"
 
 #define tanh_impl_ std::tanh
 // #define tanh_impl_ fast_tanh_
@@ -190,6 +191,13 @@ void nam::Linear::process(NAM_SAMPLE* input, NAM_SAMPLE* output, const int num_f
 
   // Prepare for next call:
   nam::Buffer::_advance_input_buffer_(num_frames);
+}
+
+// Register factories for instantiating DSP objects
+nam::FactoryRegistry& nam::FactoryRegistry::instance()
+{
+  static FactoryRegistry inst;
+  return inst;
 }
 
 // NN modules =================================================================

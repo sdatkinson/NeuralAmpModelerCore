@@ -1,8 +1,11 @@
 #include <algorithm>
 #include <string>
 #include <vector>
+#include <memory>
 
+#include "registry.h"
 #include "lstm.h"
+#include "get_dsp.h"
 
 nam::lstm::LSTMCell::LSTMCell(const int input_size, const int hidden_size, std::vector<float>::iterator& weights)
 {
@@ -101,4 +104,20 @@ float nam::lstm::LSTM::_process_sample(const float x)
   for (size_t i = 1; i < this->_layers.size(); i++)
     this->_layers[i].process_(this->_layers[i - 1].get_hidden_state());
   return this->_head_weight.dot(this->_layers[this->_layers.size() - 1].get_hidden_state()) + this->_head_bias;
+}
+
+// Factory to instantiate from nlohmann json
+std::unique_ptr<nam::DSP> nam::lstm::Factory(const nlohmann::json& config, std::vector<float>& weights,
+                                             const double expectedSampleRate)
+{
+  const int num_layers = config["num_layers"];
+  const int input_size = config["input_size"];
+  const int hidden_size = config["hidden_size"];
+  return std::make_unique<nam::lstm::LSTM>(num_layers, input_size, hidden_size, weights, expectedSampleRate);
+}
+
+// Register the factory
+namespace
+{
+static nam::factory::Helper _register_LSTM("LSTM", nam::lstm::Factory);
 }

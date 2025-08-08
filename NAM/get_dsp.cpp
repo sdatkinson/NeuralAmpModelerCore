@@ -4,6 +4,7 @@
 #include <unordered_set>
 
 #include "dsp.h"
+#include "registry.h"
 #include "json.hpp"
 #include "lstm.h"
 #include "convnet.h"
@@ -153,6 +154,7 @@ std::unique_ptr<DSP> get_dsp(dspData& conf)
   const double expectedSampleRate = conf.expected_sample_rate;
 
   std::unique_ptr<DSP> out = nullptr;
+  // A few that need to be migrated...
   if (architecture == "Linear")
   {
     const int receptive_field = config["receptive_field"];
@@ -167,31 +169,9 @@ std::unique_ptr<DSP> get_dsp(dspData& conf)
     const std::string activation = config["activation"];
     out = std::make_unique<convnet::ConvNet>(channels, dilations, batchnorm, activation, weights, expectedSampleRate);
   }
-  else if (architecture == "LSTM")
+  else // New registry-based approach
   {
-    const int num_layers = config["num_layers"];
-    const int input_size = config["input_size"];
-    const int hidden_size = config["hidden_size"];
-    out = std::make_unique<lstm::LSTM>(num_layers, input_size, hidden_size, weights, expectedSampleRate);
-  }
-  else if (architecture == "WaveNet")
-  {
-    std::vector<wavenet::LayerArrayParams> layer_array_params;
-    for (size_t i = 0; i < config["layers"].size(); i++)
-    {
-      nlohmann::json layer_config = config["layers"][i];
-      layer_array_params.push_back(
-        wavenet::LayerArrayParams(layer_config["input_size"], layer_config["condition_size"], layer_config["head_size"],
-                                  layer_config["channels"], layer_config["kernel_size"], layer_config["dilations"],
-                                  layer_config["activation"], layer_config["gated"], layer_config["head_bias"]));
-    }
-    const bool with_head = !config["head"].is_null();
-    const float head_scale = config["head_scale"];
-    out = std::make_unique<wavenet::WaveNet>(layer_array_params, head_scale, with_head, weights, expectedSampleRate);
-  }
-  else
-  {
-    throw std::runtime_error("Unrecognized architecture");
+    out = nam::factory::FactoryRegistry::instance().create(architecture, config, weights, expectedSampleRate);
   }
   if (loudness.have)
   {

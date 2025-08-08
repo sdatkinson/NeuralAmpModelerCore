@@ -4,6 +4,7 @@
 
 #include <Eigen/Dense>
 
+#include "registry.h"
 #include "wavenet.h"
 
 nam::wavenet::_DilatedConv::_DilatedConv(const int in_channels, const int out_channels, const int kernel_size,
@@ -396,4 +397,29 @@ void nam::wavenet::WaveNet::process(NAM_SAMPLE* input, NAM_SAMPLE* output, const
 
   // Finalize to prepare for the next call:
   this->_advance_buffers_(num_frames);
+}
+
+// Factory to instantiate from nlohmann json
+std::unique_ptr<nam::DSP> nam::wavenet::Factory(const nlohmann::json& config, std::vector<float>& weights,
+                                                const double expectedSampleRate)
+{
+  std::vector<nam::wavenet::LayerArrayParams> layer_array_params;
+  for (size_t i = 0; i < config["layers"].size(); i++)
+  {
+    nlohmann::json layer_config = config["layers"][i];
+    layer_array_params.push_back(nam::wavenet::LayerArrayParams(
+      layer_config["input_size"], layer_config["condition_size"], layer_config["head_size"], layer_config["channels"],
+      layer_config["kernel_size"], layer_config["dilations"], layer_config["activation"], layer_config["gated"],
+      layer_config["head_bias"]));
+  }
+  const bool with_head = !config["head"].is_null();
+  const float head_scale = config["head_scale"];
+  return std::make_unique<nam::wavenet::WaveNet>(
+    layer_array_params, head_scale, with_head, weights, expectedSampleRate);
+}
+
+// Register the factory
+namespace
+{
+static nam::factory::Helper _register_WaveNet("WaveNet", nam::wavenet::Factory);
 }
