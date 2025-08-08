@@ -193,6 +193,15 @@ void nam::Linear::process(NAM_SAMPLE* input, NAM_SAMPLE* output, const int num_f
   nam::Buffer::_advance_input_buffer_(num_frames);
 }
 
+// Factory
+std::unique_ptr<nam::DSP> nam::linear::Factory(const nlohmann::json& config, std::vector<float>& weights,
+                                               const double expectedSampleRate)
+{
+  const int receptive_field = config["receptive_field"];
+  const bool bias = config["bias"];
+  return std::make_unique<nam::Linear>(receptive_field, bias, weights, expectedSampleRate);
+}
+
 // NN modules =================================================================
 
 void nam::Conv1D::set_weights_(std::vector<float>::iterator& weights)

@@ -149,26 +149,9 @@ std::unique_ptr<DSP> get_dsp(dspData& conf)
   }
   const double expectedSampleRate = conf.expected_sample_rate;
 
-  std::unique_ptr<DSP> out = nullptr;
-  // A few that need to be migrated...
-  if (architecture == "Linear")
-  {
-    const int receptive_field = config["receptive_field"];
-    const bool _bias = config["bias"];
-    out = std::make_unique<Linear>(receptive_field, _bias, weights, expectedSampleRate);
-  }
-  else if (architecture == "ConvNet")
-  {
-    const int channels = config["channels"];
-    const bool batchnorm = config["batchnorm"];
-    std::vector<int> dilations = config["dilations"];
-    const std::string activation = config["activation"];
-    out = std::make_unique<convnet::ConvNet>(channels, dilations, batchnorm, activation, weights, expectedSampleRate);
-  }
-  else // New registry-based approach
-  {
-    out = nam::factory::FactoryRegistry::instance().create(architecture, config, weights, expectedSampleRate);
-  }
+  // Initialize using registry-based factory
+  std::unique_ptr<DSP> out =
+    nam::factory::FactoryRegistry::instance().create(architecture, config, weights, expectedSampleRate);
   if (loudness.have)
   {
     out->SetLoudness(loudness.value);

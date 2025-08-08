@@ -164,6 +164,12 @@ protected:
   float _bias;
 };
 
+namespace linear
+{
+std::unique_ptr<DSP> Factory(const nlohmann::json& config, std::vector<float>& weights,
+                             const double expectedSampleRate);
+} // namespace linear
+
 // NN modules =================================================================
 
 // TODO conv could take care of its own ring buffer.
