@@ -1,5 +1,6 @@
 file(GLOB_RECURSE NAM_SOURCES ../NAM/*.cpp ../NAM/*.c ../NAM*.h)
 
+# TODO: add loadmodel and run_tests to TOOLS?
 set(TOOLS benchmodel)
 
 add_custom_target(tools ALL
