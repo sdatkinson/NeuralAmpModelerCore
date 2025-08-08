@@ -1,3 +1,7 @@
+#pragma once
+
+// Factories for instantiating DSP objects from files and configuration structs
+
 #include <fstream>
 
 #include "dsp.h"
