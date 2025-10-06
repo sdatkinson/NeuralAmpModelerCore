@@ -1,4 +1,4 @@
-export const readProfile = (
+export const readModel = (
   file: File
 ): Promise<string | ArrayBuffer | null | undefined> => {
   return new Promise(resolve => {

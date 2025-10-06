@@ -5,12 +5,14 @@ import React, {
   useState,
   ReactNode,
   useCallback,
+  useMemo,
 } from 'react';
 import { useModule } from '../hooks/useModule';
-import { readProfile } from '../utils/readProfile';
+import { readModel } from '../utils/readModel';
 import { DEFAULT_AUDIO_SRC } from '../constants';
 
-interface T3kPlayerContextType {
+// Types
+interface AudioNodes {
   audioContext: AudioContext | null;
   audioElement: HTMLAudioElement | null;
   audioWorkletNode: AudioWorkletNode | null;
@@ -18,82 +20,126 @@ interface T3kPlayerContextType {
   outputGainNode: GainNode | null;
   bypassNode: GainNode | null;
   irNode: ConvolverNode | null;
-  loadProfile: (
-    modelUrl: string,
-  ) => Promise<void>;
-  loadAudio: (src: string) => void;
-  toggleBypass: () => void;
-  isProfileLoaded: boolean;
-  cleanup: () => void;
-  loadIr: (
-    irUrl: string,
-    wetAmount?: number,
-    gainAmount?: number
-  ) => Promise<void>;
-  removeIr: () => void;
-  isIrLoaded: boolean;
-  init: () => void;
+  irWetGain: GainNode | null;
+  irDryGain: GainNode | null;
+  irGain: GainNode | null;
+  sourceNode: MediaElementAudioSourceNode | null;
 }
 
+interface AudioState {
+  isInitialized: boolean;
+  isBypassed: boolean;
+  modelUrl: string | null;
+  irUrl: string | null;
+  audioUrl: string | null;
+}
+
+interface IrConfig {
+  url: string;
+  wetAmount?: number;
+  gainAmount?: number;
+}
+
+interface T3kPlayerContextType {
+  // State
+  audioState: AudioState;
+  
+  // Getters
+  getAudioNodes: () => AudioNodes;
+  
+  // Actions
+  init: () => Promise<void>;
+  loadModel: (modelUrl: string) => Promise<void>;
+  loadAudio: (src: string) => Promise<void>;
+  loadIr: (config: IrConfig) => Promise<void>;
+  removeIr: () => void;
+  toggleBypass: () => void;
+  cleanup: () => void;
+  connectVisualizerNode: (analyserNode: AnalyserNode) => () => void;
+}
+
+// Context
 const T3kPlayerContext = createContext<T3kPlayerContextType | null>(null);
 
+// Provider Component
 export function T3kPlayerContextProvider({
   children,
 }: {
   children: ReactNode;
 }) {
-  const [audioContext, setAudioContext] = useState<AudioContext | null>(null);
-  const [audioWorkletNode, setAudioWorkletNode] =
-    useState<AudioWorkletNode | null>(null);
-  const [isProfileLoaded, setIsProfileLoaded] = useState(false);
-  const [irNode, setIrNode] = useState<ConvolverNode | null>(null);
-  const [isIrLoaded, setIsIrLoaded] = useState(false);
-  const audioElementRef = useRef<HTMLAudioElement | null>(null);
-  const inputGainNodeRef = useRef<GainNode | null>(null);
-  const outputGainNodeRef = useRef<GainNode | null>(null);
-  const bypassNodeRef = useRef<GainNode | null>(null);
-  const sourceNodeRef = useRef<MediaElementAudioSourceNode | null>(null);
+  // Consolidated state
+  const [audioState, setAudioState] = useState<AudioState>({
+    isInitialized: false,
+    isBypassed: false,
+    modelUrl: null,
+    irUrl: null,
+    audioUrl: null,
+  });
+
+  // Refs for non-render-triggering data
+  const audioNodesRef = useRef<AudioNodes>({
+    audioContext: null,
+    audioElement: null,
+    audioWorkletNode: null,
+    inputGainNode: null,
+    outputGainNode: null,
+    bypassNode: null,
+    irNode: null,
+    irWetGain: null,
+    irDryGain: null,
+    irGain: null,
+    sourceNode: null,
+  });
+  
+  const isInitializingRef = useRef<boolean>(false);
   const modulePromise = useModule();
-  const [isInitialized, setIsInitialized] = useState(false);
 
-  // Add ref for IR wet gain node
-  const irWetGainRef = useRef<GainNode | null>(null);
-  const irDryGainRef = useRef<GainNode | null>(null);
+  // Getter for audio nodes
+  const getAudioNodes = useCallback((): AudioNodes => {
+    return audioNodesRef.current;
+  }, []);
 
-  // Add ref for IR gain node
-  const irGainRef = useRef<GainNode | null>(null);
+  // Initialize audio system
+  const init = useCallback(async (): Promise<void> => {
+    if (audioState.isInitialized || isInitializingRef.current) return;
+    
+    isInitializingRef.current = true;
 
-  const init = () => {
-    if (isInitialized) return;
-    if (typeof window !== 'undefined') {
-      if (!window.AudioContext || !window.AudioWorklet) {
-        console.error('AudioWorklet not supported in this browser');
-        return;
+    try {
+      // Check browser support
+      if (typeof window === 'undefined' || !window.AudioContext || !window.AudioWorklet) {
+        throw new Error('AudioWorklet not supported in this browser');
       }
-    }
-    // Create hidden audio element
-    const audio = new Audio();
-    audio.crossOrigin = 'anonymous';
-    audioElementRef.current = audio;
-    document.body.appendChild(audio);
 
-    audio.src = DEFAULT_AUDIO_SRC;
-    audio.load();
+      // Create and setup audio element
+      const audio = new Audio();
+      audio.crossOrigin = 'anonymous';
+      audio.src = DEFAULT_AUDIO_SRC;
+      getAudioNodes().audioElement = audio;
+      document.body.appendChild(audio);
+      
+      await new Promise<void>((resolve, reject) => {
+        const handleLoad = () => resolve();
+        const handleError = () => reject(new Error('Failed to load default audio'));
+        audio.addEventListener('loadeddata', handleLoad, { once: true });
+        audio.addEventListener('error', handleError, { once: true });
+        audio.load();
+      });
 
-    // Initialize audio context and nodes
-    const script = document.createElement('script');
-      script.src = '/t3k-wasm-module.js';
-      script.async = true;
+      // Load WASM module script
+      await new Promise<void>((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = '/t3k-wasm-module.js';
+        script.async = true;
+        script.onload = () => resolve();
+        script.onerror = (error) => {
+          console.error('Failed to load t3k-wasm-module.js:', error);
+          reject(new Error('Failed to load audio module'));
+        };
+        document.body.appendChild(script);
+      });
 
-      script.onerror = error => {
-        console.error(
-          'Failed to load t3k-wasm-module.js:',
-          JSON.stringify(error)
-        );
-      };
-
-      document.body.appendChild(script);
-
+      // Setup audio worklet callback
       // @ts-ignore
       window.wasmAudioWorkletCreated = (
         node1: AudioWorkletNode,
@@ -101,315 +147,416 @@ export function T3kPlayerContextProvider({
       ) => {
         const audioWorkletNode = node1;
         const context = node2;
+        const nodes = getAudioNodes();
 
-        setAudioWorkletNode(audioWorkletNode);
-        setAudioContext(context);
+        // Store nodes
+        nodes.audioWorkletNode = audioWorkletNode;
+        nodes.audioContext = context;
+
+        // Create gain nodes
+        nodes.inputGainNode = new GainNode(context, { gain: 1 });
+        nodes.outputGainNode = new GainNode(context, { gain: 1 });
+        nodes.bypassNode = new GainNode(context, { gain: 0 });
+
+        // Create source from audio element
+        nodes.sourceNode = context.createMediaElementSource(nodes.audioElement!);
+
+        // Connect audio graph
+        nodes.sourceNode.connect(nodes.inputGainNode);
+        nodes.inputGainNode.connect(nodes.bypassNode);
+        nodes.bypassNode.connect(nodes.outputGainNode);
+        nodes.inputGainNode.connect(audioWorkletNode);
+        audioWorkletNode.connect(nodes.outputGainNode);
+        nodes.outputGainNode.connect(context.destination);
+
         context.resume();
-
-        // Setup gain nodes
-        inputGainNodeRef.current = new GainNode(context, { gain: 1 });
-        outputGainNodeRef.current = new GainNode(context, { gain: 1 });
-        bypassNodeRef.current = new GainNode(context, { gain: 0 });
-
-        // Create and store source node
-        sourceNodeRef.current = context.createMediaElementSource(
-          audioElementRef.current!
-        );
-
-        // Connect nodes
-        sourceNodeRef.current.connect(inputGainNodeRef.current);
-        inputGainNodeRef.current.connect(bypassNodeRef.current);
-        bypassNodeRef.current.connect(outputGainNodeRef.current);
-        inputGainNodeRef.current.connect(audioWorkletNode);
-        audioWorkletNode.connect(outputGainNodeRef.current);
-        outputGainNodeRef.current.connect(context.destination);
+        setAudioState(prev => ({ ...prev, isInitialized: true }));
       };
+    } catch (error) {
+      console.error('Error initializing audio system:', error);
+      throw error;
+    } finally {
+      isInitializingRef.current = false;
+    }
+  }, [audioState.isInitialized, getAudioNodes]);
 
-      setIsInitialized(true);
-  }
+  // Load model
+  const loadModel = useCallback(async (modelUrl: string): Promise<void> => {
+    if (isInitializingRef.current) {
+      throw new Error('Audio system is initializing');
+    }
 
-  const loadProfile = async (modelUrl: string) => {
     try {
-      const res = await fetch(modelUrl);
-      const blob = await res.blob();
+      // Fetch and process model file
+      const response = await fetch(modelUrl);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch model: ${response.statusText}`);
+      }
+      
+      const blob = await response.blob();
       const file = new File([blob], 'profile.nam', { type: '.nam' });
-      const jsonStr = (await readProfile(file)) as string;
+      const jsonStr = await readModel(file) as string;
 
       if (!jsonStr) {
-        console.error('Failed to read profile - jsonStr is empty');
-        return;
+        throw new Error('Failed to read model - empty response');
       }
 
       if (!modulePromise) {
-        console.error('No modulePromise available');
-        return;
+        throw new Error('WASM module not available');
       }
 
       const module = await modulePromise();
 
-      if (!module || !module._malloc || !module.stringToUTF8 || !module.ccall) {
-        console.error('Module missing required functions');
-        return;
+      if (!module?._malloc || !module?.stringToUTF8 || !module?.ccall) {
+        throw new Error('WASM module missing required functions');
       }
 
+      // Allocate memory and load model
       const ptr = module._malloc(jsonStr.length + 1);
       module.stringToUTF8(jsonStr, ptr, jsonStr.length + 1);
 
       try {
-        if (audioContext?.state === 'running') {
-          await audioContext.suspend();
+        const context = getAudioNodes().audioContext;
+        
+        // Suspend context during model loading
+        if (context?.state === 'running') {
+          await context.suspend();
         }
 
+        // Load DSP
         await module.ccall('setDsp', null, ['number'], [ptr], { async: true });
         module._free(ptr);
 
-        if (audioContext?.state === 'suspended') {
-          await audioContext.resume();
+        // Resume context
+        if (context?.state === 'suspended') {
+          await context.resume();
         }
 
-        setIsProfileLoaded(true);
+        setAudioState(prev => ({ ...prev, modelUrl }));
       } catch (error) {
-        console.error('Error in setDsp flow:', error);
+        module._free(ptr);
         throw error;
       }
     } catch (error) {
-      console.error('Error in loadProfile:', error);
+      console.error('Error loading model:', error);
+      throw error;
     }
-  };
+  }, [modulePromise, getAudioNodes]);
 
-  const loadAudio = (src: string) => {
-    if (audioElementRef.current) {
-      audioElementRef.current.src = src;
-      audioElementRef.current.load();
-    } else {
-      console.warn('audioElementRef.current is not ready');
+  // Load audio
+  const loadAudio = useCallback(async (src: string): Promise<void> => {
+    const audioElement = getAudioNodes().audioElement;
+    
+    if (!audioElement) {
+      throw new Error('Audio element not initialized');
     }
-  };
 
-  const loadIr = useCallback(
-    async (irUrl: string, wetAmount: number = 1, gainAmount: number = 1) => {
-      if (!audioContext || !audioWorkletNode || !outputGainNodeRef.current)
-        return;
+    try {
+      audioElement.src = src;
+      await new Promise<void>((resolve, reject) => {
+        const handleLoad = () => {
+          audioElement.removeEventListener('loadeddata', handleLoad);
+          audioElement.removeEventListener('error', handleError);
+          resolve();
+        };
+        const handleError = () => {
+          audioElement.removeEventListener('loadeddata', handleLoad);
+          audioElement.removeEventListener('error', handleError);
+          reject(new Error('Failed to load audio'));
+        };
+        
+        audioElement.addEventListener('loadeddata', handleLoad, { once: true });
+        audioElement.addEventListener('error', handleError, { once: true });
+        audioElement.load();
+      });
 
-      try {
-        // Create/update wet/dry mix nodes
-        if (!irWetGainRef.current) {
-          irWetGainRef.current = new GainNode(audioContext, {
-            gain: wetAmount,
-          });
-        } else {
-          irWetGainRef.current.gain.setValueAtTime(
-            wetAmount,
-            audioContext.currentTime
-          );
-        }
-        if (!irDryGainRef.current) {
-          irDryGainRef.current = new GainNode(audioContext, {
-            gain: 1 - wetAmount,
-          });
-        } else {
-          irDryGainRef.current.gain.setValueAtTime(
-            1 - wetAmount,
-            audioContext.currentTime
-          );
-        }
+      setAudioState(prev => ({ ...prev, audioUrl: src }));
+    } catch (error) {
+      console.error('Error loading audio:', error);
+      throw error;
+    }
+  }, [getAudioNodes]);
 
-        // Create/update IR gain node
-        if (!irGainRef.current) {
-          irGainRef.current = new GainNode(audioContext, { gain: gainAmount });
-        } else {
-          irGainRef.current.gain.setValueAtTime(
-            gainAmount,
-            audioContext.currentTime
-          );
-        }
+  // Load IR with configuration
+  const loadIr = useCallback(async ({ 
+    url, 
+    wetAmount = 1, 
+    gainAmount = 1 
+  }: IrConfig): Promise<void> => {
+    const nodes = getAudioNodes();
+    const { audioContext, audioWorkletNode, outputGainNode } = nodes;
+    
+    if (!audioContext || !audioWorkletNode || !outputGainNode) {
+      throw new Error('Audio nodes not initialized for IR loading');
+    }
 
-        // Create new convolver node
-        const newIrNode = new ConvolverNode(audioContext);
-
-        // Fetch and decode the IR file
-        const response = await fetch(irUrl);
-        const arrayBuffer = await response.arrayBuffer();
-        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-        newIrNode.buffer = audioBuffer;
-
-        // Disconnect existing routing
-        audioWorkletNode.disconnect();
-        irNode?.disconnect();
-        irWetGainRef.current.disconnect();
-        irDryGainRef.current.disconnect();
-
-        // Connect parallel paths:
-        // 1. Wet path: worklet -> IR -> wet gain -> output
-        // 2. Dry path: worklet -> dry gain -> output
-        audioWorkletNode.connect(newIrNode);
-        newIrNode.connect(irGainRef.current);
-        irGainRef.current.connect(irWetGainRef.current);
-        irWetGainRef.current.connect(outputGainNodeRef.current);
-
-        audioWorkletNode.connect(irDryGainRef.current);
-        irDryGainRef.current.connect(outputGainNodeRef.current);
-
-        setIrNode(newIrNode);
-        setIsIrLoaded(true);
-      } catch (error) {
-        console.error('Error loading IR:', error);
+    try {
+      // Create or update gain nodes
+      if (!nodes.irWetGain) {
+        nodes.irWetGain = new GainNode(audioContext, { gain: wetAmount });
+      } else {
+        nodes.irWetGain.gain.setValueAtTime(
+          wetAmount,
+          audioContext.currentTime
+        );
       }
-    },
-    [audioContext, audioWorkletNode, outputGainNodeRef]
-  );
 
-  const removeIr = () => {
-    if (!audioWorkletNode || !outputGainNodeRef.current) return;
+      if (!nodes.irDryGain) {
+        nodes.irDryGain = new GainNode(audioContext, { gain: 1 - wetAmount });
+      } else {
+        nodes.irDryGain.gain.setValueAtTime(
+          1 - wetAmount,
+          audioContext.currentTime
+        );
+      }
 
-    // Disconnect all IR-related nodes
-    audioWorkletNode.disconnect();
-    irNode?.disconnect();
-    irWetGainRef.current?.disconnect();
-    irDryGainRef.current?.disconnect();
+      if (!nodes.irGain) {
+        nodes.irGain = new GainNode(audioContext, { gain: gainAmount });
+      } else {
+        nodes.irGain.gain.setValueAtTime(
+          gainAmount,
+          audioContext.currentTime
+        );
+      }
 
-    // Connect directly without IR
-    audioWorkletNode.connect(outputGainNodeRef.current);
-    setIsIrLoaded(false);
-    setIrNode(null);
-  };
+      // Fetch and decode IR
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch IR: ${response.statusText}`);
+      }
+      
+      const arrayBuffer = await response.arrayBuffer();
+      const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+      
+      // Create new convolver
+      const newIrNode = new ConvolverNode(audioContext);
+      newIrNode.buffer = audioBuffer;
 
-  const cleanup = () => {
-    if (audioElementRef.current) {
-      audioElementRef.current.pause();
-      audioElementRef.current.currentTime = 0;
-    }
-
-    // Disconnect all IR-related nodes and reset them
-    if (audioWorkletNode && outputGainNodeRef.current) {
+      // Disconnect existing connections
       audioWorkletNode.disconnect();
-      irNode?.disconnect();
-      irWetGainRef.current?.disconnect();
-      irDryGainRef.current?.disconnect();
-      irGainRef.current?.disconnect();
+      nodes.irNode?.disconnect();
+      nodes.irWetGain?.disconnect();
+      nodes.irDryGain?.disconnect();
+      nodes.irGain?.disconnect();
 
-      // Reset IR nodes
-      irNode?.disconnect();
-      setIrNode(null);
-      irWetGainRef.current = null;
-      irDryGainRef.current = null;
-      irGainRef.current = null;
+      // Setup parallel wet/dry signal paths
+      // Wet path: worklet -> IR -> gain -> wet gain -> output
+      audioWorkletNode.connect(newIrNode);
+      newIrNode.connect(nodes.irGain);
+      nodes.irGain.connect(nodes.irWetGain);
+      nodes.irWetGain.connect(outputGainNode);
 
-      // Reconnect basic audio path
-      audioWorkletNode.connect(outputGainNodeRef.current);
-      setIsIrLoaded(false);
+      // Dry path: worklet -> dry gain -> output
+      audioWorkletNode.connect(nodes.irDryGain);
+      nodes.irDryGain.connect(outputGainNode);
+
+      nodes.irNode = newIrNode;
+      setAudioState(prev => ({ ...prev, irUrl: url }));
+    } catch (error) {
+      console.error('Error loading IR:', error);
+      throw error;
     }
+  }, [getAudioNodes]);
 
-    setIsProfileLoaded(false);
-  };
+  // Remove IR
+  const removeIr = useCallback((): void => {
+    const nodes = getAudioNodes();
+    const { audioWorkletNode, outputGainNode } = nodes;
+    
+    if (!audioWorkletNode || !outputGainNode) return;
 
-  const toggleBypass = () => {
-    if (!audioWorkletNode || !bypassNodeRef.current) return;
+    // Disconnect all IR nodes
+    audioWorkletNode.disconnect();
+    nodes.irNode?.disconnect();
+    nodes.irWetGain?.disconnect();
+    nodes.irDryGain?.disconnect();
+    nodes.irGain?.disconnect();
 
-    if (bypassNodeRef.current.gain.value === 0) {
-      try {
-        // When bypassing
-        if (
-          irNode &&
-          irWetGainRef.current &&
-          irDryGainRef.current &&
-          irGainRef.current
-        ) {
-          // If IR is present, disconnect both wet and dry paths
+    // Reset IR nodes
+    nodes.irNode = null;
+    nodes.irWetGain = null;
+    nodes.irDryGain = null;
+    nodes.irGain = null;
+
+    // Reconnect direct path
+    audioWorkletNode.connect(outputGainNode);
+    setAudioState(prev => ({ ...prev, irUrl: null }));
+  }, [getAudioNodes]);
+
+  // Toggle bypass
+  const toggleBypass = useCallback((): void => {
+    const nodes = getAudioNodes();
+    const { 
+      audioWorkletNode, 
+      audioContext, 
+      bypassNode,
+      outputGainNode,
+      irNode,
+      irWetGain,
+      irDryGain,
+      irGain
+    } = nodes;
+    
+    if (!audioWorkletNode || !bypassNode || !audioContext) return console.error('Audio nodes not initialized for bypass');
+    console.log('bypassing');
+    console.log(bypassNode.gain.value);
+
+    const isBypassed = bypassNode.gain.value === 1;
+
+    try {
+      if (!isBypassed) {
+        // Enable bypass
+        console.log('enabling bypass');
+        if (irNode && irWetGain && irDryGain && irGain) {
+          // Disconnect IR paths
           audioWorkletNode.disconnect(irNode);
-          audioWorkletNode.disconnect(irDryGainRef.current);
-          irNode.disconnect(irGainRef.current);
-          irGainRef.current.disconnect(irWetGainRef.current);
-          irWetGainRef.current.disconnect(outputGainNodeRef.current!);
-          irDryGainRef.current.disconnect(outputGainNodeRef.current!);
+          audioWorkletNode.disconnect(irDryGain);
+          irNode.disconnect(irGain);
+          irGain.disconnect(irWetGain);
+          irWetGain.disconnect(outputGainNode!);
+          irDryGain.disconnect(outputGainNode!);
         } else {
-          // Normal bypass without IR
-          audioWorkletNode.disconnect(outputGainNodeRef.current!);
+          // Disconnect direct path
+          audioWorkletNode.disconnect(outputGainNode!);
         }
-        bypassNodeRef.current.gain.setValueAtTime(1, audioContext!.currentTime);
-      } catch (e) {
-        console.log('Bypass disconnect error:', e);
-      }
-    } else {
-      try {
-        // When un-bypassing
-        if (
-          irNode &&
-          irWetGainRef.current &&
-          irDryGainRef.current &&
-          irGainRef.current
-        ) {
-          // If IR is present, reconnect both wet and dry paths
+        bypassNode.gain.setValueAtTime(1, audioContext.currentTime);
+      } else {
+        // Disable bypass
+        console.log('disabling bypass');
+        if (irNode && irWetGain && irDryGain && irGain) {
+          // Reconnect IR paths
           audioWorkletNode.connect(irNode);
-          irNode.connect(irGainRef.current);
-          irGainRef.current.connect(irWetGainRef.current);
-          irWetGainRef.current.connect(outputGainNodeRef.current!);
-          audioWorkletNode.connect(irDryGainRef.current);
-          irDryGainRef.current.connect(outputGainNodeRef.current!);
+          irNode.connect(irGain);
+          irGain.connect(irWetGain);
+          irWetGain.connect(outputGainNode!);
+          audioWorkletNode.connect(irDryGain);
+          irDryGain.connect(outputGainNode!);
         } else {
-          // Normal un-bypass without IR
-          audioWorkletNode.connect(outputGainNodeRef.current!);
+          // Reconnect direct path
+          audioWorkletNode.connect(outputGainNode!);
         }
-        bypassNodeRef.current.gain.setValueAtTime(0, audioContext!.currentTime);
-      } catch (e) {
-        console.log('Bypass connect error:', e);
+        bypassNode.gain.setValueAtTime(0, audioContext.currentTime);
       }
-    }
-  };
 
-  const value = {
-    audioContext,
-    audioElement: audioElementRef.current,
-    audioWorkletNode,
-    inputGainNode: inputGainNodeRef.current,
-    outputGainNode: outputGainNodeRef.current,
-    bypassNode: bypassNodeRef.current,
-    irNode,
-    loadProfile,
+      setAudioState(prev => ({ ...prev, isBypassed: !isBypassed }));
+    } catch (error) {
+      console.error('Error toggling bypass:', error);
+    }
+  }, [getAudioNodes]);
+
+  // Connect visualizer
+  const connectVisualizerNode = useCallback((analyserNode: AnalyserNode): (() => void) => {
+    const { outputGainNode } = getAudioNodes();
+    
+    if (!outputGainNode) {
+      return () => {};
+    }
+    
+    outputGainNode.connect(analyserNode);
+    
+    return () => {
+      try {
+        outputGainNode.disconnect(analyserNode);
+      } catch {
+        // Node already disconnected
+      }
+    };
+  }, [getAudioNodes]);
+
+  // Cleanup
+  const cleanup = useCallback((): void => {
+    const { audioElement } = getAudioNodes();
+
+    if (audioElement) {
+      audioElement.pause();
+      audioElement.currentTime = 0;
+    }
+
+    removeIr();
+    
+    setAudioState(prev => ({ 
+      ...prev, 
+      modelUrl: null,
+      audioUrl: null,
+      isBypassed: false
+    }));
+  }, [getAudioNodes, removeIr]);
+
+  // Memoize context value
+  const contextValue = useMemo<T3kPlayerContextType>(() => ({
+    audioState,
+    getAudioNodes,
+    init,
+    loadModel,
     loadAudio,
-    toggleBypass,
-    isProfileLoaded,
-    cleanup,
     loadIr,
     removeIr,
-    isIrLoaded,
+    toggleBypass,
+    cleanup,
+    connectVisualizerNode,
+  }), [
+    audioState,
+    getAudioNodes,
     init,
-  };
+    loadModel,
+    loadAudio,
+    loadIr,
+    removeIr,
+    toggleBypass,
+    cleanup,
+    connectVisualizerNode,
+  ]);
 
   return (
-    <T3kPlayerContext.Provider value={value}>
+    <T3kPlayerContext.Provider value={contextValue}>
       {children}
     </T3kPlayerContext.Provider>
   );
 }
 
+// Custom hook with SSR support
 export const useT3kPlayerContext = () => {
   if (typeof window === 'undefined') {
-    // Return sensible defaults for SSR
+    // Return SSR-safe defaults
     return {
-      audioContext: null,
-      audioElement: null,
-      audioWorkletNode: null,
-      inputGainNode: null,
-      outputGainNode: null,
-      bypassNode: null,
-      irNode: null,
-      loadProfile: async () => {},
-      loadAudio: () => {},
-      toggleBypass: () => {},
-      isProfileLoaded: false,
-      cleanup: () => {},
+      audioState: {
+        isInitialized: false,
+        isBypassed: false,
+        modelUrl: null,
+        irUrl: null,
+        audioUrl: null,
+      },
+      getAudioNodes: () => ({
+        audioContext: null,
+        audioElement: null,
+        audioWorkletNode: null,
+        inputGainNode: null,
+        outputGainNode: null,
+        bypassNode: null,
+        irNode: null,
+        irWetGain: null,
+        irDryGain: null,
+        irGain: null,
+        sourceNode: null,
+      }),
+      init: async () => {},
+      loadModel: async () => {},
+      loadAudio: async () => {},
       loadIr: async () => {},
       removeIr: () => {},
-      isIrLoaded: false,
-      init: () => {},
+      toggleBypass: () => {},
+      cleanup: () => {},
+      connectVisualizerNode: () => () => {},
     };
   }
+
   const context = useContext(T3kPlayerContext);
+  
   if (!context) {
     throw new Error(
       'useT3kPlayerContext must be used within a T3kPlayerContextProvider'
     );
   }
+  
   return context;
 };

@@ -21,35 +21,30 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
   onIrChange,
 }) => {
   const {
-    audioElement,
-    audioContext,
-    outputGainNode,
-    audioWorkletNode,
-    loadProfile,
+    audioState,
+    getAudioNodes,
+    init,
+    loadModel,
     loadAudio,
-    toggleBypass,
-    isProfileLoaded,
-    cleanup,
     loadIr,
     removeIr,
-    isIrLoaded,
-    init,
-  } = useT3kPlayerContext()!;
+    toggleBypass,
+    cleanup,
+    connectVisualizerNode,
+  } = useT3kPlayerContext();
 
-  // Helper function to get default item from array
-  const getDefault = <T extends { default?: boolean }>(items: T[]): T => {
-    const defaultItem = items.find(item => item.default);
-    return defaultItem || items[0];
-  };
+  // Helper function to get default item
+  const getDefault = useCallback(<T extends { default?: boolean }>(items: T[]): T => {
+    return items.find(item => item.default) || items[0];
+  }, []);
 
   // State
-  const [selectedModel, setSelectedModel] = useState<Model>(getDefault(models));
-  const [selectedInput, setSelectedInput] = useState<Input>(getDefault(inputs));
-  const [selectedIr, setSelectedIr] = useState<IR>(getDefault(irs));
+  const [selectedModel, setSelectedModel] = useState<Model>(() => getDefault(models));
+  const [selectedInput, setSelectedInput] = useState<Input>(() => getDefault(inputs));
+  const [selectedIr, setSelectedIr] = useState<IR>(() => getDefault(irs));
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [bypassed, setBypassed] = useState(false);
 
   // Refs
   const visualizerRef = useRef<HTMLCanvasElement>(null);
@@ -57,29 +52,35 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
   const canvasWrapperRef = useRef<HTMLDivElement>(null);
 
   // Memoized options
-  const modelOptions = models.map(model => ({
-    label: model.name,
-    value: model.url,
-  }));
+  const modelOptions = React.useMemo(() => 
+    models.map(model => ({
+      label: model.name,
+      value: model.url,
+    })), [models]
+  );
 
-  const audioOptions = inputs.map(input => ({
-    label: input.name,
-    value: input.url,
-  }));
+  const audioOptions = React.useMemo(() => 
+    inputs.map(input => ({
+      label: input.name,
+      value: input.url,
+    })), [inputs]
+  );
 
-  const irOptions = irs.map(ir => ({
-    label: ir.name,
-    value: ir.url,
-  }));
+  const irOptions = React.useMemo(() => 
+    irs.map(ir => ({
+      label: ir.name,
+      value: ir.url,
+    })), [irs]
+  );
 
   // Utility functions
-  const formatTime = (time: number) => {
+  const formatTime = useCallback((time: number) => {
     const minutes = Math.floor(time / 60);
     const seconds = Math.floor(time % 60);
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-  };
+  }, []);
 
-  // Visualizer setup
+  // Visualizer resize handler
   const handleResize = useCallback(() => {
     if (canvasWrapperRef.current && visualizerRef.current) {
       const wrapperWidth = canvasWrapperRef.current.clientWidth;
@@ -90,6 +91,7 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
     }
   }, []);
 
+  // Setup resize listener
   useEffect(() => {
     handleResize();
     window.addEventListener('resize', handleResize);
@@ -98,11 +100,11 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
 
   // Audio element event listeners
   useEffect(() => {
+    const audioElement = getAudioNodes().audioElement;
     if (!audioElement) return;
+
     const handleTimeUpdate = () => setCurrentTime(audioElement.currentTime);
-    const handleEnded = () => {
-      setIsPlaying(false);
-    };
+    const handleEnded = () => setIsPlaying(false);
     const handleLoadedMetadata = () => setDuration(audioElement.duration);
 
     // Set initial duration if already loaded
@@ -119,84 +121,72 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
       audioElement.removeEventListener('ended', handleEnded);
       audioElement.removeEventListener('loadedmetadata', handleLoadedMetadata);
     };
-  }, [selectedInput, audioElement]);
+  }, [getAudioNodes]);
 
   // Visualizer setup
   useEffect(() => {
-    if (
-      audioElement &&
-      audioContext &&
-      outputGainNode &&
-      visualizerRef.current
-    ) {
-      // Disconnect old visualizer if it exists
-      if (visualizerNodeRef.current) {
-        visualizerNodeRef.current.disconnect();
-      }
+    if (!audioState.isInitialized || !visualizerRef.current) return;
 
-      // Create and store new visualizer
-      const visualizer = setupVisualizer(visualizerRef.current, audioContext);
-      visualizerNodeRef.current = visualizer;
+    const audioContext = getAudioNodes().audioContext;
+    if (!audioContext) return;
 
-      // Connect output to visualizer
-      outputGainNode.connect(visualizer);
+    // Create and store new visualizer
+    const visualizer = setupVisualizer(visualizerRef.current, audioContext);
+    visualizerNodeRef.current = visualizer;
 
-      // Cleanup function
-      return () => {
-        if (visualizerNodeRef.current) {
-          visualizerNodeRef.current.disconnect();
-        }
-      };
-    }
-  }, [audioContext]);
+    // Connect visualizer using context method
+    const disconnect = connectVisualizerNode(visualizer);
 
-  // Initialize
-  useEffect(() => {
-    init();
-    loadAudio(selectedInput.url);
     return () => {
-      cleanup();
-      setIsPlaying(false);
+      disconnect();
+      visualizerNodeRef.current = null;
     };
-  }, []);
-
-  // IR loading
-  useEffect(() => {
-    if (
-      selectedIr.url &&
-      !isIrLoaded &&
-      audioContext &&
-      outputGainNode &&
-      audioWorkletNode
-    ) {
-      loadIr(selectedIr.url, selectedIr.mix, selectedIr.gain);
-    }
-  }, [
-    selectedIr,
-    isIrLoaded,
-    audioContext,
-    loadIr,
-  ]);
+  }, [audioState.isInitialized, getAudioNodes, connectVisualizerNode]);
 
   // Event handlers
-  const togglePlay = async () => {
-    if (!audioElement) return;
+  const togglePlay = useCallback(async () => {
+    if (!audioState.isInitialized) await init();
+    const nodes = getAudioNodes();
+    const { audioElement, audioContext } = nodes;
+    // if (!audioElement) return console.error('Audio element not found');
 
     try {
       if (isPlaying) {
-        audioElement.pause();
+        if (audioElement) audioElement.pause();
         setIsPlaying(false);
       } else {
-        // Ensure audio context is running (especially important for iOS)
+        // Ensure audio context is running
         if (audioContext) {
           await audioContext.resume();
         }
 
-        if (!isProfileLoaded) {
-          await loadProfile(selectedModel.url);
+        // Load audio if needed
+        if (!audioState.audioUrl || audioState.audioUrl !== selectedInput.url) {
+          await loadAudio(selectedInput.url);
         }
 
-        await audioElement.play();
+        // Load model if needed
+        if (!audioState.modelUrl || audioState.modelUrl !== selectedModel.url) {
+          await loadModel(selectedModel.url);
+        }
+
+        // Handle IR loading
+        if (selectedIr.url) {
+          if (!audioState.irUrl || audioState.irUrl !== selectedIr.url) {
+            // Delay IR loading to ensure model is ready
+            setTimeout(async () => {
+              await loadIr({
+                url: selectedIr.url,
+                wetAmount: selectedIr.mix,
+                gainAmount: selectedIr.gain,
+              });
+            }, 100);
+          }
+        } else {
+          removeIr();
+        }
+
+        if (audioElement) await audioElement.play();
         setIsPlaying(true);
         onPlay?.({
           model: selectedModel,
@@ -206,61 +196,106 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
       }
     } catch (error) {
       console.error('Error in togglePlay:', error);
+      setIsPlaying(false);
     }
-  };
+  }, [
+    isPlaying,
+    getAudioNodes,
+    audioState,
+    selectedInput,
+    selectedModel,
+    selectedIr,
+    loadAudio,
+    loadModel,
+    loadIr,
+    removeIr,
+    onPlay,
+  ]);
 
-  const handleSkipToStart = () => {
+  const handleSkipToStart = useCallback(() => {
+    const audioElement = getAudioNodes().audioElement;
     if (audioElement) {
       audioElement.currentTime = 0;
       setCurrentTime(0);
     }
-  };
+  }, [getAudioNodes]);
 
-  const handleBypassToggle = () => {
+  const handleBypassToggle = useCallback(() => {
     toggleBypass();
-    setBypassed(!bypassed);
-  };
+  }, [toggleBypass]);
 
-  const handleModelChange = async (value: string | number) => {
-    const model = models.find(model => model.url === String(value));
+  const handleModelChange = useCallback(async (value: string | number) => {
+    const model = models.find(m => m.url === String(value));
     if (model) {
       setSelectedModel(model);
-      await loadProfile(model.url!);
-      onModelChange?.(model);
+      try {
+        await loadModel(model.url);
+        onModelChange?.(model);
+      } catch (error) {
+        console.error('Error loading model:', error);
+      }
     }
-  };
+  }, [models, loadModel, onModelChange]);
 
-  const handleInputChange = async (value: string | number) => {
+  const handleInputChange = useCallback(async (value: string | number) => {
     const wasPlaying = isPlaying;
+    const input = inputs.find(i => i.url === String(value));
+    
+    if (!input) return;
+    
+    setSelectedInput(input);
+    
+    try {
+      if (!audioState.audioUrl || audioState.audioUrl !== input.url) {
+        await loadAudio(input.url);
+      }
 
-    const selectedInput = inputs.find(input => input.url === String(value))!;
-    setSelectedInput(selectedInput);
-    loadAudio(selectedInput.url);
-
-    if (wasPlaying && audioElement) {
-      audioElement.addEventListener(
-        'loadeddata',
-        () => {
-          audioElement.play();
-        },
-        { once: true }
-      );
+      const audioElement = getAudioNodes().audioElement;
+      if (wasPlaying && audioElement) {
+        audioElement.addEventListener(
+          'loadeddata',
+          () => audioElement.play(),
+          { once: true }
+        );
+      }
+      
+      onInputChange?.(input);
+    } catch (error) {
+      console.error('Error loading audio:', error);
     }
-    onInputChange?.(selectedInput);
-  };
+  }, [
+    isPlaying,
+    inputs,
+    audioState.audioUrl,
+    getAudioNodes,
+    loadAudio,
+    onInputChange,
+  ]);
 
-  const handleIrChange = async (value: string | number) => {
-    const selectedIr = irs.find(ir => ir.url === String(value))!;
-    setSelectedIr(selectedIr);
-    if (selectedIr.url) {
-      await loadIr(selectedIr.url, selectedIr.mix, selectedIr.gain);
-    } else {
-      removeIr();
+  const handleIrChange = useCallback(async (value: string | number) => {
+    const ir = irs.find(i => i.url === String(value));
+    
+    if (!ir) return;
+    
+    setSelectedIr(ir);
+    
+    try {
+      if (ir.url) {
+        await loadIr({
+          url: ir.url,
+          wetAmount: ir.mix,
+          gainAmount: ir.gain,
+        });
+      } else {
+        removeIr();
+      }
+      onIrChange?.(ir);
+    } catch (error) {
+      console.error('Error loading IR:', error);
     }
-    onIrChange?.(selectedIr);
-  };
+  }, [irs, loadIr, removeIr, onIrChange]);
 
-  const bypassedStyles = bypassed
+  const bypassedStyles = audioState.isBypassed
     ? 'opacity-50 touch-none cursor-not-allowed grayscale'
     : '';
 
@@ -270,7 +305,7 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
       label='Model'
       onChange={handleModelChange}
       defaultOption={selectedModel.url!}
-      disabled={bypassed}
+      disabled={audioState.isBypassed}
     />
   );
 
@@ -280,7 +315,7 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
       label='IR'
       onChange={handleIrChange}
       defaultOption={selectedIr.url}
-      disabled={bypassed}
+      disabled={audioState.isBypassed}
     />
   );
 
@@ -339,7 +374,7 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
             <ToggleSimple
               label=''
               onChange={handleBypassToggle}
-              isChecked={!bypassed}
+              isChecked={!audioState.isBypassed}
               ariaLabel='Bypass'
             />
           </div>
@@ -352,7 +387,7 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
               label='Input'
               onChange={handleInputChange}
               defaultOption={selectedInput.url}
-              disabled={bypassed}
+              disabled={audioState.isBypassed}
             />
           </div>
 
