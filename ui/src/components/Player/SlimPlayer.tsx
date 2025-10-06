@@ -135,7 +135,7 @@ const SlimPlayerFC: React.FC<T3kSlimPlayerProps> = ({
   );
 };
 
-const SlimPlayer = memo(
+const T3kSlimPlayer = memo(
   (props: T3kSlimPlayerProps) => {
     return <SlimPlayerFC {...props} />;
   },
@@ -144,6 +144,6 @@ const SlimPlayer = memo(
   }
 );
 
-SlimPlayer.displayName = 'SlimPlayer';
+T3kSlimPlayer.displayName = 'T3kSlimPlayer';
 
-export default SlimPlayer;
+export default T3kSlimPlayer;
