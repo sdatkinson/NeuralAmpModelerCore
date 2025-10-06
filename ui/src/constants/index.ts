@@ -127,7 +127,7 @@ const irs = [
     name: 'None',
     url: '',
     mix: 0,
-    gain: 1
+    gain: 1,
   },
   {
     name: 'Mesa 412 OS',
@@ -196,22 +196,31 @@ const models = [
   },
 ];
 
-const githubBaseUrl = 'https://raw.githubusercontent.com/tone-3000/neural-amp-modeler-wasm/refs/heads/main/ui/public';
+const githubBaseUrl =
+  'https://raw.githubusercontent.com/tone-3000/neural-amp-modeler-wasm/refs/heads/main/ui/public';
 const isDev = process.env.NODE_ENV === 'development';
 
-export const DEFAULT_MODELS = isDev ? models : models.map(model => ({
-  ...model,
-  url: `${githubBaseUrl}${model.url}`
-}));
+export const DEFAULT_MODELS = isDev
+  ? models
+  : models.map(model => ({
+      ...model,
+      url: `${githubBaseUrl}${model.url}`,
+    }));
 
-export const DEFAULT_IRS = isDev ? irs : irs.map(ir => ({
-  ...ir,
-  url: ir.url ? `${githubBaseUrl}${ir.url}` : '' // Empty string if no url
-}));
+export const DEFAULT_IRS = isDev
+  ? irs
+  : irs.map(ir => ({
+      ...ir,
+      url: ir.url ? `${githubBaseUrl}${ir.url}` : '', // Empty string if no url
+    }));
 
-export const DEFAULT_INPUTS = isDev ? inputs : inputs.map(input => ({
-  ...input,
-  url: `${githubBaseUrl}${input.url}`
-}));
+export const DEFAULT_INPUTS = isDev
+  ? inputs
+  : inputs.map(input => ({
+      ...input,
+      url: `${githubBaseUrl}${input.url}`,
+    }));
 
-export const DEFAULT_AUDIO_SRC = isDev ? '/inputs/placeholder.wav' : githubBaseUrl + '/inputs/placeholder.wav';
+export const DEFAULT_AUDIO_SRC = isDev
+  ? '/inputs/placeholder.wav'
+  : githubBaseUrl + '/inputs/placeholder.wav';

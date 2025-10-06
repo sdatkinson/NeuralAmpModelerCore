@@ -6,14 +6,20 @@
 
 /* Custom component wrapper class */
 .neural-amp-modeler {
-  font-family: Arial, -apple-system, system-ui, BlinkMacSystemFont, Helvetica Neue, Helvetica, sans-serif;
+  font-family:
+    Arial,
+    -apple-system,
+    system-ui,
+    BlinkMacSystemFont,
+    Helvetica Neue,
+    Helvetica,
+    sans-serif;
   line-height: 1.5;
   background-color: black;
   text-rendering: optimizeLegibility;
   --tw-bg-opacity: 1;
   --tw-text-opacity: 1;
   -webkit-font-smoothing: antialiased;
-
 }
 
 /* Scope Tailwind utilities to only work within the component */

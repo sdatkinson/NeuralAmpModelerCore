@@ -9,6 +9,7 @@ import { ToggleSimple } from '../ui/ToggleSimple';
 import { Pause } from '../ui/Pause';
 import { LogoSm } from '../ui/LogoSm';
 import { DEFAULT_INPUTS, DEFAULT_MODELS, DEFAULT_IRS } from '../../constants';
+import { CircularLoader } from '../ui/CircularLoader';
 
 const PlayerFC: React.FC<T3kPlayerProps> = ({
   models = DEFAULT_MODELS,
@@ -19,6 +20,7 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
   onModelChange,
   onInputChange,
   onIrChange,
+  id,
 }) => {
   const {
     audioState,
@@ -29,22 +31,29 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
     loadIr,
     removeIr,
     toggleBypass,
-    cleanup,
     connectVisualizerNode,
   } = useT3kPlayerContext();
 
   // Helper function to get default item
-  const getDefault = useCallback(<T extends { default?: boolean }>(items: T[]): T => {
-    return items.find(item => item.default) || items[0];
-  }, []);
+  const getDefault = useCallback(
+    <T extends { default?: boolean }>(items: T[]): T => {
+      return items.find(item => item.default) || items[0];
+    },
+    []
+  );
 
   // State
-  const [selectedModel, setSelectedModel] = useState<Model>(() => getDefault(models));
-  const [selectedInput, setSelectedInput] = useState<Input>(() => getDefault(inputs));
+  const [selectedModel, setSelectedModel] = useState<Model>(() =>
+    getDefault(models)
+  );
+  const [selectedInput, setSelectedInput] = useState<Input>(() =>
+    getDefault(inputs)
+  );
   const [selectedIr, setSelectedIr] = useState<IR>(() => getDefault(irs));
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Refs
   const visualizerRef = useRef<HTMLCanvasElement>(null);
@@ -52,25 +61,31 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
   const canvasWrapperRef = useRef<HTMLDivElement>(null);
 
   // Memoized options
-  const modelOptions = React.useMemo(() => 
-    models.map(model => ({
-      label: model.name,
-      value: model.url,
-    })), [models]
+  const modelOptions = React.useMemo(
+    () =>
+      models.map(model => ({
+        label: model.name,
+        value: model.url,
+      })),
+    [models]
   );
 
-  const audioOptions = React.useMemo(() => 
-    inputs.map(input => ({
-      label: input.name,
-      value: input.url,
-    })), [inputs]
+  const audioOptions = React.useMemo(
+    () =>
+      inputs.map(input => ({
+        label: input.name,
+        value: input.url,
+      })),
+    [inputs]
   );
 
-  const irOptions = React.useMemo(() => 
-    irs.map(ir => ({
-      label: ir.name,
-      value: ir.url,
-    })), [irs]
+  const irOptions = React.useMemo(
+    () =>
+      irs.map(ir => ({
+        label: ir.name,
+        value: ir.url,
+      })),
+    [irs]
   );
 
   // Utility functions
@@ -90,6 +105,18 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
       }
     }
   }, []);
+
+  // Setup play event listener
+  useEffect(() => {
+    if (!id) return;
+    const handlePlay = (event: Event) => {
+      if ((event as CustomEvent).detail.id !== id) {
+        setIsPlaying(false);
+      }
+    };
+    window.addEventListener('t3k-player-play', handlePlay);
+    return () => window.removeEventListener('t3k-player-play', handlePlay);
+  }, [id]);
 
   // Setup resize listener
   useEffect(() => {
@@ -121,7 +148,7 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
       audioElement.removeEventListener('ended', handleEnded);
       audioElement.removeEventListener('loadedmetadata', handleLoadedMetadata);
     };
-  }, [getAudioNodes]);
+  }, [getAudioNodes, audioState]);
 
   // Visualizer setup
   useEffect(() => {
@@ -145,10 +172,10 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
 
   // Event handlers
   const togglePlay = useCallback(async () => {
-    if (!audioState.isInitialized) await init();
+    setIsLoading(true);
+    if (!audioState.isInitialized) await init({ audioUrl: selectedInput.url });
     const nodes = getAudioNodes();
     const { audioElement, audioContext } = nodes;
-    // if (!audioElement) return console.error('Audio element not found');
 
     try {
       if (isPlaying) {
@@ -173,14 +200,11 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
         // Handle IR loading
         if (selectedIr.url) {
           if (!audioState.irUrl || audioState.irUrl !== selectedIr.url) {
-            // Delay IR loading to ensure model is ready
-            setTimeout(async () => {
-              await loadIr({
-                url: selectedIr.url,
-                wetAmount: selectedIr.mix,
-                gainAmount: selectedIr.gain,
-              });
-            }, 100);
+            await loadIr({
+              url: selectedIr.url,
+              wetAmount: selectedIr.mix,
+              gainAmount: selectedIr.gain,
+            });
           }
         } else {
           removeIr();
@@ -188,6 +212,16 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
 
         if (audioElement) await audioElement.play();
         setIsPlaying(true);
+        if (id) {
+          try {
+            // Emit play event to window
+            window.dispatchEvent(
+              new CustomEvent('t3k-player-play', { detail: { id } })
+            );
+          } catch (error) {
+            console.error('Error emitting play event:', error);
+          }
+        }
         onPlay?.({
           model: selectedModel,
           ir: selectedIr,
@@ -197,6 +231,8 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
     } catch (error) {
       console.error('Error in togglePlay:', error);
       setIsPlaying(false);
+    } finally {
+      setIsLoading(false);
     }
   }, [
     isPlaying,
@@ -224,76 +260,85 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
     toggleBypass();
   }, [toggleBypass]);
 
-  const handleModelChange = useCallback(async (value: string | number) => {
-    const model = models.find(m => m.url === String(value));
-    if (model) {
-      setSelectedModel(model);
+  const handleModelChange = useCallback(
+    async (value: string | number) => {
+      const model = models.find(m => m.url === String(value));
+      if (model) {
+        setSelectedModel(model);
+        try {
+          if (audioState.isInitialized) await loadModel(model.url);
+          onModelChange?.(model);
+        } catch (error) {
+          console.error('Error loading model:', error);
+        }
+      }
+    },
+    [models, loadModel, onModelChange, audioState.isInitialized]
+  );
+
+  const handleInputChange = useCallback(
+    async (value: string | number) => {
+      const wasPlaying = isPlaying;
+      const input = inputs.find(i => i.url === String(value));
+
+      if (!input) return;
+
+      setSelectedInput(input);
+
       try {
-        await loadModel(model.url);
-        onModelChange?.(model);
+        if (
+          audioState.isInitialized &&
+          (!audioState.audioUrl || audioState.audioUrl !== input.url)
+        ) {
+          await loadAudio(input.url);
+        }
+
+        const audioElement = getAudioNodes().audioElement;
+        if (wasPlaying && audioElement) {
+          audioElement.play();
+        }
+
+        onInputChange?.(input);
       } catch (error) {
-        console.error('Error loading model:', error);
+        console.error('Error loading audio:', error);
       }
-    }
-  }, [models, loadModel, onModelChange]);
+    },
+    [
+      isPlaying,
+      inputs,
+      audioState.audioUrl,
+      audioState.isInitialized,
+      getAudioNodes,
+      loadAudio,
+      onInputChange,
+    ]
+  );
 
-  const handleInputChange = useCallback(async (value: string | number) => {
-    const wasPlaying = isPlaying;
-    const input = inputs.find(i => i.url === String(value));
-    
-    if (!input) return;
-    
-    setSelectedInput(input);
-    
-    try {
-      if (!audioState.audioUrl || audioState.audioUrl !== input.url) {
-        await loadAudio(input.url);
-      }
+  const handleIrChange = useCallback(
+    async (value: string | number) => {
+      const ir = irs.find(i => i.url === String(value));
 
-      const audioElement = getAudioNodes().audioElement;
-      if (wasPlaying && audioElement) {
-        audioElement.addEventListener(
-          'loadeddata',
-          () => audioElement.play(),
-          { once: true }
-        );
-      }
-      
-      onInputChange?.(input);
-    } catch (error) {
-      console.error('Error loading audio:', error);
-    }
-  }, [
-    isPlaying,
-    inputs,
-    audioState.audioUrl,
-    getAudioNodes,
-    loadAudio,
-    onInputChange,
-  ]);
+      if (!ir) return;
 
-  const handleIrChange = useCallback(async (value: string | number) => {
-    const ir = irs.find(i => i.url === String(value));
-    
-    if (!ir) return;
-    
-    setSelectedIr(ir);
-    
-    try {
-      if (ir.url) {
-        await loadIr({
-          url: ir.url,
-          wetAmount: ir.mix,
-          gainAmount: ir.gain,
-        });
-      } else {
-        removeIr();
+      setSelectedIr(ir);
+
+      try {
+        if (audioState.isInitialized && ir.url) {
+          await loadIr({
+            url: ir.url,
+            wetAmount: ir.mix,
+            gainAmount: ir.gain,
+          });
+        } else {
+          removeIr();
+        }
+        onIrChange?.(ir);
+      } catch (error) {
+        console.error('Error loading IR:', error);
       }
-      onIrChange?.(ir);
-    } catch (error) {
-      console.error('Error loading IR:', error);
-    }
-  }, [irs, loadIr, removeIr, onIrChange]);
+    },
+    [irs, loadIr, removeIr, onIrChange, audioState.isInitialized]
+  );
 
   const bypassedStyles = audioState.isBypassed
     ? 'opacity-50 touch-none cursor-not-allowed grayscale'
@@ -328,7 +373,13 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
           className='p-0 focus:outline-none'
           aria-label={isPlaying ? 'Pause' : 'Play'}
         >
-          {isPlaying ? <Pause /> : <Play />}
+          {isPlaying ? (
+            <Pause />
+          ) : isLoading ? (
+            <CircularLoader size={48} />
+          ) : (
+            <Play />
+          )}
         </button>
 
         <button

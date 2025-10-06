@@ -10,7 +10,9 @@ interface PlayerSkeletonProps {
   previewMode: PREVIEW_MODE;
 }
 
-export const PlayerSkeleton: React.FC<PlayerSkeletonProps> = ({ previewMode }) => {
+export const PlayerSkeleton: React.FC<PlayerSkeletonProps> = ({
+  previewMode,
+}) => {
   const visualizerRef = useRef<HTMLCanvasElement>(null);
   const canvasWrapperRef = useRef<HTMLDivElement>(null);
 
@@ -43,7 +45,7 @@ export const PlayerSkeleton: React.FC<PlayerSkeletonProps> = ({ previewMode }) =
           aria-label={'Play'}
           disabled={true}
         >
-           <Play />
+          <Play />
         </button>
 
         <button
@@ -51,12 +53,12 @@ export const PlayerSkeleton: React.FC<PlayerSkeletonProps> = ({ previewMode }) =
           aria-label='Skip to start'
           disabled={true}
         >
-          <Skip opacity={ 0.6} />
+          <Skip opacity={0.6} />
         </button>
 
         <div className='flex text-sm font-mono gap-2 text-zinc-400'>
           <span>00:00</span>
-            <span> / </span>
+          <span> / </span>
           <span>00:00</span>
         </div>
 

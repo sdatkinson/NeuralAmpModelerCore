@@ -7,9 +7,6 @@ export {
   T3kPlayerContextProvider,
   useT3kPlayerContext,
 } from './context/T3kPlayerContext';
+export { default as SlimPlayer } from './components/Player/SlimPlayer';
 
-export {
-  DEFAULT_MODELS,
-  DEFAULT_IRS,
-  DEFAULT_INPUTS,
-} from './constants';
+export { DEFAULT_MODELS, DEFAULT_IRS, DEFAULT_INPUTS } from './constants';

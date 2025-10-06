@@ -44,4 +44,14 @@ export interface T3kPlayerProps {
   onModelChange?: (model: Model) => void;
   onInputChange?: (input: Input) => void;
   onIrChange?: (ir: IR) => void;
+  id?: string;
+}
+
+export interface T3kSlimPlayerProps extends T3kPlayerProps {
+  getData: () => Promise<{
+    model: Model;
+    ir: IR;
+    input: Input;
+  }>;
+  size?: number;
 }

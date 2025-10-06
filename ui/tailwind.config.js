@@ -7,7 +7,7 @@ export default {
     './src/utils/**/*.{js,ts,jsx,tsx}',
     './src/types/**/*.{js,ts,jsx,tsx}',
     './src/index.ts',
-    './src/preview.tsx'
+    './src/preview.tsx',
   ],
   theme: {
     extend: {},

@@ -4,12 +4,12 @@ module.exports = () => {
     postcssPlugin: 'postcss-scope-tailwind',
     AtRule: {
       // Handle @tailwind directives
-      tailwind: (atRule) => {
+      tailwind: atRule => {
         // We don't need to modify @tailwind directives
         // The scoping will happen at the rule level
-      }
+      },
     },
-    Rule: (rule) => {
+    Rule: rule => {
       // Skip if this is already scoped or is a keyframe
       if (rule.parent.type === 'atrule' && rule.parent.name === 'keyframes') {
         return;
@@ -27,7 +27,7 @@ module.exports = () => {
         '*',
         '*, ::before, ::after',
         '::before',
-        '::after'
+        '::after',
       ];
 
       // Check if selector should be skipped
@@ -51,8 +51,8 @@ module.exports = () => {
       } else {
         rule.selector = `.neural-amp-modeler ${selector}`;
       }
-    }
+    },
   };
 };
 
-module.exports.postcss = true; 
+module.exports.postcss = true;
