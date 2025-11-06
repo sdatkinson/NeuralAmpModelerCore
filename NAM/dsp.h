@@ -114,6 +114,7 @@ protected:
   virtual int PrewarmSamples() { return 0; };
 
   virtual void SetMaxBufferSize(const int maxBufferSize);
+  int GetMaxBufferSize() const { return mMaxBufferSize; };
 
 private:
   struct Level
@@ -193,8 +194,7 @@ public:
   long get_out_channels() const { return this->_weight.size() > 0 ? this->_weight[0].rows() : 0; };
   int get_dilation() const { return this->_dilation; };
 
-private:
-  // Gonna wing this...
+protected:
   // conv[kernel](cout, cin)
   std::vector<Eigen::MatrixXf> _weight;
   Eigen::VectorXf _bias;
@@ -217,10 +217,13 @@ public:
   void process_(const Eigen::MatrixXf& input, const int num_frames);
 
   long get_out_channels() const { return this->_weight.rows(); };
+  long get_in_channels() const { return this->_weight.cols(); };
 
-private:
+protected:
   Eigen::MatrixXf _weight;
   Eigen::VectorXf _bias;
+
+private:
   Eigen::MatrixXf _output;
   bool _do_bias;
 };
