@@ -53,11 +53,24 @@ public:
   Activation() = default;
   virtual ~Activation() = default;
   virtual void apply(Eigen::MatrixXf& matrix) { apply(matrix.data(), matrix.rows() * matrix.cols()); }
-  virtual void apply(Eigen::Block<Eigen::MatrixXf> block) { apply(block.data(), block.rows() * block.cols()); }
-  virtual void apply(Eigen::Block<Eigen::MatrixXf, -1, -1, true> block)
-  {
-    apply(block.data(), block.rows() * block.cols());
+
+
+  virtual void apply(Eigen::Block<Eigen::MatrixXf, -1, -1, true> block) {
+    // true -> A set of columns in column major order, or a set of rows in row major order. All data is contiguous.
+    this->apply(block.data(),(long)(block.rows()*block.cols()));
   }
+
+  virtual void apply(Eigen::Block<Eigen::MatrixXf> block) { 
+    // Overload for non-contiguous blocks. Apply column by column
+    for (int c = 0; c < block.cols(); ++c)
+    {
+      float *mem = &block.coeffRef(0,c);
+      this->apply(mem,(long)block.rows());
+    }
+  }
+
+
+
   virtual void apply(float* data, long size) {}
 
   static Activation* get_activation(const std::string name);
