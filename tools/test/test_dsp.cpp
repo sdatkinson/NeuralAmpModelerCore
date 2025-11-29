@@ -1,66 +1,46 @@
-// Tests for dsp
-
+#include <catch2/catch_test_macros.hpp>
 #include "NAM/dsp.h"
 
-namespace test_dsp
-{
-// Simplest test: can I construct something!
-void test_construct()
-{
+TEST_CASE("DSP construct", "[dsp]") {
   nam::DSP myDsp(48000.0);
 }
 
-void test_get_input_level()
-{
+TEST_CASE("DSP get input level", "[dsp]") {
   nam::DSP myDsp(48000.0);
   const double expected = 19.0;
   myDsp.SetInputLevel(expected);
-  assert(myDsp.HasInputLevel());
-  const double actual = myDsp.GetInputLevel();
-
-  assert(actual == expected);
+  REQUIRE(myDsp.HasInputLevel());
+  REQUIRE(myDsp.GetInputLevel() == expected);
 }
 
-void test_get_output_level()
-{
+TEST_CASE("DSP get output level", "[dsp]") {
   nam::DSP myDsp(48000.0);
   const double expected = 12.0;
   myDsp.SetOutputLevel(expected);
-  assert(myDsp.HasOutputLevel());
-  const double actual = myDsp.GetOutputLevel();
-
-  assert(actual == expected);
+  REQUIRE(myDsp.HasOutputLevel());
+  REQUIRE(myDsp.GetOutputLevel() == expected);
 }
 
-// Test correct function of DSP::HasInputLevel()
-void test_has_input_level()
-{
+TEST_CASE("DSP has input level", "[dsp]") {
   nam::DSP myDsp(48000.0);
-  assert(!myDsp.HasInputLevel());
-
+  REQUIRE(!myDsp.HasInputLevel());
   myDsp.SetInputLevel(19.0);
-  assert(myDsp.HasInputLevel());
+  REQUIRE(myDsp.HasInputLevel());
 }
 
-void test_has_output_level()
-{
+TEST_CASE("DSP has output level", "[dsp]") {
   nam::DSP myDsp(48000.0);
-  assert(!myDsp.HasOutputLevel());
-
+  REQUIRE(!myDsp.HasOutputLevel());
   myDsp.SetOutputLevel(12.0);
-  assert(myDsp.HasOutputLevel());
+  REQUIRE(myDsp.HasOutputLevel());
 }
 
-// Test correct function of DSP::HasInputLevel()
-void test_set_input_level()
-{
+TEST_CASE("DSP set input level", "[dsp]") {
   nam::DSP myDsp(48000.0);
   myDsp.SetInputLevel(19.0);
 }
 
-void test_set_output_level()
-{
+TEST_CASE("DSP set output level", "[dsp]") {
   nam::DSP myDsp(48000.0);
   myDsp.SetOutputLevel(19.0);
 }
-}; // namespace test_dsp

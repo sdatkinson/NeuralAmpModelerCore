@@ -1,3 +1,6 @@
 [submodule "Dependencies/eigen"]
 	path = Dependencies/eigen
 	url = https://gitlab.com/libeigen/eigen
+[submodule "Dependencies/Catch2"]
+	path = Dependencies/Catch2
+	url = https://github.com/catchorg/Catch2.git
