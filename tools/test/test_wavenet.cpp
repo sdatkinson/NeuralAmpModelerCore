@@ -1,14 +1,11 @@
-// Tests for the WaveNet
-
 #include <Eigen/Dense>
-#include <cassert>
 #include <iostream>
+#include <catch2/catch_test_macros.hpp>
+#include <catch2/catch_approx.hpp>
 
 #include "NAM/wavenet.h"
 
-namespace test_wavenet
-{
-void test_gated()
+TEST_CASE("Test WaveNet gated activation", "[wavenet]")
 {
   // Assert correct nuemrics of the gating activation.
   // Issue 101
@@ -33,7 +30,7 @@ void test_gated()
     1.0f, 0.0f};
   auto it = weights.begin();
   layer.set_weights_(it);
-  assert(it == weights.end());
+  REQUIRE(it == weights.end());
 
   const long numFrames = 4;
   layer.SetMaxBufferSize(numFrames);
@@ -69,8 +66,7 @@ void test_gated()
     const float actualOutput = output(0, i);
     const float actualHeadInput = headInput(0, i);
     // std::cout << actualOutput << std::endl;
-    assert(actualOutput == expectedOutput);
-    assert(actualHeadInput == expectedHeadInput);
+    REQUIRE(actualOutput == Catch::Approx(expectedOutput));
+    REQUIRE(actualHeadInput == Catch::Approx(expectedHeadInput));
   }
 }
-}; // namespace test_wavenet

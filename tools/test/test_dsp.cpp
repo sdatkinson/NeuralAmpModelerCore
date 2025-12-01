@@ -1,66 +1,60 @@
-// Tests for dsp
+#include <catch2/catch_test_macros.hpp>
 
 #include "NAM/dsp.h"
 
-namespace test_dsp
-{
-// Simplest test: can I construct something!
-void test_construct()
+TEST_CASE("DSP can be constructed", "[dsp]")
 {
   nam::DSP myDsp(48000.0);
 }
 
-void test_get_input_level()
+TEST_CASE("DSP GetInputLevel returns the value set by SetInputLevel", "[dsp]")
 {
   nam::DSP myDsp(48000.0);
   const double expected = 19.0;
   myDsp.SetInputLevel(expected);
-  assert(myDsp.HasInputLevel());
+  REQUIRE(myDsp.HasInputLevel());
   const double actual = myDsp.GetInputLevel();
 
-  assert(actual == expected);
+  REQUIRE(actual == expected);
 }
 
-void test_get_output_level()
+TEST_CASE("DSP GetOutputLevel returns the value set by SetOutputLevel", "[dsp]")
 {
   nam::DSP myDsp(48000.0);
   const double expected = 12.0;
   myDsp.SetOutputLevel(expected);
-  assert(myDsp.HasOutputLevel());
+  REQUIRE(myDsp.HasOutputLevel());
   const double actual = myDsp.GetOutputLevel();
 
-  assert(actual == expected);
+  REQUIRE(actual == expected);
 }
 
-// Test correct function of DSP::HasInputLevel()
-void test_has_input_level()
+TEST_CASE("DSP HasInputLevel is true after SetInputLevel", "[dsp]")
 {
   nam::DSP myDsp(48000.0);
-  assert(!myDsp.HasInputLevel());
+  REQUIRE(!myDsp.HasInputLevel());
 
   myDsp.SetInputLevel(19.0);
-  assert(myDsp.HasInputLevel());
+  REQUIRE(myDsp.HasInputLevel());
 }
 
-void test_has_output_level()
+TEST_CASE("DSP HasOutputLevel is true after SetOutputLevel", "[dsp]")
 {
   nam::DSP myDsp(48000.0);
-  assert(!myDsp.HasOutputLevel());
+  REQUIRE(!myDsp.HasOutputLevel());
 
   myDsp.SetOutputLevel(12.0);
-  assert(myDsp.HasOutputLevel());
+  REQUIRE(myDsp.HasOutputLevel());
 }
 
-// Test correct function of DSP::HasInputLevel()
-void test_set_input_level()
+TEST_CASE("DSP SetInputLevel does not crash", "[dsp]")
 {
   nam::DSP myDsp(48000.0);
   myDsp.SetInputLevel(19.0);
 }
 
-void test_set_output_level()
+TEST_CASE("DSP SetOutputLevel does not crash", "[dsp]")
 {
   nam::DSP myDsp(48000.0);
   myDsp.SetOutputLevel(19.0);
 }
-}; // namespace test_dsp
