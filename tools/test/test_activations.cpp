@@ -73,7 +73,7 @@ public:
   static void test_core_function()
   {
     auto TestCase = [](float input, float expectedOutput) {
-      float actualOutput = nam::activations::leaky_relu(input);
+      float actualOutput = nam::activations::leaky_relu(input, 0.01);
       assert(actualOutput == expectedOutput);
     };
     // A few snapshot tests
@@ -84,7 +84,7 @@ public:
 
   static void test_get_by_init()
   {
-    auto a = nam::activations::ActivationLeakyReLU();
+    auto a = nam::activations::ActivationLeakyReLU(0.01);
     _test_class(&a);
   }
 

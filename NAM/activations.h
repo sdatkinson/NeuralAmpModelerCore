@@ -148,6 +148,7 @@ class ActivationLeakyReLU : public Activation
 {
 public:
   float negative_slope;
+  ActivationLeakyReLU() = default;
   ActivationLeakyReLU(float ns) {
     negative_slope = ns;
   }
