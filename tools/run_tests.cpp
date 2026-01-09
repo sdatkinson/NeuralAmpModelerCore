@@ -6,6 +6,7 @@
 #include "test/test_dsp.cpp"
 #include "test/test_get_dsp.cpp"
 #include "test/test_wavenet.cpp"
+#include "test/test_fast_lut.cpp"
 
 int main()
 {
@@ -34,6 +35,9 @@ int main()
   test_get_dsp::test_null_output_level();
 
   test_wavenet::test_gated();
+
+  test_lut::TestFastLUT::test_sigmoid();
+  test_lut::TestFastLUT::test_tanh();
 
   std::cout << "Success!" << std::endl;
   return 0;
