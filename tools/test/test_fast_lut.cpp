@@ -22,8 +22,7 @@ class TestFastLUT
       });
 
       float input = 1.25f;
-      std::cout << "exact sigmoid: " << sigmoid(input) << std::endl;
-      std::cout << "lut sigmoid:   " << lut_sigmoid(input) << std::endl;
+      assert(abs(sigmoid(input) - lut_sigmoid(input)) < 1e-3);
     }
    static void test_tanh()
     {
@@ -33,8 +32,7 @@ class TestFastLUT
       });
 
       float input = 1.25f;
-      std::cout << "exact tanh: " << std::tanh(input) << std::endl;
-      std::cout << "lut tanh:   " << lut_tanh(input) << std::endl;
+      assert(abs(std::tanh(input) - lut_tanh(input)) < 1e-3);
     }
 };
 }

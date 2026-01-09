@@ -25,7 +25,7 @@ inline float hard_tanh(float x)
   return t > 1 ? 1 : t;
 }
 
-inline float leaky_tanh(float x, float min_val, float max_val, float min_slope, float max_slope)
+inline float leaky_hardtanh(float x, float min_val, float max_val, float min_slope, float max_slope)
 {
   if (x < min_val) {
     return (x - min_val) * min_slope + min_val;
@@ -50,13 +50,15 @@ inline float fast_sigmoid(const float x)
   return 0.5f * (fast_tanh(x * 0.5f) + 1.0f);
 }
   
-// Assumes PyTorch default of 0.01 for negative slope. This may change to be
-// configurable in the future.
 inline float leaky_relu(float x, float negative_slope)
 {
-  //const float negative_slope = 0.01;
   return x > 0.0f ? x : negative_slope * x;
 }
+inline float leaky_relu(float x)
+{
+  return leaky_relu(x, 0.01);
+}
+
 
 inline float swish(float x)
 {
@@ -120,6 +122,30 @@ public:
   }
 };
 
+class ActivationLeakyHardTanh : public Activation
+{
+public:
+  ActivationLeakyHardTanh() = default;
+  ActivationLeakyHardTanh(float min_val_, float max_val_, float min_slope_, float max_slope_) {
+    min_val = min_val_;
+    max_val = max_val_;
+    min_slope = min_slope_;
+    max_slope = max_slope_;
+  }
+  void apply(float* data, long size) override
+  {
+    for (long pos = 0; pos < size; pos++)
+    {
+      data[pos] = leaky_hardtanh(data[pos], min_val, max_val, min_slope, max_slope);
+    }
+  }
+private:
+  float min_val = -1.0;
+  float max_val = 1.0;
+  float min_slope = 0.01;
+  float max_slope = 0.01;
+};
+
 class ActivationFastTanh : public Activation
 {
 public:
@@ -147,7 +173,6 @@ public:
 class ActivationLeakyReLU : public Activation
 {
 public:
-  float negative_slope;
   ActivationLeakyReLU() = default;
   ActivationLeakyReLU(float ns) {
     negative_slope = ns;
@@ -159,6 +184,8 @@ public:
       data[pos] = leaky_relu(data[pos], negative_slope);
     }
   }
+private:
+  float negative_slope = 0.01;
 };
 
 class ActivationSigmoid : public Activation

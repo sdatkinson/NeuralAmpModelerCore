@@ -8,13 +8,14 @@ nam::activations::ActivationLeakyReLU _LEAKY_RELU = nam::activations::Activation
 nam::activations::ActivationSigmoid _SIGMOID = nam::activations::ActivationSigmoid();
 nam::activations::ActivationSwish _SWISH = nam::activations::ActivationSwish();
 nam::activations::ActivationHardSwish _HARD_SWISH = nam::activations::ActivationHardSwish();
+nam::activations::ActivationLeakyHardTanh _LEAKY_HARD_TANH = nam::activations::ActivationLeakyHardTanh();
 
 bool nam::activations::Activation::using_fast_tanh = false;
 
 std::unordered_map<std::string, nam::activations::Activation*> nam::activations::Activation::_activations = {
   {"Tanh", &_TANH}, {"Hardtanh", &_HARD_TANH},   {"Fasttanh", &_FAST_TANH},
   {"ReLU", &_RELU}, {"LeakyReLU", &_LEAKY_RELU}, {"Sigmoid", &_SIGMOID},
-  {"SiLU", &_SWISH}, {"Hardswish", &_HARD_SWISH}};
+  {"SiLU", &_SWISH}, {"Hardswish", &_HARD_SWISH}, {"LeakyHardtanh", &_LEAKY_HARD_TANH}};
 
 nam::activations::Activation* tanh_bak = nullptr;
 
