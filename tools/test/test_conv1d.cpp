@@ -84,7 +84,8 @@ void test_process_basic()
   conv.set_size_(in_channels, out_channels, kernel_size, do_bias, dilation);
 
   // Set weights: kernel[0] = [[1.0]], kernel[1] = [[2.0]]
-  // This means: output = 1.0 * input[t] + 2.0 * input[t-1]
+  // With offset calculation: k=0 has offset=-1 (looks at t-1), k=1 has offset=0 (looks at t)
+  // So: output = weight[0] * input[t-1] + weight[1] * input[t] = 1.0 * input[t-1] + 2.0 * input[t]
   std::vector<float> weights{1.0f, 2.0f};
   auto it = weights.begin();
   conv.set_weights_(it);
@@ -104,28 +105,17 @@ void test_process_basic()
   // Get output
   auto output = conv.GetOutput(num_frames);
 
-  // Expected outputs (assuming zero padding for first frame):
-  // output[0] = 1.0 * 1.0 + 2.0 * 0.0 = 1.0 (with zero padding)
-  // output[1] = 1.0 * 2.0 + 2.0 * 1.0 = 4.0
-  // output[2] = 1.0 * 3.0 + 2.0 * 2.0 = 7.0
-  // output[3] = 1.0 * 4.0 + 2.0 * 3.0 = 10.0
-  // But actually, ring buffer stores history, so:
-  // After first call, buffer has [1, 2, 3, 4] at write_pos
-  // output[0] = 1.0 * 1.0 + 2.0 * 0.0 = 1.0 (lookback 1, reads from write_pos-1 which is 0)
-  // Actually, let me think about this more carefully...
-
-  // The convolution reads from the ring buffer with lookback
-  // For kernel_size=2, dilation=1, we need lookback of 1 for the first tap
-  // So for position i, we read from write_pos - (kernel_size-1-i)*dilation
-  // Actually the computation happens with the history in the ring buffer
-
-  // Let's verify the output dimensions and that it's non-zero
+  // Expected outputs (with zero padding for first frame):
+  // output[0] = 1.0 * 0.0 (zero-padding) + 2.0 * 1.0 = 2.0
+  // output[1] = 1.0 * 1.0 + 2.0 * 2.0 = 5.0
+  // output[2] = 1.0 * 2.0 + 2.0 * 3.0 = 8.0
+  // output[3] = 1.0 * 3.0 + 2.0 * 4.0 = 11.0
   assert(output.rows() == out_channels);
   assert(output.cols() == num_frames);
-  assert(abs(output(0, 0) - 1.0f) < 0.01f); // Should have some output
-  assert(abs(output(0, 1) - 4.0f) < 0.01f); // Should have some output
-  assert(abs(output(0, 2) - 7.0f) < 0.01f); // Should have some output
-  assert(abs(output(0, 3) - 10.0f) < 0.01f); // Should have some output
+  assert(abs(output(0, 0) - 2.0f) < 0.01f);
+  assert(abs(output(0, 1) - 5.0f) < 0.01f);
+  assert(abs(output(0, 2) - 8.0f) < 0.01f);
+  assert(abs(output(0, 3) - 11.0f) < 0.01f);
 }
 
 // Test Process() with bias
@@ -142,7 +132,8 @@ void test_process_with_bias()
   conv.set_size_(in_channels, out_channels, kernel_size, do_bias, dilation);
 
   // Set weights: kernel[0] = [[1.0]], kernel[1] = [[0.0]], bias = [5.0]
-  // output = 1.0 * input[t] + 0.0 * input[t-1] + 5.0 = input[t] + 5.0
+  // With offset: k=0 has offset=-1 (looks at t-1), k=1 has offset=0 (looks at t)
+  // So: output = weight[0] * input[t-1] + weight[1] * input[t] + bias = 1.0 * input[t-1] + 0.0 * input[t] + 5.0
   std::vector<float> weights{1.0f, 0.0f, 5.0f};
   auto it = weights.begin();
   conv.set_weights_(it);
@@ -159,14 +150,10 @@ void test_process_with_bias()
   // Should have bias added
   assert(output.rows() == out_channels);
   assert(output.cols() == num_frames);
-  // Output should include both weights and bias
-  // For first frame: kernel[0]*input[0] + kernel[1]*zero_padding + bias = 1.0*2.0 + 0.0*0.0 + 5.0 = 7.0
-  // For second frame: kernel[0]*input[1] + kernel[1]*input[0] + bias = 1.0*3.0 + 0.0*2.0 + 5.0 = 8.0
   // With zero-padding for first frame:
   // First frame: weight[0]*zero + weight[1]*input[0] + bias = 1.0*0.0 + 0.0*2.0 + 5.0 = 5.0
   // Second frame: weight[0]*input[0] + weight[1]*input[1] + bias = 1.0*2.0 + 0.0*3.0 + 5.0 = 7.0
-  // Note: With kernel_size=2, the first output uses zero-padding for the lookback
-  assert(std::abs(output(0, 0) - 5.0f) < 0.01f); // First frame: zero*padding + bias
+  assert(std::abs(output(0, 0) - 5.0f) < 0.01f); // First frame: zero-padding + bias
   assert(std::abs(output(0, 1) - 7.0f) < 0.01f); // Second frame: input[0] + bias
 }
 
@@ -236,7 +223,8 @@ void test_process_dilation()
   conv.set_size_(in_channels, out_channels, kernel_size, do_bias, dilation);
 
   // Set weights: kernel[0] = [[1.0]], kernel[1] = [[2.0]]
-  // With dilation=2: output = 1.0 * input[t] + 2.0 * input[t-2]
+  // With dilation=2: k=0 has offset=-2 (looks at t-2), k=1 has offset=0 (looks at t)
+  // So: output = weight[0] * input[t-2] + weight[1] * input[t] = 1.0 * input[t-2] + 2.0 * input[t]
   std::vector<float> weights{1.0f, 2.0f};
   auto it = weights.begin();
   conv.set_weights_(it);
@@ -254,15 +242,15 @@ void test_process_dilation()
 
   assert(output.rows() == out_channels);
   assert(output.cols() == num_frames);
-  // Output should be computed correctly with dilation
-  // out[0] = 1.0 * input[0] + 2.0 * 0.0 (zero-padding) = 1.0
-  // out[1] = 1.0 * input[1] + 2.0 * 0.0 (zero-padding) = 2.0
-  // out[2] = 1.0 * input[2] + 2.0 * input[0] = 3.0 + 2.0 = 5.0
-  // out[3] = 1.0 * input[3] + 2.0 * input[1] = 4.0 + 4.0 = 8.0
-  assert(abs(output(0, 0) - 1.0f) < 0.01f);
-  assert(abs(output(0, 1) - 2.0f) < 0.01f);
-  assert(abs(output(0, 2) - 5.0f) < 0.01f);
-  assert(abs(output(0, 3) - 8.0f) < 0.01f);
+  // Output should be computed correctly with dilation (with zero-padding)
+  // out[0] = 1.0 * 0.0 (zero-padding) + 2.0 * 1.0 = 2.0
+  // out[1] = 1.0 * 0.0 (zero-padding) + 2.0 * 2.0 = 4.0
+  // out[2] = 1.0 * 1.0 + 2.0 * 3.0 = 1.0 + 6.0 = 7.0
+  // out[3] = 1.0 * 2.0 + 2.0 * 4.0 = 2.0 + 8.0 = 10.0
+  assert(abs(output(0, 0) - 2.0f) < 0.01f);
+  assert(abs(output(0, 1) - 4.0f) < 0.01f);
+  assert(abs(output(0, 2) - 7.0f) < 0.01f);
+  assert(abs(output(0, 3) - 10.0f) < 0.01f);
 }
 
 // Test multiple Process() calls (ring buffer functionality)
@@ -279,7 +267,8 @@ void test_process_multiple_calls()
   conv.set_size_(in_channels, out_channels, kernel_size, do_bias, dilation);
 
   // Set weights: kernel[0] = [[1.0]], kernel[1] = [[1.0]]
-  // output = input[t] + input[t-1]
+  // With offset: k=0 has offset=-1 (looks at t-1), k=1 has offset=0 (looks at t)
+  // So: output = weight[0] * input[t-1] + weight[1] * input[t] = input[t-1] + input[t]
   std::vector<float> weights{1.0f, 1.0f};
   auto it = weights.begin();
   conv.set_weights_(it);
@@ -295,14 +284,17 @@ void test_process_multiple_calls()
     conv.Process(input, num_frames);
   }
   auto output = conv.GetOutput(num_frames);
-  assert(output2.rows() == out_channels);
-  assert(output2.cols() == num_frames);
-  // output2[0] should use input2[0] + history from input1[1] (last frame of first call)
-  // This tests that ring buffer maintains history
-  // out[0] = 1.0 * 1.0 + 2.0 * 2.0 = 1.0 + 4.0 = 5.0
-  // out[1] = 1.0 * 2.0 + 2.0 * 1.0 = 2.0 + 2.0 = 4.0
-  assert(abs(output(0, 0) - 5.0f) < 0.01f);
-  assert(abs(output(0, 1) - 4.0f) < 0.01f);
+  assert(output.rows() == out_channels);
+  assert(output.cols() == num_frames);
+  // After 3 calls, the last call processes input [1, 2]
+  // It should use history from the previous call (which also had [1, 2])
+  // output[0] = weight[0] * (history from previous call's last frame) + weight[1] * input[0]
+  //           = 1.0 * 2.0 + 1.0 * 1.0 = 3.0
+  // output[1] = weight[0] * input[0] + weight[1] * input[1]
+  //           = 1.0 * 1.0 + 1.0 * 2.0 = 3.0
+  // This tests that ring buffer maintains history across multiple calls
+  assert(abs(output(0, 0) - 3.0f) < 0.01f);
+  assert(abs(output(0, 1) - 3.0f) < 0.01f);
 }
 
 // Test GetOutput() with different num_frames
@@ -405,8 +397,10 @@ void test_reset_multiple()
 
   // Reset with different buffer sizes
   conv.SetMaxBufferSize(64);
-  auto output1 = conv.GetOutput(64);
-  assert(output1.cols() == 64);
+  {
+    auto output1 = conv.GetOutput(64);
+    assert(output1.cols() == 64);
+  } // output1 goes out of scope here, releasing the block reference
 
   conv.SetMaxBufferSize(128);
   auto output2 = conv.GetOutput(128);

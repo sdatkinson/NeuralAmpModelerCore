@@ -4,6 +4,7 @@
 #include <iostream>
 #include "test/test_activations.cpp"
 #include "test/test_conv1d.cpp"
+#include "test/test_convnet.cpp"
 #include "test/test_dsp.cpp"
 #include "test/test_get_dsp.cpp"
 #include "test/test_ring_buffer.cpp"
@@ -37,6 +38,17 @@ int main()
   test_get_dsp::test_null_input_level();
   test_get_dsp::test_null_output_level();
 
+  test_ring_buffer::test_construct();
+  test_ring_buffer::test_reset();
+  test_ring_buffer::test_reset_with_receptive_field();
+  test_ring_buffer::test_write();
+  test_ring_buffer::test_read_with_lookback();
+  test_ring_buffer::test_advance();
+  test_ring_buffer::test_rewind();
+  test_ring_buffer::test_multiple_writes_reads();
+  test_ring_buffer::test_reset_zeros_history_area();
+  test_ring_buffer::test_rewind_preserves_history();
+
   test_conv1d::test_construct();
   test_conv1d::test_set_size();
   test_conv1d::test_reset();
@@ -49,17 +61,6 @@ int main()
   test_conv1d::test_set_size_and_weights();
   test_conv1d::test_get_num_weights();
   test_conv1d::test_reset_multiple();
-
-  test_ring_buffer::test_construct();
-  test_ring_buffer::test_reset();
-  test_ring_buffer::test_reset_with_receptive_field();
-  test_ring_buffer::test_write();
-  test_ring_buffer::test_read_with_lookback();
-  test_ring_buffer::test_advance();
-  test_ring_buffer::test_rewind();
-  test_ring_buffer::test_multiple_writes_reads();
-  test_ring_buffer::test_reset_zeros_history_area();
-  test_ring_buffer::test_rewind_preserves_history();
 
   test_wavenet::test_layer::test_gated();
   test_wavenet::test_layer::test_layer_getters();
@@ -74,6 +75,14 @@ int main()
   test_wavenet::test_full::test_wavenet_zero_input();
   test_wavenet::test_full::test_wavenet_different_buffer_sizes();
   test_wavenet::test_full::test_wavenet_prewarm();
+
+  test_convnet::test_convnet_basic();
+  test_convnet::test_convnet_batchnorm();
+  test_convnet::test_convnet_multiple_blocks();
+  test_convnet::test_convnet_zero_input();
+  test_convnet::test_convnet_different_buffer_sizes();
+  test_convnet::test_convnet_prewarm();
+  test_convnet::test_convnet_multiple_calls();
 
   std::cout << "Success!" << std::endl;
   return 0;

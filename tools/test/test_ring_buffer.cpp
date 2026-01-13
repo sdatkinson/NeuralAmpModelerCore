@@ -188,7 +188,8 @@ void test_rewind()
   const long storage_size = 2 * max_lookback + max_buffer_size;
 
   // Write enough data to trigger rewind
-  const int num_writes = 20;
+  // We need to write more than storage_size to trigger rewind
+  const int num_writes = 25; // 25 * 2 = 50 > 42
   long writeSize = 2;
   assert(writeSize * num_writes > storage_size);
   for (int i = 0; i < num_writes; i++)

@@ -14,3 +14,10 @@ Make test_set_size_and_weights() have 2,3,5 instead of 1,1,2 in/out/kernel size.
 Need to be sure that WaveNet is still RT-safe.
 
 WaveNet tests are a mess. Need to fix.
+
+## ConvNet
+* Blocks should own their output and have a GetOutput()
+* All of the intermediate arrays owned by the model can be removed.
+* Stop using the Buffer base class. In fact, remove that class altogether.
+  I don't think it's needed.
+  Let me know if there are other components that use it.

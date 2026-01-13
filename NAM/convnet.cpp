@@ -59,6 +59,38 @@ void nam::convnet::ConvNetBlock::set_weights_(const int in_channels, const int o
   this->activation = activations::Activation::get_activation(activation);
 }
 
+void nam::convnet::ConvNetBlock::Process(const Eigen::MatrixXf& input, const int num_frames)
+{
+  // Process input with Conv1D
+  this->conv.Process(input, num_frames);
+
+  // Get output from Conv1D (this is a block reference to _output buffer)
+  auto conv_output_block = this->conv.GetOutput(num_frames);
+
+  // For batchnorm, we need a matrix reference (not a block)
+  // Create a temporary matrix from the block, process it, then copy back
+  Eigen::MatrixXf temp_output = conv_output_block;
+
+  // Apply batchnorm if needed
+  if (this->_batchnorm)
+  {
+    // Batchnorm expects indices, so we use 0 to num_frames for our temp matrix
+    this->batchnorm.process_(temp_output, 0, num_frames);
+  }
+
+  // Apply activation
+  this->activation->apply(temp_output);
+
+  // Copy back to Conv1D's output buffer (so GetOutput() returns the processed result)
+  conv_output_block = temp_output;
+}
+
+Eigen::Block<Eigen::MatrixXf> nam::convnet::ConvNetBlock::GetOutput(const int num_frames)
+{
+  // FIXME needs to own this output.
+  return this->conv_output_block.leftCols(num_frames);
+}
+
 void nam::convnet::ConvNetBlock::process_(const Eigen::MatrixXf& input, Eigen::MatrixXf& output, const long i_start,
                                           const long i_end)
 {
@@ -121,9 +153,10 @@ nam::convnet::ConvNet::ConvNet(const int channels, const std::vector<int>& dilat
   std::vector<float>::iterator it = weights.begin();
   for (size_t i = 0; i < dilations.size(); i++)
     this->_blocks[i].set_weights_(i == 0 ? 1 : channels, channels, dilations[i], batchnorm, activation, it);
-  this->_block_vals.resize(this->_blocks.size() + 1);
-  for (auto& matrix : this->_block_vals)
-    matrix.setZero();
+  // Only need _block_vals for the head (one entry)
+  // Conv1D layers manage their own buffers now
+  this->_block_vals.resize(1);
+  this->_block_vals[0].setZero();
   std::fill(this->_input_buffer.begin(), this->_input_buffer.end(), 0.0f);
   this->_head = _Head(channels, it);
   if (it != weights.end())
@@ -143,35 +176,46 @@ void nam::convnet::ConvNet::process(NAM_SAMPLE* input, NAM_SAMPLE* output, const
   const long i_start = this->_input_buffer_offset;
   const long i_end = i_start + num_frames;
 
-  // Prepare input for first layer (still need _block_vals[0] for compatibility)
-  // TODO: can simplify this once we refactor head to use Conv1D directly
-  for (auto i = i_start; i < i_end; i++)
-    this->_block_vals[0](0, i) = this->_input_buffer[i];
+  // Convert input buffer to matrix for first layer
+  Eigen::MatrixXf input_matrix(1, num_frames);
+  for (int i = 0; i < num_frames; i++)
+    input_matrix(0, i) = this->_input_buffer[i_start + i];
 
   // Process through ConvNetBlock layers
   // Each block now uses Conv1D's internal buffers via Process() and GetOutput()
   for (size_t i = 0; i < this->_blocks.size(); i++)
   {
-    // For subsequent blocks, input comes from previous Conv1D's output
-    if (i > 0)
+    // Get input for this block
+    Eigen::MatrixXf block_input;
+    if (i == 0)
     {
-      // Get output from previous Conv1D and use it as input for current block
-      auto prev_output = this->_blocks[i - 1].conv.GetOutput(num_frames);
-      // Copy to _block_vals for compatibility with process_() interface
-      // process_() will extract the slice and process it
-      this->_block_vals[i].middleCols(i_start, num_frames) = prev_output;
+      // First block uses the input matrix
+      block_input = input_matrix;
+    }
+    else
+    {
+      // Subsequent blocks use output from previous block
+      auto prev_output = this->_blocks[i - 1].GetOutput(num_frames);
+      block_input = prev_output; // Copy to matrix
     }
 
     // Process block (handles Conv1D, batchnorm, and activation internally)
-    this->_blocks[i].process_(this->_block_vals[i], this->_block_vals[i + 1], i_start, i_end);
-
-    // After process_(), the output is in _block_vals[i+1], but also available
-    // via conv.GetOutput() for the next iteration
+    this->_blocks[i].Process(block_input, num_frames);
   }
 
   // Process head with output from last Conv1D
-  // Head still needs the old interface, so we provide it via _block_vals
-  this->_head.process_(this->_block_vals[this->_blocks.size()], this->_head_output, i_start, i_end);
+  // Head still needs the old interface, so we need to provide it via a matrix
+  // We still need _block_vals[0] for the head interface
+  if (this->_block_vals[0].rows() != this->_blocks.back().get_out_channels()
+      || this->_block_vals[0].cols() != (long)this->_input_buffer.size())
+  {
+    this->_block_vals[0].resize(this->_blocks.back().get_out_channels(), this->_input_buffer.size());
+  }
+  // Copy last block output to _block_vals for head
+  auto last_output = this->_blocks.back().GetOutput(num_frames);
+  this->_block_vals[0].middleCols(i_start, num_frames) = last_output;
+
+  this->_head.process_(this->_block_vals[0], this->_head_output, i_start, i_end);
 
   // Copy to required output array
   for (int s = 0; s < num_frames; s++)
@@ -206,21 +250,13 @@ void nam::convnet::ConvNet::_update_buffers_(NAM_SAMPLE* input, const int num_fr
 
   const long buffer_size = (long)this->_input_buffer.size();
 
-  // Still need _block_vals for compatibility with head and process_() interface
-  // TODO: can simplify once head uses Conv1D directly
-  if (this->_block_vals[0].rows() != 1 || this->_block_vals[0].cols() != buffer_size)
+  // Only need _block_vals[0] for the head
+  // Conv1D layers manage their own buffers now
+  if (this->_block_vals[0].rows() != this->_blocks.back().get_out_channels()
+      || this->_block_vals[0].cols() != buffer_size)
   {
-    this->_block_vals[0].resize(1, buffer_size);
+    this->_block_vals[0].resize(this->_blocks.back().get_out_channels(), buffer_size);
     this->_block_vals[0].setZero();
-  }
-
-  for (size_t i = 1; i < this->_block_vals.size(); i++)
-  {
-    if (this->_block_vals[i].rows() == this->_blocks[i - 1].get_out_channels()
-        && this->_block_vals[i].cols() == buffer_size)
-      continue; // Already has correct size
-    this->_block_vals[i].resize(this->_blocks[i - 1].get_out_channels(), buffer_size);
-    this->_block_vals[i].setZero();
   }
 }
 
@@ -228,22 +264,10 @@ void nam::convnet::ConvNet::_rewind_buffers_()
 {
   // Conv1D instances now manage their own ring buffers and handle rewinding internally
   // So we don't need to rewind _block_vals for Conv1D layers
-  // However, we still need _block_vals for compatibility with the head and process_() interface
-  // TODO: can simplify once head uses Conv1D directly
+  // We only need _block_vals for the head, and it doesn't need rewinding since it's only used
+  // for the current frame range
 
-  // Still need to rewind _block_vals for compatibility
-  // The last _block_vals is the output of the last block and doesn't need to be rewound.
-  for (size_t k = 0; k < this->_block_vals.size() - 1; k++)
-  {
-    // We actually don't need to pull back a lot...just as far as the first
-    // input sample would grab from dilation
-    const long _dilation = this->_blocks[k].conv.get_dilation();
-    for (long i = this->_receptive_field - _dilation, j = this->_input_buffer_offset - _dilation;
-         j < this->_input_buffer_offset; i++, j++)
-      for (long r = 0; r < this->_block_vals[k].rows(); r++)
-        this->_block_vals[k](r, i) = this->_block_vals[k](r, j);
-  }
-  // Now we can do the rest of the rewind (for the input buffer)
+  // Just rewind the input buffer (for Buffer base class)
   this->Buffer::_rewind_buffers_();
 }
 

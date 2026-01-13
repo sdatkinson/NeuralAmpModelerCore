@@ -45,7 +45,12 @@ public:
   ConvNetBlock() {};
   void set_weights_(const int in_channels, const int out_channels, const int _dilation, const bool batchnorm,
                     const std::string activation, std::vector<float>::iterator& weights);
+  // Process input matrix directly (new API, similar to WaveNet)
+  void Process(const Eigen::MatrixXf& input, const int num_frames);
+  // Legacy method for compatibility (uses indices)
   void process_(const Eigen::MatrixXf& input, Eigen::MatrixXf& output, const long i_start, const long i_end);
+  // Get output from last Process() call
+  Eigen::Block<Eigen::MatrixXf> GetOutput(const int num_frames);
   long get_out_channels() const;
   Conv1D conv;
 
