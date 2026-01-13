@@ -21,6 +21,11 @@ int main()
   test_activations::TestLeakyReLU::test_get_by_init();
   test_activations::TestLeakyReLU::test_get_by_str();
 
+  test_activations::TestPReLU::test_core_function();
+  test_activations::TestPReLU::test_per_channel_behavior();
+  test_activations::TestPReLU::test_fallback_behavior();
+  test_activations::TestPReLU::test_single_slope();
+
   test_dsp::test_construct();
   test_dsp::test_get_input_level();
   test_dsp::test_get_output_level();

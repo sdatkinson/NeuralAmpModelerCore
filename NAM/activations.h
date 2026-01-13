@@ -191,6 +191,66 @@ private:
   float negative_slope = 0.01;
 };
 
+class ActivationPReLU : public Activation
+{
+public:
+  ActivationPReLU() = default;
+  ActivationPReLU(float ns) {
+    negative_slopes.clear();
+    negative_slopes.push_back(ns);
+  }
+  ActivationPReLU(std::vector<float> ns) {
+    negative_slopes = ns;
+  }
+  
+  void apply(Eigen::MatrixXf& matrix) override
+  {
+    // Matrix is organized as (time_steps, channels)
+    int n_channels = negative_slopes.size();
+    int actual_channels = matrix.cols();
+    
+    // Apply each negative slope to its corresponding channel
+    for (int channel = 0; channel < std::min(n_channels, actual_channels); channel++)
+    {
+      // Apply the negative slope to all time steps in this channel
+      for (int time_step = 0; time_step < matrix.rows(); time_step++)
+      {
+        matrix(time_step, channel) = leaky_relu(matrix(time_step, channel), negative_slopes[channel]);
+      }
+    }
+    
+    // For any remaining channels beyond what we have slopes for, use the last slope
+    if (actual_channels > n_channels && n_channels > 0)
+    {
+      for (int channel = n_channels; channel < actual_channels; channel++)
+      {
+        for (int time_step = 0; time_step < matrix.rows(); time_step++)
+        {
+          matrix(time_step, channel) = leaky_relu(matrix(time_step, channel), negative_slopes.back());
+        }
+      }
+    }
+  }
+  
+  void apply(float* data, long size) override
+  {
+    // Fallback implementation for when we don't have matrix dimensions
+    // This is less efficient and doesn't properly handle per-channel slopes
+    // but provides basic functionality
+    if (!negative_slopes.empty())
+    {
+      float slope = negative_slopes[0]; // Use first slope as fallback
+      for (long pos = 0; pos < size; pos++)
+      {
+        data[pos] = leaky_relu(data[pos], slope);
+      }
+    }
+  }
+private:
+  std::vector<float> negative_slopes;
+};
+
+
 class ActivationSigmoid : public Activation
 {
 public:
