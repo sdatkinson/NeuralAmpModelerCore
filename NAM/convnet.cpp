@@ -3,6 +3,8 @@
 #include <cmath> // pow, tanh, expf
 #include <filesystem>
 #include <fstream>
+#include <iostream> // std::cerr
+#include <iterator> // std::distance
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -59,36 +61,39 @@ void nam::convnet::ConvNetBlock::set_weights_(const int in_channels, const int o
   this->activation = activations::Activation::get_activation(activation);
 }
 
+void nam::convnet::ConvNetBlock::SetMaxBufferSize(const int maxBufferSize)
+{
+  this->conv.SetMaxBufferSize(maxBufferSize);
+  const long out_channels = get_out_channels();
+  this->_output.resize(out_channels, maxBufferSize);
+  this->_output.setZero();
+}
+
 void nam::convnet::ConvNetBlock::Process(const Eigen::MatrixXf& input, const int num_frames)
 {
   // Process input with Conv1D
   this->conv.Process(input, num_frames);
 
-  // Get output from Conv1D (this is a block reference to _output buffer)
+  // Get output from Conv1D (this is a block reference to conv's _output buffer)
   auto conv_output_block = this->conv.GetOutput(num_frames);
 
-  // For batchnorm, we need a matrix reference (not a block)
-  // Create a temporary matrix from the block, process it, then copy back
-  Eigen::MatrixXf temp_output = conv_output_block;
+  // Copy conv output to our own output buffer
+  this->_output.leftCols(num_frames) = conv_output_block;
 
   // Apply batchnorm if needed
   if (this->_batchnorm)
   {
-    // Batchnorm expects indices, so we use 0 to num_frames for our temp matrix
-    this->batchnorm.process_(temp_output, 0, num_frames);
+    // Batchnorm expects indices, so we use 0 to num_frames for our output matrix
+    this->batchnorm.process_(this->_output, 0, num_frames);
   }
 
   // Apply activation
-  this->activation->apply(temp_output);
-
-  // Copy back to Conv1D's output buffer (so GetOutput() returns the processed result)
-  conv_output_block = temp_output;
+  this->activation->apply(this->_output.leftCols(num_frames));
 }
 
 Eigen::Block<Eigen::MatrixXf> nam::convnet::ConvNetBlock::GetOutput(const int num_frames)
 {
-  // FIXME needs to own this output.
-  return this->conv_output_block.leftCols(num_frames);
+  return this->_output.block(0, 0, this->_output.rows(), num_frames);
 }
 
 void nam::convnet::ConvNetBlock::process_(const Eigen::MatrixXf& input, Eigen::MatrixXf& output, const long i_start,
@@ -235,12 +240,10 @@ void nam::convnet::ConvNet::SetMaxBufferSize(const int maxBufferSize)
 {
   nam::Buffer::SetMaxBufferSize(maxBufferSize);
 
-  // Reset all Conv1D instances with the new buffer size
-  // Get sample rate from parent (or use -1.0 if not set)
-  double sampleRate = GetExpectedSampleRate(); // Use the expected sample rate
+  // Reset all ConvNetBlock instances with the new buffer size
   for (auto& block : _blocks)
   {
-    block.conv.SetMaxBufferSize(maxBufferSize);
+    block.SetMaxBufferSize(maxBufferSize);
   }
 }
 

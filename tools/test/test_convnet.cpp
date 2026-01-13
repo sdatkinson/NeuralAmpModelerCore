@@ -20,15 +20,15 @@ void test_convnet_basic()
   const double expected_sample_rate = 48000.0;
 
   // Calculate weights needed:
-  // Block 0: Conv1D (1, 2, 2, false, 1) -> 2*1*2 = 4 weights
-  // Block 1: Conv1D (2, 2, 2, false, 2) -> 2*2*2 = 8 weights
+  // Block 0: Conv1D (1, 2, 2, !batchnorm=true, 1) -> 2*1*2 = 4 weights + 2 bias = 6 total
+  // Block 1: Conv1D (2, 2, 2, !batchnorm=true, 2) -> 2*2*2 = 8 weights + 2 bias = 10 total
   // Head: (2, 1) weight + 1 bias = 3 weights
-  // Total: 4 + 8 + 3 = 15 weights
+  // Total: 6 + 10 + 3 = 19 weights
   std::vector<float> weights;
-  // Block 0 weights (4 weights: kernel[0] and kernel[1], each 2x1)
-  weights.insert(weights.end(), {1.0f, 1.0f, 1.0f, 1.0f});
-  // Block 1 weights (8 weights: kernel[0] and kernel[1], each 2x2)
-  weights.insert(weights.end(), {1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f});
+  // Block 0 weights (4 weights: kernel[0] and kernel[1], each 2x1) + 2 bias
+  weights.insert(weights.end(), {1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f});
+  // Block 1 weights (8 weights: kernel[0] and kernel[1], each 2x2) + 2 bias
+  weights.insert(weights.end(), {1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f});
   // Head weights (2 weights + 1 bias)
   weights.insert(weights.end(), {1.0f, 1.0f, 0.0f});
 
@@ -62,13 +62,13 @@ void test_convnet_batchnorm()
   const double expected_sample_rate = 48000.0;
 
   // Calculate weights needed:
-  // Block 0: Conv1D (1, 1, 2, true, 1) -> 2*1*1 + 1 = 3 weights
+  // Block 0: Conv1D (1, 1, 2, !batchnorm=false, 1) -> 2*1*1 = 2 weights (no bias when batchnorm=true)
   // BatchNorm: running_mean(1) + running_var(1) + weight(1) + bias(1) + eps(1) = 5 weights
   // Head: (1, 1) weight + 1 bias = 2 weights
-  // Total: 3 + 5 + 2 = 10 weights
+  // Total: 2 + 5 + 2 = 9 weights
   std::vector<float> weights;
-  // Block 0 weights (3 weights: kernel[0], kernel[1], bias)
-  weights.insert(weights.end(), {1.0f, 1.0f, 0.0f});
+  // Block 0 weights (2 weights: kernel[0], kernel[1], no bias)
+  weights.insert(weights.end(), {1.0f, 1.0f});
   // BatchNorm weights (5: mean, var, weight, bias, eps)
   weights.insert(weights.end(), {0.0f, 1.0f, 1.0f, 0.0f, 1e-5f});
   // Head weights (1 weight + 1 bias)
@@ -102,18 +102,18 @@ void test_convnet_multiple_blocks()
   const double expected_sample_rate = 48000.0;
 
   // Calculate weights needed:
-  // Block 0: Conv1D (1, 2, 2, false, 1) -> 2*1*2 = 4 weights
-  // Block 1: Conv1D (2, 2, 2, false, 2) -> 2*2*2 = 8 weights
-  // Block 2: Conv1D (2, 2, 2, false, 4) -> 2*2*2 = 8 weights
+  // Block 0: Conv1D (1, 2, 2, !batchnorm=true, 1) -> 2*1*2 = 4 weights + 2 bias = 6 total
+  // Block 1: Conv1D (2, 2, 2, !batchnorm=true, 2) -> 2*2*2 = 8 weights + 2 bias = 10 total
+  // Block 2: Conv1D (2, 2, 2, !batchnorm=true, 4) -> 2*2*2 = 8 weights + 2 bias = 10 total
   // Head: (2, 1) weight + 1 bias = 3 weights
-  // Total: 4 + 8 + 8 + 3 = 23 weights
+  // Total: 6 + 10 + 10 + 3 = 29 weights
   std::vector<float> weights;
-  // Block 0 weights
-  weights.insert(weights.end(), {1.0f, 1.0f, 1.0f, 1.0f});
-  // Block 1 weights
-  weights.insert(weights.end(), {1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f});
-  // Block 2 weights
-  weights.insert(weights.end(), {1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f});
+  // Block 0 weights (4 weights + 2 bias)
+  weights.insert(weights.end(), {1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f});
+  // Block 1 weights (8 weights + 2 bias)
+  weights.insert(weights.end(), {1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f});
+  // Block 2 weights (8 weights + 2 bias)
+  weights.insert(weights.end(), {1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f});
   // Head weights
   weights.insert(weights.end(), {1.0f, 1.0f, 0.0f});
 
@@ -145,8 +145,8 @@ void test_convnet_zero_input()
   const double expected_sample_rate = 48000.0;
 
   std::vector<float> weights;
-  // Block 0 weights (2 weights: kernel[0], kernel[1])
-  weights.insert(weights.end(), {1.0f, 1.0f});
+  // Block 0 weights (2 weights: kernel[0], kernel[1] + 1 bias, since batchnorm=false)
+  weights.insert(weights.end(), {1.0f, 1.0f, 0.0f});
   // Head weights (1 weight + 1 bias)
   weights.insert(weights.end(), {1.0f, 0.0f});
 
@@ -177,7 +177,9 @@ void test_convnet_different_buffer_sizes()
   const double expected_sample_rate = 48000.0;
 
   std::vector<float> weights;
-  weights.insert(weights.end(), {1.0f, 1.0f});
+  // Block 0 weights (2 weights: kernel[0], kernel[1] + 1 bias, since batchnorm=false)
+  weights.insert(weights.end(), {1.0f, 1.0f, 0.0f});
+  // Head weights (1 weight + 1 bias)
   weights.insert(weights.end(), {1.0f, 0.0f});
 
   nam::convnet::ConvNet convnet(channels, dilations, batchnorm, activation, weights, expected_sample_rate);
@@ -208,13 +210,13 @@ void test_convnet_prewarm()
   const double expected_sample_rate = 48000.0;
 
   std::vector<float> weights;
-  // Block 0 weights
-  weights.insert(weights.end(), {1.0f, 1.0f, 1.0f, 1.0f});
-  // Block 1 weights
-  weights.insert(weights.end(), {1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f});
-  // Block 2 weights
-  weights.insert(weights.end(), {1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f});
-  // Head weights
+  // Block 0 weights (4 weights + 2 bias, since batchnorm=false)
+  weights.insert(weights.end(), {1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f});
+  // Block 1 weights (8 weights + 2 bias, since batchnorm=false)
+  weights.insert(weights.end(), {1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f});
+  // Block 2 weights (8 weights + 2 bias, since batchnorm=false)
+  weights.insert(weights.end(), {1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f});
+  // Head weights (2 weights + 1 bias)
   weights.insert(weights.end(), {1.0f, 1.0f, 0.0f});
 
   nam::convnet::ConvNet convnet(channels, dilations, batchnorm, activation, weights, expected_sample_rate);
@@ -246,7 +248,9 @@ void test_convnet_multiple_calls()
   const double expected_sample_rate = 48000.0;
 
   std::vector<float> weights;
-  weights.insert(weights.end(), {1.0f, 1.0f});
+  // Block 0 weights (2 weights: kernel[0], kernel[1] + 1 bias, since batchnorm=false)
+  weights.insert(weights.end(), {1.0f, 1.0f, 0.0f});
+  // Head weights (1 weight + 1 bias)
   weights.insert(weights.end(), {1.0f, 0.0f});
 
   nam::convnet::ConvNet convnet(channels, dilations, batchnorm, activation, weights, expected_sample_rate);
