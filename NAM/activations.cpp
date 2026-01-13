@@ -18,6 +18,7 @@ std::unordered_map<std::string, nam::activations::Activation*> nam::activations:
   {"SiLU", &_SWISH}, {"Hardswish", &_HARD_SWISH}, {"LeakyHardtanh", &_LEAKY_HARD_TANH}};
 
 nam::activations::Activation* tanh_bak = nullptr;
+nam::activations::Activation* sigmoid_bak = nullptr;
 
 nam::activations::Activation* nam::activations::Activation::get_activation(const std::string name)
 {
@@ -47,3 +48,31 @@ void nam::activations::Activation::disable_fast_tanh()
     _activations["Tanh"] = tanh_bak;
   }
 }
+
+void nam::activations::Activation::enable_lut(std::string function_name, float min, float max, std::size_t n_points)
+{
+  std::function<float(float)> fn;
+  if (function_name == "Tanh"){
+    fn = [](float x) { return std::tanh(x); };
+    tanh_bak = _activations["Tanh"];
+  } else if (function_name == "Sigmoid") {
+    fn = sigmoid;
+    sigmoid_bak = _activations["Sigmoid"];
+  } else {
+    throw std::runtime_error("Tried to enable LUT for a function other than Tanh or Sigmoid");
+  }
+  FastLUTActivation lut_activation(min, max, n_points, fn);
+  _activations[function_name] = &lut_activation;
+}
+
+void nam::activations::Activation::disable_lut(std::string function_name)
+{
+  if (function_name == "Tanh"){
+    _activations["Tanh"] = tanh_bak;
+  } else if (function_name == "Sigmoid") {
+    _activations["Sigmoid"] = sigmoid_bak;
+  } else {
+    throw std::runtime_error("Tried to disable LUT for a function other than Tanh or Sigmoid");
+  }
+}
+
