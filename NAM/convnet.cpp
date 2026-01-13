@@ -68,7 +68,7 @@ void nam::convnet::ConvNetBlock::process_(const Eigen::MatrixXf& input, Eigen::M
   this->conv.Process(input_slice, (int)ncols);
 
   // Get output from Conv1D (this is a block reference to _output buffer)
-  auto conv_output_block = this->conv.get_output((int)ncols);
+  auto conv_output_block = this->conv.GetOutput((int)ncols);
 
   // For batchnorm, we need a matrix reference (not a block)
   // Create a temporary matrix from the block, process it, then copy back
@@ -149,14 +149,14 @@ void nam::convnet::ConvNet::process(NAM_SAMPLE* input, NAM_SAMPLE* output, const
     this->_block_vals[0](0, i) = this->_input_buffer[i];
 
   // Process through ConvNetBlock layers
-  // Each block now uses Conv1D's internal buffers via Process() and get_output()
+  // Each block now uses Conv1D's internal buffers via Process() and GetOutput()
   for (size_t i = 0; i < this->_blocks.size(); i++)
   {
     // For subsequent blocks, input comes from previous Conv1D's output
     if (i > 0)
     {
       // Get output from previous Conv1D and use it as input for current block
-      auto prev_output = this->_blocks[i - 1].conv.get_output(num_frames);
+      auto prev_output = this->_blocks[i - 1].conv.GetOutput(num_frames);
       // Copy to _block_vals for compatibility with process_() interface
       // process_() will extract the slice and process it
       this->_block_vals[i].middleCols(i_start, num_frames) = prev_output;
@@ -166,7 +166,7 @@ void nam::convnet::ConvNet::process(NAM_SAMPLE* input, NAM_SAMPLE* output, const
     this->_blocks[i].process_(this->_block_vals[i], this->_block_vals[i + 1], i_start, i_end);
 
     // After process_(), the output is in _block_vals[i+1], but also available
-    // via conv.get_output() for the next iteration
+    // via conv.GetOutput() for the next iteration
   }
 
   // Process head with output from last Conv1D

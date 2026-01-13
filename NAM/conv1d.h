@@ -22,7 +22,7 @@ public:
   // Get output buffer (similar to Conv1x1::GetOutput())
   // :param num_frames: Number of frames to return
   // :return: Block reference to output buffer
-  Eigen::Block<Eigen::MatrixXf> get_output(const int num_frames);
+  Eigen::Block<Eigen::MatrixXf> GetOutput(const int num_frames);
   // Process input and write to internal output buffer
   // :param input: Input matrix (channels x num_frames)
   // :param num_frames: Number of frames to process

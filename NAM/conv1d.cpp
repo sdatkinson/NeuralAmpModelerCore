@@ -66,7 +66,7 @@ void Conv1D::Reset(const double sampleRate, const int maxBufferSize)
   _output.setZero();
 }
 
-Eigen::Block<Eigen::MatrixXf> Conv1D::get_output(const int num_frames)
+Eigen::Block<Eigen::MatrixXf> Conv1D::GetOutput(const int num_frames)
 {
   return _output.block(0, 0, _output.rows(), num_frames);
 }

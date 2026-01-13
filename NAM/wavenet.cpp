@@ -44,7 +44,7 @@ void nam::wavenet::_Layer::process_(const Eigen::MatrixXf& input, const Eigen::M
   this->_conv.Process(input_slice, num_frames);
   
   // Get output from Conv1D
-  auto conv_output = this->_conv.get_output(num_frames);
+  auto conv_output = this->_conv.GetOutput(num_frames);
   
   // Still need _z buffer for intermediate processing (mixing condition, gating, activation)
   // Resize _z if needed
@@ -172,7 +172,7 @@ void nam::wavenet::_LayerArray::process_(const Eigen::MatrixXf& layer_inputs, co
     {
       // Get output from previous Conv1D and use it as input
       // But process_() still expects _layer_buffers, so we copy to it
-      auto prev_output = this->_layers[i - 1].get_conv().get_output(num_frames);
+      auto prev_output = this->_layers[i - 1].get_conv().GetOutput(num_frames);
       this->_layer_buffers[i].middleCols(this->_buffer_start, num_frames) = prev_output;
     }
     

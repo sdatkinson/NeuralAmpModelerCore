@@ -51,8 +51,8 @@ void test_reset()
   conv.set_size_(in_channels, out_channels, kernel_size, false, 1);
   conv.Reset(sampleRate, maxBufferSize);
 
-  // After Reset, get_output should work
-  auto output = conv.get_output(maxBufferSize);
+  // After Reset, GetOutput should work
+  auto output = conv.GetOutput(maxBufferSize);
   assert(output.rows() == out_channels);
   assert(output.cols() == maxBufferSize);
 }
@@ -89,7 +89,7 @@ void test_process_basic()
   conv.Process(input, num_frames);
 
   // Get output
-  auto output = conv.get_output(num_frames);
+  auto output = conv.GetOutput(num_frames);
 
   // Expected outputs (assuming zero padding for first frame):
   // output[0] = 1.0 * 1.0 + 2.0 * 0.0 = 1.0 (with zero padding)
@@ -138,7 +138,7 @@ void test_process_with_bias()
   input(0, 1) = 3.0f;
 
   conv.Process(input, num_frames);
-  auto output = conv.get_output(num_frames);
+  auto output = conv.GetOutput(num_frames);
 
   // Should have bias added
   assert(output.rows() == out_channels);
@@ -194,7 +194,7 @@ void test_process_multichannel()
   input(1, 1) = 4.0f;
 
   conv.Process(input, num_frames);
-  auto output = conv.get_output(num_frames);
+  auto output = conv.GetOutput(num_frames);
 
   assert(output.rows() == out_channels);
   assert(output.cols() == num_frames);
@@ -234,7 +234,7 @@ void test_process_dilation()
   input(0, 3) = 4.0f;
 
   conv.Process(input, num_frames);
-  auto output = conv.get_output(num_frames);
+  auto output = conv.GetOutput(num_frames);
 
   assert(output.rows() == out_channels);
   assert(output.cols() == num_frames);
@@ -269,7 +269,7 @@ void test_process_multiple_calls()
   input1(0, 1) = 2.0f;
 
   conv.Process(input1, num_frames);
-  auto output1 = conv.get_output(num_frames);
+  auto output1 = conv.GetOutput(num_frames);
 
   // Second call - ring buffer should have history from first call
   Eigen::MatrixXf input2(in_channels, num_frames);
@@ -277,7 +277,7 @@ void test_process_multiple_calls()
   input2(0, 1) = 4.0f;
 
   conv.Process(input2, num_frames);
-  auto output2 = conv.get_output(num_frames);
+  auto output2 = conv.GetOutput(num_frames);
 
   assert(output2.rows() == out_channels);
   assert(output2.cols() == num_frames);
@@ -286,7 +286,7 @@ void test_process_multiple_calls()
   assert(output2(0, 0) != 0.0f);
 }
 
-// Test get_output() with different num_frames
+// Test GetOutput() with different num_frames
 void test_get_output_different_sizes()
 {
   nam::Conv1D conv;
@@ -314,10 +314,10 @@ void test_get_output_different_sizes()
   conv.Process(input, 4);
 
   // Get different sized outputs
-  auto output_all = conv.get_output(4);
+  auto output_all = conv.GetOutput(4);
   assert(output_all.cols() == 4);
-
-  auto output_partial = conv.get_output(2);
+  
+  auto output_partial = conv.GetOutput(2);
   assert(output_partial.cols() == 2);
   assert(output_partial.rows() == out_channels);
 }
@@ -386,11 +386,11 @@ void test_reset_multiple()
 
   // Reset with different buffer sizes
   conv.Reset(48000.0, 64);
-  auto output1 = conv.get_output(64);
+  auto output1 = conv.GetOutput(64);
   assert(output1.cols() == 64);
-
+  
   conv.Reset(48000.0, 128);
-  auto output2 = conv.get_output(128);
+  auto output2 = conv.GetOutput(128);
   assert(output2.cols() == 128);
 }
 }; // namespace test_conv1d
