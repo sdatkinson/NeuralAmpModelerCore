@@ -211,6 +211,11 @@ void nam::RingBuffer::Reset(const int channels, const int buffer_size)
   _buffer.resize(channels, buffer_size);
   _buffer.setZero();
   // Initialize write position to receptive_field to leave room for history
+  // Zero the buffer behind the starting write position (for lookback)
+  if (_receptive_field > 0)
+  {
+    _buffer.leftCols(_receptive_field).setZero();
+  }
   _write_pos = _receptive_field;
 }
 
@@ -227,14 +232,14 @@ void nam::RingBuffer::Write(const Eigen::MatrixXf& input, const int num_frames)
 Eigen::Block<Eigen::MatrixXf> nam::RingBuffer::Read(const int num_frames, const long lookback)
 {
   long read_pos = GetReadPos(lookback);
-  
+
   // Handle wrapping if read_pos is negative or beyond buffer bounds
   if (read_pos < 0)
   {
     // Wrap around to the end of the buffer
     read_pos = _buffer.cols() + read_pos;
   }
-  
+
   // Ensure we don't read beyond buffer bounds
   // If read_pos + num_frames would exceed buffer, we need to wrap or clamp
   if (read_pos + num_frames > (long)_buffer.cols())
@@ -249,7 +254,7 @@ Eigen::Block<Eigen::MatrixXf> nam::RingBuffer::Read(const int num_frames, const 
       return _buffer.block(0, read_pos, _buffer.rows(), available);
     }
   }
-  
+
   return _buffer.block(0, read_pos, _buffer.rows(), num_frames);
 }
 
@@ -272,14 +277,15 @@ void nam::RingBuffer::Rewind()
     return;
   }
 
-  // Copy the history back to the beginning
-  // Copy receptive_field samples from before the write position
+  // Copy the max lookback (receptive_field) amount of history back to the beginning
+  // This is the history that will be needed for lookback reads
   const long copy_start = _write_pos - _receptive_field;
-  if (copy_start >= 0 && copy_start < (long)_buffer.cols())
+  if (copy_start >= 0 && copy_start < (long)_buffer.cols() && _receptive_field > 0)
   {
+    // Copy _receptive_field samples from before the write position to the start
     _buffer.leftCols(_receptive_field) = _buffer.middleCols(copy_start, _receptive_field);
   }
-  // Reset write position to just after the history
+  // Reset write position to just after the copied history
   _write_pos = _receptive_field;
 }
 
@@ -330,23 +336,23 @@ void nam::Conv1D::set_size_and_weights_(const int in_channels, const int out_cha
 void nam::Conv1D::Reset(const double sampleRate, const int maxBufferSize)
 {
   (void)sampleRate; // Unused, but kept for interface consistency
-  
+
   _max_buffer_size = maxBufferSize;
-  
+
   // Calculate receptive field (maximum lookback needed)
   const long kernel_size = get_kernel_size();
   const long dilation = get_dilation();
   const long receptive_field = kernel_size > 0 ? (kernel_size - 1) * dilation : 0;
-  
+
   // Size input ring buffer: safety factor * maxBufferSize + receptive field
   const long in_channels = get_in_channels();
   const long buffer_size = _INPUT_BUFFER_SAFETY_FACTOR * maxBufferSize + receptive_field;
-  
+
   // Initialize input ring buffer
   // Set receptive field before Reset so that Reset() can use it for initial write_pos
   _input_buffer.SetReceptiveField(receptive_field);
   _input_buffer.Reset(in_channels, buffer_size);
-  
+
   // Pre-allocate output matrix
   const long out_channels = get_out_channels();
   _output.resize(out_channels, maxBufferSize);
@@ -362,10 +368,10 @@ void nam::Conv1D::Process(const Eigen::MatrixXf& input, const int num_frames)
 {
   // Write input to ring buffer
   _input_buffer.Write(input, num_frames);
-  
+
   // Zero output before processing
   _output.leftCols(num_frames).setZero();
-  
+
   // Process from ring buffer with dilation lookback
   // After Write(), data is at positions [_write_pos, _write_pos+num_frames-1]
   // For kernel tap k with offset, we need to read from _write_pos + offset
@@ -379,20 +385,20 @@ void nam::Conv1D::Process(const Eigen::MatrixXf& input, const int num_frames)
     // Read from position: _write_pos + offset
     // Since offset is negative, we compute lookback = -offset to read from _write_pos - lookback
     const long lookback = -offset;
-    
+
     // Read num_frames starting from write_pos + offset (which is write_pos - lookback)
     auto input_block = _input_buffer.Read(num_frames, lookback);
-    
+
     // Perform convolution: output += weight[k] * input_block
     _output.leftCols(num_frames).noalias() += this->_weight[k] * input_block;
   }
-  
+
   // Add bias if present
   if (this->_bias.size() > 0)
   {
     _output.leftCols(num_frames).colwise() += this->_bias;
   }
-  
+
   // Advance ring buffer write pointer after processing
   _input_buffer.Advance(num_frames);
 }

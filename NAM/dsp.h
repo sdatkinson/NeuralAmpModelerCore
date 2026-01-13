@@ -196,7 +196,7 @@ public:
   void Advance(const int num_frames);
   // Wrap buffer when approaching end (called automatically if needed)
   void Rewind();
-  // Check if rewind is needed for the given number of frames
+  // Check if rewind is needed before `num_frames` are written or read
   // :param num_frames: Number of frames that will be written
   // :return: true if rewind is needed
   bool NeedsRewind(const int num_frames) const;
@@ -213,7 +213,7 @@ public:
 
 private:
   Eigen::MatrixXf _buffer; // channels x buffer_size
-  long _write_pos = 0;     // Current write position
+  long _write_pos = 0; // Current write position
   long _receptive_field = 0; // History needed when rewinding
 };
 
@@ -257,9 +257,9 @@ protected:
   int _dilation;
 
 private:
-  RingBuffer _input_buffer;      // Ring buffer for input (channels x buffer_size)
-  Eigen::MatrixXf _output;       // Pre-allocated output buffer (out_channels x maxBufferSize)
-  int _max_buffer_size = 0;      // Stored maxBufferSize
+  RingBuffer _input_buffer; // Ring buffer for input (channels x buffer_size)
+  Eigen::MatrixXf _output; // Pre-allocated output buffer (out_channels x maxBufferSize)
+  int _max_buffer_size = 0; // Stored maxBufferSize
 };
 
 // Really just a linear layer
