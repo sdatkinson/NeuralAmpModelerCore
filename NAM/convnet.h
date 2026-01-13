@@ -9,6 +9,9 @@
 
 #include <Eigen/Dense>
 
+#include "conv1d.h"
+#include "dsp.h"
+
 namespace nam
 {
 namespace convnet

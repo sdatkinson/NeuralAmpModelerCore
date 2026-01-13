@@ -7,6 +7,7 @@
 #include <Eigen/Dense>
 
 #include "dsp.h"
+#include "conv1d.h"
 
 namespace nam
 {

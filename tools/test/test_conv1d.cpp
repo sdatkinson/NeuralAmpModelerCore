@@ -6,7 +6,7 @@
 #include <iostream>
 #include <vector>
 
-#include "NAM/dsp.h"
+#include "NAM/conv1d.h"
 
 namespace test_conv1d
 {

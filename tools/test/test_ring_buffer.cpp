@@ -6,7 +6,7 @@
 #include <iostream>
 #include <vector>
 
-#include "NAM/dsp.h"
+#include "NAM/ring_buffer.h"
 
 namespace test_ring_buffer
 {
@@ -19,45 +19,48 @@ void test_construct()
   assert(rb.GetChannels() == 0);
 }
 
-// Test Reset() initializes buffer correctly
+// Test Reset() initializes storage correctly
 void test_reset()
 {
   nam::RingBuffer rb;
   const int channels = 2;
-  const int buffer_size = 64;
+  const int max_buffer_size = 64;
 
-  rb.Reset(channels, buffer_size);
+  rb.Reset(channels, max_buffer_size);
 
   assert(rb.GetChannels() == channels);
-  assert(rb.GetCapacity() == buffer_size);
+  // Storage size = 2 * max_lookback + max_buffer_size = 2 * 0 + 64 = 64
+  assert(rb.GetCapacity() == max_buffer_size);
   assert(rb.GetWritePos() == 0); // Starts at 0 if no max_lookback set
 }
 
-// Test Reset() with max_lookback zeros the buffer behind starting position
+// Test Reset() with max_lookback zeros the storage behind starting position
 void test_reset_with_receptive_field()
 {
   nam::RingBuffer rb;
   const int channels = 2;
-  const int buffer_size = 64;
+  const int max_buffer_size = 64;
   const long max_lookback = 10;
 
   rb.SetMaxLookback(max_lookback);
-  rb.Reset(channels, buffer_size);
+  rb.Reset(channels, max_buffer_size);
 
   assert(rb.GetChannels() == channels);
-  assert(rb.GetCapacity() == buffer_size);
+  // Storage size = 2 * max_lookback + max_buffer_size = 2 * 10 + 64 = 84
+  const long expected_storage_size = 2 * max_lookback + max_buffer_size;
+  assert(rb.GetCapacity() == expected_storage_size);
   assert(rb.GetWritePos() == max_lookback); // Write position should be after max_lookback
 
-  // The buffer behind the starting position should be zero
+  // The storage behind the starting position should be zero
   auto buffer_block = rb.Read(max_lookback, 0); // Try to read from position 0
   for (int i = 0; i < channels; i++)
   {
     for (long j = 0; j < max_lookback; j++)
     {
       // Can't directly access, but we can read from position 0
-      // Actually, let me read from the buffer directly using GetReadPos
+      // Actually, let me read from the storage directly using GetReadPos
       long read_pos = rb.GetReadPos(max_lookback);
-      if (read_pos >= 0 && read_pos < buffer_size)
+      if (read_pos >= 0 && read_pos < expected_storage_size)
       {
         // This should be zero (initialized)
       }
@@ -70,10 +73,10 @@ void test_write()
 {
   nam::RingBuffer rb;
   const int channels = 2;
-  const int buffer_size = 64;
+  const int max_buffer_size = 64;
   const int num_frames = 4;
 
-  rb.Reset(channels, buffer_size);
+  rb.Reset(channels, max_buffer_size);
 
   Eigen::MatrixXf input(channels, num_frames);
   input(0, 0) = 1.0f;
@@ -112,11 +115,11 @@ void test_read_with_lookback()
 {
   nam::RingBuffer rb;
   const int channels = 1;
-  const int buffer_size = 64;
+  const int max_buffer_size = 64;
   const long max_lookback = 5;
 
   rb.SetMaxLookback(max_lookback);
-  rb.Reset(channels, buffer_size);
+  rb.Reset(channels, max_buffer_size);
 
   // Write some data
   Eigen::MatrixXf input1(channels, 3);
@@ -166,9 +169,9 @@ void test_advance()
 {
   nam::RingBuffer rb;
   const int channels = 1;
-  const int buffer_size = 64;
+  const int max_buffer_size = 64;
 
-  rb.Reset(channels, buffer_size);
+  rb.Reset(channels, max_buffer_size);
 
   long initial_pos = rb.GetWritePos();
   rb.Advance(10);
@@ -183,11 +186,14 @@ void test_rewind()
 {
   nam::RingBuffer rb;
   const int channels = 1;
-  const int buffer_size = 32;
+  const int max_buffer_size = 32;
   const long max_lookback = 5;
 
   rb.SetMaxLookback(max_lookback);
-  rb.Reset(channels, buffer_size);
+  rb.Reset(channels, max_buffer_size);
+
+  // Storage size = 2 * max_lookback + max_buffer_size = 2 * 5 + 32 = 42
+  const long storage_size = 2 * max_lookback + max_buffer_size;
 
   // Write enough data to trigger rewind
   const int num_writes = 20;
@@ -201,7 +207,7 @@ void test_rewind()
     rb.Advance(2);
 
     // Check if rewind happened
-    if (rb.GetWritePos() + 2 > buffer_size)
+    if (rb.GetWritePos() + 2 > storage_size)
     {
       // Rewind should have been called automatically
       break;
@@ -227,9 +233,10 @@ void test_needs_rewind()
 {
   nam::RingBuffer rb;
   const int channels = 1;
-  const int buffer_size = 32;
+  const int max_buffer_size = 32;
 
-  rb.Reset(channels, buffer_size);
+  rb.Reset(channels, max_buffer_size);
+  // Storage size = 2 * 0 + 32 = 32
 
   assert(!rb.NeedsRewind(10)); // Should not need rewind initially
 
@@ -243,11 +250,11 @@ void test_multiple_writes_reads()
 {
   nam::RingBuffer rb;
   const int channels = 1;
-  const int buffer_size = 64;
+  const int max_buffer_size = 64;
   const long max_lookback = 3;
 
   rb.SetMaxLookback(max_lookback);
-  rb.Reset(channels, buffer_size);
+  rb.Reset(channels, max_buffer_size);
 
   // Write first batch
   Eigen::MatrixXf input1(channels, 3);
@@ -289,11 +296,11 @@ void test_reset_zeros_history_area()
 {
   nam::RingBuffer rb;
   const int channels = 1;
-  const int buffer_size = 64;
+  const int max_buffer_size = 64;
   const long max_lookback = 10;
 
   rb.SetMaxLookback(max_lookback);
-  rb.Reset(channels, buffer_size);
+  rb.Reset(channels, max_buffer_size);
 
   // Write some data and advance
   Eigen::MatrixXf input(channels, 5);
@@ -301,8 +308,8 @@ void test_reset_zeros_history_area()
   rb.Write(input, 5);
   rb.Advance(5);
 
-  // Reset should zero the buffer behind the starting position
-  rb.Reset(channels, buffer_size);
+  // Reset should zero the storage behind the starting position
+  rb.Reset(channels, max_buffer_size);
 
   // Read from position 0 (behind starting write position)
   // This should be zero
@@ -326,11 +333,14 @@ void test_rewind_preserves_history()
 {
   nam::RingBuffer rb;
   const int channels = 1;
-  const int buffer_size = 32;
+  const int max_buffer_size = 32;
   const long max_lookback = 4;
 
   rb.SetMaxLookback(max_lookback);
-  rb.Reset(channels, buffer_size);
+  rb.Reset(channels, max_buffer_size);
+
+  // Storage size = 2 * max_lookback + max_buffer_size = 2 * 4 + 32 = 40
+  const long storage_size = 2 * max_lookback + max_buffer_size;
 
   // Write data until we need to rewind
   std::vector<float> expected_history;
@@ -363,7 +373,7 @@ void test_rewind_preserves_history()
       for (long j = 0; j < max_lookback; j++)
       {
         long src_pos = copy_start + j;
-        if (src_pos >= 0 && src_pos < buffer_size)
+        if (src_pos >= 0 && src_pos < storage_size)
         {
           // Can't read directly, but we know the pattern
           // The values should be: write_pos - max_lookback + j
@@ -400,11 +410,11 @@ void test_get_read_pos()
 {
   nam::RingBuffer rb;
   const int channels = 1;
-  const int buffer_size = 64;
+  const int max_buffer_size = 64;
   const long max_lookback = 5;
 
   rb.SetMaxLookback(max_lookback);
-  rb.Reset(channels, buffer_size);
+  rb.Reset(channels, max_buffer_size);
 
   assert(rb.GetWritePos() == max_lookback);
 
