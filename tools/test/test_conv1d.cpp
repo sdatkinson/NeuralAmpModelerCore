@@ -49,7 +49,7 @@ void test_reset()
   const double sampleRate = 48000.0;
 
   conv.set_size_(in_channels, out_channels, kernel_size, false, 1);
-  conv.Reset(sampleRate, maxBufferSize);
+  conv.SetMaxBufferSize(maxBufferSize);
 
   // After Reset, GetOutput should work
   auto output = conv.GetOutput(maxBufferSize);
@@ -76,7 +76,7 @@ void test_process_basic()
   auto it = weights.begin();
   conv.set_weights_(it);
 
-  conv.Reset(48000.0, 64);
+  conv.SetMaxBufferSize(64);
 
   // Create input: [1.0, 2.0, 3.0, 4.0]
   Eigen::MatrixXf input(in_channels, num_frames);
@@ -131,7 +131,7 @@ void test_process_with_bias()
   auto it = weights.begin();
   conv.set_weights_(it);
 
-  conv.Reset(48000.0, 64);
+  conv.SetMaxBufferSize(64);
 
   Eigen::MatrixXf input(in_channels, num_frames);
   input(0, 0) = 2.0f;
@@ -185,7 +185,7 @@ void test_process_multichannel()
   auto it = weights.begin();
   conv.set_weights_(it);
 
-  conv.Reset(48000.0, 64);
+  conv.SetMaxBufferSize(64);
 
   Eigen::MatrixXf input(in_channels, num_frames);
   input(0, 0) = 1.0f;
@@ -225,7 +225,7 @@ void test_process_dilation()
   auto it = weights.begin();
   conv.set_weights_(it);
 
-  conv.Reset(48000.0, 64);
+  conv.SetMaxBufferSize(64);
 
   Eigen::MatrixXf input(in_channels, num_frames);
   input(0, 0) = 1.0f;
@@ -261,7 +261,7 @@ void test_process_multiple_calls()
   auto it = weights.begin();
   conv.set_weights_(it);
 
-  conv.Reset(48000.0, 64);
+  conv.SetMaxBufferSize(64);
 
   // First call
   Eigen::MatrixXf input1(in_channels, num_frames);
@@ -303,7 +303,7 @@ void test_get_output_different_sizes()
   auto it = weights.begin();
   conv.set_weights_(it);
 
-  conv.Reset(48000.0, maxBufferSize);
+  conv.SetMaxBufferSize(maxBufferSize);
 
   Eigen::MatrixXf input(in_channels, 4);
   input(0, 0) = 1.0f;
@@ -385,11 +385,11 @@ void test_reset_multiple()
   conv.set_weights_(it);
 
   // Reset with different buffer sizes
-  conv.Reset(48000.0, 64);
+  conv.SetMaxBufferSize(64);
   auto output1 = conv.GetOutput(64);
   assert(output1.cols() == 64);
   
-  conv.Reset(48000.0, 128);
+  conv.SetMaxBufferSize(128);
   auto output2 = conv.GetOutput(128);
   assert(output2.cols() == 128);
 }

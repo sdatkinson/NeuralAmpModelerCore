@@ -7,21 +7,14 @@
 #include "registry.h"
 #include "wavenet.h"
 
-nam::wavenet::_DilatedConv::_DilatedConv(const int in_channels, const int out_channels, const int kernel_size,
-                                         const int bias, const int dilation)
-{
-  this->set_size_(in_channels, out_channels, kernel_size, bias, dilation);
-}
-
 // Layer ======================================================================
 
 void nam::wavenet::_Layer::SetMaxBufferSize(const int maxBufferSize)
 {
-  // Reset Conv1D with new buffer size
-  // Use -1.0 for sampleRate since it's unused
-  _conv.Reset(-1.0, maxBufferSize);
+  _conv.SetMaxBufferSize(maxBufferSize);
   _input_mixin.SetMaxBufferSize(maxBufferSize);
   _z.resize(this->_conv.get_out_channels(), maxBufferSize);
+  _z.setZero();
   _1x1.SetMaxBufferSize(maxBufferSize);
   // Pre-allocate output buffers
   const long channels = this->get_channels();
@@ -40,27 +33,16 @@ void nam::wavenet::_Layer::Process(const Eigen::MatrixXf& input, const Eigen::Ma
 {
   const long channels = this->get_channels();
 
-  // Process input with Conv1D
+  // Step 1: input convolutions
   this->_conv.Process(input, num_frames);
+  this->_input_mixin.process_(condition, num_frames);
+  this->_z.leftCols(num_frames) = this->_conv.GetOutput(num_frames) + _input_mixin.GetOutput(num_frames);
 
-  // Get output from Conv1D
-  auto conv_output = this->_conv.GetOutput(num_frames);
-
-  // Still need _z buffer for intermediate processing (mixing condition, gating, activation)
-  // Resize _z if needed
-  if (this->_z.rows() != conv_output.rows() || this->_z.cols() < num_frames)
-  {
-    this->_z.resize(conv_output.rows(), num_frames);
-  }
-  this->_z.leftCols(num_frames) = conv_output;
-
-  // Mix-in condition
-  _input_mixin.process_(condition, num_frames);
-  this->_z.leftCols(num_frames).noalias() += _input_mixin.GetOutput(num_frames);
-
+  // Step 2 & 3: activation and 1x1
   if (!this->_gated)
   {
     this->_activation->apply(this->_z.leftCols(num_frames));
+    _1x1.process_(_z, num_frames);
   }
   else
   {
@@ -72,22 +54,11 @@ void nam::wavenet::_Layer::Process(const Eigen::MatrixXf& input, const Eigen::Ma
       activations::Activation::get_activation("Sigmoid")->apply(this->_z.block(channels, i, channels, 1));
     }
     this->_z.block(0, 0, channels, num_frames).array() *= this->_z.block(channels, 0, channels, num_frames).array();
+    _1x1.process_(_z.topRows(channels), num_frames); // Might not be RT safe
   }
 
   // Store output to head (skip connection: activated conv output)
-  this->_output_head.leftCols(num_frames) = this->_z.block(0, 0, channels, num_frames);
-
-  // Process through 1x1 convolution for residual connection
-  if (!_gated)
-  {
-    _1x1.process_(_z, num_frames);
-  }
-  else
-  {
-    // Probably not RT-safe yet
-    _1x1.process_(_z.topRows(channels), num_frames);
-  }
-
+  this->_output_head.leftCols(num_frames) = this->_z.leftCols(num_frames);
   // Store output to next layer (residual connection: input + _1x1 output)
   this->_output_next_layer.leftCols(num_frames).noalias() = input.leftCols(num_frames) + _1x1.GetOutput(num_frames);
 }
@@ -142,42 +113,25 @@ long nam::wavenet::_LayerArray::get_receptive_field() const
 void nam::wavenet::_LayerArray::Process(const Eigen::MatrixXf& layer_inputs, const Eigen::MatrixXf& condition,
                                         const int num_frames)
 {
-  // Process rechannel and get output
-  this->_rechannel.process_(layer_inputs, num_frames);
-  auto rechannel_output = _rechannel.GetOutput(num_frames);
-
   // Zero head inputs accumulator (first layer array)
   this->_head_inputs.setZero();
-
-  // Process layers
-  for (size_t i = 0; i < this->_layers.size(); i++)
-  {
-    // Get input for this layer
-    Eigen::MatrixXf layer_input = i == 0 ? rechannel_output : this->_layers[i - 1].GetOutputNextLayer(num_frames);
-    // Process layer
-    this->_layers[i].Process(layer_input, condition, num_frames);
-
-    // Accumulate head output from this layer
-    this->_head_inputs.leftCols(num_frames).noalias() += this->_layers[i].GetOutputHead(num_frames);
-  }
-
-  // Store output from last layer
-  const size_t last_layer = this->_layers.size() - 1;
-  this->_layer_outputs.leftCols(num_frames) = this->_layers[last_layer].GetOutputNextLayer(num_frames);
-
-  // Process head rechannel
-  _head_rechannel.process_(this->_head_inputs, num_frames);
+  ProcessInner(layer_inputs, condition, num_frames);
 }
 
 void nam::wavenet::_LayerArray::Process(const Eigen::MatrixXf& layer_inputs, const Eigen::MatrixXf& condition,
                                         const Eigen::MatrixXf& head_inputs, const int num_frames)
 {
+  // Copy head inputs from previous layer array
+  this->_head_inputs.leftCols(num_frames) = head_inputs.leftCols(num_frames);
+  ProcessInner(layer_inputs, condition, num_frames);
+}
+
+void nam::wavenet::_LayerArray::ProcessInner(const Eigen::MatrixXf& layer_inputs, const Eigen::MatrixXf& condition,
+                                             const int num_frames)
+{
   // Process rechannel and get output
   this->_rechannel.process_(layer_inputs, num_frames);
   auto rechannel_output = _rechannel.GetOutput(num_frames);
-
-  // Copy head inputs from previous layer array
-  this->_head_inputs.leftCols(num_frames) = head_inputs.leftCols(num_frames);
 
   // Process layers
   for (size_t i = 0; i < this->_layers.size(); i++)
@@ -209,12 +163,6 @@ Eigen::Block<Eigen::MatrixXf> nam::wavenet::_LayerArray::GetHeadOutputs(const in
   return this->_head_rechannel.GetOutput(num_frames);
 }
 
-void nam::wavenet::_LayerArray::set_num_frames_(const long num_frames)
-{
-  // No-op: Conv1D layers manage their own buffers now via SetMaxBufferSize()
-  for (size_t i = 0; i < this->_layers.size(); i++)
-    this->_layers[i].set_num_frames_(num_frames);
-}
 
 void nam::wavenet::_LayerArray::set_weights_(std::vector<float>::iterator& weights)
 {

@@ -196,7 +196,7 @@ void nam::convnet::ConvNet::SetMaxBufferSize(const int maxBufferSize)
   double sampleRate = GetExpectedSampleRate(); // Use the expected sample rate
   for (auto& block : _blocks)
   {
-    block.conv.Reset(sampleRate, maxBufferSize);
+    block.conv.SetMaxBufferSize(maxBufferSize);
   }
 }
 

@@ -13,14 +13,6 @@ namespace nam
 {
 namespace wavenet
 {
-// Rework the initialization API slightly. Merge w/ dsp.h later.
-class _DilatedConv : public Conv1D
-{
-public:
-  _DilatedConv(const int in_channels, const int out_channels, const int kernel_size, const int bias,
-               const int dilation);
-};
-
 class _Layer
 {
 public:
@@ -59,7 +51,7 @@ public:
 
 private:
   // The dilated convolution at the front of the block
-  _DilatedConv _conv;
+  Conv1D _conv;
   // Input mixin
   Conv1x1 _input_mixin;
   // The post-activation 1x1 convolution
@@ -153,6 +145,8 @@ private:
   // TODO remove!
   // E.g. a 1x1 convolution has a o.i.r.f. of one.
   long _get_receptive_field() const;
+  // Common processing logic after head inputs are set
+  void ProcessInner(const Eigen::MatrixXf& layer_inputs, const Eigen::MatrixXf& condition, const int num_frames);
 };
 
 // The head module
