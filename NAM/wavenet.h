@@ -38,21 +38,20 @@ public:
   // Process a block of frames.
   // :param `input`: from previous layer
   // :param `condition`: conditioning input (input to the WaveNet / "skip-in")
-  // :param `head_input`: input to the head ("skip-out")
-  // :param `output`: to next layer
-  // :param `i_start`: Index of the first column of the input samples that the conv layer's first kernel will process
-  // :param `j_start`: Index of the first column of the output block that will be written to
   // :param `num_frames`: number of frames to process
-  void process_(const Eigen::MatrixXf& input, const Eigen::MatrixXf& condition, Eigen::MatrixXf& head_input,
-                Eigen::MatrixXf& output, const long i_start, const long j_start, const int num_frames);
-  // DEPRECATED - use SetMaxBufferSize() instead
-  void set_num_frames_(const long num_frames);
+  // Outputs are stored internally and accessible via GetOutputNextLayer() and GetOutputHead()
+  void Process(const Eigen::MatrixXf& input, const Eigen::MatrixXf& condition, const int num_frames);
   // The number of channels expected as input/output from this layer
   long get_channels() const { return this->_conv.get_in_channels(); };
   // Dilation of the input convolution layer
   int get_dilation() const { return this->_conv.get_dilation(); };
   // Kernel size of the input convolution layer
   long get_kernel_size() const { return this->_conv.get_kernel_size(); };
+
+  // Get output to next layer (residual connection: input + _1x1 output)
+  Eigen::Block<Eigen::MatrixXf> GetOutputNextLayer(const int num_frames);
+  // Get output to head (skip connection: activated conv output)
+  Eigen::Block<Eigen::MatrixXf> GetOutputHead(const int num_frames);
 
   // Access Conv1D for Reset() propagation (needed for _LayerArray)
   Conv1D& get_conv() { return _conv; }
@@ -67,6 +66,10 @@ private:
   Conv1x1 _1x1;
   // The internal state
   Eigen::MatrixXf _z;
+  // Output to next layer (residual connection: input + _1x1 output)
+  Eigen::MatrixXf _output_next_layer;
+  // Output to head (skip connection: activated conv output)
+  Eigen::MatrixXf _output_head;
 
   activations::Activation* _activation;
   const bool _gated;
@@ -111,22 +114,20 @@ public:
 
   void SetMaxBufferSize(const int maxBufferSize);
 
-  void advance_buffers_(const int num_frames);
-
-  // Preparing for frames:
-  // Rewind buffers if needed
-  // Shift index to prepare
-  //
-  void prepare_for_frames_(const long num_frames);
-
   // All arrays are "short".
-  void process_(const Eigen::MatrixXf& layer_inputs, // Short
-                const Eigen::MatrixXf& condition, // Short
-                Eigen::MatrixXf& layer_outputs, // Short
-                Eigen::MatrixXf& head_inputs, // Sum up on this.
-                Eigen::MatrixXf& head_outputs, // post head-rechannel
-                const int num_frames);
-  void set_num_frames_(const long num_frames);
+  // Process without head input (first layer array) - zeros head inputs before proceeding
+  void Process(const Eigen::MatrixXf& layer_inputs, // Short
+               const Eigen::MatrixXf& condition, // Short
+               const int num_frames);
+  // Process with head input (subsequent layer arrays) - copies head input before proceeding
+  void Process(const Eigen::MatrixXf& layer_inputs, // Short
+               const Eigen::MatrixXf& condition, // Short
+               const Eigen::MatrixXf& head_inputs, // Short - from previous layer array
+               const int num_frames);
+  // Get output from last layer (for next layer array)
+  Eigen::Block<Eigen::MatrixXf> GetLayerOutputs(const int num_frames);
+  // Get head outputs (post head-rechannel)
+  Eigen::Block<Eigen::MatrixXf> GetHeadOutputs(const int num_frames);
   void set_weights_(std::vector<float>::iterator& it);
 
   // "Zero-indexed" receptive field.
@@ -134,27 +135,24 @@ public:
   long get_receptive_field() const;
 
 private:
-  long _buffer_start;
   // The rechannel before the layers
   Conv1x1 _rechannel;
 
-  // Buffers in between layers.
-  // buffer [i] is the input to layer [i].
-  // the last layer outputs to a short array provided by outside.
-  std::vector<Eigen::MatrixXf> _layer_buffers;
   // The layer objects
   std::vector<_Layer> _layers;
+  // Output from last layer (for next layer array)
+  Eigen::MatrixXf _layer_outputs;
+  // Accumulated head inputs from all layers
+  Eigen::MatrixXf _head_inputs;
 
   // Rechannel for the head
   Conv1x1 _head_rechannel;
 
-  long _get_buffer_size() const { return this->_layer_buffers.size() > 0 ? this->_layer_buffers[0].cols() : 0; };
   long _get_channels() const;
   // "One-indexed" receptive field
   // TODO remove!
   // E.g. a 1x1 convolution has a o.i.r.f. of one.
   long _get_receptive_field() const;
-  void _rewind_buffers_();
 };
 
 // The head module
@@ -207,8 +205,6 @@ protected:
 
 private:
   std::vector<_LayerArray> _layer_arrays;
-  // Their outputs
-  std::vector<Eigen::MatrixXf> _layer_array_outputs;
   // _Head _head;
 
   // One more than total layer arrays
@@ -217,7 +213,6 @@ private:
   Eigen::MatrixXf _head_output;
 
   void _advance_buffers_(const int num_frames);
-  void _prepare_for_frames_(const long num_frames);
 
   // Ensure that all buffer arrays are the right size for this num_frames
   void _set_num_frames_(const long num_frames);
