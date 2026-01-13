@@ -58,7 +58,10 @@ void nam::wavenet::_Layer::Process(const Eigen::MatrixXf& input, const Eigen::Ma
   }
 
   // Store output to head (skip connection: activated conv output)
-  this->_output_head.leftCols(num_frames) = this->_z.leftCols(num_frames);
+  if (!this->_gated)
+    this->_output_head.leftCols(num_frames) = this->_z.leftCols(num_frames);
+  else
+    this->_output_head.leftCols(num_frames) = this->_z.topRows(channels).leftCols(num_frames);
   // Store output to next layer (residual connection: input + _1x1 output)
   this->_output_next_layer.leftCols(num_frames).noalias() = input.leftCols(num_frames) + _1x1.GetOutput(num_frames);
 }
