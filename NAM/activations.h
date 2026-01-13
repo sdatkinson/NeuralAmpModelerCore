@@ -4,6 +4,7 @@
 #include <cmath> // expf
 #include <unordered_map>
 #include <Eigen/Dense>
+#include <functional>
 
 namespace nam
 {
@@ -25,6 +26,17 @@ inline float hard_tanh(float x)
   return t > 1 ? 1 : t;
 }
 
+inline float leaky_hardtanh(float x, float min_val, float max_val, float min_slope, float max_slope)
+{
+  if (x < min_val) {
+    return (x - min_val) * min_slope + min_val;
+  } else if (x > max_val) {
+    return (x - max_val) * max_slope + max_val;
+  } else {
+    return x;
+  }
+}
+
 inline float fast_tanh(const float x)
 {
   const float ax = fabsf(x);
@@ -38,13 +50,31 @@ inline float fast_sigmoid(const float x)
 {
   return 0.5f * (fast_tanh(x * 0.5f) + 1.0f);
 }
-
-// Assumes PyTorch default of 0.01 for negative slope. This may change to be
-// configurable in the future.
+  
+inline float leaky_relu(float x, float negative_slope)
+{
+  return x > 0.0f ? x : negative_slope * x;
+}
 inline float leaky_relu(float x)
 {
-  const float negative_slope = 0.01;
-  return x > 0.0f ? x : negative_slope * x;
+  return leaky_relu(x, 0.01);
+}
+
+
+inline float swish(float x)
+{
+  return x * sigmoid(x);
+}
+
+inline float hardswish(float x)
+{
+  if (x <= -3.0) {
+    return 0;
+  } else if (x >= 3.0) {
+    return x;
+  } else {
+    return x * (x + 3.0)/6.0;
+  }
 }
 
 class Activation
@@ -64,6 +94,8 @@ public:
   static void enable_fast_tanh();
   static void disable_fast_tanh();
   static bool using_fast_tanh;
+  static void enable_lut(std::string function_name, float min, float max, std::size_t n_points);
+  static void disable_lut(std::string function_name);
 
 protected:
   static std::unordered_map<std::string, Activation*> _activations;
@@ -93,6 +125,30 @@ public:
   }
 };
 
+class ActivationLeakyHardTanh : public Activation
+{
+public:
+  ActivationLeakyHardTanh() = default;
+  ActivationLeakyHardTanh(float min_val_, float max_val_, float min_slope_, float max_slope_) {
+    min_val = min_val_;
+    max_val = max_val_;
+    min_slope = min_slope_;
+    max_slope = max_slope_;
+  }
+  void apply(float* data, long size) override
+  {
+    for (long pos = 0; pos < size; pos++)
+    {
+      data[pos] = leaky_hardtanh(data[pos], min_val, max_val, min_slope, max_slope);
+    }
+  }
+private:
+  float min_val = -1.0;
+  float max_val = 1.0;
+  float min_slope = 0.01;
+  float max_slope = 0.01;
+};
+
 class ActivationFastTanh : public Activation
 {
 public:
@@ -120,13 +176,19 @@ public:
 class ActivationLeakyReLU : public Activation
 {
 public:
+  ActivationLeakyReLU() = default;
+  ActivationLeakyReLU(float ns) {
+    negative_slope = ns;
+  }
   void apply(float* data, long size) override
   {
     for (long pos = 0; pos < size; pos++)
     {
-      data[pos] = leaky_relu(data[pos]);
+      data[pos] = leaky_relu(data[pos], negative_slope);
     }
   }
+private:
+  float negative_slope = 0.01;
 };
 
 class ActivationSigmoid : public Activation
@@ -140,5 +202,75 @@ public:
     }
   }
 };
+
+class ActivationSwish : public Activation
+{
+public:
+  void apply(float* data, long size) override
+  {
+    for (long pos = 0; pos < size; pos++)
+    {
+      data[pos] = swish(data[pos]);
+    }
+  }
+};
+
+class ActivationHardSwish : public Activation
+{
+public:
+  void apply(float* data, long size) override
+  {
+    for (long pos = 0; pos < size; pos++)
+    {
+      data[pos] = hardswish(data[pos]);
+    }
+  }
+};
+
+class FastLUTActivation : public Activation
+{
+public:
+    FastLUTActivation(float min_x, float max_x, std::size_t size, std::function<float(float)> f)
+        : min_x_(min_x), max_x_(max_x), size_(size) {
+        
+        step_ = (max_x - min_x) / (size - 1);
+        inv_step_ = 1.0f / step_;
+        table_.reserve(size);
+
+        for (std::size_t i = 0; i < size; ++i) {
+            table_.push_back(f(min_x + i * step_));
+        }
+    }
+
+    // Fast lookup with linear interpolation
+    inline float lookup(float x) const {
+        // Clamp input to range
+        x = std::clamp(x, min_x_, max_x_);
+
+        // Calculate float index
+        float f_idx = (x - min_x_) * inv_step_;
+        std::size_t i = static_cast<std::size_t>(f_idx);
+        
+        // Handle edge case at max_x_
+        if (i >= size_ - 1) return table_.back();
+
+        // Linear interpolation: y = y0 + (y1 - y0) * fractional_part
+        float frac = f_idx - static_cast<float>(i);
+        return table_[i] + (table_[i + 1] - table_[i]) * frac;
+    }
+
+    // Vector application (Batch processing)
+    void apply(std::vector<float>& data) const {
+        for (float& val : data) {
+            val = lookup(val);
+        }
+    }
+
+private:
+    float min_x_, max_x_, step_, inv_step_;
+    size_t size_;
+    std::vector<float> table_;
+};
+
 }; // namespace activations
 }; // namespace nam

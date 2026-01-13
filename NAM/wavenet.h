@@ -28,7 +28,7 @@ public:
   : _conv(channels, gated ? 2 * channels : channels, kernel_size, true, dilation)
   , _input_mixin(condition_size, gated ? 2 * channels : channels, false)
   , _1x1(channels, channels, true)
-  , _activation(activations::Activation::get_activation(activation))
+  , _activation(activations::Activation::get_activation(activation)) // needs to support activations with parameters
   , _gated(gated) {};
   // Resize all arrays to be able to process `maxBufferSize` frames.
   void SetMaxBufferSize(const int maxBufferSize);
