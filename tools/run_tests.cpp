@@ -7,7 +7,9 @@
 #include "test/test_dsp.cpp"
 #include "test/test_get_dsp.cpp"
 #include "test/test_ring_buffer.cpp"
-#include "test/test_wavenet.cpp"
+#include "test/test_wavenet/test_layer.cpp"
+#include "test/test_wavenet/test_layer_array.cpp"
+#include "test/test_wavenet/test_full.cpp"
 
 int main()
 {
@@ -55,12 +57,23 @@ int main()
   test_ring_buffer::test_read_with_lookback();
   test_ring_buffer::test_advance();
   test_ring_buffer::test_rewind();
-  test_ring_buffer::test_needs_rewind();
   test_ring_buffer::test_multiple_writes_reads();
   test_ring_buffer::test_reset_zeros_history_area();
   test_ring_buffer::test_rewind_preserves_history();
 
-  test_wavenet::test_gated();
+  test_wavenet::test_layer::test_gated();
+  test_wavenet::test_layer::test_layer_getters();
+  test_wavenet::test_layer::test_non_gated_layer();
+  test_wavenet::test_layer::test_layer_activations();
+  test_wavenet::test_layer::test_layer_multichannel();
+  test_wavenet::test_layer_array::test_layer_array_basic();
+  test_wavenet::test_layer_array::test_layer_array_receptive_field();
+  test_wavenet::test_layer_array::test_layer_array_with_head_input();
+  test_wavenet::test_full::test_wavenet_model();
+  test_wavenet::test_full::test_wavenet_multiple_arrays();
+  test_wavenet::test_full::test_wavenet_zero_input();
+  test_wavenet::test_full::test_wavenet_different_buffer_sizes();
+  test_wavenet::test_full::test_wavenet_prewarm();
 
   std::cout << "Success!" << std::endl;
   return 0;
