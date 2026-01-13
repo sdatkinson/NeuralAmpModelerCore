@@ -180,81 +180,6 @@ long nam::wavenet::_LayerArray::_get_channels() const
   return this->_layers.size() > 0 ? this->_layers[0].get_channels() : 0;
 }
 
-long nam::wavenet::_LayerArray::_get_receptive_field() const
-{
-  // TODO remove this and use get_receptive_field() instead!
-  long res = 1;
-  for (size_t i = 0; i < this->_layers.size(); i++)
-    res += (this->_layers[i].get_kernel_size() - 1) * this->_layers[i].get_dilation();
-  return res;
-}
-
-
-// Head =======================================================================
-
-nam::wavenet::_Head::_Head(const int input_size, const int num_layers, const int channels, const std::string activation)
-: _channels(channels)
-, _head(num_layers > 0 ? channels : input_size, 1, true)
-, _activation(activations::Activation::get_activation(activation))
-{
-  assert(num_layers > 0);
-  int dx = input_size;
-  for (int i = 0; i < num_layers; i++)
-  {
-    this->_layers.push_back(Conv1x1(dx, i == num_layers - 1 ? 1 : channels, true));
-    dx = channels;
-    if (i < num_layers - 1)
-      this->_buffers.push_back(Eigen::MatrixXf());
-  }
-}
-
-void nam::wavenet::_Head::Reset(const double sampleRate, const int maxBufferSize)
-{
-  set_num_frames_((long)maxBufferSize);
-}
-
-void nam::wavenet::_Head::set_weights_(std::vector<float>::iterator& weights)
-{
-  for (size_t i = 0; i < this->_layers.size(); i++)
-    this->_layers[i].set_weights_(weights);
-}
-
-void nam::wavenet::_Head::process_(Eigen::MatrixXf& inputs, Eigen::MatrixXf& outputs)
-{
-  const size_t num_layers = this->_layers.size();
-  this->_apply_activation_(inputs);
-  if (num_layers == 1)
-    outputs = this->_layers[0].process(inputs);
-  else
-  {
-    this->_buffers[0] = this->_layers[0].process(inputs);
-    for (size_t i = 1; i < num_layers; i++)
-    { // Asserted > 0 layers
-      this->_apply_activation_(this->_buffers[i - 1]);
-      if (i < num_layers - 1)
-        this->_buffers[i] = this->_layers[i].process(this->_buffers[i - 1]);
-      else
-        outputs = this->_layers[i].process(this->_buffers[i - 1]);
-    }
-  }
-}
-
-void nam::wavenet::_Head::set_num_frames_(const long num_frames)
-{
-  for (size_t i = 0; i < this->_buffers.size(); i++)
-  {
-    if (this->_buffers[i].rows() == this->_channels && this->_buffers[i].cols() == num_frames)
-      continue; // Already has correct size
-    this->_buffers[i].resize(this->_channels, num_frames);
-    this->_buffers[i].setZero(); // Shouldn't be needed--these are written to before they're used.
-  }
-}
-
-void nam::wavenet::_Head::_apply_activation_(Eigen::MatrixXf& x)
-{
-  this->_activation->apply(x);
-}
-
 // WaveNet ====================================================================
 
 nam::wavenet::WaveNet::WaveNet(const std::vector<nam::wavenet::LayerArrayParams>& layer_array_params,
@@ -280,7 +205,6 @@ nam::wavenet::WaveNet::WaveNet(const std::vector<nam::wavenet::LayerArrayParams>
         throw std::runtime_error(ss.str().c_str());
       }
   }
-  this->_head_output.resize(1, 0); // Mono output!
   this->set_weights_(weights);
 
   mPrewarmSamples = 1;
@@ -293,7 +217,6 @@ void nam::wavenet::WaveNet::set_weights_(std::vector<float>& weights)
   std::vector<float>::iterator it = weights.begin();
   for (size_t i = 0; i < this->_layer_arrays.size(); i++)
     this->_layer_arrays[i].set_weights_(it);
-  // this->_head.set_params_(it);
   this->_head_scale = *(it++);
   if (it != weights.end())
   {
@@ -314,20 +237,11 @@ void nam::wavenet::WaveNet::SetMaxBufferSize(const int maxBufferSize)
   DSP::SetMaxBufferSize(maxBufferSize);
 
   this->_condition.resize(this->_get_condition_dim(), maxBufferSize);
-  this->_head_output.resize(this->_head_output.rows(), maxBufferSize);
-  this->_head_output.setZero();
 
   // SetMaxBufferSize on layer arrays will propagate to Conv1D::Reset() via _Layer::SetMaxBufferSize()
   for (size_t i = 0; i < this->_layer_arrays.size(); i++)
     this->_layer_arrays[i].SetMaxBufferSize(maxBufferSize);
-  // this->_head.SetMaxBufferSize(maxBufferSize);
 }
-
-void nam::wavenet::WaveNet::_advance_buffers_(const int num_frames)
-{
-  // No-op: Conv1D layers manage their own buffers now
-}
-
 
 void nam::wavenet::WaveNet::_set_condition_array(NAM_SAMPLE* input, const int num_frames)
 {
@@ -346,23 +260,20 @@ void nam::wavenet::WaveNet::process(NAM_SAMPLE* input, NAM_SAMPLE* output, const
   // Layer-to-layer
   for (size_t i = 0; i < this->_layer_arrays.size(); i++)
   {
-    // Get input for this layer array
-    const Eigen::MatrixXf& layer_input =
-      (i == 0) ? this->_condition : this->_layer_arrays[i - 1].GetLayerOutputs(num_frames);
     if (i == 0)
     {
       // First layer array - no head input
-      this->_layer_arrays[i].Process(layer_input, this->_condition, num_frames);
+      this->_layer_arrays[i].Process(this->_condition, this->_condition, num_frames);
     }
     else
     {
       // Subsequent layer arrays - use head output from previous layer array
-      this->_layer_arrays[i].Process(
-        layer_input, this->_condition, this->_layer_arrays[i - 1].GetHeadOutputs(num_frames), num_frames);
+      this->_layer_arrays[i].Process(this->_layer_arrays[i - 1].GetLayerOutputs(num_frames), this->_condition,
+                                     this->_layer_arrays[i - 1].GetHeadOutputs(num_frames), num_frames);
     }
   }
 
-  // head not implemented
+  // (Head not implemented)
 
   auto final_head_outputs = this->_layer_arrays.back().GetHeadOutputs(num_frames);
   assert(final_head_outputs.rows() == 1);
@@ -371,9 +282,6 @@ void nam::wavenet::WaveNet::process(NAM_SAMPLE* input, NAM_SAMPLE* output, const
     const float out = this->_head_scale * final_head_outputs(0, s);
     output[s] = out;
   }
-
-  // Finalize to prepare for the next call:
-  this->_advance_buffers_(num_frames);
 }
 
 // Factory to instantiate from nlohmann json

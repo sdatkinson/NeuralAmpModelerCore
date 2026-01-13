@@ -141,39 +141,8 @@ private:
   Conv1x1 _head_rechannel;
 
   long _get_channels() const;
-  // "One-indexed" receptive field
-  // TODO remove!
-  // E.g. a 1x1 convolution has a o.i.r.f. of one.
-  long _get_receptive_field() const;
   // Common processing logic after head inputs are set
   void ProcessInner(const Eigen::MatrixXf& layer_inputs, const Eigen::MatrixXf& condition, const int num_frames);
-};
-
-// The head module
-// [Act->Conv] x L
-class _Head
-{
-public:
-  _Head(const int input_size, const int num_layers, const int channels, const std::string activation);
-  void Reset(const double sampleRate, const int maxBufferSize);
-  void set_weights_(std::vector<float>::iterator& weights);
-  // NOTE: the head transforms the provided input by applying a nonlinearity
-  // to it in-place!
-  void process_(Eigen::MatrixXf& inputs, Eigen::MatrixXf& outputs);
-  void set_num_frames_(const long num_frames);
-
-private:
-  int _channels;
-  std::vector<Conv1x1> _layers;
-  Conv1x1 _head;
-  activations::Activation* _activation;
-
-  // Stores the outputs of the convs *except* the last one, which goes in
-  // The array `outputs` provided to .process_()
-  std::vector<Eigen::MatrixXf> _buffers;
-
-  // Apply the activation to the provided array, in-place
-  void _apply_activation_(Eigen::MatrixXf& x);
 };
 
 // The main WaveNet model
@@ -199,15 +168,8 @@ protected:
 
 private:
   std::vector<_LayerArray> _layer_arrays;
-  // _Head _head;
 
   float _head_scale;
-  Eigen::MatrixXf _head_output;
-
-  void _advance_buffers_(const int num_frames);
-
-  // Ensure that all buffer arrays are the right size for this num_frames
-  void _set_num_frames_(const long num_frames);
 
   int mPrewarmSamples = 0; // Pre-compute during initialization
   int PrewarmSamples() override { return mPrewarmSamples; };
