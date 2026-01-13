@@ -60,14 +60,33 @@ void nam::convnet::ConvNetBlock::set_weights_(const int in_channels, const int o
 }
 
 void nam::convnet::ConvNetBlock::process_(const Eigen::MatrixXf& input, Eigen::MatrixXf& output, const long i_start,
-                                          const long i_end) const
+                                          const long i_end)
 {
   const long ncols = i_end - i_start;
-  this->conv.process_(input, output, i_start, ncols, i_start);
+  // Extract input slice and process with Conv1D
+  Eigen::MatrixXf input_slice = input.middleCols(i_start, ncols);
+  this->conv.Process(input_slice, (int)ncols);
+  
+  // Get output from Conv1D (this is a block reference to _output buffer)
+  auto conv_output_block = this->conv.get_output((int)ncols);
+  
+  // For batchnorm, we need a matrix reference (not a block)
+  // Create a temporary matrix from the block, process it, then copy back
+  Eigen::MatrixXf temp_output = conv_output_block;
+  
+  // Apply batchnorm if needed
   if (this->_batchnorm)
-    this->batchnorm.process_(output, i_start, i_end);
-
-  this->activation->apply(output.middleCols(i_start, ncols));
+  {
+    // Batchnorm expects indices, so we use 0 to ncols for our temp matrix
+    this->batchnorm.process_(temp_output, 0, ncols);
+  }
+  
+  // Apply activation
+  this->activation->apply(temp_output);
+  
+  // Copy to Conv1D's output buffer and to output matrix
+  conv_output_block = temp_output;
+  output.middleCols(i_start, ncols) = temp_output;
 }
 
 long nam::convnet::ConvNetBlock::get_out_channels() const
@@ -123,14 +142,38 @@ void nam::convnet::ConvNet::process(NAM_SAMPLE* input, NAM_SAMPLE* output, const
   // Main computation!
   const long i_start = this->_input_buffer_offset;
   const long i_end = i_start + num_frames;
-  // TODO one unnecessary copy :/ #speed
+  
+  // Prepare input for first layer (still need _block_vals[0] for compatibility)
+  // TODO: can simplify this once we refactor head to use Conv1D directly
   for (auto i = i_start; i < i_end; i++)
     this->_block_vals[0](0, i) = this->_input_buffer[i];
+  
+  // Process through ConvNetBlock layers
+  // Each block now uses Conv1D's internal buffers via Process() and get_output()
   for (size_t i = 0; i < this->_blocks.size(); i++)
+  {
+    // For subsequent blocks, input comes from previous Conv1D's output
+    if (i > 0)
+    {
+      // Get output from previous Conv1D and use it as input for current block
+      auto prev_output = this->_blocks[i - 1].conv.get_output(num_frames);
+      // Copy to _block_vals for compatibility with process_() interface
+      // process_() will extract the slice and process it
+      this->_block_vals[i].middleCols(i_start, num_frames) = prev_output;
+    }
+    
+    // Process block (handles Conv1D, batchnorm, and activation internally)
     this->_blocks[i].process_(this->_block_vals[i], this->_block_vals[i + 1], i_start, i_end);
-  // TODO clean up this allocation
+    
+    // After process_(), the output is in _block_vals[i+1], but also available
+    // via conv.get_output() for the next iteration
+  }
+  
+  // Process head with output from last Conv1D
+  // Head still needs the old interface, so we provide it via _block_vals
   this->_head.process_(this->_block_vals[this->_blocks.size()], this->_head_output, i_start, i_end);
-  // Copy to required output array (TODO tighten this up)
+  
+  // Copy to required output array
   for (int s = 0; s < num_frames; s++)
     output[s] = this->_head_output(s);
 
@@ -144,12 +187,27 @@ void nam::convnet::ConvNet::_verify_weights(const int channels, const std::vecto
   // TODO
 }
 
+void nam::convnet::ConvNet::SetMaxBufferSize(const int maxBufferSize)
+{
+  nam::Buffer::SetMaxBufferSize(maxBufferSize);
+  
+  // Reset all Conv1D instances with the new buffer size
+  // Get sample rate from parent (or use -1.0 if not set)
+  double sampleRate = GetExpectedSampleRate(); // Use the expected sample rate
+  for (auto& block : _blocks)
+  {
+    block.conv.Reset(sampleRate, maxBufferSize);
+  }
+}
+
 void nam::convnet::ConvNet::_update_buffers_(NAM_SAMPLE* input, const int num_frames)
 {
   this->Buffer::_update_buffers_(input, num_frames);
 
   const long buffer_size = (long)this->_input_buffer.size();
 
+  // Still need _block_vals for compatibility with head and process_() interface
+  // TODO: can simplify once head uses Conv1D directly
   if (this->_block_vals[0].rows() != 1 || this->_block_vals[0].cols() != buffer_size)
   {
     this->_block_vals[0].resize(1, buffer_size);
@@ -168,10 +226,13 @@ void nam::convnet::ConvNet::_update_buffers_(NAM_SAMPLE* input, const int num_fr
 
 void nam::convnet::ConvNet::_rewind_buffers_()
 {
-  // Need to rewind the block vals first because Buffer::rewind_buffers()
-  // resets the offset index
-  // The last _block_vals is the output of the last block and doesn't need to be
-  // rewound.
+  // Conv1D instances now manage their own ring buffers and handle rewinding internally
+  // So we don't need to rewind _block_vals for Conv1D layers
+  // However, we still need _block_vals for compatibility with the head and process_() interface
+  // TODO: can simplify once head uses Conv1D directly
+  
+  // Still need to rewind _block_vals for compatibility
+  // The last _block_vals is the output of the last block and doesn't need to be rewound.
   for (size_t k = 0; k < this->_block_vals.size() - 1; k++)
   {
     // We actually don't need to pull back a lot...just as far as the first
@@ -182,7 +243,7 @@ void nam::convnet::ConvNet::_rewind_buffers_()
       for (long r = 0; r < this->_block_vals[k].rows(); r++)
         this->_block_vals[k](r, i) = this->_block_vals[k](r, j);
   }
-  // Now we can do the rest of the rewind
+  // Now we can do the rest of the rewind (for the input buffer)
   this->Buffer::_rewind_buffers_();
 }
 

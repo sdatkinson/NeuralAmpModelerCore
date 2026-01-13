@@ -204,6 +204,92 @@ std::unique_ptr<nam::DSP> nam::linear::Factory(const nlohmann::json& config, std
 
 // NN modules =================================================================
 
+// RingBuffer =================================================================
+
+void nam::RingBuffer::Reset(const int channels, const int buffer_size)
+{
+  _buffer.resize(channels, buffer_size);
+  _buffer.setZero();
+  // Initialize write position to receptive_field to leave room for history
+  _write_pos = _receptive_field;
+}
+
+void nam::RingBuffer::Write(const Eigen::MatrixXf& input, const int num_frames)
+{
+  // Check if we need to rewind
+  if (NeedsRewind(num_frames))
+    Rewind();
+
+  // Write the input data at the write position
+  _buffer.middleCols(_write_pos, num_frames) = input.leftCols(num_frames);
+}
+
+Eigen::Block<Eigen::MatrixXf> nam::RingBuffer::Read(const int num_frames, const long lookback)
+{
+  long read_pos = GetReadPos(lookback);
+  
+  // Handle wrapping if read_pos is negative or beyond buffer bounds
+  if (read_pos < 0)
+  {
+    // Wrap around to the end of the buffer
+    read_pos = _buffer.cols() + read_pos;
+  }
+  
+  // Ensure we don't read beyond buffer bounds
+  // If read_pos + num_frames would exceed buffer, we need to wrap or clamp
+  if (read_pos + num_frames > (long)_buffer.cols())
+  {
+    // For now, clamp to available space
+    // This shouldn't happen if buffer is sized correctly, but handle gracefully
+    long available = _buffer.cols() - read_pos;
+    if (available < num_frames)
+    {
+      // This is an error condition - buffer not sized correctly
+      // Return what we can (shouldn't happen in normal usage)
+      return _buffer.block(0, read_pos, _buffer.rows(), available);
+    }
+  }
+  
+  return _buffer.block(0, read_pos, _buffer.rows(), num_frames);
+}
+
+void nam::RingBuffer::Advance(const int num_frames)
+{
+  _write_pos += num_frames;
+}
+
+bool nam::RingBuffer::NeedsRewind(const int num_frames) const
+{
+  return _write_pos + num_frames > (long)_buffer.cols();
+}
+
+void nam::RingBuffer::Rewind()
+{
+  if (_receptive_field == 0)
+  {
+    // No history to preserve, just reset
+    _write_pos = 0;
+    return;
+  }
+
+  // Copy the history back to the beginning
+  // Copy receptive_field samples from before the write position
+  const long copy_start = _write_pos - _receptive_field;
+  if (copy_start >= 0 && copy_start < (long)_buffer.cols())
+  {
+    _buffer.leftCols(_receptive_field) = _buffer.middleCols(copy_start, _receptive_field);
+  }
+  // Reset write position to just after the history
+  _write_pos = _receptive_field;
+}
+
+long nam::RingBuffer::GetReadPos(const long lookback) const
+{
+  return _write_pos - lookback;
+}
+
+// Conv1D =====================================================================
+
 void nam::Conv1D::set_weights_(std::vector<float>::iterator& weights)
 {
   if (this->_weight.size() > 0)
@@ -239,6 +325,76 @@ void nam::Conv1D::set_size_and_weights_(const int in_channels, const int out_cha
 {
   this->set_size_(in_channels, out_channels, kernel_size, do_bias, _dilation);
   this->set_weights_(weights);
+}
+
+void nam::Conv1D::Reset(const double sampleRate, const int maxBufferSize)
+{
+  (void)sampleRate; // Unused, but kept for interface consistency
+  
+  _max_buffer_size = maxBufferSize;
+  
+  // Calculate receptive field (maximum lookback needed)
+  const long kernel_size = get_kernel_size();
+  const long dilation = get_dilation();
+  const long receptive_field = kernel_size > 0 ? (kernel_size - 1) * dilation : 0;
+  
+  // Size input ring buffer: safety factor * maxBufferSize + receptive field
+  const long in_channels = get_in_channels();
+  const long buffer_size = _INPUT_BUFFER_SAFETY_FACTOR * maxBufferSize + receptive_field;
+  
+  // Initialize input ring buffer
+  // Set receptive field before Reset so that Reset() can use it for initial write_pos
+  _input_buffer.SetReceptiveField(receptive_field);
+  _input_buffer.Reset(in_channels, buffer_size);
+  
+  // Pre-allocate output matrix
+  const long out_channels = get_out_channels();
+  _output.resize(out_channels, maxBufferSize);
+  _output.setZero();
+}
+
+Eigen::Block<Eigen::MatrixXf> nam::Conv1D::get_output(const int num_frames)
+{
+  return _output.block(0, 0, _output.rows(), num_frames);
+}
+
+void nam::Conv1D::Process(const Eigen::MatrixXf& input, const int num_frames)
+{
+  // Write input to ring buffer
+  _input_buffer.Write(input, num_frames);
+  
+  // Zero output before processing
+  _output.leftCols(num_frames).setZero();
+  
+  // Process from ring buffer with dilation lookback
+  // After Write(), data is at positions [_write_pos, _write_pos+num_frames-1]
+  // For kernel tap k with offset, we need to read from _write_pos + offset
+  // The offset is negative (looking back), so _write_pos + offset reads from earlier positions
+  // The original process_() reads: input.middleCols(i_start + offset, ncols)
+  // where i_start is the current position and offset is negative for lookback
+  for (size_t k = 0; k < this->_weight.size(); k++)
+  {
+    const long offset = this->_dilation * (k + 1 - (long)this->_weight.size());
+    // Offset is negative (looking back)
+    // Read from position: _write_pos + offset
+    // Since offset is negative, we compute lookback = -offset to read from _write_pos - lookback
+    const long lookback = -offset;
+    
+    // Read num_frames starting from write_pos + offset (which is write_pos - lookback)
+    auto input_block = _input_buffer.Read(num_frames, lookback);
+    
+    // Perform convolution: output += weight[k] * input_block
+    _output.leftCols(num_frames).noalias() += this->_weight[k] * input_block;
+  }
+  
+  // Add bias if present
+  if (this->_bias.size() > 0)
+  {
+    _output.leftCols(num_frames).colwise() += this->_bias;
+  }
+  
+  // Advance ring buffer write pointer after processing
+  _input_buffer.Advance(num_frames);
 }
 
 void nam::Conv1D::process_(const Eigen::MatrixXf& input, Eigen::MatrixXf& output, const long i_start, const long ncols,

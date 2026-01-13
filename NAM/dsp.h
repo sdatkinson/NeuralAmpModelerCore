@@ -173,6 +173,50 @@ std::unique_ptr<DSP> Factory(const nlohmann::json& config, std::vector<float>& w
 
 // NN modules =================================================================
 
+// Ring buffer for managing Eigen::MatrixXf buffers with write/read pointers
+class RingBuffer
+{
+public:
+  RingBuffer() {};
+  // Initialize/resize buffer
+  // :param channels: Number of channels (rows in the buffer matrix)
+  // :param buffer_size: Total buffer size (columns in the buffer matrix)
+  void Reset(const int channels, const int buffer_size);
+  // Write new data at write pointer
+  // :param input: Input matrix (channels x num_frames)
+  // :param num_frames: Number of frames to write
+  void Write(const Eigen::MatrixXf& input, const int num_frames);
+  // Read data with optional lookback
+  // :param num_frames: Number of frames to read
+  // :param lookback: Number of frames to look back from write pointer (default 0)
+  // :return: Block reference to the buffer data
+  Eigen::Block<Eigen::MatrixXf> Read(const int num_frames, const long lookback = 0);
+  // Advance write pointer
+  // :param num_frames: Number of frames to advance
+  void Advance(const int num_frames);
+  // Wrap buffer when approaching end (called automatically if needed)
+  void Rewind();
+  // Check if rewind is needed for the given number of frames
+  // :param num_frames: Number of frames that will be written
+  // :return: true if rewind is needed
+  bool NeedsRewind(const int num_frames) const;
+  // Get current write position
+  long GetWritePos() const { return _write_pos; }
+  // Get current read position (write_pos - lookback)
+  long GetReadPos(const long lookback = 0) const;
+  // Get buffer capacity (number of columns)
+  long GetCapacity() const { return _buffer.cols(); }
+  // Get number of channels (rows)
+  int GetChannels() const { return _buffer.rows(); }
+  // Set the receptive field (history needed when rewinding)
+  void SetReceptiveField(const long receptive_field) { _receptive_field = receptive_field; }
+
+private:
+  Eigen::MatrixXf _buffer; // channels x buffer_size
+  long _write_pos = 0;     // Current write position
+  long _receptive_field = 0; // History needed when rewinding
+};
+
 // TODO conv could take care of its own ring buffer.
 class Conv1D
 {
@@ -183,7 +227,19 @@ public:
                  const int _dilation);
   void set_size_and_weights_(const int in_channels, const int out_channels, const int kernel_size, const int _dilation,
                              const bool do_bias, std::vector<float>::iterator& weights);
-  // Process from input to output
+  // Reset the ring buffer and pre-allocate output buffer
+  // :param sampleRate: Unused, for interface consistency
+  // :param maxBufferSize: Maximum buffer size for output buffer and to size ring buffer
+  void Reset(const double sampleRate, const int maxBufferSize);
+  // Get output buffer (similar to Conv1x1::GetOutput())
+  // :param num_frames: Number of frames to return
+  // :return: Block reference to output buffer
+  Eigen::Block<Eigen::MatrixXf> get_output(const int num_frames);
+  // Process input and write to internal output buffer
+  // :param input: Input matrix (channels x num_frames)
+  // :param num_frames: Number of frames to process
+  void Process(const Eigen::MatrixXf& input, const int num_frames);
+  // Process from input to output (legacy method, kept for compatibility)
   //  Rightmost indices of input go from i_start for ncols,
   //  Indices on output for from j_start (to j_start + ncols - i_start)
   void process_(const Eigen::MatrixXf& input, Eigen::MatrixXf& output, const long i_start, const long ncols,
@@ -199,6 +255,11 @@ protected:
   std::vector<Eigen::MatrixXf> _weight;
   Eigen::VectorXf _bias;
   int _dilation;
+
+private:
+  RingBuffer _input_buffer;      // Ring buffer for input (channels x buffer_size)
+  Eigen::MatrixXf _output;       // Pre-allocated output buffer (out_channels x maxBufferSize)
+  int _max_buffer_size = 0;      // Stored maxBufferSize
 };
 
 // Really just a linear layer

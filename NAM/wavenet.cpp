@@ -17,6 +17,9 @@ nam::wavenet::_DilatedConv::_DilatedConv(const int in_channels, const int out_ch
 
 void nam::wavenet::_Layer::SetMaxBufferSize(const int maxBufferSize)
 {
+  // Reset Conv1D with new buffer size
+  // Use -1.0 for sampleRate since it's unused
+  _conv.Reset(-1.0, maxBufferSize);
   _input_mixin.SetMaxBufferSize(maxBufferSize);
   _z.resize(this->_conv.get_out_channels(), maxBufferSize);
   _1x1.SetMaxBufferSize(maxBufferSize);
@@ -35,8 +38,22 @@ void nam::wavenet::_Layer::process_(const Eigen::MatrixXf& input, const Eigen::M
 {
   const long ncols = (long)num_frames; // TODO clean this up
   const long channels = this->get_channels();
-  // Input dilated conv
-  this->_conv.process_(input, this->_z, i_start, ncols, 0);
+  
+  // Extract input slice and process with Conv1D
+  Eigen::MatrixXf input_slice = input.middleCols(i_start, num_frames);
+  this->_conv.Process(input_slice, num_frames);
+  
+  // Get output from Conv1D
+  auto conv_output = this->_conv.get_output(num_frames);
+  
+  // Still need _z buffer for intermediate processing (mixing condition, gating, activation)
+  // Resize _z if needed
+  if (this->_z.rows() != conv_output.rows() || this->_z.cols() < num_frames)
+  {
+    this->_z.resize(conv_output.rows(), num_frames);
+  }
+  this->_z.leftCols(num_frames) = conv_output;
+  
   // Mix-in condition
   _input_mixin.process_(condition, num_frames);
   this->_z.leftCols(num_frames).noalias() += _input_mixin.GetOutput(num_frames);
@@ -142,10 +159,23 @@ void nam::wavenet::_LayerArray::process_(const Eigen::MatrixXf& layer_inputs, co
                                          Eigen::MatrixXf& head_outputs, const int num_frames)
 {
   this->_rechannel.process_(layer_inputs, num_frames);
+  // Still need _layer_buffers[0] to store rechannel output for compatibility
+  // TODO: can simplify once Conv1D fully manages its own buffers
   this->_layer_buffers[0].middleCols(this->_buffer_start, num_frames) = _rechannel.GetOutput(num_frames);
+  
   const size_t last_layer = this->_layers.size() - 1;
   for (size_t i = 0; i < this->_layers.size(); i++)
   {
+    // For subsequent layers, we could use previous Conv1D's output directly
+    // But for now, we still use _layer_buffers for compatibility with process_() interface
+    if (i > 0)
+    {
+      // Get output from previous Conv1D and use it as input
+      // But process_() still expects _layer_buffers, so we copy to it
+      auto prev_output = this->_layers[i - 1].get_conv().get_output(num_frames);
+      this->_layer_buffers[i].middleCols(this->_buffer_start, num_frames) = prev_output;
+    }
+    
     this->_layers[i].process_(this->_layer_buffers[i], condition, head_inputs,
                               i == last_layer ? layer_outputs : this->_layer_buffers[i + 1], this->_buffer_start,
                               i == last_layer ? 0 : this->_buffer_start, num_frames);
@@ -340,6 +370,7 @@ void nam::wavenet::WaveNet::SetMaxBufferSize(const int maxBufferSize)
   this->_head_output.resize(this->_head_output.rows(), maxBufferSize);
   this->_head_output.setZero();
 
+  // SetMaxBufferSize on layer arrays will propagate to Conv1D::Reset() via _Layer::SetMaxBufferSize()
   for (size_t i = 0; i < this->_layer_arrays.size(); i++)
     this->_layer_arrays[i].SetMaxBufferSize(maxBufferSize);
   // this->_head.SetMaxBufferSize(maxBufferSize);

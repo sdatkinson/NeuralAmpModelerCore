@@ -42,7 +42,7 @@ public:
   ConvNetBlock() {};
   void set_weights_(const int in_channels, const int out_channels, const int _dilation, const bool batchnorm,
                     const std::string activation, std::vector<float>::iterator& weights);
-  void process_(const Eigen::MatrixXf& input, Eigen::MatrixXf& output, const long i_start, const long i_end) const;
+  void process_(const Eigen::MatrixXf& input, Eigen::MatrixXf& output, const long i_start, const long i_end);
   long get_out_channels() const;
   Conv1D conv;
 
@@ -72,6 +72,7 @@ public:
   ~ConvNet() = default;
 
   void process(NAM_SAMPLE* input, NAM_SAMPLE* output, const int num_frames) override;
+  void SetMaxBufferSize(const int maxBufferSize) override;
 
 protected:
   std::vector<ConvNetBlock> _blocks;

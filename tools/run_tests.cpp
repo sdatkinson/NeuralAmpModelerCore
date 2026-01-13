@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include "test/test_activations.cpp"
+#include "test/test_conv1d.cpp"
 #include "test/test_dsp.cpp"
 #include "test/test_get_dsp.cpp"
 #include "test/test_wavenet.cpp"
@@ -34,6 +35,19 @@ int main()
   test_get_dsp::test_null_output_level();
 
   test_wavenet::test_gated();
+
+  test_conv1d::test_construct();
+  test_conv1d::test_set_size();
+  test_conv1d::test_reset();
+  test_conv1d::test_process_basic();
+  test_conv1d::test_process_with_bias();
+  test_conv1d::test_process_multichannel();
+  test_conv1d::test_process_dilation();
+  test_conv1d::test_process_multiple_calls();
+  test_conv1d::test_get_output_different_sizes();
+  test_conv1d::test_set_size_and_weights();
+  test_conv1d::test_get_num_weights();
+  test_conv1d::test_reset_multiple();
 
   std::cout << "Success!" << std::endl;
   return 0;

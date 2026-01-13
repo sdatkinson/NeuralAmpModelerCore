@@ -53,6 +53,10 @@ public:
   // Kernel size of the input convolution layer
   long get_kernel_size() const { return this->_conv.get_kernel_size(); };
 
+  // Access Conv1D for Reset() propagation (needed for _LayerArray)
+  Conv1D& get_conv() { return _conv; }
+  const Conv1D& get_conv() const { return _conv; }
+
 private:
   // The dilated convolution at the front of the block
   _DilatedConv _conv;
