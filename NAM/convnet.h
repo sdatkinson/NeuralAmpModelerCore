@@ -45,6 +45,7 @@ public:
   ConvNetBlock() {};
   void set_weights_(const int in_channels, const int out_channels, const int _dilation, const bool batchnorm,
                     const std::string activation, std::vector<float>::iterator& weights);
+  void SetMaxBufferSize(const int maxBufferSize);
   // Process input matrix directly (new API, similar to WaveNet)
   void Process(const Eigen::MatrixXf& input, const int num_frames);
   // Legacy method for compatibility (uses indices)
@@ -58,6 +59,7 @@ private:
   BatchNorm batchnorm;
   bool _batchnorm = false;
   activations::Activation* activation = nullptr;
+  Eigen::MatrixXf _output; // Output buffer owned by the block
 };
 
 class _Head
