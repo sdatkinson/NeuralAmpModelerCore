@@ -35,8 +35,8 @@ public:
   long GetWritePos() const { return _write_pos; }
   // Get current read position (write_pos - lookback)
   long GetReadPos(const long lookback = 0) const;
-  // Get storage capacity (number of columns)
-  long GetCapacity() const { return _storage.cols(); }
+  // Get max buffer size (the value passed to Reset())
+  int GetMaxBufferSize() const { return _max_buffer_size; }
   // Get number of channels (rows)
   int GetChannels() const { return _storage.rows(); }
   // Set the max lookback (maximum history needed when rewinding)
@@ -46,5 +46,6 @@ private:
   Eigen::MatrixXf _storage; // channels x storage_size
   long _write_pos = 0; // Current write position
   long _max_lookback = 0; // Maximum lookback needed when rewinding
+  int _max_buffer_size = 0; // Maximum buffer size passed to Reset()
 };
 } // namespace nam

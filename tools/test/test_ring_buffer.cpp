@@ -15,7 +15,7 @@ void test_construct()
 {
   nam::RingBuffer rb;
   assert(rb.GetWritePos() == 0);
-  assert(rb.GetCapacity() == 0);
+  assert(rb.GetMaxBufferSize() == 0);
   assert(rb.GetChannels() == 0);
 }
 
@@ -29,8 +29,7 @@ void test_reset()
   rb.Reset(channels, max_buffer_size);
 
   assert(rb.GetChannels() == channels);
-  // Storage size = 2 * max_lookback + max_buffer_size = 2 * 0 + 64 = 64
-  assert(rb.GetCapacity() == max_buffer_size);
+  assert(rb.GetMaxBufferSize() == max_buffer_size);
   assert(rb.GetWritePos() == 0); // Starts at 0 if no max_lookback set
 }
 
@@ -46,9 +45,7 @@ void test_reset_with_receptive_field()
   rb.Reset(channels, max_buffer_size);
 
   assert(rb.GetChannels() == channels);
-  // Storage size = 2 * max_lookback + max_buffer_size = 2 * 10 + 64 = 84
-  const long expected_storage_size = 2 * max_lookback + max_buffer_size;
-  assert(rb.GetCapacity() == expected_storage_size);
+  assert(rb.GetMaxBufferSize() == max_buffer_size);
   assert(rb.GetWritePos() == max_lookback); // Write position should be after max_lookback
 
   // The storage behind the starting position should be zero
@@ -60,7 +57,7 @@ void test_reset_with_receptive_field()
       // Can't directly access, but we can read from position 0
       // Actually, let me read from the storage directly using GetReadPos
       long read_pos = rb.GetReadPos(max_lookback);
-      if (read_pos >= 0 && read_pos < expected_storage_size)
+      if (read_pos >= 0)
       {
         // This should be zero (initialized)
       }

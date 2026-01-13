@@ -5,6 +5,9 @@ namespace nam
 
 void RingBuffer::Reset(const int channels, const int max_buffer_size)
 {
+  // Store the max buffer size for external queries
+  _max_buffer_size = max_buffer_size;
+  
   // Calculate storage size: 2 * max_lookback + max_buffer_size
   // This ensures we have enough room for:
   // - max_lookback at the start (for history after rewind)
