@@ -3,8 +3,6 @@
 #include <cmath> // pow, tanh, expf
 #include <filesystem>
 #include <fstream>
-#include <iostream> // std::cerr
-#include <iterator> // std::distance
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
