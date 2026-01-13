@@ -271,8 +271,6 @@ nam::wavenet::WaveNet::WaveNet(const std::vector<nam::wavenet::LayerArrayParams>
       layer_array_params[i].input_size, layer_array_params[i].condition_size, layer_array_params[i].head_size,
       layer_array_params[i].channels, layer_array_params[i].kernel_size, layer_array_params[i].dilations,
       layer_array_params[i].activation, layer_array_params[i].gated, layer_array_params[i].head_bias));
-    if (i == 0)
-      this->_head_arrays.push_back(Eigen::MatrixXf(layer_array_params[i].channels, 0));
     if (i > 0)
       if (layer_array_params[i].channels != layer_array_params[i - 1].head_size)
       {
@@ -281,7 +279,6 @@ nam::wavenet::WaveNet::WaveNet(const std::vector<nam::wavenet::LayerArrayParams>
            << ") doesn't match head_size of preceding layer (" << layer_array_params[i - 1].head_size << "!\n";
         throw std::runtime_error(ss.str().c_str());
       }
-    this->_head_arrays.push_back(Eigen::MatrixXf(layer_array_params[i].head_size, 0));
   }
   this->_head_output.resize(1, 0); // Mono output!
   this->set_weights_(weights);
@@ -317,8 +314,6 @@ void nam::wavenet::WaveNet::SetMaxBufferSize(const int maxBufferSize)
   DSP::SetMaxBufferSize(maxBufferSize);
 
   this->_condition.resize(this->_get_condition_dim(), maxBufferSize);
-  for (size_t i = 0; i < this->_head_arrays.size(); i++)
-    this->_head_arrays[i].resize(this->_head_arrays[i].rows(), maxBufferSize);
   this->_head_output.resize(this->_head_output.rows(), maxBufferSize);
   this->_head_output.setZero();
 
@@ -349,8 +344,6 @@ void nam::wavenet::WaveNet::process(NAM_SAMPLE* input, NAM_SAMPLE* output, const
 
   // Main layer arrays:
   // Layer-to-layer
-  // Sum on head output
-  this->_head_arrays[0].setZero();
   for (size_t i = 0; i < this->_layer_arrays.size(); i++)
   {
     // Get input for this layer array

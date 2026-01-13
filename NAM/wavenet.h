@@ -201,8 +201,6 @@ private:
   std::vector<_LayerArray> _layer_arrays;
   // _Head _head;
 
-  // One more than total layer arrays
-  std::vector<Eigen::MatrixXf> _head_arrays;
   float _head_scale;
   Eigen::MatrixXf _head_output;
 
