@@ -59,7 +59,6 @@ int main()
   test_ring_buffer::test_multiple_writes_reads();
   test_ring_buffer::test_reset_zeros_history_area();
   test_ring_buffer::test_rewind_preserves_history();
-  test_ring_buffer::test_get_read_pos();
 
   test_wavenet::test_gated();
 

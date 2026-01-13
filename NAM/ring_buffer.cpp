@@ -28,6 +28,9 @@ void RingBuffer::Reset(const int channels, const int max_buffer_size)
 
 void RingBuffer::Write(const Eigen::MatrixXf& input, const int num_frames)
 {
+  // Assert that num_frames doesn't exceed max buffer size
+  assert(num_frames <= _max_buffer_size && "Write: num_frames must not exceed max_buffer_size");
+
   // Check if we need to rewind
   if (NeedsRewind(num_frames))
     Rewind();
@@ -38,30 +41,16 @@ void RingBuffer::Write(const Eigen::MatrixXf& input, const int num_frames)
 
 Eigen::Block<Eigen::MatrixXf> RingBuffer::Read(const int num_frames, const long lookback)
 {
-  long read_pos = GetReadPos(lookback);
+  // Assert that lookback doesn't exceed max_lookback
+  assert(lookback <= _max_lookback && "Read: lookback must not exceed max_lookback");
 
-  // Handle wrapping if read_pos is negative or beyond storage bounds
-  if (read_pos < 0)
-  {
-    // Wrap around to the end of the storage
-    read_pos = _storage.cols() + read_pos;
-  }
+  // Assert that num_frames doesn't exceed max buffer size
+  assert(num_frames <= _max_buffer_size && "Read: num_frames must not exceed max_buffer_size");
 
-  // Ensure we don't read beyond storage bounds
-  // If read_pos + num_frames would exceed storage, we need to wrap or clamp
-  if (read_pos + num_frames > (long)_storage.cols())
-  {
-    // For now, clamp to available space
-    // This shouldn't happen if storage is sized correctly, but handle gracefully
-    long available = _storage.cols() - read_pos;
-    if (available < num_frames)
-    {
-      // This is an error condition - storage not sized correctly
-      // Return what we can (shouldn't happen in normal usage)
-      return _storage.block(0, read_pos, _storage.rows(), available);
-    }
-  }
+  long read_pos = _write_pos - lookback;
 
+  // Assert that read_pos is non-negative
+  // (Asserted by the access to _storage.block())
   return _storage.block(0, read_pos, _storage.rows(), num_frames);
 }
 
@@ -101,10 +90,5 @@ void RingBuffer::Rewind()
 
   // Reset write position to just after the copied history
   _write_pos = _max_lookback;
-}
-
-long RingBuffer::GetReadPos(const long lookback) const
-{
-  return _write_pos - lookback;
 }
 } // namespace nam

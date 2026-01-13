@@ -33,8 +33,6 @@ public:
   bool NeedsRewind(const int num_frames) const;
   // Get current write position
   long GetWritePos() const { return _write_pos; }
-  // Get current read position (write_pos - lookback)
-  long GetReadPos(const long lookback = 0) const;
   // Get max buffer size (the value passed to Reset())
   int GetMaxBufferSize() const { return _max_buffer_size; }
   // Get number of channels (rows)

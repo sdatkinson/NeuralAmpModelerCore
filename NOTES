@@ -5,8 +5,10 @@ Validate inputs to Read & Write:
 For Write
 * Assert that it's not more than the max buffer size.
 For Read:
-* Assert that you won't be reading past how far has been written (track internally and update on Write & advancing the pointer). Don't wrap.
-* Assert that the lookback isn't more than the maximum.
+* Assert that the lookback and num_frames given aren't more than their maxima.
+* Assert that read_pos is non-negative. Don't wrap.
+* Assert that you won't be reading past how far has been written (track internally and update on Write & advancing the pointer).
+
 
 Does NeedsRewind() need to be public?
 You could do it during Write?
