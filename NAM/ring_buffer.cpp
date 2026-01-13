@@ -1,4 +1,5 @@
 #include "ring_buffer.h"
+#include <cassert>
 
 namespace nam
 {
@@ -7,7 +8,7 @@ void RingBuffer::Reset(const int channels, const int max_buffer_size)
 {
   // Store the max buffer size for external queries
   _max_buffer_size = max_buffer_size;
-  
+
   // Calculate storage size: 2 * max_lookback + max_buffer_size
   // This ensures we have enough room for:
   // - max_lookback at the start (for history after rewind)
@@ -83,14 +84,21 @@ void RingBuffer::Rewind()
     return;
   }
 
+  // Assert that write pointer is far enough along to avoid aliasing when copying
+  // We copy from position (_write_pos - _max_lookback) to position 0
+  // For no aliasing, we need: _write_pos - _max_lookback >= _max_lookback
+  // Which simplifies to: _write_pos >= 2 * _max_lookback
+  assert(_write_pos >= 2 * _max_lookback
+         && "Write pointer must be at least 2 * max_lookback to avoid aliasing during rewind");
+
   // Copy the max lookback amount of history back to the beginning
   // This is the history that will be needed for lookback reads
   const long copy_start = _write_pos - _max_lookback;
-  if (copy_start >= 0 && copy_start < (long)_storage.cols() && _max_lookback > 0)
-  {
-    // Copy _max_lookback samples from before the write position to the start
-    _storage.leftCols(_max_lookback) = _storage.middleCols(copy_start, _max_lookback);
-  }
+  assert(copy_start >= 0 && copy_start < (long)_storage.cols() && "Copy start position must be within storage bounds");
+
+  // Copy _max_lookback samples from before the write position to the start
+  _storage.leftCols(_max_lookback) = _storage.middleCols(copy_start, _max_lookback);
+
   // Reset write position to just after the copied history
   _write_pos = _max_lookback;
 }
