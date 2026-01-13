@@ -14,7 +14,6 @@ void nam::wavenet::_Layer::SetMaxBufferSize(const int maxBufferSize)
   _conv.SetMaxBufferSize(maxBufferSize);
   _input_mixin.SetMaxBufferSize(maxBufferSize);
   _z.resize(this->_conv.get_out_channels(), maxBufferSize);
-  _z.setZero();
   _1x1.SetMaxBufferSize(maxBufferSize);
   // Pre-allocate output buffers
   const long channels = this->get_channels();
@@ -36,7 +35,7 @@ void nam::wavenet::_Layer::Process(const Eigen::MatrixXf& input, const Eigen::Ma
   // Step 1: input convolutions
   this->_conv.Process(input, num_frames);
   this->_input_mixin.process_(condition, num_frames);
-  this->_z.leftCols(num_frames) = this->_conv.GetOutput(num_frames) + _input_mixin.GetOutput(num_frames);
+  this->_z.leftCols(num_frames).noalias() = this->_conv.GetOutput(num_frames) + _input_mixin.GetOutput(num_frames);
 
   // Step 2 & 3: activation and 1x1
   if (!this->_gated)
@@ -59,9 +58,9 @@ void nam::wavenet::_Layer::Process(const Eigen::MatrixXf& input, const Eigen::Ma
 
   // Store output to head (skip connection: activated conv output)
   if (!this->_gated)
-    this->_output_head.leftCols(num_frames) = this->_z.leftCols(num_frames);
+    this->_output_head.leftCols(num_frames).noalias() = this->_z.leftCols(num_frames);
   else
-    this->_output_head.leftCols(num_frames) = this->_z.topRows(channels).leftCols(num_frames);
+    this->_output_head.leftCols(num_frames).noalias() = this->_z.topRows(channels).leftCols(num_frames);
   // Store output to next layer (residual connection: input + _1x1 output)
   this->_output_next_layer.leftCols(num_frames).noalias() = input.leftCols(num_frames) + _1x1.GetOutput(num_frames);
 }
@@ -125,7 +124,7 @@ void nam::wavenet::_LayerArray::Process(const Eigen::MatrixXf& layer_inputs, con
                                         const Eigen::MatrixXf& head_inputs, const int num_frames)
 {
   // Copy head inputs from previous layer array
-  this->_head_inputs.leftCols(num_frames) = head_inputs.leftCols(num_frames);
+  this->_head_inputs.leftCols(num_frames).noalias() = head_inputs.leftCols(num_frames);
   ProcessInner(layer_inputs, condition, num_frames);
 }
 
@@ -235,10 +234,7 @@ void nam::wavenet::WaveNet::set_weights_(std::vector<float>& weights)
 void nam::wavenet::WaveNet::SetMaxBufferSize(const int maxBufferSize)
 {
   DSP::SetMaxBufferSize(maxBufferSize);
-
   this->_condition.resize(this->_get_condition_dim(), maxBufferSize);
-
-  // SetMaxBufferSize on layer arrays will propagate to Conv1D::Reset() via _Layer::SetMaxBufferSize()
   for (size_t i = 0; i < this->_layer_arrays.size(); i++)
     this->_layer_arrays[i].SetMaxBufferSize(maxBufferSize);
 }
