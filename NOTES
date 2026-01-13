@@ -1,25 +1,5 @@
+Refactor all references to Conv1D::process_ to use Process() and GetOutput as appropriate.
 Get rid of process_ and make the needed changes elsewhere.
-
-Validate inputs to Read & Write:
-
-For Write
-* Assert that it's not more than the max buffer size.
-For Read:
-* Assert that the lookback and num_frames given aren't more than their maxima.
-* Assert that read_pos is non-negative. Don't wrap.
-* Assert that you won't be reading past how far has been written (track internally and update on Write & advancing the pointer).
-
-
-Does NeedsRewind() need to be public?
-You could do it during Write?
-Same for GetReadPos and GetWritePos.
-Make these private.
-
-In the WaveNet Layer function, just give it its own Reset() method instead of giving access to its conv.
-
-In the WaveNet layer array, stop using the i_start that's associated with ad hoc ring buffers. Instead, clean up the arrays that are passed.
-
-Instead of _layer_buffers, use _rechannel.GetOutput() to get it started.
 
 There's a bunch of "we can simplify once...". Do that simplification.
 
@@ -31,7 +11,6 @@ In test_get_output_different_sizes(), assert that the appropriate slice of the 4
 
 Make test_set_size_and_weights() have 2,3,5 instead of 1,1,2 in/out/kernel size.
 
-Add validation for Advance() that it's not more than what's been written.
+Need to be sure that WaveNet is still RT-safe.
 
-When is Rewind called? check that it's only during write.
-
+WaveNet tests are a mess. Need to fix.

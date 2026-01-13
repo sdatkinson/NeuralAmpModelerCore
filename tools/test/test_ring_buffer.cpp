@@ -14,7 +14,6 @@ namespace test_ring_buffer
 void test_construct()
 {
   nam::RingBuffer rb;
-  assert(rb.GetWritePos() == 0);
   assert(rb.GetMaxBufferSize() == 0);
   assert(rb.GetChannels() == 0);
 }
@@ -30,7 +29,6 @@ void test_reset()
 
   assert(rb.GetChannels() == channels);
   assert(rb.GetMaxBufferSize() == max_buffer_size);
-  assert(rb.GetWritePos() == 0); // Starts at 0 if no max_lookback set
 }
 
 // Test Reset() with max_lookback zeros the storage behind starting position
@@ -46,24 +44,11 @@ void test_reset_with_receptive_field()
 
   assert(rb.GetChannels() == channels);
   assert(rb.GetMaxBufferSize() == max_buffer_size);
-  assert(rb.GetWritePos() == max_lookback); // Write position should be after max_lookback
 
   // The storage behind the starting position should be zero
   // Read from position 0 by using lookback = max_lookback (read_pos = write_pos - max_lookback = 0)
   auto buffer_block = rb.Read(max_lookback, max_lookback); // Read from position 0
-  for (int i = 0; i < channels; i++)
-  {
-    for (long j = 0; j < max_lookback; j++)
-    {
-      // Can't directly access, but we can read from position 0
-      // Calculate read_pos manually: write_pos - lookback
-      long read_pos = rb.GetWritePos() - max_lookback;
-      if (read_pos >= 0)
-      {
-        // This should be zero (initialized)
-      }
-    }
-  }
+  assert(buffer_block.isZero());
 }
 
 // Test Write() writes data at write position
@@ -88,11 +73,7 @@ void test_write()
   input(0, 3) = 7.0f;
   input(1, 3) = 8.0f;
 
-  long write_pos_before = rb.GetWritePos();
   rb.Write(input, num_frames);
-
-  // Write position should not change after Write() (Advance() is separate)
-  assert(rb.GetWritePos() == write_pos_before);
 
   // Read back what we just wrote (with lookback=0, since write_pos hasn't advanced)
   auto output = rb.Read(num_frames, 0);
@@ -170,15 +151,26 @@ void test_advance()
   nam::RingBuffer rb;
   const int channels = 1;
   const int max_buffer_size = 64;
+  const long max_lookback = 15;
 
+  rb.SetMaxLookback(max_lookback);
   rb.Reset(channels, max_buffer_size);
 
-  long initial_pos = rb.GetWritePos();
+  // Test that Advance() works by writing, advancing, and reading back
+  Eigen::MatrixXf input(channels, 10);
+  input.setZero();
+  input(0, 0) = 1.0f;
+  rb.Write(input, 10);
   rb.Advance(10);
-  assert(rb.GetWritePos() == initial_pos + 10);
+
+  // Read back with lookback to verify advance worked
+  auto output = rb.Read(10, 10);
+  assert(std::abs(output(0, 0) - 1.0f) < 0.01f);
 
   rb.Advance(5);
-  assert(rb.GetWritePos() == initial_pos + 15);
+  // Read back with larger lookback to verify further advance
+  auto output2 = rb.Read(10, 15);
+  assert(std::abs(output2(0, 0) - 1.0f) < 0.01f);
 }
 
 // Test Rewind() copies history and resets write position
@@ -197,57 +189,30 @@ void test_rewind()
 
   // Write enough data to trigger rewind
   const int num_writes = 20;
+  long writeSize = 2;
+  assert(writeSize * num_writes > storage_size);
   for (int i = 0; i < num_writes; i++)
   {
-    Eigen::MatrixXf input(channels, 2);
+    Eigen::MatrixXf input(channels, writeSize);
     input(0, 0) = (float)(i * 2);
     input(0, 1) = (float)(i * 2 + 1);
 
-    rb.Write(input, 2);
-    rb.Advance(2);
+    rb.Write(input, writeSize);
+    rb.Advance(writeSize);
 
-    // Check if rewind happened
-    if (rb.GetWritePos() + 2 > storage_size)
-    {
-      // Rewind should have been called automatically
-      break;
-    }
+    // Continue writing until we've written enough to potentially trigger rewind
+    // The rewind will happen automatically in Write() if needed
   }
 
-  // Force a rewind if needed
-  if (rb.NeedsRewind(2))
-  {
-    rb.Rewind();
-  }
+  // [SDA] this next part is an AI test and I'm not sure I like it.
 
-  // After potential rewind, ensure we can read from history
-  // If Rewind() was called, write_pos should be at max_lookback
+  // After writing enough data, we should be able to read from history
   // Read with lookback = max_lookback to read from position 0 (history region)
-  // But only if write_pos >= max_lookback (meaning we have valid history)
-  if (rb.GetWritePos() >= max_lookback)
-  {
-    auto history = rb.Read(2, max_lookback);
-    // History should be available
-    assert(history.cols() == 2);
-  }
+  auto history = rb.Read(2, max_lookback);
+  // History should be available
+  assert(history.cols() == 2);
 }
 
-// Test NeedsRewind() correctly detects when rewind is needed
-void test_needs_rewind()
-{
-  nam::RingBuffer rb;
-  const int channels = 1;
-  const int max_buffer_size = 32;
-
-  rb.Reset(channels, max_buffer_size);
-  // Storage size = 2 * 0 + 32 = 32
-
-  assert(!rb.NeedsRewind(10)); // Should not need rewind initially
-
-  rb.Advance(25);
-  assert(!rb.NeedsRewind(5)); // Still has room: 25 + 5 = 30 < 32
-  assert(rb.NeedsRewind(10)); // Would overflow: 25 + 10 = 35 > 32
-}
 
 // Test multiple writes and reads maintain history correctly
 void test_multiple_writes_reads()
@@ -307,30 +272,22 @@ void test_reset_zeros_history_area()
   rb.Reset(channels, max_buffer_size);
 
   // Write some data and advance
-  Eigen::MatrixXf input(channels, 5);
+  Eigen::MatrixXf input(channels, max_buffer_size);
   input.fill(42.0f);
-  rb.Write(input, 5);
-  rb.Advance(5);
+  for (int i = 0; i < 5; i++) // Should be enough to write those first positions.
+  {
+    rb.Write(input, max_buffer_size);
+    rb.Advance(max_buffer_size);
+  }
 
   // Reset should zero the storage behind the starting position
   rb.Reset(channels, max_buffer_size);
 
   // Read from position 0 (behind starting write position)
   // This should be zero
-  // Calculate read_pos manually: write_pos - lookback
-  long read_pos = rb.GetWritePos() - max_lookback;
-  if (read_pos >= 0)
-  {
-    auto zero_area = rb.Read(max_lookback, max_lookback);
-    // The area behind starting position should be zero
-    for (int i = 0; i < channels; i++)
-    {
-      for (long j = 0; j < max_lookback; j++)
-      {
-        assert(std::abs(zero_area(i, j)) < 0.01f);
-      }
-    }
-  }
+  // After Reset with max_lookback, we can read from position 0
+  auto read = rb.Read(max_lookback, max_lookback);
+  assert(read.isZero());
 }
 
 // Test Rewind() preserves history correctly
@@ -347,72 +304,19 @@ void test_rewind_preserves_history()
   // Storage size = 2 * max_lookback + max_buffer_size = 2 * 4 + 32 = 40
   const long storage_size = 2 * max_lookback + max_buffer_size;
 
-  // Write data until we need to rewind
-  std::vector<float> expected_history;
-  for (int i = 0; i < 15; i++)
+  // Three writes of size max_buffer_size should trigger rewind.
+  Eigen::MatrixXf input(channels, max_buffer_size);
+  input.fill(42.0f);
+  for (int i = 0; i < 3; i++)
   {
-    Eigen::MatrixXf input(channels, 1);
-    input(0, 0) = (float)i;
-    rb.Write(input, 1);
-    rb.Advance(1);
-
-    // Track last max_lookback values for history check
-    // Before we advance, the last frame is at position i
-    if (i >= max_lookback - 1)
-    {
-      expected_history.push_back((float)(i - max_lookback + 1));
-    }
-    if (expected_history.size() > max_lookback)
-    {
-      expected_history.erase(expected_history.begin());
-    }
-
-    // Force a rewind if needed to test reading from history region
-    if (rb.NeedsRewind(1))
-    {
-      // Before rewind, check what's at the position we'll copy from
-      long write_pos = rb.GetWritePos();
-      long copy_start = write_pos - max_lookback;
-
-      // Build expected history from what's actually in the buffer
-      std::vector<float> actual_expected;
-      for (long j = 0; j < max_lookback; j++)
-      {
-        long src_pos = copy_start + j;
-        if (src_pos >= 0 && src_pos < storage_size)
-        {
-          // Can't read directly, but we know the pattern
-          // The values should be: write_pos - max_lookback + j
-          if (write_pos >= max_lookback)
-          {
-            actual_expected.push_back((float)(write_pos - max_lookback + j));
-          }
-        }
-      }
-
-      rb.Rewind();
-
-      // After rewind, history should be preserved at the start
-      // Read from position 0 with lookback=max_lookback to get the copied history
-      // After Rewind(), write_pos = max_lookback, so read_pos = max_lookback - max_lookback = 0
-      // We can read max_lookback frames from position 0: read_end = 0 + max_lookback = max_lookback
-      // valid_end = max(max_lookback, max_lookback) = max_lookback, so read_end <= valid_end should be true
-      assert(rb.GetWritePos() == max_lookback && "Write position should be at max_lookback after Rewind()");
-      auto history = rb.Read(max_lookback, max_lookback);
-      assert(history.cols() == max_lookback);
-
-      // Check that history was copied correctly
-      // The history should contain the last max_lookback frames before rewind
-      for (long j = 0; j < max_lookback; j++)
-      {
-        // After rewind, write_pos = max_lookback, so the history at position j
-        // should contain the value from before rewind at position (write_pos_before - max_lookback + j)
-        // We can't directly verify without accessing internal state, so just check it's valid
-        assert(std::isfinite(history(0, j)));
-      }
-      break;
-    }
+    rb.Write(input, max_buffer_size);
+    rb.Advance(max_buffer_size);
   }
+
+  // Read from history region to verify rewind preserved history
+  auto history = rb.Read(max_lookback, max_lookback);
+  assert(history.cols() == max_lookback);
+  assert(history == input.rightCols(max_lookback));
 }
 
 }; // namespace test_ring_buffer

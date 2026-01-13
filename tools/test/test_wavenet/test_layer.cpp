@@ -190,7 +190,7 @@ void test_layer_activations()
     layer.Process(input, condition, numFrames);
     auto head_output = layer.GetOutputHead(numFrames);
 
-    // Should have applied Tanh activation
+    // Should have applied Tanh activation, so output should be between -1 and 1.
     assert(head_output(0, 0) <= 1.0f);
     assert(head_output(0, 0) >= -1.0f);
   }

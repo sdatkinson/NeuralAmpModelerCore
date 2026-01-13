@@ -41,10 +41,8 @@ void Conv1D::set_size_and_weights_(const int in_channels, const int out_channels
   this->set_weights_(weights);
 }
 
-void Conv1D::Reset(const double sampleRate, const int maxBufferSize)
+void Conv1D::SetMaxBufferSize(const int maxBufferSize)
 {
-  (void)sampleRate; // Unused, but kept for interface consistency
-
   _max_buffer_size = maxBufferSize;
 
   // Calculate receptive field (maximum lookback needed)

@@ -10,6 +10,10 @@ class Conv1D
 {
 public:
   Conv1D() { this->_dilation = 1; };
+  Conv1D(const int in_channels, const int out_channels, const int kernel_size, const int bias, const int dilation)
+  {
+    set_size_(in_channels, out_channels, kernel_size, bias, dilation);
+  };
   void set_weights_(std::vector<float>::iterator& weights);
   void set_size_(const int in_channels, const int out_channels, const int kernel_size, const bool do_bias,
                  const int _dilation);
@@ -18,7 +22,7 @@ public:
   // Reset the ring buffer and pre-allocate output buffer
   // :param sampleRate: Unused, for interface consistency
   // :param maxBufferSize: Maximum buffer size for output buffer and to size ring buffer
-  void Reset(const double sampleRate, const int maxBufferSize);
+  void SetMaxBufferSize(const int maxBufferSize);
   // Get output buffer (similar to Conv1x1::GetOutput())
   // :param num_frames: Number of frames to return
   // :return: Block reference to output buffer
@@ -37,6 +41,7 @@ public:
   long get_num_weights() const;
   long get_out_channels() const { return this->_weight.size() > 0 ? this->_weight[0].rows() : 0; };
   int get_dilation() const { return this->_dilation; };
+  bool has_bias() const { return this->_bias.size() > 0; };
 
 protected:
   // conv[kernel](cout, cin)

@@ -365,13 +365,8 @@ void nam::wavenet::WaveNet::process(NAM_SAMPLE* input, NAM_SAMPLE* output, const
         layer_input, this->_condition, this->_layer_arrays[i - 1].GetHeadOutputs(num_frames), num_frames);
     }
   }
-  // this->_head.process_(
-  //   this->_head_input,
-  //   this->_head_output
-  //);
-  //  Copy to required output array
-  //  Hack: apply head scale here; revisit when/if I activate the head.
-  //  assert(this->_head_output.rows() == 1);
+
+  // head not implemented
 
   auto final_head_outputs = this->_layer_arrays.back().GetHeadOutputs(num_frames);
   assert(final_head_outputs.rows() == 1);

@@ -20,6 +20,17 @@ void test_construct()
   assert(conv.get_kernel_size() == 0);
 }
 
+// Test construction with provided shape
+void test_construct_with_shape()
+{
+  nam::Conv1D conv(2, 3, 5, true, 7);
+  assert(conv.get_dilation() == 7);
+  assert(conv.get_in_channels() == 2);
+  assert(conv.get_out_channels() == 3);
+  assert(conv.get_kernel_size() == 5);
+  assert(conv.has_bias());
+}
+
 // Test set_size_ and getters
 void test_set_size()
 {
@@ -36,6 +47,7 @@ void test_set_size()
   assert(conv.get_out_channels() == out_channels);
   assert(conv.get_kernel_size() == kernel_size);
   assert(conv.get_dilation() == dilation);
+  assert(conv.has_bias() == do_bias);
 }
 
 // Test Reset() initializes buffers
@@ -52,6 +64,7 @@ void test_reset()
   conv.SetMaxBufferSize(maxBufferSize);
 
   // After Reset, GetOutput should work
+  // (Even thoguh GetOutput() doesn't make sense to call before Process())
   auto output = conv.GetOutput(maxBufferSize);
   assert(output.rows() == out_channels);
   assert(output.cols() == maxBufferSize);
@@ -109,7 +122,10 @@ void test_process_basic()
   // Let's verify the output dimensions and that it's non-zero
   assert(output.rows() == out_channels);
   assert(output.cols() == num_frames);
-  assert(output(0, 0) != 0.0f); // Should have some output
+  assert(abs(output(0, 0) - 1.0f) < 0.01f); // Should have some output
+  assert(abs(output(0, 1) - 4.0f) < 0.01f); // Should have some output
+  assert(abs(output(0, 2) - 7.0f) < 0.01f); // Should have some output
+  assert(abs(output(0, 3) - 10.0f) < 0.01f); // Should have some output
 }
 
 // Test Process() with bias
@@ -239,7 +255,14 @@ void test_process_dilation()
   assert(output.rows() == out_channels);
   assert(output.cols() == num_frames);
   // Output should be computed correctly with dilation
-  assert(output(0, 0) != 0.0f);
+  // out[0] = 1.0 * input[0] + 2.0 * 0.0 (zero-padding) = 1.0
+  // out[1] = 1.0 * input[1] + 2.0 * 0.0 (zero-padding) = 2.0
+  // out[2] = 1.0 * input[2] + 2.0 * input[0] = 3.0 + 2.0 = 5.0
+  // out[3] = 1.0 * input[3] + 2.0 * input[1] = 4.0 + 4.0 = 8.0
+  assert(abs(output(0, 0) - 1.0f) < 0.01f);
+  assert(abs(output(0, 1) - 2.0f) < 0.01f);
+  assert(abs(output(0, 2) - 5.0f) < 0.01f);
+  assert(abs(output(0, 3) - 8.0f) < 0.01f);
 }
 
 // Test multiple Process() calls (ring buffer functionality)
@@ -261,29 +284,25 @@ void test_process_multiple_calls()
   auto it = weights.begin();
   conv.set_weights_(it);
 
-  conv.SetMaxBufferSize(64);
+  conv.SetMaxBufferSize(num_frames);
 
-  // First call
-  Eigen::MatrixXf input1(in_channels, num_frames);
-  input1(0, 0) = 1.0f;
-  input1(0, 1) = 2.0f;
-
-  conv.Process(input1, num_frames);
-  auto output1 = conv.GetOutput(num_frames);
-
-  // Second call - ring buffer should have history from first call
-  Eigen::MatrixXf input2(in_channels, num_frames);
-  input2(0, 0) = 3.0f;
-  input2(0, 1) = 4.0f;
-
-  conv.Process(input2, num_frames);
-  auto output2 = conv.GetOutput(num_frames);
-
+  // 3 calls should trigger rewind.
+  Eigen::MatrixXf input(in_channels, num_frames);
+  input(0, 0) = 1.0f;
+  input(0, 1) = 2.0f;
+  for (int i = 0; i < 3; i++)
+  {
+    conv.Process(input, num_frames);
+  }
+  auto output = conv.GetOutput(num_frames);
   assert(output2.rows() == out_channels);
   assert(output2.cols() == num_frames);
   // output2[0] should use input2[0] + history from input1[1] (last frame of first call)
   // This tests that ring buffer maintains history
-  assert(output2(0, 0) != 0.0f);
+  // out[0] = 1.0 * 1.0 + 2.0 * 2.0 = 1.0 + 4.0 = 5.0
+  // out[1] = 1.0 * 2.0 + 2.0 * 1.0 = 2.0 + 2.0 = 4.0
+  assert(abs(output(0, 0) - 5.0f) < 0.01f);
+  assert(abs(output(0, 1) - 4.0f) < 0.01f);
 }
 
 // Test GetOutput() with different num_frames
@@ -316,7 +335,7 @@ void test_get_output_different_sizes()
   // Get different sized outputs
   auto output_all = conv.GetOutput(4);
   assert(output_all.cols() == 4);
-  
+
   auto output_partial = conv.GetOutput(2);
   assert(output_partial.cols() == 2);
   assert(output_partial.rows() == out_channels);
@@ -388,7 +407,7 @@ void test_reset_multiple()
   conv.SetMaxBufferSize(64);
   auto output1 = conv.GetOutput(64);
   assert(output1.cols() == 64);
-  
+
   conv.SetMaxBufferSize(128);
   auto output2 = conv.GetOutput(128);
   assert(output2.cols() == 128);
