@@ -40,10 +40,10 @@ void test_reset_with_receptive_field()
   const int channels = 2;
   const int buffer_size = 64;
   const long max_lookback = 10;
-  
+
   rb.SetMaxLookback(max_lookback);
   rb.Reset(channels, buffer_size);
-  
+
   assert(rb.GetChannels() == channels);
   assert(rb.GetCapacity() == buffer_size);
   assert(rb.GetWritePos() == max_lookback); // Write position should be after max_lookback
@@ -114,7 +114,7 @@ void test_read_with_lookback()
   const int channels = 1;
   const int buffer_size = 64;
   const long max_lookback = 5;
-  
+
   rb.SetMaxLookback(max_lookback);
   rb.Reset(channels, buffer_size);
 
@@ -185,10 +185,10 @@ void test_rewind()
   const int channels = 1;
   const int buffer_size = 32;
   const long max_lookback = 5;
-  
+
   rb.SetMaxLookback(max_lookback);
   rb.Reset(channels, buffer_size);
-  
+
   // Write enough data to trigger rewind
   const int num_writes = 20;
   for (int i = 0; i < num_writes; i++)
@@ -196,10 +196,10 @@ void test_rewind()
     Eigen::MatrixXf input(channels, 2);
     input(0, 0) = (float)(i * 2);
     input(0, 1) = (float)(i * 2 + 1);
-    
+
     rb.Write(input, 2);
     rb.Advance(2);
-    
+
     // Check if rewind happened
     if (rb.GetWritePos() + 2 > buffer_size)
     {
@@ -207,13 +207,13 @@ void test_rewind()
       break;
     }
   }
-  
+
   // After rewind, write_pos should be at max_lookback
   if (rb.NeedsRewind(2))
   {
     rb.Rewind();
     assert(rb.GetWritePos() == max_lookback);
-    
+
     // The history should be copied to the start
     // Read with lookback should work from the copied history
     auto history = rb.Read(2, max_lookback);
@@ -245,33 +245,33 @@ void test_multiple_writes_reads()
   const int channels = 1;
   const int buffer_size = 64;
   const long max_lookback = 3;
-  
+
   rb.SetMaxLookback(max_lookback);
   rb.Reset(channels, buffer_size);
-  
+
   // Write first batch
   Eigen::MatrixXf input1(channels, 3);
   input1(0, 0) = 1.0f;
   input1(0, 1) = 2.0f;
   input1(0, 2) = 3.0f;
-  
+
   rb.Write(input1, 3);
   rb.Advance(3);
-  
+
   // Write second batch
   Eigen::MatrixXf input2(channels, 2);
   input2(0, 0) = 4.0f;
   input2(0, 1) = 5.0f;
-  
+
   rb.Write(input2, 2);
   rb.Advance(2);
-  
+
   // After Write() and Advance(), write_pos points after the data we just wrote
   // Read with lookback=2 to get the last 2 frames we wrote (input2)
   auto current = rb.Read(2, 2);
   assert(std::abs(current(0, 0) - 4.0f) < 0.01f);
   assert(std::abs(current(0, 1) - 5.0f) < 0.01f);
-  
+
   // Read with lookback=5 should get frames from first batch (input1[1] and input1[2])
   // After writes: input1 at positions [max_lookback, max_lookback+2] = [3, 4, 5]
   //               input2 at positions [max_lookback+3, max_lookback+4] = [6, 7]
@@ -291,19 +291,19 @@ void test_reset_zeros_history_area()
   const int channels = 1;
   const int buffer_size = 64;
   const long max_lookback = 10;
-  
+
   rb.SetMaxLookback(max_lookback);
   rb.Reset(channels, buffer_size);
-  
+
   // Write some data and advance
   Eigen::MatrixXf input(channels, 5);
   input.fill(42.0f);
   rb.Write(input, 5);
   rb.Advance(5);
-  
+
   // Reset should zero the buffer behind the starting position
   rb.Reset(channels, buffer_size);
-  
+
   // Read from position 0 (behind starting write position)
   // This should be zero
   long read_pos = rb.GetReadPos(max_lookback);
@@ -402,18 +402,18 @@ void test_get_read_pos()
   const int channels = 1;
   const int buffer_size = 64;
   const long max_lookback = 5;
-  
+
   rb.SetMaxLookback(max_lookback);
   rb.Reset(channels, buffer_size);
-  
+
   assert(rb.GetWritePos() == max_lookback);
-  
+
   // Read position with lookback=0 should be at write_pos
   assert(rb.GetReadPos(0) == max_lookback);
-  
+
   // Read position with lookback=2 should be at write_pos - 2
   assert(rb.GetReadPos(2) == max_lookback - 2);
-  
+
   // Advance write position
   rb.Advance(10);
   assert(rb.GetWritePos() == max_lookback + 10);

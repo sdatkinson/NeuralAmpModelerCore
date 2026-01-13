@@ -35,8 +35,6 @@ int main()
   test_get_dsp::test_null_input_level();
   test_get_dsp::test_null_output_level();
 
-  test_wavenet::test_gated();
-
   test_conv1d::test_construct();
   test_conv1d::test_set_size();
   test_conv1d::test_reset();
@@ -62,6 +60,8 @@ int main()
   test_ring_buffer::test_reset_zeros_history_area();
   test_ring_buffer::test_rewind_preserves_history();
   test_ring_buffer::test_get_read_pos();
+
+  test_wavenet::test_gated();
 
   std::cout << "Success!" << std::endl;
   return 0;
