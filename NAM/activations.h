@@ -1,7 +1,8 @@
 #pragma once
 
-#include <string>
+#include <atomic>
 #include <cmath> // expf
+#include <string>
 #include <unordered_map>
 #include <Eigen/Dense>
 
@@ -63,7 +64,7 @@ public:
   static Activation* get_activation(const std::string name);
   static void enable_fast_tanh();
   static void disable_fast_tanh();
-  static bool using_fast_tanh;
+  static std::atomic<bool> using_fast_tanh;
 
 protected:
   static std::unordered_map<std::string, Activation*> _activations;
