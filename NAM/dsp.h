@@ -208,13 +208,13 @@ public:
   long GetCapacity() const { return _buffer.cols(); }
   // Get number of channels (rows)
   int GetChannels() const { return _buffer.rows(); }
-  // Set the receptive field (history needed when rewinding)
-  void SetReceptiveField(const long receptive_field) { _receptive_field = receptive_field; }
+  // Set the max lookback (maximum history needed when rewinding)
+  void SetMaxLookback(const long max_lookback) { _max_lookback = max_lookback; }
 
 private:
   Eigen::MatrixXf _buffer; // channels x buffer_size
   long _write_pos = 0; // Current write position
-  long _receptive_field = 0; // History needed when rewinding
+  long _max_lookback = 0; // Maximum lookback needed when rewinding
 };
 
 // TODO conv could take care of its own ring buffer.

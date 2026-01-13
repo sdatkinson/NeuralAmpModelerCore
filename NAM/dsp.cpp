@@ -210,13 +210,13 @@ void nam::RingBuffer::Reset(const int channels, const int buffer_size)
 {
   _buffer.resize(channels, buffer_size);
   _buffer.setZero();
-  // Initialize write position to receptive_field to leave room for history
+  // Initialize write position to max_lookback to leave room for history
   // Zero the buffer behind the starting write position (for lookback)
-  if (_receptive_field > 0)
+  if (_max_lookback > 0)
   {
-    _buffer.leftCols(_receptive_field).setZero();
+    _buffer.leftCols(_max_lookback).setZero();
   }
-  _write_pos = _receptive_field;
+  _write_pos = _max_lookback;
 }
 
 void nam::RingBuffer::Write(const Eigen::MatrixXf& input, const int num_frames)
@@ -270,23 +270,23 @@ bool nam::RingBuffer::NeedsRewind(const int num_frames) const
 
 void nam::RingBuffer::Rewind()
 {
-  if (_receptive_field == 0)
+  if (_max_lookback == 0)
   {
     // No history to preserve, just reset
     _write_pos = 0;
     return;
   }
 
-  // Copy the max lookback (receptive_field) amount of history back to the beginning
+  // Copy the max lookback amount of history back to the beginning
   // This is the history that will be needed for lookback reads
-  const long copy_start = _write_pos - _receptive_field;
-  if (copy_start >= 0 && copy_start < (long)_buffer.cols() && _receptive_field > 0)
+  const long copy_start = _write_pos - _max_lookback;
+  if (copy_start >= 0 && copy_start < (long)_buffer.cols() && _max_lookback > 0)
   {
-    // Copy _receptive_field samples from before the write position to the start
-    _buffer.leftCols(_receptive_field) = _buffer.middleCols(copy_start, _receptive_field);
+    // Copy _max_lookback samples from before the write position to the start
+    _buffer.leftCols(_max_lookback) = _buffer.middleCols(copy_start, _max_lookback);
   }
   // Reset write position to just after the copied history
-  _write_pos = _receptive_field;
+  _write_pos = _max_lookback;
 }
 
 long nam::RingBuffer::GetReadPos(const long lookback) const
@@ -349,8 +349,8 @@ void nam::Conv1D::Reset(const double sampleRate, const int maxBufferSize)
   const long buffer_size = _INPUT_BUFFER_SAFETY_FACTOR * maxBufferSize + receptive_field;
 
   // Initialize input ring buffer
-  // Set receptive field before Reset so that Reset() can use it for initial write_pos
-  _input_buffer.SetReceptiveField(receptive_field);
+  // Set max lookback before Reset so that Reset() can use it for initial write_pos
+  _input_buffer.SetMaxLookback(receptive_field);
   _input_buffer.Reset(in_channels, buffer_size);
 
   // Pre-allocate output matrix
