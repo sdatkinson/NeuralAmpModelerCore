@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cassert>
 #include <string>
 #include <cmath> // expf
 #include <unordered_map>
