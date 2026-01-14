@@ -9,6 +9,9 @@
 
 #include <Eigen/Dense>
 
+#include "conv1d.h"
+#include "dsp.h"
+
 namespace nam
 {
 namespace convnet
@@ -42,7 +45,13 @@ public:
   ConvNetBlock() {};
   void set_weights_(const int in_channels, const int out_channels, const int _dilation, const bool batchnorm,
                     const std::string activation, std::vector<float>::iterator& weights);
-  void process_(const Eigen::MatrixXf& input, Eigen::MatrixXf& output, const long i_start, const long i_end) const;
+  void SetMaxBufferSize(const int maxBufferSize);
+  // Process input matrix directly (new API, similar to WaveNet)
+  void Process(const Eigen::MatrixXf& input, const int num_frames);
+  // Legacy method for compatibility (uses indices)
+  void process_(const Eigen::MatrixXf& input, Eigen::MatrixXf& output, const long i_start, const long i_end);
+  // Get output from last Process() call
+  Eigen::Block<Eigen::MatrixXf> GetOutput(const int num_frames);
   long get_out_channels() const;
   Conv1D conv;
 
@@ -50,6 +59,7 @@ private:
   BatchNorm batchnorm;
   bool _batchnorm = false;
   activations::Activation* activation = nullptr;
+  Eigen::MatrixXf _output; // Output buffer owned by the block
 };
 
 class _Head
@@ -72,6 +82,7 @@ public:
   ~ConvNet() = default;
 
   void process(NAM_SAMPLE* input, NAM_SAMPLE* output, const int num_frames) override;
+  void SetMaxBufferSize(const int maxBufferSize) override;
 
 protected:
   std::vector<ConvNetBlock> _blocks;

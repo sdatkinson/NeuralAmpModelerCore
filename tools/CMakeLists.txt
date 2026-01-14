@@ -13,6 +13,8 @@ include_directories(tools ${NAM_DEPS_PATH}/nlohmann)
 add_executable(loadmodel loadmodel.cpp ${NAM_SOURCES})
 add_executable(benchmodel benchmodel.cpp ${NAM_SOURCES})
 add_executable(run_tests run_tests.cpp ${NAM_SOURCES})
+# Compile run_tests without optimizations to ensure allocation tracking works correctly
+set_target_properties(run_tests PROPERTIES COMPILE_OPTIONS "-O0")
 
 source_group(NAM ${CMAKE_CURRENT_SOURCE_DIR} FILES ${NAM_SOURCES})
 
@@ -46,3 +48,4 @@ endif()
 # /Users/steve/src/NeuralAmpModelerCore/Dependencies/eigen/Eigen/src/Core/products/GeneralBlockPanelKernel.h
 # Don't let this break my build on debug:
 set_source_files_properties(../NAM/dsp.cpp PROPERTIES COMPILE_FLAGS "-Wno-error")
+set_source_files_properties(../NAM/conv1d.cpp PROPERTIES COMPILE_FLAGS "-Wno-error")

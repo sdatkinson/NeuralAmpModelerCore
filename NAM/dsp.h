@@ -173,40 +173,17 @@ std::unique_ptr<DSP> Factory(const nlohmann::json& config, std::vector<float>& w
 
 // NN modules =================================================================
 
-// TODO conv could take care of its own ring buffer.
-class Conv1D
-{
-public:
-  Conv1D() { this->_dilation = 1; };
-  void set_weights_(std::vector<float>::iterator& weights);
-  void set_size_(const int in_channels, const int out_channels, const int kernel_size, const bool do_bias,
-                 const int _dilation);
-  void set_size_and_weights_(const int in_channels, const int out_channels, const int kernel_size, const int _dilation,
-                             const bool do_bias, std::vector<float>::iterator& weights);
-  // Process from input to output
-  //  Rightmost indices of input go from i_start for ncols,
-  //  Indices on output for from j_start (to j_start + ncols - i_start)
-  void process_(const Eigen::MatrixXf& input, Eigen::MatrixXf& output, const long i_start, const long ncols,
-                const long j_start) const;
-  long get_in_channels() const { return this->_weight.size() > 0 ? this->_weight[0].cols() : 0; };
-  long get_kernel_size() const { return this->_weight.size(); };
-  long get_num_weights() const;
-  long get_out_channels() const { return this->_weight.size() > 0 ? this->_weight[0].rows() : 0; };
-  int get_dilation() const { return this->_dilation; };
-
-protected:
-  // conv[kernel](cout, cin)
-  std::vector<Eigen::MatrixXf> _weight;
-  Eigen::VectorXf _bias;
-  int _dilation;
-};
-
 // Really just a linear layer
 class Conv1x1
 {
 public:
   Conv1x1(const int in_channels, const int out_channels, const bool _bias);
-  Eigen::Block<Eigen::MatrixXf> GetOutput(const int num_frames);
+  // Get the entire internal output buffer. This is intended for internal wiring
+  // between layers/arrays; callers should treat the buffer as pre-allocated
+  // storage and only consider the first `num_frames` columns valid for a given
+  // processing call. Slice with .leftCols(num_frames) as needed.
+  Eigen::MatrixXf& GetOutput() { return _output; }
+  const Eigen::MatrixXf& GetOutput() const { return _output; }
   void SetMaxBufferSize(const int maxBufferSize);
   void set_weights_(std::vector<float>::iterator& weights);
   // :param input: (N,Cin) or (Cin,)
