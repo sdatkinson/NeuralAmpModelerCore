@@ -51,6 +51,7 @@ void nam::wavenet::_Layer::Process(const Eigen::MatrixXf& input, const Eigen::Ma
     for (int i = 0; i < num_frames; i++)
     {
       this->_activation->apply(this->_z.block(0, i, channels, 1));
+      // TODO Need to support other activation functions here instead of hardcoded sigmoid
       activations::Activation::get_activation("Sigmoid")->apply(this->_z.block(channels, i, channels, 1));
     }
     this->_z.block(0, 0, channels, num_frames).array() *= this->_z.block(channels, 0, channels, num_frames).array();

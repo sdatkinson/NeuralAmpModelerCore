@@ -6,6 +6,7 @@
 #include "test/test_conv1d.cpp"
 #include "test/test_convnet.cpp"
 #include "test/test_dsp.cpp"
+#include "test/test_fast_lut.cpp"
 #include "test/test_get_dsp.cpp"
 #include "test/test_ring_buffer.cpp"
 #include "test/test_wavenet/test_layer.cpp"
@@ -25,6 +26,9 @@ int main()
   test_activations::TestLeakyReLU::test_core_function();
   test_activations::TestLeakyReLU::test_get_by_init();
   test_activations::TestLeakyReLU::test_get_by_str();
+
+  test_lut::TestFastLUT::test_sigmoid();
+  test_lut::TestFastLUT::test_tanh();
 
   test_dsp::test_construct();
   test_dsp::test_get_input_level();
