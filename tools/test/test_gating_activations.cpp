@@ -24,7 +24,9 @@ public:
     Eigen::MatrixXf output(1, 3);
 
     // Create gating activation with default activations (1 input channel, 1 gating channel)
-    nam::gating_activations::GatingActivation gating_act(nullptr, nullptr, 1);
+    nam::activations::ActivationIdentity identity_act;
+    nam::activations::ActivationSigmoid sigmoid_act;
+    nam::gating_activations::GatingActivation gating_act(&identity_act, &sigmoid_act, 1);
 
     // Apply the activation
     gating_act.apply(input, output);
@@ -84,7 +86,9 @@ public:
     Eigen::MatrixXf output(1, 3);
 
     // Create blending activation (1 input channel)
-    nam::gating_activations::BlendingActivation blending_act(nullptr, nullptr, 1);
+    nam::activations::ActivationIdentity identity_act;
+    nam::activations::ActivationIdentity identity_blend_act;
+    nam::gating_activations::BlendingActivation blending_act(&identity_act, &identity_blend_act, 1);
 
     // Apply the activation
     blending_act.apply(input, output);
@@ -106,7 +110,9 @@ public:
     Eigen::MatrixXf output(1, 2);
 
     // Test with default (linear) activations
-    nam::gating_activations::BlendingActivation blending_act(nullptr, nullptr, 1);
+    nam::activations::ActivationIdentity identity_act;
+    nam::activations::ActivationIdentity identity_blend_act;
+    nam::gating_activations::BlendingActivation blending_act(&identity_act, &identity_blend_act, 1);
     blending_act.apply(input, output);
 
     // With linear activations, blending should be:
@@ -118,7 +124,7 @@ public:
 
     // Test with sigmoid blending activation
     nam::activations::Activation* sigmoid_act = nam::activations::Activation::get_activation("Sigmoid");
-    nam::gating_activations::BlendingActivation blending_act2(nullptr, sigmoid_act, 1);
+    nam::gating_activations::BlendingActivation blending_act2(&identity_act, sigmoid_act, 1);
     blending_act2.apply(input, output);
 
     // With sigmoid blending, alpha values should be between 0 and 1
@@ -168,7 +174,9 @@ public:
     Eigen::MatrixXf input(1, 2); // Only 1 row
     Eigen::MatrixXf output(1, 2);
 
-    nam::gating_activations::BlendingActivation blending_act(nullptr, nullptr, 1);
+    nam::activations::ActivationIdentity identity_act;
+    nam::activations::ActivationIdentity identity_blend_act;
+    nam::gating_activations::BlendingActivation blending_act(&identity_act, &identity_blend_act, 1);
 
     // This should trigger an assert and terminate the program
     // We can't easily test asserts in a unit test framework without special handling
@@ -187,7 +195,9 @@ public:
 
     Eigen::MatrixXf output(1, 1);
 
-    nam::gating_activations::BlendingActivation blending_act(nullptr, nullptr, 1);
+    nam::activations::ActivationIdentity identity_act;
+    nam::activations::ActivationIdentity identity_blend_act;
+    nam::gating_activations::BlendingActivation blending_act(&identity_act, &identity_blend_act, 1);
     blending_act.apply(input, output);
 
     assert(fabs(output(0, 0) - 0.0f) < 1e-6);

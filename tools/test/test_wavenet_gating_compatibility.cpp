@@ -33,7 +33,9 @@ public:
 
     // Create gating activation that matches wavenet behavior
     // Wavenet uses: input activation (default/linear) and sigmoid for gating
-    nam::gating_activations::GatingActivation gating_act(nullptr, nullptr, channels);
+    nam::activations::ActivationIdentity identity_act;
+    nam::activations::ActivationSigmoid sigmoid_act;
+    nam::gating_activations::GatingActivation gating_act(&identity_act, &sigmoid_act, channels);
 
     // Apply the activation
     gating_act.apply(input, output);
@@ -82,7 +84,9 @@ public:
 
     Eigen::MatrixXf output(channels, num_samples);
 
-    nam::gating_activations::GatingActivation gating_act(nullptr, nullptr, channels);
+    nam::activations::ActivationIdentity identity_act;
+    nam::activations::ActivationSigmoid sigmoid_act;
+    nam::gating_activations::GatingActivation gating_act(&identity_act, &sigmoid_act, channels);
     gating_act.apply(input, output);
 
     // Verify each column was processed independently
@@ -118,7 +122,9 @@ public:
 
     Eigen::MatrixXf output(channels, num_samples);
 
-    nam::gating_activations::GatingActivation gating_act(nullptr, nullptr, channels);
+    nam::activations::ActivationIdentity identity_act;
+    nam::activations::ActivationSigmoid sigmoid_act;
+    nam::gating_activations::GatingActivation gating_act(&identity_act, &sigmoid_act, channels);
 
     // This should not crash or produce incorrect results due to memory contiguity issues
     gating_act.apply(input, output);
@@ -153,7 +159,9 @@ public:
 
     Eigen::MatrixXf output(channels, num_samples);
 
-    nam::gating_activations::GatingActivation gating_act(nullptr, nullptr, channels);
+    nam::activations::ActivationIdentity identity_act;
+    nam::activations::ActivationSigmoid sigmoid_act;
+    nam::gating_activations::GatingActivation gating_act(&identity_act, &sigmoid_act, channels);
     gating_act.apply(input, output);
 
     // Verify dimensions

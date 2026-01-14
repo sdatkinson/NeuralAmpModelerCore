@@ -22,23 +22,19 @@ public:
   // Inherit the default apply methods which do nothing (linear/identity)
 };
 
-// Static instance for default activation
-static IdentityActivation default_activation;
-
 class GatingActivation
 {
 public:
   /**
    * Constructor for GatingActivation
-   * @param input_act Activation function for input channels (default: linear)
-   * @param gating_act Activation function for gating channels (default: sigmoid)
+   * @param input_act Activation function for input channels
+   * @param gating_act Activation function for gating channels
    * @param input_channels Number of input channels (default: 1)
    * @param gating_channels Number of gating channels (default: 1)
    */
-  GatingActivation(activations::Activation* input_act = nullptr, activations::Activation* gating_act = nullptr,
-                   int input_channels = 1)
-  : input_activation(input_act ? input_act : &default_activation)
-  , gating_activation(gating_act ? gating_act : activations::Activation::get_activation("Sigmoid"))
+  GatingActivation(activations::Activation* input_act, activations::Activation* gating_act, int input_channels = 1)
+  : input_activation(input_act)
+  , gating_activation(gating_act)
   , num_channels(input_channels)
   {
     assert(num_channels > 0);
@@ -102,10 +98,9 @@ public:
    * @param blend_act Activation function for blending channels
    * @param input_channels Number of input channels
    */
-  BlendingActivation(activations::Activation* input_act = nullptr, activations::Activation* blend_act = nullptr,
-                     int input_channels = 1)
-  : input_activation(input_act ? input_act : &default_activation)
-  , blending_activation(blend_act ? blend_act : &default_activation)
+  BlendingActivation(activations::Activation* input_act, activations::Activation* blend_act, int input_channels = 1)
+  : input_activation(input_act)
+  , blending_activation(blend_act)
   , num_channels(input_channels)
   {
     if (num_channels <= 0)

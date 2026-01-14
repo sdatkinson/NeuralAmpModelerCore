@@ -28,7 +28,7 @@ int main()
   test_activations::TestPReLU::test_core_function();
   test_activations::TestPReLU::test_per_channel_behavior();
   // This is enforced by an assert so it doesn't need to be tested
-  //test_activations::TestPReLU::test_wrong_number_of_channels();
+  // test_activations::TestPReLU::test_wrong_number_of_channels();
 
   test_dsp::test_construct();
   test_dsp::test_get_input_level();

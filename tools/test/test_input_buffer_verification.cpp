@@ -25,7 +25,8 @@ public:
 
     // Use ReLU activation which will set negative values to 0
     nam::activations::ActivationReLU relu_act;
-    nam::gating_activations::BlendingActivation blending_act(&relu_act, nullptr, 1);
+    nam::activations::ActivationIdentity identity_act;
+    nam::gating_activations::BlendingActivation blending_act(&relu_act, &identity_act, 1);
 
     // Apply the activation
     blending_act.apply(input, output);
@@ -59,7 +60,8 @@ public:
 
     // Use LeakyReLU with slope 0.1
     nam::activations::ActivationLeakyReLU leaky_relu(0.1f);
-    nam::gating_activations::BlendingActivation blending_act(&leaky_relu, nullptr, 1);
+    nam::activations::ActivationIdentity identity_act;
+    nam::gating_activations::BlendingActivation blending_act(&leaky_relu, &identity_act, 1);
 
     blending_act.apply(input, output);
 

@@ -111,6 +111,15 @@ protected:
   static std::unordered_map<std::string, Activation*> _activations;
 };
 
+// identity function activation
+class ActivationIdentity : public nam::activations::Activation
+{
+public:
+  ActivationIdentity() = default;
+  ~ActivationIdentity() = default;
+  // Inherit the default apply methods which do nothing
+};
+
 class ActivationTanh : public Activation
 {
 public:

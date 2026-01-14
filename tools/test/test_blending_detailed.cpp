@@ -27,7 +27,9 @@ public:
     Eigen::MatrixXf output(2, 2); // 2 output channels, 2 samples
 
     // Test with default (linear) activations
-    nam::gating_activations::BlendingActivation blending_act(nullptr, nullptr, 2);
+    nam::activations::ActivationIdentity identity_act;
+    nam::activations::ActivationIdentity identity_blend_act;
+    nam::gating_activations::BlendingActivation blending_act(&identity_act, &identity_blend_act, 2);
     blending_act.apply(input, output);
 
     std::cout << "Blending with linear activations:" << std::endl;
@@ -45,7 +47,7 @@ public:
 
     // Test with sigmoid blending activation
     nam::activations::Activation* sigmoid_act = nam::activations::Activation::get_activation("Sigmoid");
-    nam::gating_activations::BlendingActivation blending_act_sigmoid(nullptr, sigmoid_act, 2);
+    nam::gating_activations::BlendingActivation blending_act_sigmoid(&identity_act, sigmoid_act, 2);
 
     Eigen::MatrixXf output_sigmoid(2, 2);
     blending_act_sigmoid.apply(input, output_sigmoid);
@@ -86,7 +88,8 @@ public:
 
     // Test with ReLU activation on input (which will change values < 0 to 0)
     nam::activations::ActivationReLU relu_act;
-    nam::gating_activations::BlendingActivation blending_act(&relu_act, nullptr, 1);
+    nam::activations::ActivationIdentity identity_act;
+    nam::gating_activations::BlendingActivation blending_act(&relu_act, &identity_act, 1);
 
     blending_act.apply(input, output);
 
