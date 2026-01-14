@@ -202,6 +202,43 @@ private:
   float negative_slope = 0.01;
 };
 
+class ActivationPReLU : public Activation
+{
+public:
+  ActivationPReLU() = default;
+  ActivationPReLU(float ns)
+  {
+    negative_slopes.clear();
+    negative_slopes.push_back(ns);
+  }
+  ActivationPReLU(std::vector<float> ns) { negative_slopes = ns; }
+
+  void apply(Eigen::MatrixXf& matrix) override
+  {
+    // Matrix is organized as (channels, time_steps)
+    int n_channels = negative_slopes.size();
+    int actual_channels = matrix.rows();
+
+    // NOTE: check not done during runtime on release builds
+    // model loader should make sure dimensions match
+    assert(actual_channels == n_channels);
+
+    // Apply each negative slope to its corresponding channel
+    for (int channel = 0; channel < std::min(n_channels, actual_channels); channel++)
+    {
+      // Apply the negative slope to all time steps in this channel
+      for (int time_step = 0; time_step < matrix.rows(); time_step++)
+      {
+        matrix(channel, time_step) = leaky_relu(matrix(channel, time_step), negative_slopes[channel]);
+      }
+    }
+  }
+
+private:
+  std::vector<float> negative_slopes;
+};
+
+
 class ActivationSigmoid : public Activation
 {
 public:
