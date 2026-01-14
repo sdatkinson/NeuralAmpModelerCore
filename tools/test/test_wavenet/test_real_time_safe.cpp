@@ -6,8 +6,10 @@
 #include <cstdlib>
 #include <cstring>
 #include <dlfcn.h>
+#include <functional>
 #include <iostream>
 #include <new>
+#include <string>
 #include <vector>
 
 #include "NAM/wavenet.h"
@@ -100,6 +102,87 @@ void operator delete[](void* ptr) noexcept
 
 namespace test_wavenet
 {
+// Helper function to run allocation tracking tests
+// setup: Function to run before tracking starts (can be nullptr)
+// test: Function to run while tracking allocations (required)
+// teardown: Function to run after tracking stops (can be nullptr)
+// expected_allocations: Expected number of allocations (default 0)
+// expected_deallocations: Expected number of deallocations (default 0)
+// test_name: Name of the test for error messages
+template <typename TestFunc>
+void run_allocation_test(std::function<void()> setup, TestFunc test, std::function<void()> teardown,
+                         int expected_allocations, int expected_deallocations, const char* test_name)
+{
+  // Run setup if provided
+  if (setup)
+    setup();
+
+  // Reset allocation counters and enable tracking
+  g_allocation_count = 0;
+  g_deallocation_count = 0;
+  g_tracking_enabled = true;
+
+  // Run the test code
+  test();
+
+  // Disable tracking before any cleanup
+  g_tracking_enabled = false;
+
+  // Run teardown if provided
+  if (teardown)
+    teardown();
+
+  // Assert expected allocations/deallocations
+  if (g_allocation_count != expected_allocations || g_deallocation_count != expected_deallocations)
+  {
+    std::cerr << "ERROR: " << test_name << " - Expected " << expected_allocations << " allocations, "
+              << expected_deallocations << " deallocations. Got " << g_allocation_count << " allocations, "
+              << g_deallocation_count << " deallocations.\n";
+    std::abort();
+  }
+}
+
+// Convenience wrapper for tests that expect zero allocations (most common case)
+template <typename TestFunc>
+void run_allocation_test_no_allocations(std::function<void()> setup, TestFunc test,
+                                        std::function<void()> teardown, const char* test_name)
+{
+  run_allocation_test(setup, test, teardown, 0, 0, test_name);
+}
+
+// Convenience wrapper for tests that expect allocations (for testing the tracking mechanism)
+template <typename TestFunc>
+void run_allocation_test_expect_allocations(std::function<void()> setup, TestFunc test,
+                                            std::function<void()> teardown, const char* test_name)
+{
+  // Run setup if provided
+  if (setup)
+    setup();
+
+  // Reset allocation counters and enable tracking
+  g_allocation_count = 0;
+  g_deallocation_count = 0;
+  g_tracking_enabled = true;
+
+  // Run the test code
+  test();
+
+  // Disable tracking before any cleanup
+  g_tracking_enabled = false;
+
+  // Run teardown if provided
+  if (teardown)
+    teardown();
+
+  // Assert that allocations occurred (this test verifies our tracking works)
+  if (g_allocation_count == 0 && g_deallocation_count == 0)
+  {
+    std::cerr << "ERROR: " << test_name
+              << " - Expected allocations/deallocations but none occurred (tracking may not be working)\n";
+    std::abort();
+  }
+}
+
 // Test that pre-allocated Eigen operations with noalias() don't allocate
 void test_allocation_tracking_pass()
 {
@@ -115,23 +198,17 @@ void test_allocation_tracking_pass()
   a.setConstant(1.0f);
   b.setConstant(2.0f);
 
-  // Reset allocation counters
-  g_allocation_count = 0;
-  g_deallocation_count = 0;
-  g_tracking_enabled = true;
-
-  // Matrix product with noalias() - should not allocate (all matrices pre-allocated)
-  // Using noalias() is important for matrix products to avoid unnecessary temporaries
-  // Note: Even without noalias(), Eigen may avoid temporaries when matrices are distinct,
-  // but noalias() is best practice for real-time safety
-  c.noalias() = a * b;
-
-  // Disable tracking before any cleanup
-  g_tracking_enabled = false;
-
-  // Assert no allocations or frees occurred
-  assert(g_allocation_count == 0 && "Matrix product with noalias() allocated memory (unexpected)");
-  assert(g_deallocation_count == 0 && "Matrix product with noalias() freed memory (unexpected)");
+  run_allocation_test_no_allocations(
+    nullptr, // No setup needed
+    [&]() {
+      // Matrix product with noalias() - should not allocate (all matrices pre-allocated)
+      // Using noalias() is important for matrix products to avoid unnecessary temporaries
+      // Note: Even without noalias(), Eigen may avoid temporaries when matrices are distinct,
+      // but noalias() is best practice for real-time safety
+      c.noalias() = a * b;
+    },
+    nullptr, // No teardown needed
+    "test_allocation_tracking_pass");
 
   // Verify result: c should be rows x rows with value 2*cols (each element is sum of cols elements of value 2)
   assert(c.rows() == rows && c.cols() == rows);
@@ -148,22 +225,14 @@ void test_allocation_tracking_fail()
   Eigen::MatrixXf a(rows, cols);
   a.setConstant(1.0f);
 
-  // Reset allocation counters
-  g_allocation_count = 0;
-  g_deallocation_count = 0;
-  g_tracking_enabled = true;
-
-  // This operation should allocate (resizing requires reallocation)
-  a.resize(rows * 2, cols * 2);
-
-  // Disable tracking before any cleanup
-  g_tracking_enabled = false;
-
-  // Assert that allocations occurred (this test verifies our tracking works)
-  // Note: This test is meant to verify the tracking mechanism works,
-  // so we expect allocations/deallocations here
-  assert((g_allocation_count > 0 || g_deallocation_count > 0)
-         && "Matrix resize should have caused allocations (tracking may not be working)");
+  run_allocation_test_expect_allocations(
+    nullptr, // No setup needed
+    [&]() {
+      // This operation should allocate (resizing requires reallocation)
+      a.resize(rows * 2, cols * 2);
+    },
+    nullptr, // No teardown needed
+    "test_allocation_tracking_fail");
 }
 
 // Test that Conv1D::Process() method does not allocate or free memory
@@ -196,31 +265,15 @@ void test_conv1d_process_realtime_safe()
     Eigen::MatrixXf input(in_channels, buffer_size);
     input.setConstant(0.5f);
 
-    // Reset allocation counters
-    g_allocation_count = 0;
-    g_deallocation_count = 0;
-    g_tracking_enabled = true;
-
-    // Call Process() - this should not allocate or free
-    conv.Process(input, buffer_size);
-
-    // Disable tracking before any cleanup
-    g_tracking_enabled = false;
-
-    // Debug output
-    if (g_allocation_count > 0 || g_deallocation_count > 0)
-    {
-      std::cerr << "Conv1D Process - Buffer size " << buffer_size << ": allocations=" << g_allocation_count
-                << ", deallocations=" << g_deallocation_count << "\n";
-    }
-
-    // Assert no allocations or frees occurred
-    if (g_allocation_count != 0 || g_deallocation_count != 0)
-    {
-      std::cerr << "ERROR: Conv1D Process - Buffer size " << buffer_size << " - allocated " << g_allocation_count
-                << " times, freed " << g_deallocation_count << " times (not real-time safe)\n";
-      std::abort();
-    }
+    std::string test_name = "Conv1D Process - Buffer size " + std::to_string(buffer_size);
+    run_allocation_test_no_allocations(
+      nullptr, // No setup needed
+      [&]() {
+        // Call Process() - this should not allocate or free
+        conv.Process(input, buffer_size);
+      },
+      nullptr, // No teardown needed
+      test_name.c_str());
 
     // Verify output is valid
     auto output = conv.GetOutput().leftCols(buffer_size);
@@ -263,31 +316,15 @@ void test_layer_process_realtime_safe()
     input.setConstant(0.5f);
     condition.setConstant(0.5f);
 
-    // Reset allocation counters
-    g_allocation_count = 0;
-    g_deallocation_count = 0;
-    g_tracking_enabled = true;
-
-    // Call Process() - this should not allocate or free
-    layer.Process(input, condition, buffer_size);
-
-    // Disable tracking before any cleanup
-    g_tracking_enabled = false;
-
-    // Debug output
-    if (g_allocation_count > 0 || g_deallocation_count > 0)
-    {
-      std::cerr << "Layer Process - Buffer size " << buffer_size << ": allocations=" << g_allocation_count
-                << ", deallocations=" << g_deallocation_count << "\n";
-    }
-
-    // Assert no allocations or frees occurred
-    if (g_allocation_count != 0 || g_deallocation_count != 0)
-    {
-      std::cerr << "ERROR: Layer Process - Buffer size " << buffer_size << " - allocated " << g_allocation_count
-                << " times, freed " << g_deallocation_count << " times (not real-time safe)\n";
-      std::abort();
-    }
+    std::string test_name = "Layer Process - Buffer size " + std::to_string(buffer_size);
+    run_allocation_test_no_allocations(
+      nullptr, // No setup needed
+      [&]() {
+        // Call Process() - this should not allocate or free
+        layer.Process(input, condition, buffer_size);
+      },
+      nullptr, // No teardown needed
+      test_name.c_str());
 
     // Verify output is valid
     auto output = layer.GetOutputNextLayer().leftCols(buffer_size);
@@ -337,31 +374,15 @@ void test_layer_array_process_realtime_safe()
     layer_inputs.setConstant(0.5f);
     condition.setConstant(0.5f);
 
-    // Reset allocation counters
-    g_allocation_count = 0;
-    g_deallocation_count = 0;
-    g_tracking_enabled = true;
-
-    // Call Process() - this should not allocate or free
-    layer_array.Process(layer_inputs, condition, buffer_size);
-
-    // Disable tracking before any cleanup
-    g_tracking_enabled = false;
-
-    // Debug output
-    if (g_allocation_count > 0 || g_deallocation_count > 0)
-    {
-      std::cerr << "LayerArray Process - Buffer size " << buffer_size << ": allocations=" << g_allocation_count
-                << ", deallocations=" << g_deallocation_count << "\n";
-    }
-
-    // Assert no allocations or frees occurred
-    if (g_allocation_count != 0 || g_deallocation_count != 0)
-    {
-      std::cerr << "ERROR: LayerArray Process - Buffer size " << buffer_size << " - allocated " << g_allocation_count
-                << " times, freed " << g_deallocation_count << " times (not real-time safe)\n";
-      std::abort();
-    }
+    std::string test_name = "LayerArray Process - Buffer size " + std::to_string(buffer_size);
+    run_allocation_test_no_allocations(
+      nullptr, // No setup needed
+      [&]() {
+        // Call Process() - this should not allocate or free
+        layer_array.Process(layer_inputs, condition, buffer_size);
+      },
+      nullptr, // No teardown needed
+      test_name.c_str());
 
     // Verify output is valid
     auto layer_outputs = layer_array.GetLayerOutputs().leftCols(buffer_size);
@@ -393,12 +414,14 @@ void test_process_realtime_safe()
   std::vector<nam::wavenet::LayerArrayParams> layer_array_params;
   // First layer array
   std::vector<int> dilations1{1};
-  layer_array_params.push_back(nam::wavenet::LayerArrayParams(
-    input_size, condition_size, head_size, channels, kernel_size, std::move(dilations1), activation, gated, head_bias, groups));
+  layer_array_params.push_back(nam::wavenet::LayerArrayParams(input_size, condition_size, head_size, channels,
+                                                              kernel_size, std::move(dilations1), activation, gated,
+                                                              head_bias, groups));
   // Second layer array (head_size of first must match channels of second)
   std::vector<int> dilations2{1};
-  layer_array_params.push_back(nam::wavenet::LayerArrayParams(
-    head_size, condition_size, head_size, channels, kernel_size, std::move(dilations2), activation, gated, head_bias, groups));
+  layer_array_params.push_back(nam::wavenet::LayerArrayParams(head_size, condition_size, head_size, channels,
+                                                              kernel_size, std::move(dilations2), activation, gated,
+                                                              head_bias, groups));
 
   // Weights: Array 0: rechannel(1), layer(conv:1+1, input_mixin:1, 1x1:1+1), head_rechannel(1)
   //          Array 1: same structure
@@ -424,31 +447,15 @@ void test_process_realtime_safe()
     std::vector<NAM_SAMPLE> input(buffer_size, 0.5f);
     std::vector<NAM_SAMPLE> output(buffer_size, 0.0f);
 
-    // Reset allocation counters
-    g_allocation_count = 0;
-    g_deallocation_count = 0;
-    g_tracking_enabled = true;
-
-    // Call process() - this should not allocate or free
-    wavenet->process(input.data(), output.data(), buffer_size);
-
-    // Disable tracking before any cleanup
-    g_tracking_enabled = false;
-
-    // Debug output
-    if (g_allocation_count > 0 || g_deallocation_count > 0)
-    {
-      std::cerr << "Buffer size " << buffer_size << ": allocations=" << g_allocation_count
-                << ", deallocations=" << g_deallocation_count << "\n";
-    }
-
-    // Assert no allocations or frees occurred
-    if (g_allocation_count != 0 || g_deallocation_count != 0)
-    {
-      std::cerr << "ERROR: Buffer size " << buffer_size << " - process() allocated " << g_allocation_count
-                << " times, freed " << g_deallocation_count << " times (not real-time safe)\n";
-      std::abort();
-    }
+    std::string test_name = "WaveNet process - Buffer size " + std::to_string(buffer_size);
+    run_allocation_test_no_allocations(
+      nullptr, // No setup needed
+      [&]() {
+        // Call process() - this should not allocate or free
+        wavenet->process(input.data(), output.data(), buffer_size);
+      },
+      nullptr, // No teardown needed
+      test_name.c_str());
 
     // Verify output is valid
     for (int i = 0; i < buffer_size; i++)
