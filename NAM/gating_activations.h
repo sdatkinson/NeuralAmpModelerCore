@@ -36,7 +36,7 @@ public:
    * @param gating_channels Number of gating channels (default: 1)
    */
   GatingActivation(activations::Activation* input_act = nullptr, activations::Activation* gating_act = nullptr,
-                   int input_channels = 1, int gating_channels = 1)
+                   int input_channels = 1)
   : input_activation(input_act ? input_act : &default_activation)
   , gating_activation(gating_act ? gating_act : activations::Activation::get_activation("Sigmoid"))
   , num_input_channels(input_channels)

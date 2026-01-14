@@ -24,7 +24,7 @@ public:
     Eigen::MatrixXf output(1, 3);
 
     // Create gating activation with default activations (1 input channel, 1 gating channel)
-    nam::gating_activations::GatingActivation gating_act(nullptr, nullptr, 1, 1);
+    nam::gating_activations::GatingActivation gating_act(nullptr, nullptr, 1);
 
     // Apply the activation
     gating_act.apply(input, output);
@@ -51,7 +51,7 @@ public:
     Eigen::MatrixXf output(1, 2);
 
     // Create gating activation with custom activations
-    nam::gating_activations::GatingActivation gating_act(&leaky_relu, &leaky_relu2, 1, 1);
+    nam::gating_activations::GatingActivation gating_act(&leaky_relu, &leaky_relu2, 1);
 
     // Apply the activation
     gating_act.apply(input, output);
