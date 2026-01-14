@@ -1,0 +1,6 @@
+{
+    "files.associations": {
+        "*.nam": "json",
+        "vector": "cpp"
+    }
+}
