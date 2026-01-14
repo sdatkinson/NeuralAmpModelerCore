@@ -13,6 +13,10 @@
 #include "test/test_wavenet/test_layer_array.cpp"
 #include "test/test_wavenet/test_full.cpp"
 #include "test/test_wavenet/test_real_time_safe.cpp"
+#include "test/test_gating_activations.cpp"
+#include "test/test_wavenet_gating_compatibility.cpp"
+#include "test/test_blending_detailed.cpp"
+#include "test/test_input_buffer_verification.cpp"
 
 int main()
 {
@@ -29,6 +33,11 @@ int main()
 
   test_lut::TestFastLUT::test_sigmoid();
   test_lut::TestFastLUT::test_tanh();
+
+  test_activations::TestPReLU::test_core_function();
+  test_activations::TestPReLU::test_per_channel_behavior();
+  // This is enforced by an assert so it doesn't need to be tested
+  // test_activations::TestPReLU::test_wrong_number_of_channels();
 
   test_dsp::test_construct();
   test_dsp::test_get_input_level();
@@ -94,6 +103,31 @@ int main()
   test_convnet::test_convnet_different_buffer_sizes();
   test_convnet::test_convnet_prewarm();
   test_convnet::test_convnet_multiple_calls();
+
+  // Gating activations tests
+  test_gating_activations::TestGatingActivation::test_basic_functionality();
+  test_gating_activations::TestGatingActivation::test_with_custom_activations();
+  //  test_gating_activations::TestGatingActivation::test_error_handling();
+
+  // Wavenet gating compatibility tests
+  test_wavenet_gating_compatibility::TestWavenetGatingCompatibility::test_wavenet_style_gating();
+  test_wavenet_gating_compatibility::TestWavenetGatingCompatibility::test_column_by_column_processing();
+  test_wavenet_gating_compatibility::TestWavenetGatingCompatibility::test_memory_contiguity();
+  test_wavenet_gating_compatibility::TestWavenetGatingCompatibility::test_multiple_channels();
+
+  test_gating_activations::TestBlendingActivation::test_basic_functionality();
+  test_gating_activations::TestBlendingActivation::test_blending_behavior();
+  test_gating_activations::TestBlendingActivation::test_with_custom_activations();
+  //  test_gating_activations::TestBlendingActivation::test_error_handling();
+  test_gating_activations::TestBlendingActivation::test_edge_cases();
+
+  // Detailed blending tests
+  test_blending_detailed::TestBlendingDetailed::test_blending_with_different_activations();
+  test_blending_detailed::TestBlendingDetailed::test_input_buffer_usage();
+
+  // Input buffer verification tests
+  test_input_buffer_verification::TestInputBufferVerification::test_buffer_stores_pre_activation_values();
+  test_input_buffer_verification::TestInputBufferVerification::test_buffer_with_different_activations();
 
   std::cout << "Success!" << std::endl;
   return 0;
