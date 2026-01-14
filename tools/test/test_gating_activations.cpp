@@ -69,8 +69,6 @@ public:
     // In real-time code, we use asserts instead of exceptions for performance
     // These tests would normally crash the program due to asserts
     // In production, these conditions should never occur if the code is used correctly
-
-    std::cout << "GatingActivation error handling tests skipped (asserts in real-time code)" << std::endl;
   }
 };
 
@@ -179,8 +177,6 @@ public:
     // Test with invalid number of channels - should assert in constructor
     // These tests would normally crash the program due to asserts
     // In production, these conditions should never occur if the code is used correctly
-
-    std::cout << "BlendingActivation error handling tests skipped (asserts in real-time code)" << std::endl;
   }
 
   static void test_edge_cases()
@@ -205,8 +201,6 @@ public:
     // Should handle large values without issues
     assert(output.rows() == 1);
     assert(output.cols() == 1);
-
-    std::cout << "BlendingActivation edge cases test passed" << std::endl;
   }
 };
 

@@ -46,7 +46,7 @@ int main()
   // Gating activations tests
   test_gating_activations::TestGatingActivation::test_basic_functionality();
   test_gating_activations::TestGatingActivation::test_with_custom_activations();
-  test_gating_activations::TestGatingActivation::test_error_handling();
+  //  test_gating_activations::TestGatingActivation::test_error_handling();
 
   // Wavenet gating compatibility tests
   test_wavenet_gating_compatibility::TestWavenetGatingCompatibility::test_wavenet_style_gating();
@@ -57,7 +57,7 @@ int main()
   test_gating_activations::TestBlendingActivation::test_basic_functionality();
   test_gating_activations::TestBlendingActivation::test_blending_behavior();
   test_gating_activations::TestBlendingActivation::test_with_custom_activations();
-  test_gating_activations::TestBlendingActivation::test_error_handling();
+  //  test_gating_activations::TestBlendingActivation::test_error_handling();
   test_gating_activations::TestBlendingActivation::test_edge_cases();
 
   // Detailed blending tests
