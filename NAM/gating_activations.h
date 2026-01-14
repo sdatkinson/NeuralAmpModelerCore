@@ -33,7 +33,7 @@ public:
     
     // Ensure output has correct dimensions
     if (output.rows() != 1 || output.cols() != input.cols()) {
-      output.resize(1, input.cols());
+      throw std::invalid_argument("GatingActivation: output matrix must have at least 1 row");
     }
     
     // Apply activations to the two rows
@@ -50,7 +50,6 @@ public:
 private:
   activations::Activation* input_activation;
   activations::Activation* gating_activation;
-  activations::Activation default_activation; // Default activation for safety
 };
 
 class BlendingActivation
@@ -78,7 +77,7 @@ public:
     
     // Ensure output has correct dimensions
     if (output.rows() != 1 || output.cols() != input.cols()) {
-      output.resize(1, input.cols());
+      throw std::invalid_argument("BlendingActivation: output matrix must have at least 1 row");
     }
     
     // Apply activations to the two rows
@@ -96,7 +95,6 @@ private:
   activations::Activation* input_activation;
   activations::Activation* blending_activation;
   float alpha;
-  activations::Activation default_activation; // Default activation for safety
 };
 
 
