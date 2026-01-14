@@ -144,16 +144,16 @@ void run_allocation_test(std::function<void()> setup, TestFunc test, std::functi
 
 // Convenience wrapper for tests that expect zero allocations (most common case)
 template <typename TestFunc>
-void run_allocation_test_no_allocations(std::function<void()> setup, TestFunc test,
-                                        std::function<void()> teardown, const char* test_name)
+void run_allocation_test_no_allocations(std::function<void()> setup, TestFunc test, std::function<void()> teardown,
+                                        const char* test_name)
 {
   run_allocation_test(setup, test, teardown, 0, 0, test_name);
 }
 
 // Convenience wrapper for tests that expect allocations (for testing the tracking mechanism)
 template <typename TestFunc>
-void run_allocation_test_expect_allocations(std::function<void()> setup, TestFunc test,
-                                            std::function<void()> teardown, const char* test_name)
+void run_allocation_test_expect_allocations(std::function<void()> setup, TestFunc test, std::function<void()> teardown,
+                                            const char* test_name)
 {
   // Run setup if provided
   if (setup)
