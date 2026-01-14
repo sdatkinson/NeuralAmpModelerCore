@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Script to compare performance of current branch against main
-# Usage: ./tools/benchmark_compare.sh
+# Usage: ./tools/benchmark_compare.sh [--model MODEL_PATH]
 
 set -e  # Exit on error
 
@@ -204,6 +204,34 @@ generate_report() {
 
 # Main execution
 main() {
+    # Parse command line arguments
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --model)
+                if [ -z "$2" ]; then
+                    echo -e "${RED}Error: --model requires a path argument${NC}"
+                    echo "Use --help for usage information"
+                    exit 1
+                fi
+                MODEL_PATH="$2"
+                shift 2
+                ;;
+            --help|-h)
+                echo "Usage: $0 [--model MODEL_PATH]"
+                echo ""
+                echo "Options:"
+                echo "  --model MODEL_PATH    Path to the model file to benchmark (default: example_models/wavenet_a1_standard.nam)"
+                echo "  --help, -h            Show this help message"
+                exit 0
+                ;;
+            *)
+                echo -e "${RED}Error: Unknown option: $1${NC}"
+                echo "Use --help for usage information"
+                exit 1
+                ;;
+        esac
+    done
+    
     # Ensure we're in the project root (parent of tools/)
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -311,5 +339,5 @@ main() {
     echo -e "${GREEN}Benchmark comparison complete!${NC}"
 }
 
-# Run main function
-main
+# Run main function with all command line arguments
+main "$@"
