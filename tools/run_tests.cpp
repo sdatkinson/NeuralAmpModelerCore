@@ -8,6 +8,7 @@
 #include "test/test_wavenet.cpp"
 #include "test/test_fast_lut.cpp"
 #include "test/test_gating_activations.cpp"
+#include "test/test_wavenet_gating_compatibility.cpp"
 
 int main()
 {
@@ -50,6 +51,12 @@ int main()
   test_gating_activations::TestBlendingActivation::test_with_custom_activations();
   test_gating_activations::TestBlendingActivation::test_error_handling();
   test_gating_activations::TestBlendingActivation::test_edge_cases();
+
+  // Wavenet gating compatibility tests
+  test_wavenet_gating_compatibility::TestWavenetGatingCompatibility::test_wavenet_style_gating();
+  test_wavenet_gating_compatibility::TestWavenetGatingCompatibility::test_column_by_column_processing();
+  test_wavenet_gating_compatibility::TestWavenetGatingCompatibility::test_memory_contiguity();
+  test_wavenet_gating_compatibility::TestWavenetGatingCompatibility::test_multiple_channels();
 
   std::cout << "Success!" << std::endl;
   return 0;

@@ -22,10 +22,10 @@ public:
     input << 1.0f, -1.0f, 0.0f,
              0.5f, 0.8f, 1.0f;
     
-    Eigen::MatrixXf output;
+    Eigen::MatrixXf output(1, 3);
     
-    // Create gating activation with default activations
-    nam::gating_activations::GatingActivation gating_act;
+    // Create gating activation with default activations (1 input channel, 1 gating channel)
+    nam::gating_activations::GatingActivation gating_act(nullptr, nullptr, 1, 1);
     
     // Apply the activation
     gating_act.apply(input, output);
@@ -50,10 +50,10 @@ public:
     input << -1.0f, 1.0f,
              -2.0f, 0.5f;
     
-    Eigen::MatrixXf output;
+    Eigen::MatrixXf output(1, 2);
     
     // Create gating activation with custom activations
-    nam::gating_activations::GatingActivation gating_act(&leaky_relu, &leaky_relu2);
+    nam::gating_activations::GatingActivation gating_act(&leaky_relu, &leaky_relu2, 1, 1);
     
     // Apply the activation
     gating_act.apply(input, output);
@@ -92,10 +92,10 @@ public:
     input << 1.0f, -1.0f, 0.0f,
              0.5f, 0.8f, 1.0f;
     
-    Eigen::MatrixXf output;
+    Eigen::MatrixXf output(1, 3);
     
     // Create blending activation with default alpha (0.5)
-    nam::gating_activations::BlendingActivation blending_act;
+    nam::gating_activations::BlendingActivation blending_act(nullptr, nullptr, 0.5f, 1, 1);
     
     // Apply the activation
     blending_act.apply(input, output);
@@ -114,9 +114,9 @@ public:
     input << 1.0f, -1.0f,
              2.0f, 3.0f;
     
-    Eigen::MatrixXf output;
+    Eigen::MatrixXf output(1, 2);
     
-    nam::gating_activations::BlendingActivation blending_act(nullptr, nullptr, 0.0f);
+    nam::gating_activations::BlendingActivation blending_act(nullptr, nullptr, 0.0f, 1, 1);
     blending_act.apply(input, output);
     
     // With alpha=0.0, output should be close to second row
@@ -124,7 +124,7 @@ public:
     assert(fabs(output(0, 1) - 3.0f) < 1e-6);
     
     // Test with alpha = 1.0 (should use only first row)
-    nam::gating_activations::BlendingActivation blending_act2(nullptr, nullptr, 1.0f);
+    nam::gating_activations::BlendingActivation blending_act2(nullptr, nullptr, 1.0f, 1, 1);
     blending_act2.apply(input, output);
     
     // With alpha=1.0, output should be close to first row
@@ -132,7 +132,7 @@ public:
     assert(fabs(output(0, 1) - (-1.0f)) < 1e-6);
     
     // Test with alpha = 0.3
-    nam::gating_activations::BlendingActivation blending_act3(nullptr, nullptr, 0.3f);
+    nam::gating_activations::BlendingActivation blending_act3(nullptr, nullptr, 0.3f, 1, 1);
     blending_act3.apply(input, output);
     
     // With alpha=0.3, output should be 0.3*row1 + 0.7*row2
@@ -156,10 +156,10 @@ public:
     input << -1.0f, 1.0f,
              -2.0f, 0.5f;
     
-    Eigen::MatrixXf output;
+    Eigen::MatrixXf output(1, 2);
     
     // Create blending activation with custom activations and alpha = 0.7
-    nam::gating_activations::BlendingActivation blending_act(&leaky_relu, &leaky_relu2, 0.7f);
+    nam::gating_activations::BlendingActivation blending_act(&leaky_relu, &leaky_relu2, 0.7f, 1, 1);
     
     // Apply the activation
     blending_act.apply(input, output);
@@ -209,9 +209,9 @@ public:
     input << 0.0f,
              0.0f;
     
-    Eigen::MatrixXf output;
+    Eigen::MatrixXf output(1, 1);
     
-    nam::gating_activations::BlendingActivation blending_act(nullptr, nullptr, 0.5f);
+    nam::gating_activations::BlendingActivation blending_act(nullptr, nullptr, 0.5f, 1, 1);
     blending_act.apply(input, output);
     
     assert(fabs(output(0, 0) - 0.0f) < 1e-6);
