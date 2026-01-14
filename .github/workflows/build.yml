@@ -15,6 +15,14 @@ jobs:
       with:
         submodules: recursive
     
+    - name: Check formatting
+      working-directory: ${{github.workspace}}
+      run: |
+        sudo apt-get update && sudo apt-get install -y clang-format
+        chmod +x format.sh
+        ./format.sh
+        git diff --exit-code
+    
     - name: Build Tools
       working-directory: ${{github.workspace}}/build
       env:
