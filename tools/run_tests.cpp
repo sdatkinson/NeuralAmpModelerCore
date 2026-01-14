@@ -8,10 +8,10 @@
 #include "test/test_dsp.cpp"
 #include "test/test_get_dsp.cpp"
 #include "test/test_ring_buffer.cpp"
-#include "test/test_wavenet.cpp"
 #include "test/test_wavenet/test_layer.cpp"
 #include "test/test_wavenet/test_layer_array.cpp"
 #include "test/test_wavenet/test_full.cpp"
+#include "test/test_wavenet/test_real_time_safe.cpp"
 
 int main()
 {
@@ -78,6 +78,10 @@ int main()
   test_wavenet::test_full::test_wavenet_prewarm();
   test_wavenet::test_allocation_tracking_pass();
   test_wavenet::test_allocation_tracking_fail();
+  test_wavenet::test_conv1d_process_realtime_safe();
+  test_wavenet::test_conv1d_process_block_realtime_safe();
+  test_wavenet::test_layer_process_realtime_safe();
+  test_wavenet::test_layer_array_process_realtime_safe();
   test_wavenet::test_process_realtime_safe();
 
   test_convnet::test_convnet_basic();

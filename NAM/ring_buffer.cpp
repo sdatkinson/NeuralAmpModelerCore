@@ -36,7 +36,23 @@ void RingBuffer::Write(const Eigen::MatrixXf& input, const int num_frames)
     Rewind();
 
   // Write the input data at the write position
-  _storage.middleCols(_write_pos, num_frames) = input.leftCols(num_frames);
+  // Use manual memory copy to avoid Eigen evaluating Block expressions into temporaries
+  const int channels = _storage.rows();
+  const int input_cols = input.cols();
+  const int copy_cols = (input_cols >= num_frames) ? num_frames : input_cols;
+
+  // Copy column by column using direct memory access to avoid Eigen expression evaluation
+  // This avoids creating temporaries when input is a Block expression
+  for (int col = 0; col < copy_cols; ++col)
+  {
+    // Use direct pointer access to avoid Eigen expression overhead
+    const float* src_ptr = &input(0, col);
+    float* dst_ptr = &_storage(0, _write_pos + col);
+    for (int row = 0; row < channels; ++row)
+    {
+      dst_ptr[row] = src_ptr[row];
+    }
+  }
 }
 
 Eigen::Block<Eigen::MatrixXf> RingBuffer::Read(const int num_frames, const long lookback)

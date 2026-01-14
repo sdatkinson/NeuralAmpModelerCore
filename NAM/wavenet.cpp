@@ -138,10 +138,17 @@ void nam::wavenet::_LayerArray::ProcessInner(const Eigen::MatrixXf& layer_inputs
   // Process layers
   for (size_t i = 0; i < this->_layers.size(); i++)
   {
-    // Get input for this layer
-    Eigen::MatrixXf layer_input = i == 0 ? rechannel_output : this->_layers[i - 1].GetOutputNextLayer(num_frames);
-    // Process layer
-    this->_layers[i].Process(layer_input, condition, num_frames);
+    // Process first layer with rechannel output, subsequent layers with previous layer output
+    // Use separate branches to avoid ternary operator creating temporaries
+    if (i == 0)
+    {
+      this->_layers[i].Process(rechannel_output, condition, num_frames);
+    }
+    else
+    {
+      auto prev_output = this->_layers[i - 1].GetOutputNextLayer(num_frames);
+      this->_layers[i].Process(prev_output, condition, num_frames);
+    }
 
     // Accumulate head output from this layer
     this->_head_inputs.leftCols(num_frames).noalias() += this->_layers[i].GetOutputHead(num_frames);
@@ -149,7 +156,7 @@ void nam::wavenet::_LayerArray::ProcessInner(const Eigen::MatrixXf& layer_inputs
 
   // Store output from last layer
   const size_t last_layer = this->_layers.size() - 1;
-  this->_layer_outputs.leftCols(num_frames) = this->_layers[last_layer].GetOutputNextLayer(num_frames);
+  this->_layer_outputs.leftCols(num_frames).noalias() = this->_layers[last_layer].GetOutputNextLayer(num_frames);
 
   // Process head rechannel
   _head_rechannel.process_(this->_head_inputs, num_frames);
