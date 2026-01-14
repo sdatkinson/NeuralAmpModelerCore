@@ -9,16 +9,21 @@ namespace nam
 class Conv1D
 {
 public:
-  Conv1D() { this->_dilation = 1; };
-  Conv1D(const int in_channels, const int out_channels, const int kernel_size, const int bias, const int dilation)
+  Conv1D()
   {
-    set_size_(in_channels, out_channels, kernel_size, bias, dilation);
+    this->_dilation = 1;
+    this->_num_groups = 1;
+  };
+  Conv1D(const int in_channels, const int out_channels, const int kernel_size, const int bias, const int dilation,
+         const int groups = 1)
+  {
+    set_size_(in_channels, out_channels, kernel_size, bias, dilation, groups);
   };
   void set_weights_(std::vector<float>::iterator& weights);
   void set_size_(const int in_channels, const int out_channels, const int kernel_size, const bool do_bias,
-                 const int _dilation);
+                 const int _dilation, const int groups = 1);
   void set_size_and_weights_(const int in_channels, const int out_channels, const int kernel_size, const int _dilation,
-                             const bool do_bias, std::vector<float>::iterator& weights);
+                             const bool do_bias, const int groups, std::vector<float>::iterator& weights);
   // Reset the ring buffer and pre-allocate output buffer
   // :param sampleRate: Unused, for interface consistency
   // :param maxBufferSize: Maximum buffer size for output buffer and to size ring buffer
@@ -50,6 +55,7 @@ protected:
   std::vector<Eigen::MatrixXf> _weight;
   Eigen::VectorXf _bias;
   int _dilation;
+  int _num_groups;
 
 private:
   RingBuffer _input_buffer; // Ring buffer for input (channels x buffer_size)

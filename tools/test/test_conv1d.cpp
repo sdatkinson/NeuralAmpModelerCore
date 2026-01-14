@@ -345,7 +345,7 @@ void test_set_size_and_weights()
 
   std::vector<float> weights{1.0f, 2.0f};
   auto it = weights.begin();
-  conv.set_size_and_weights_(in_channels, out_channels, kernel_size, dilation, do_bias, it);
+  conv.set_size_and_weights_(in_channels, out_channels, kernel_size, dilation, do_bias, 1, it);
 
   assert(conv.get_in_channels() == in_channels);
   assert(conv.get_out_channels() == out_channels);

@@ -73,12 +73,13 @@ void nam::wavenet::_Layer::Process(const Eigen::MatrixXf& input, const Eigen::Ma
 
 nam::wavenet::_LayerArray::_LayerArray(const int input_size, const int condition_size, const int head_size,
                                        const int channels, const int kernel_size, const std::vector<int>& dilations,
-                                       const std::string activation, const bool gated, const bool head_bias)
+                                       const std::string activation, const bool gated, const bool head_bias,
+                                       const int groups)
 : _rechannel(input_size, channels, false)
 , _head_rechannel(channels, head_size, head_bias)
 {
   for (size_t i = 0; i < dilations.size(); i++)
-    this->_layers.push_back(_Layer(condition_size, channels, kernel_size, dilations[i], activation, gated));
+    this->_layers.push_back(_Layer(condition_size, channels, kernel_size, dilations[i], activation, gated, groups));
 }
 
 void nam::wavenet::_LayerArray::SetMaxBufferSize(const int maxBufferSize)
@@ -198,7 +199,8 @@ nam::wavenet::WaveNet::WaveNet(const std::vector<nam::wavenet::LayerArrayParams>
     this->_layer_arrays.push_back(nam::wavenet::_LayerArray(
       layer_array_params[i].input_size, layer_array_params[i].condition_size, layer_array_params[i].head_size,
       layer_array_params[i].channels, layer_array_params[i].kernel_size, layer_array_params[i].dilations,
-      layer_array_params[i].activation, layer_array_params[i].gated, layer_array_params[i].head_bias));
+      layer_array_params[i].activation, layer_array_params[i].gated, layer_array_params[i].head_bias,
+      layer_array_params[i].groups));
     if (i > 0)
       if (layer_array_params[i].channels != layer_array_params[i - 1].head_size)
       {
@@ -295,10 +297,11 @@ std::unique_ptr<nam::DSP> nam::wavenet::Factory(const nlohmann::json& config, st
   for (size_t i = 0; i < config["layers"].size(); i++)
   {
     nlohmann::json layer_config = config["layers"][i];
+    const int groups = layer_config.value("groups", 1); // defaults to 1
     layer_array_params.push_back(nam::wavenet::LayerArrayParams(
       layer_config["input_size"], layer_config["condition_size"], layer_config["head_size"], layer_config["channels"],
       layer_config["kernel_size"], layer_config["dilations"], layer_config["activation"], layer_config["gated"],
-      layer_config["head_bias"]));
+      layer_config["head_bias"], groups));
   }
   const bool with_head = !config["head"].is_null();
   const float head_scale = config["head_scale"];

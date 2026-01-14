@@ -48,12 +48,12 @@ void nam::convnet::BatchNorm::process_(Eigen::MatrixXf& x, const long i_start, c
 }
 
 void nam::convnet::ConvNetBlock::set_weights_(const int in_channels, const int out_channels, const int _dilation,
-                                              const bool batchnorm, const std::string activation,
+                                              const bool batchnorm, const std::string activation, const int groups,
                                               std::vector<float>::iterator& weights)
 {
   this->_batchnorm = batchnorm;
   // HACK 2 kernel
-  this->conv.set_size_and_weights_(in_channels, out_channels, 2, _dilation, !batchnorm, weights);
+  this->conv.set_size_and_weights_(in_channels, out_channels, 2, _dilation, !batchnorm, groups, weights);
   if (this->_batchnorm)
     this->batchnorm = BatchNorm(out_channels, weights);
   this->activation = activations::Activation::get_activation(activation);
@@ -148,14 +148,14 @@ void nam::convnet::_Head::process_(const Eigen::MatrixXf& input, Eigen::VectorXf
 
 nam::convnet::ConvNet::ConvNet(const int channels, const std::vector<int>& dilations, const bool batchnorm,
                                const std::string activation, std::vector<float>& weights,
-                               const double expected_sample_rate)
+                               const double expected_sample_rate, const int groups)
 : Buffer(*std::max_element(dilations.begin(), dilations.end()), expected_sample_rate)
 {
   this->_verify_weights(channels, dilations, batchnorm, weights.size());
   this->_blocks.resize(dilations.size());
   std::vector<float>::iterator it = weights.begin();
   for (size_t i = 0; i < dilations.size(); i++)
-    this->_blocks[i].set_weights_(i == 0 ? 1 : channels, channels, dilations[i], batchnorm, activation, it);
+    this->_blocks[i].set_weights_(i == 0 ? 1 : channels, channels, dilations[i], batchnorm, activation, groups, it);
   // Only need _block_vals for the head (one entry)
   // Conv1D layers manage their own buffers now
   this->_block_vals.resize(1);
@@ -280,8 +280,9 @@ std::unique_ptr<nam::DSP> nam::convnet::Factory(const nlohmann::json& config, st
   const std::vector<int> dilations = config["dilations"];
   const bool batchnorm = config["batchnorm"];
   const std::string activation = config["activation"];
+  const int groups = config.value("groups", 1); // defaults to 1
   return std::make_unique<nam::convnet::ConvNet>(
-    channels, dilations, batchnorm, activation, weights, expectedSampleRate);
+    channels, dilations, batchnorm, activation, weights, expectedSampleRate, groups);
 }
 
 namespace
