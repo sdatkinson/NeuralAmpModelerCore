@@ -191,7 +191,7 @@ public:
 
     }
 
-    assert(caught == true);
+    assert(caught);
  }
 
 };

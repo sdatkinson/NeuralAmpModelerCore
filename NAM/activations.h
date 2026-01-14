@@ -209,10 +209,9 @@ public:
     int n_channels = negative_slopes.size();
     int actual_channels = matrix.rows();
     
-    if (actual_channels > n_channels)
-    {
-      throw std::runtime_error("Number of channels in PReLU activation different from input matrix");
-    }
+    // NOTE: check not done during runtime on release builds
+    // model loader should make sure dimensions match
+    assert(actual_channels == n_channels);
 
     // Apply each negative slope to its corresponding channel
     for (int channel = 0; channel < std::min(n_channels, actual_channels); channel++)
@@ -224,21 +223,7 @@ public:
       }
     }
   }
-  
-  void apply(float* data, long size) override
-  {
-    // Fallback that operates like leaky_relu, should not be used as it's a waste of a vector for one element
-    if (!negative_slopes.empty())
-    {
-      float slope = negative_slopes[0]; // Use first slope as fallback
-      for (long pos = 0; pos < size; pos++)
-      {
-        data[pos] = leaky_relu(data[pos], slope);
-      }
-    } else {
-      throw std::runtime_error("negative_slopes not initialized");
-    }
-  }
+
 private:
   std::vector<float> negative_slopes;
 };
