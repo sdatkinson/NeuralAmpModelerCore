@@ -15,11 +15,16 @@ jobs:
       with:
         submodules: recursive
     
+    - name: Install clang-format 19
+      uses: KyleMayes/install-llvm-action@v2
+      with:
+        version: "19"
+        cached: true
+    
     - name: Check formatting
       working-directory: ${{github.workspace}}
       run: |
-        sudo apt-get update && sudo apt-get install -y clang-format
-        echo "Installed clang-format version:"
+        echo "clang-format version:"
         clang-format --version
         chmod +x format.sh
         ./format.sh
