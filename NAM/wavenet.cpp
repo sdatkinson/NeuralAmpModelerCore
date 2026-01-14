@@ -133,7 +133,7 @@ void nam::wavenet::_LayerArray::ProcessInner(const Eigen::MatrixXf& layer_inputs
 {
   // Process rechannel and get output
   this->_rechannel.process_(layer_inputs, num_frames);
-  auto rechannel_output = _rechannel.GetOutput(num_frames);
+  Eigen::MatrixXf& rechannel_output = _rechannel.GetOutputBuffer();
 
   // Process layers
   for (size_t i = 0; i < this->_layers.size(); i++)
@@ -142,11 +142,13 @@ void nam::wavenet::_LayerArray::ProcessInner(const Eigen::MatrixXf& layer_inputs
     // Use separate branches to avoid ternary operator creating temporaries
     if (i == 0)
     {
+      // First layer consumes the rechannel output buffer
       this->_layers[i].Process(rechannel_output, condition, num_frames);
     }
     else
     {
-      auto prev_output = this->_layers[i - 1].GetOutputNextLayer(num_frames);
+      // Subsequent layers consume the full output buffer of the previous layer
+      Eigen::MatrixXf& prev_output = this->_layers[i - 1].GetOutputNextLayerFull();
       this->_layers[i].Process(prev_output, condition, num_frames);
     }
 
@@ -170,6 +172,16 @@ Eigen::Block<Eigen::MatrixXf> nam::wavenet::_LayerArray::GetLayerOutputs(const i
 Eigen::Block<Eigen::MatrixXf> nam::wavenet::_LayerArray::GetHeadOutputs(const int num_frames)
 {
   return this->_head_rechannel.GetOutput(num_frames);
+}
+
+Eigen::MatrixXf& nam::wavenet::_LayerArray::GetHeadOutputsFull()
+{
+  return this->_head_rechannel.GetOutputBuffer();
+}
+
+const Eigen::MatrixXf& nam::wavenet::_LayerArray::GetHeadOutputsFull() const
+{
+  return this->_head_rechannel.GetOutputBuffer();
 }
 
 
@@ -270,9 +282,12 @@ void nam::wavenet::WaveNet::process(NAM_SAMPLE* input, NAM_SAMPLE* output, const
     }
     else
     {
-      // Subsequent layer arrays - use head output from previous layer array
-      this->_layer_arrays[i].Process(this->_layer_arrays[i - 1].GetLayerOutputs(num_frames), this->_condition,
-                                     this->_layer_arrays[i - 1].GetHeadOutputs(num_frames), num_frames);
+      // Subsequent layer arrays - use outputs from previous layer array.
+      // Pass full buffers and slice inside the callee to avoid passing Blocks
+      // across API boundaries (which can cause Eigen to allocate temporaries).
+      Eigen::MatrixXf& prev_layer_outputs = this->_layer_arrays[i - 1].GetLayerOutputsFull();
+      Eigen::MatrixXf& prev_head_outputs = this->_layer_arrays[i - 1].GetHeadOutputsFull();
+      this->_layer_arrays[i].Process(prev_layer_outputs, this->_condition, prev_head_outputs, num_frames);
     }
   }
 

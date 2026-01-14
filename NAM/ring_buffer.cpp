@@ -26,7 +26,7 @@ void RingBuffer::Reset(const int channels, const int max_buffer_size)
   _write_pos = _max_lookback;
 }
 
-void RingBuffer::Write(const Eigen::Ref<const Eigen::MatrixXf>& input, const int num_frames)
+void RingBuffer::Write(const Eigen::MatrixXf& input, const int num_frames)
 {
   // Assert that num_frames doesn't exceed max buffer size
   assert(num_frames <= _max_buffer_size && "Write: num_frames must not exceed max_buffer_size");
@@ -36,16 +36,14 @@ void RingBuffer::Write(const Eigen::Ref<const Eigen::MatrixXf>& input, const int
     Rewind();
 
   // Write the input data at the write position
-  // Eigen::Ref should bind to contiguous Block expressions (like .leftCols() on column-major matrices)
-  // without evaluation. However, if Eigen::Ref evaluates the Block during binding, the allocation
-  // happens before we enter this function. We use direct element access to avoid further
-  // expression evaluation during the copy.
+  // NOTE: This function assumes that `input` is a full, pre-allocated MatrixXf
+  //       covering the entire valid buffer range. Callers should not pass Block
+  //       expressions across the API boundary; instead, pass the full buffer and
+  //       slice inside the callee. This avoids Eigen evaluating Blocks into
+  //       temporaries (which would allocate) when binding to MatrixXf.
   const int channels = _storage.rows();
-  const int input_cols = input.cols();
-  const int copy_cols = (input_cols >= num_frames) ? num_frames : input_cols;
-  
-  // Copy element by element using direct access
-  // This avoids any Eigen expression evaluation during assignment
+  const int copy_cols = num_frames;
+
   for (int col = 0; col < copy_cols; ++col)
   {
     for (int row = 0; row < channels; ++row)

@@ -14,10 +14,15 @@ public:
   // :param max_buffer_size: Maximum amount that will be written or read at once
   void Reset(const int channels, const int max_buffer_size);
   // Write new data at write pointer
-  // :param input: Input matrix (channels x num_frames) - can be a Block expression
+  // :param input: Input matrix (channels x num_frames)
   // :param num_frames: Number of frames to write
-  // Uses Eigen::Ref to bind to Block expressions without evaluation (for contiguous Blocks)
-  void Write(const Eigen::Ref<const Eigen::MatrixXf>& input, const int num_frames);
+  // NOTE: This function expects a full, pre-allocated, column-major MatrixXf
+  //       covering the entire valid buffer range. Callers should not pass
+  //       Block expressions (e.g. .leftCols()) across the API boundary; instead,
+  //       pass the full buffer and slice inside the callee. This avoids Eigen
+  //       evaluating Blocks into temporaries (which would allocate) when
+  //       binding to MatrixXf.
+  void Write(const Eigen::MatrixXf& input, const int num_frames);
   // Read data with optional lookback
   // :param num_frames: Number of frames to read
   // :param lookback: Number of frames to look back from write pointer (default 0)
