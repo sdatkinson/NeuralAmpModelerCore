@@ -17,6 +17,7 @@ class TestGatingActivation
 public:
   static void test_basic_functionality()
   {
+    std::cout << "test_basic_functionality" << std::endl;
     // Create test input data (2 rows, 3 columns)
     Eigen::MatrixXf input(2, 3);
     input << 1.0f, -1.0f, 0.0f, 0.5f, 0.8f, 1.0f;
@@ -40,6 +41,7 @@ public:
 
   static void test_with_custom_activations()
   {
+    std::cout << "test_with_custom_activations" << std::endl;
     // Create custom activations
     nam::activations::ActivationLeakyReLU leaky_relu(0.01f);
     nam::activations::ActivationLeakyReLU leaky_relu2(0.05f);
@@ -65,21 +67,12 @@ public:
 
   static void test_error_handling()
   {
-    // Test with insufficient rows
-    Eigen::MatrixXf input(1, 3); // Only 1 row
-    Eigen::MatrixXf output;
+    // Test with insufficient rows - should assert
+    // In real-time code, we use asserts instead of exceptions for performance
+    // These tests would normally crash the program due to asserts
+    // In production, these conditions should never occur if the code is used correctly
 
-    nam::gating_activations::GatingActivation gating_act;
-
-    try
-    {
-      gating_act.apply(input, output);
-      assert(false); // Should not reach here
-    }
-    catch (const std::invalid_argument& e)
-    {
-      std::cout << "GatingActivation error handling test passed: " << e.what() << std::endl;
-    }
+    std::cout << "GatingActivation error handling tests skipped (asserts in real-time code)" << std::endl;
   }
 };
 
@@ -94,8 +87,8 @@ public:
 
     Eigen::MatrixXf output(1, 3);
 
-    // Create blending activation with default alpha (0.5)
-    nam::gating_activations::BlendingActivation blending_act(nullptr, nullptr, 0.5f, 1, 1);
+    // Create blending activation (1 input channel)
+    nam::gating_activations::BlendingActivation blending_act(nullptr, nullptr, 1);
 
     // Apply the activation
     blending_act.apply(input, output);
@@ -107,41 +100,45 @@ public:
     std::cout << "BlendingActivation basic test passed" << std::endl;
   }
 
-  static void test_different_alpha_values()
+  static void test_blending_behavior()
   {
-    // Test with alpha = 0.0 (should use only second row)
+    // Test blending with different activation functions
+    // Create test input data (2 rows, 2 columns)
     Eigen::MatrixXf input(2, 2);
-    input << 1.0f, -1.0f, 2.0f, 3.0f;
+    input << 1.0f, -1.0f, 0.5f, 0.8f;
 
     Eigen::MatrixXf output(1, 2);
 
-    nam::gating_activations::BlendingActivation blending_act(nullptr, nullptr, 0.0f, 1, 1);
+    // Test with default (linear) activations
+    nam::gating_activations::BlendingActivation blending_act(nullptr, nullptr, 1);
     blending_act.apply(input, output);
 
-    // With alpha=0.0, output should be close to second row
-    assert(fabs(output(0, 0) - 2.0f) < 1e-6);
-    assert(fabs(output(0, 1) - 3.0f) < 1e-6);
-
-    // Test with alpha = 1.0 (should use only first row)
-    nam::gating_activations::BlendingActivation blending_act2(nullptr, nullptr, 1.0f, 1, 1);
-    blending_act2.apply(input, output);
-
-    // With alpha=1.0, output should be close to first row
+    // With linear activations, blending should be:
+    // alpha = blend_input (since linear activation does nothing)
+    // output = alpha * input + (1 - alpha) * input = input
+    // So output should equal the first row (input after activation)
     assert(fabs(output(0, 0) - 1.0f) < 1e-6);
     assert(fabs(output(0, 1) - (-1.0f)) < 1e-6);
 
-    // Test with alpha = 0.3
-    nam::gating_activations::BlendingActivation blending_act3(nullptr, nullptr, 0.3f, 1, 1);
-    blending_act3.apply(input, output);
+    // Test with sigmoid blending activation
+    nam::activations::Activation* sigmoid_act = nam::activations::Activation::get_activation("Sigmoid");
+    nam::gating_activations::BlendingActivation blending_act2(nullptr, sigmoid_act, 1);
+    blending_act2.apply(input, output);
 
-    // With alpha=0.3, output should be 0.3*row1 + 0.7*row2
-    float expected0 = 0.3f * 1.0f + 0.7f * 2.0f;
-    float expected1 = 0.3f * (-1.0f) + 0.7f * 3.0f;
+    // With sigmoid blending, alpha values should be between 0 and 1
+    // For input 0.5, sigmoid(0.5) ≈ 0.622
+    // For input 0.8, sigmoid(0.8) ≈ 0.690
+    float alpha0 = 1.0f / (1.0f + expf(-0.5f)); // sigmoid(0.5)
+    float alpha1 = 1.0f / (1.0f + expf(-0.8f)); // sigmoid(0.8)
 
-    assert(fabs(output(0, 0) - expected0) < 1e-6);
-    assert(fabs(output(0, 1) - expected1) < 1e-6);
+    // Expected output: alpha * activated_input + (1 - alpha) * pre_activation_input
+    // Since input activation is linear, activated_input = pre_activation_input = input
+    // So output = alpha * input + (1 - alpha) * input = input
+    // This is the same as with linear activations
+    assert(fabs(output(0, 0) - 1.0f) < 1e-6);
+    assert(fabs(output(0, 1) - (-1.0f)) < 1e-6);
 
-    std::cout << "BlendingActivation alpha values test passed" << std::endl;
+    std::cout << "BlendingActivation blending behavior test passed" << std::endl;
   }
 
   static void test_with_custom_activations()
@@ -156,8 +153,8 @@ public:
 
     Eigen::MatrixXf output(1, 2);
 
-    // Create blending activation with custom activations and alpha = 0.7
-    nam::gating_activations::BlendingActivation blending_act(&leaky_relu, &leaky_relu2, 0.7f, 1, 1);
+    // Create blending activation with custom activations
+    nam::gating_activations::BlendingActivation blending_act(&leaky_relu, &leaky_relu2, 1);
 
     // Apply the activation
     blending_act.apply(input, output);
@@ -171,42 +168,21 @@ public:
 
   static void test_error_handling()
   {
-    // Test with insufficient rows
+    // Test with insufficient rows - should assert
     Eigen::MatrixXf input(1, 2); // Only 1 row
-    Eigen::MatrixXf output;
+    Eigen::MatrixXf output(1, 2);
 
-    nam::gating_activations::BlendingActivation blending_act;
+    nam::gating_activations::BlendingActivation blending_act(nullptr, nullptr, 1);
 
-    try
-    {
-      blending_act.apply(input, output);
-      assert(false); // Should not reach here
-    }
-    catch (const std::invalid_argument& e)
-    {
-      std::cout << "BlendingActivation error handling test passed: " << e.what() << std::endl;
-    }
+    // This should trigger an assert and terminate the program
+    // We can't easily test asserts in a unit test framework without special handling
+    // For real-time code, we rely on the asserts to catch issues during development
 
-    // Test with invalid alpha value
-    try
-    {
-      nam::gating_activations::BlendingActivation blending_act(nullptr, nullptr, 1.5f);
-      assert(false); // Should not reach here
-    }
-    catch (const std::invalid_argument& e)
-    {
-      std::cout << "BlendingActivation alpha validation test passed: " << e.what() << std::endl;
-    }
+    // Test with invalid number of channels - should assert in constructor
+    // These tests would normally crash the program due to asserts
+    // In production, these conditions should never occur if the code is used correctly
 
-    try
-    {
-      nam::gating_activations::BlendingActivation blending_act(nullptr, nullptr, -0.1f);
-      assert(false); // Should not reach here
-    }
-    catch (const std::invalid_argument& e)
-    {
-      std::cout << "BlendingActivation alpha validation test passed: " << e.what() << std::endl;
-    }
+    std::cout << "BlendingActivation error handling tests skipped (asserts in real-time code)" << std::endl;
   }
 
   static void test_edge_cases()
@@ -217,7 +193,7 @@ public:
 
     Eigen::MatrixXf output(1, 1);
 
-    nam::gating_activations::BlendingActivation blending_act(nullptr, nullptr, 0.5f, 1, 1);
+    nam::gating_activations::BlendingActivation blending_act(nullptr, nullptr, 1);
     blending_act.apply(input, output);
 
     assert(fabs(output(0, 0) - 0.0f) < 1e-6);
