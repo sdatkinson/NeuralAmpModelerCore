@@ -309,9 +309,10 @@ void test_layer_array_process_realtime_safe()
   const std::string activation = "ReLU";
   const bool gated = false;
   const bool head_bias = false;
+  const int groups = 1;
 
   auto layer_array = nam::wavenet::_LayerArray(
-    input_size, condition_size, head_size, channels, kernel_size, dilations, activation, gated, head_bias);
+    input_size, condition_size, head_size, channels, kernel_size, dilations, activation, gated, head_bias, groups);
 
   // Set weights: rechannel(1), layer(conv:1+1, input_mixin:1, 1x1:1+1), head_rechannel(1)
   std::vector<float> weights{1.0f, // Rechannel
@@ -387,14 +388,17 @@ void test_process_realtime_safe()
   const bool head_bias = false;
   const float head_scale = 1.0f;
   const bool with_head = false;
+  const int groups = 1;
 
   std::vector<nam::wavenet::LayerArrayParams> layer_array_params;
   // First layer array
-  layer_array_params.emplace_back(
-    input_size, condition_size, head_size, channels, kernel_size, std::vector<int>{1}, activation, gated, head_bias);
+  std::vector<int> dilations1{1};
+  layer_array_params.push_back(nam::wavenet::LayerArrayParams(
+    input_size, condition_size, head_size, channels, kernel_size, std::move(dilations1), activation, gated, head_bias, groups));
   // Second layer array (head_size of first must match channels of second)
-  layer_array_params.emplace_back(
-    head_size, condition_size, head_size, channels, kernel_size, std::vector<int>{1}, activation, gated, head_bias);
+  std::vector<int> dilations2{1};
+  layer_array_params.push_back(nam::wavenet::LayerArrayParams(
+    head_size, condition_size, head_size, channels, kernel_size, std::move(dilations2), activation, gated, head_bias, groups));
 
   // Weights: Array 0: rechannel(1), layer(conv:1+1, input_mixin:1, 1x1:1+1), head_rechannel(1)
   //          Array 1: same structure
