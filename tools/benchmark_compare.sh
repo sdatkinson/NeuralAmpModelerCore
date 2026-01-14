@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Script to compare performance of current branch against main
-# Usage: ./tools/benchmark_compare.sh [--model MODEL_PATH]
+# Script to compare performance of current branch against another branch (default: main)
+# Usage: ./tools/benchmark_compare.sh [--model MODEL_PATH] [--branch BRANCH_NAME]
 
 set -e  # Exit on error
 
@@ -9,6 +9,7 @@ MODEL_PATH="example_models/wavenet_a1_standard.nam"
 BUILD_DIR="build"
 BENCHMARK_EXEC="build/tools/benchmodel"
 NUM_RUNS=10
+COMPARE_BRANCH="main"  # Default branch to compare against
 # Report file will be set with timestamp in main()
 
 # Colors for output
@@ -129,22 +130,23 @@ calculate_stats() {
 
 # Function to generate report
 generate_report() {
-    local main_results="$1"
+    local compare_results="$1"
     local current_results="$2"
     local current_branch="$3"
-    local main_commit="$4"
-    local current_commit="$5"
-    local report_file="$6"
+    local compare_branch="$4"
+    local compare_commit="$5"
+    local current_commit="$6"
+    local report_file="$7"
     
     echo "Generating performance comparison report..."
     
     # Calculate statistics for both branches
-    read main_mean main_median main_min main_max main_stddev <<< $(calculate_stats "$main_results")
+    read compare_mean compare_median compare_min compare_max compare_stddev <<< $(calculate_stats "$compare_results")
     read current_mean current_median current_min current_max current_stddev <<< $(calculate_stats "$current_results")
     
     # Calculate percentage difference
-    diff_mean=$(echo "scale=2; (($current_mean - $main_mean) / $main_mean) * 100" | bc)
-    diff_median=$(echo "scale=2; (($current_median - $main_median) / $main_median) * 100" | bc)
+    diff_mean=$(echo "scale=2; (($current_mean - $compare_mean) / $compare_mean) * 100" | bc)
+    diff_median=$(echo "scale=2; (($current_median - $compare_median) / $compare_median) * 100" | bc)
     
     # Generate report
     {
@@ -157,14 +159,14 @@ generate_report() {
         echo "Date: $(date)"
         echo ""
         echo "----------------------------------------"
-        echo "Branch: main"
+        echo "Branch: $compare_branch"
         echo "----------------------------------------"
-        echo "Commit:   ${main_commit}"
-        echo "Mean:     ${main_mean} ms"
-        echo "Median:   ${main_median} ms"
-        echo "Min:      ${main_min} ms"
-        echo "Max:      ${main_max} ms"
-        echo "Std Dev:  ${main_stddev} ms"
+        echo "Commit:   ${compare_commit}"
+        echo "Mean:     ${compare_mean} ms"
+        echo "Median:   ${compare_median} ms"
+        echo "Min:      ${compare_min} ms"
+        echo "Max:      ${compare_max} ms"
+        echo "Std Dev:  ${compare_stddev} ms"
         echo ""
         echo "----------------------------------------"
         echo "Branch: $current_branch"
@@ -180,18 +182,18 @@ generate_report() {
         echo "Comparison"
         echo "----------------------------------------"
         if (( $(echo "$diff_mean > 0" | bc -l) )); then
-            echo "Mean:     ${current_branch} is ${diff_mean}% SLOWER than main"
+            echo "Mean:     ${current_branch} is ${diff_mean}% SLOWER than ${compare_branch}"
         else
-            echo "Mean:     ${current_branch} is ${diff_mean#-}% FASTER than main"
+            echo "Mean:     ${current_branch} is ${diff_mean#-}% FASTER than ${compare_branch}"
         fi
         if (( $(echo "$diff_median > 0" | bc -l) )); then
-            echo "Median:   ${current_branch} is ${diff_median}% SLOWER than main"
+            echo "Median:   ${current_branch} is ${diff_median}% SLOWER than ${compare_branch}"
         else
-            echo "Median:   ${current_branch} is ${diff_median#-}% FASTER than main"
+            echo "Median:   ${current_branch} is ${diff_median#-}% FASTER than ${compare_branch}"
         fi
         echo ""
-        echo "Raw Results (main):"
-        cat "$main_results" | awk '{printf "  %.3f ms\n", $1}'
+        echo "Raw Results ($compare_branch):"
+        cat "$compare_results" | awk '{printf "  %.3f ms\n", $1}'
         echo ""
         echo "Raw Results ($current_branch):"
         cat "$current_results" | awk '{printf "  %.3f ms\n", $1}'
@@ -216,11 +218,21 @@ main() {
                 MODEL_PATH="$2"
                 shift 2
                 ;;
+            --branch)
+                if [ -z "$2" ]; then
+                    echo -e "${RED}Error: --branch requires a branch name argument${NC}"
+                    echo "Use --help for usage information"
+                    exit 1
+                fi
+                COMPARE_BRANCH="$2"
+                shift 2
+                ;;
             --help|-h)
-                echo "Usage: $0 [--model MODEL_PATH]"
+                echo "Usage: $0 [--model MODEL_PATH] [--branch BRANCH_NAME]"
                 echo ""
                 echo "Options:"
                 echo "  --model MODEL_PATH    Path to the model file to benchmark (default: example_models/wavenet_a1_standard.nam)"
+                echo "  --branch BRANCH_NAME  Branch to compare against (default: main)"
                 echo "  --help, -h            Show this help message"
                 exit 0
                 ;;
@@ -246,13 +258,13 @@ main() {
     # Get current branch
     current_branch=$(git rev-parse --abbrev-ref HEAD)
     
-    if [ "$current_branch" = "main" ]; then
-        echo -e "${RED}Error: Already on main branch. Please checkout a different branch first.${NC}"
+    if [ "$current_branch" = "$COMPARE_BRANCH" ]; then
+        echo -e "${RED}Error: Already on $COMPARE_BRANCH branch. Please checkout a different branch first.${NC}"
         exit 1
     fi
     
     echo -e "${YELLOW}Current branch: ${current_branch}${NC}"
-    echo -e "${YELLOW}Comparing against: main${NC}"
+    echo -e "${YELLOW}Comparing against: ${COMPARE_BRANCH}${NC}"
     echo ""
     
     # Generate timestamped report filename
@@ -260,11 +272,11 @@ main() {
     REPORT_FILE="benchmark_report_${TIMESTAMP}.txt"
     
     # Create temporary files for results
-    main_results=$(mktemp)
+    compare_results=$(mktemp)
     current_results=$(mktemp)
     
     # Variables to store commit hashes
-    main_commit=""
+    compare_commit=""
     current_commit=""
     
     # Save untracked model file if it exists (to preserve it across branch switches)
@@ -280,7 +292,7 @@ main() {
     
     # Cleanup function
     cleanup() {
-        rm -f "$main_results" "$current_results"
+        rm -f "$compare_results" "$current_results"
         # Restore original branch if we're not on it
         if [ -n "$current_branch" ] && [ "$(git rev-parse --abbrev-ref HEAD)" != "$current_branch" ]; then
             git checkout "$current_branch" > /dev/null 2>&1 || true
@@ -299,23 +311,23 @@ main() {
     }
     trap cleanup EXIT
     
-    # Test main branch
-    echo -e "${YELLOW}=== Testing main branch ===${NC}"
+    # Test comparison branch
+    echo -e "${YELLOW}=== Testing ${COMPARE_BRANCH} branch ===${NC}"
     # Stash any uncommitted changes (only if there are any)
     if ! git diff-index --quiet HEAD -- 2>/dev/null || ! git diff-index --quiet --cached HEAD -- 2>/dev/null; then
         git stash push -m "benchmark_compare.sh temporary stash" > /dev/null 2>&1
         stashed=true
     fi
-    # Restore model file to main branch if we backed it up (so it's available for benchmarking)
+    # Restore model file to comparison branch if we backed it up (so it's available for benchmarking)
     if [ -n "$model_backup" ] && [ -f "$model_backup" ]; then
         mkdir -p "$(dirname "$MODEL_PATH")"
         cp "$model_backup" "$MODEL_PATH"
     fi
     # Use --force to allow overwriting untracked files if needed
-    git checkout main --force 2>/dev/null || git checkout main
-    main_commit=$(git rev-parse HEAD)
-    echo "Commit: ${main_commit}"
-    run_benchmark "main" "$main_results"
+    git checkout "$COMPARE_BRANCH" --force 2>/dev/null || git checkout "$COMPARE_BRANCH"
+    compare_commit=$(git rev-parse HEAD)
+    echo "Commit: ${compare_commit}"
+    run_benchmark "$COMPARE_BRANCH" "$compare_results"
     
     # Test current branch
     echo -e "${YELLOW}=== Testing ${current_branch} branch ===${NC}"
@@ -334,7 +346,7 @@ main() {
     run_benchmark "$current_branch" "$current_results"
     
     # Generate report
-    generate_report "$main_results" "$current_results" "$current_branch" "$main_commit" "$current_commit" "$REPORT_FILE"
+    generate_report "$compare_results" "$current_results" "$current_branch" "$COMPARE_BRANCH" "$compare_commit" "$current_commit" "$REPORT_FILE"
     
     echo -e "${GREEN}Benchmark comparison complete!${NC}"
 }
