@@ -19,14 +19,14 @@ public:
   {
     // Create a test case where input activation changes the values
     Eigen::MatrixXf input(2, 1);
-    input << -2.0f, 0.5f;  // Negative input value
+    input << -2.0f, 0.5f; // Negative input value
 
     Eigen::MatrixXf output(1, 1);
 
     // Use ReLU activation which will set negative values to 0
     nam::activations::ActivationReLU relu_act;
     nam::gating_activations::BlendingActivation blending_act(&relu_act, nullptr, 1);
-    
+
     // Apply the activation
     blending_act.apply(input, output);
 
@@ -41,7 +41,7 @@ public:
     // 3. Apply linear activation to blend: alpha = 0.5f (no change)
     // 4. Compute output: alpha * activated_input + (1 - alpha) * input_buffer
     //    = 0.5f * 0.0f + 0.5f * (-2.0f) = -1.0f
-    
+
     float expected = 0.5f * 0.0f + 0.5f * (-2.0f); // = -1.0f
     assert(fabs(output(0, 0) - expected) < 1e-6);
 
@@ -60,7 +60,7 @@ public:
     // Use LeakyReLU with slope 0.1
     nam::activations::ActivationLeakyReLU leaky_relu(0.1f);
     nam::gating_activations::BlendingActivation blending_act(&leaky_relu, nullptr, 1);
-    
+
     blending_act.apply(input, output);
 
     std::cout << "LeakyReLU buffer test:" << std::endl;
@@ -74,10 +74,10 @@ public:
     // 3. Apply linear activation to blend: alpha = 0.8f
     // 4. Compute output: alpha * activated_input + (1 - alpha) * input_buffer
     //    = 0.8f * (-0.1f) + 0.2f * (-1.0f) = -0.08f - 0.2f = -0.28f
-    
+
     float activated_input = (-1.0f > 0) ? -1.0f : 0.1f * -1.0f; // = -0.1f
     float expected = 0.8f * activated_input + 0.2f * (-1.0f); // = -0.28f
-    
+
     assert(fabs(output(0, 0) - expected) < 1e-6);
 
     std::cout << "Expected: " << expected << std::endl;

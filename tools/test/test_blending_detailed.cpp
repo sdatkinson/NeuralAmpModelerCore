@@ -19,10 +19,10 @@ public:
   {
     // Test case: 2 input channels, so we need 4 total input channels (2*channels in)
     Eigen::MatrixXf input(4, 2); // 4 rows (2 input + 2 blending), 2 samples
-    input << 1.0f, 2.0f,   // Input channel 1
-             3.0f, 4.0f,   // Input channel 2
-             0.5f, 0.8f,   // Blending channel 1
-             0.3f, 0.6f;   // Blending channel 2
+    input << 1.0f, 2.0f, // Input channel 1
+      3.0f, 4.0f, // Input channel 2
+      0.5f, 0.8f, // Blending channel 1
+      0.3f, 0.6f; // Blending channel 2
 
     Eigen::MatrixXf output(2, 2); // 2 output channels, 2 samples
 
@@ -58,12 +58,12 @@ public:
     // For blend input 0.8, sigmoid(0.8) ≈ 0.690
     // For blend input 0.3, sigmoid(0.3) ≈ 0.574
     // For blend input 0.6, sigmoid(0.6) ≈ 0.646
-    
+
     float alpha0_0 = 1.0f / (1.0f + expf(-0.5f)); // sigmoid(0.5)
     float alpha1_0 = 1.0f / (1.0f + expf(-0.8f)); // sigmoid(0.8)
     float alpha0_1 = 1.0f / (1.0f + expf(-0.3f)); // sigmoid(0.3)
     float alpha1_1 = 1.0f / (1.0f + expf(-0.6f)); // sigmoid(0.6)
-    
+
     // Expected output: alpha * activated_input + (1 - alpha) * pre_activation_input
     // Since input activation is linear, activated_input = pre_activation_input = input
     // So output = alpha * input + (1 - alpha) * input = input
@@ -87,7 +87,7 @@ public:
     // Test with ReLU activation on input (which will change values < 0 to 0)
     nam::activations::ActivationReLU relu_act;
     nam::gating_activations::BlendingActivation blending_act(&relu_act, nullptr, 1);
-    
+
     blending_act.apply(input, output);
 
     // With input=2.0, ReLU(2.0)=2.0, blend=0.5

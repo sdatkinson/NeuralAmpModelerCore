@@ -17,7 +17,6 @@ class TestGatingActivation
 public:
   static void test_basic_functionality()
   {
-    std::cout << "test_basic_functionality" << std::endl;
     // Create test input data (2 rows, 3 columns)
     Eigen::MatrixXf input(2, 3);
     input << 1.0f, -1.0f, 0.0f, 0.5f, 0.8f, 1.0f;
@@ -41,7 +40,6 @@ public:
 
   static void test_with_custom_activations()
   {
-    std::cout << "test_with_custom_activations" << std::endl;
     // Create custom activations
     nam::activations::ActivationLeakyReLU leaky_relu(0.01f);
     nam::activations::ActivationLeakyReLU leaky_relu2(0.05f);
