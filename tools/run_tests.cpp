@@ -7,6 +7,7 @@
 #include "test/test_get_dsp.cpp"
 #include "test/test_wavenet.cpp"
 #include "test/test_fast_lut.cpp"
+#include "test/test_gating_activations.cpp"
 
 int main()
 {
@@ -38,6 +39,17 @@ int main()
 
   test_lut::TestFastLUT::test_sigmoid();
   test_lut::TestFastLUT::test_tanh();
+
+  // Gating activations tests
+  test_gating_activations::TestGatingActivation::test_basic_functionality();
+  test_gating_activations::TestGatingActivation::test_with_custom_activations();
+  test_gating_activations::TestGatingActivation::test_error_handling();
+  
+  test_gating_activations::TestBlendingActivation::test_basic_functionality();
+  test_gating_activations::TestBlendingActivation::test_different_alpha_values();
+  test_gating_activations::TestBlendingActivation::test_with_custom_activations();
+  test_gating_activations::TestBlendingActivation::test_error_handling();
+  test_gating_activations::TestBlendingActivation::test_edge_cases();
 
   std::cout << "Success!" << std::endl;
   return 0;
