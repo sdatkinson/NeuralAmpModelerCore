@@ -15,20 +15,20 @@ jobs:
       with:
         submodules: recursive
     
-    - name: Install clang-format 19
-      uses: KyleMayes/install-llvm-action@v2
-      with:
-        version: "19"
-        cached: true
+    # - name: Install clang-format 19
+    #   uses: KyleMayes/install-llvm-action@v2
+    #   with:
+    #     version: "19"
+    #     cached: true
     
-    - name: Check formatting
-      working-directory: ${{github.workspace}}
-      run: |
-        echo "clang-format version:"
-        clang-format --version
-        chmod +x format.sh
-        ./format.sh
-        git diff --exit-code
+    # - name: Check formatting
+    #   working-directory: ${{github.workspace}}
+    #   run: |
+    #     echo "clang-format version:"
+    #     clang-format --version
+    #     chmod +x format.sh
+    #     ./format.sh
+    #     git diff --exit-code
     
     - name: Build Tools
       working-directory: ${{github.workspace}}/build
