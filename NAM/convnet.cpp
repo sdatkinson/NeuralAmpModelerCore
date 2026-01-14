@@ -73,7 +73,7 @@ void nam::convnet::ConvNetBlock::Process(const Eigen::MatrixXf& input, const int
   this->conv.Process(input, num_frames);
 
   // Get output from Conv1D (this is a block reference to conv's _output buffer)
-  auto conv_output_block = this->conv.GetOutput(num_frames);
+  auto conv_output_block = this->conv.GetOutput().leftCols(num_frames);
 
   // Copy conv output to our own output buffer
   this->_output.leftCols(num_frames) = conv_output_block;
@@ -103,7 +103,7 @@ void nam::convnet::ConvNetBlock::process_(const Eigen::MatrixXf& input, Eigen::M
   this->conv.Process(input_slice, (int)ncols);
 
   // Get output from Conv1D (this is a block reference to _output buffer)
-  auto conv_output_block = this->conv.GetOutput((int)ncols);
+  auto conv_output_block = this->conv.GetOutput().leftCols((int)ncols);
 
   // For batchnorm, we need a matrix reference (not a block)
   // Create a temporary matrix from the block, process it, then copy back

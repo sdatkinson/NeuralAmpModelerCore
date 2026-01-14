@@ -178,14 +178,12 @@ class Conv1x1
 {
 public:
   Conv1x1(const int in_channels, const int out_channels, const bool _bias);
-  // Get a view of the first `num_frames` columns of the internal output buffer
-  Eigen::Block<Eigen::MatrixXf> GetOutput(const int num_frames);
   // Get the entire internal output buffer. This is intended for internal wiring
   // between layers/arrays; callers should treat the buffer as pre-allocated
   // storage and only consider the first `num_frames` columns valid for a given
-  // processing call.
-  Eigen::MatrixXf& GetOutputBuffer() { return _output; }
-  const Eigen::MatrixXf& GetOutputBuffer() const { return _output; }
+  // processing call. Slice with .leftCols(num_frames) as needed.
+  Eigen::MatrixXf& GetOutput() { return _output; }
+  const Eigen::MatrixXf& GetOutput() const { return _output; }
   void SetMaxBufferSize(const int maxBufferSize);
   void set_weights_(std::vector<float>::iterator& weights);
   // :param input: (N,Cin) or (Cin,)

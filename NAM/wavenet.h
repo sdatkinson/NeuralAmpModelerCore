@@ -41,16 +41,15 @@ public:
   long get_kernel_size() const { return this->_conv.get_kernel_size(); };
 
   // Get output to next layer (residual connection: input + _1x1 output)
-  Eigen::Block<Eigen::MatrixXf> GetOutputNextLayer(const int num_frames);
+  // Returns the full pre-allocated buffer; only the first `num_frames` columns
+  // are valid for a given processing call. Slice with .leftCols(num_frames) as needed.
+  Eigen::MatrixXf& GetOutputNextLayer() { return this->_output_next_layer; }
+  const Eigen::MatrixXf& GetOutputNextLayer() const { return this->_output_next_layer; }
   // Get output to head (skip connection: activated conv output)
-  Eigen::Block<Eigen::MatrixXf> GetOutputHead(const int num_frames);
-  // Get full internal output buffers (entire pre-allocated range). These are
-  // intended for internal wiring; only the first `num_frames` columns are
-  // considered valid for a given processing call.
-  Eigen::MatrixXf& GetOutputNextLayerFull() { return this->_output_next_layer; }
-  const Eigen::MatrixXf& GetOutputNextLayerFull() const { return this->_output_next_layer; }
-  Eigen::MatrixXf& GetOutputHeadFull() { return this->_output_head; }
-  const Eigen::MatrixXf& GetOutputHeadFull() const { return this->_output_head; }
+  // Returns the full pre-allocated buffer; only the first `num_frames` columns
+  // are valid for a given processing call. Slice with .leftCols(num_frames) as needed.
+  Eigen::MatrixXf& GetOutputHead() { return this->_output_head; }
+  const Eigen::MatrixXf& GetOutputHead() const { return this->_output_head; }
 
   // Access Conv1D for Reset() propagation (needed for _LayerArray)
   Conv1D& get_conv() { return _conv; }
@@ -124,16 +123,15 @@ public:
                const Eigen::MatrixXf& head_inputs, // Short - from previous layer array
                const int num_frames);
   // Get output from last layer (for next layer array)
-  Eigen::Block<Eigen::MatrixXf> GetLayerOutputs(const int num_frames);
+  // Returns the full pre-allocated buffer; only the first `num_frames` columns
+  // are valid for a given processing call. Slice with .leftCols(num_frames) as needed.
+  Eigen::MatrixXf& GetLayerOutputs() { return this->_layer_outputs; }
+  const Eigen::MatrixXf& GetLayerOutputs() const { return this->_layer_outputs; }
   // Get head outputs (post head-rechannel)
-  Eigen::Block<Eigen::MatrixXf> GetHeadOutputs(const int num_frames);
-  // Get full internal output buffers (entire pre-allocated range). These are
-  // intended for internal wiring between layer arrays; only the first
-  // `num_frames` columns are considered valid for a given processing call.
-  Eigen::MatrixXf& GetLayerOutputsFull() { return this->_layer_outputs; }
-  const Eigen::MatrixXf& GetLayerOutputsFull() const { return this->_layer_outputs; }
-  Eigen::MatrixXf& GetHeadOutputsFull();
-  const Eigen::MatrixXf& GetHeadOutputsFull() const;
+  // Returns the full pre-allocated buffer; only the first `num_frames` columns
+  // are valid for a given processing call. Slice with .leftCols(num_frames) as needed.
+  Eigen::MatrixXf& GetHeadOutputs();
+  const Eigen::MatrixXf& GetHeadOutputs() const;
   void set_weights_(std::vector<float>::iterator& it);
 
   // "Zero-indexed" receptive field.

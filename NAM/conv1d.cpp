@@ -64,10 +64,6 @@ void Conv1D::SetMaxBufferSize(const int maxBufferSize)
   _output.setZero();
 }
 
-Eigen::Block<Eigen::MatrixXf> Conv1D::GetOutput(const int num_frames)
-{
-  return _output.block(0, 0, _output.rows(), num_frames);
-}
 
 void Conv1D::Process(const Eigen::MatrixXf& input, const int num_frames)
 {

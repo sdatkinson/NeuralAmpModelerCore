@@ -65,7 +65,7 @@ void test_reset()
 
   // After Reset, GetOutput should work
   // (Even thoguh GetOutput() doesn't make sense to call before Process())
-  auto output = conv.GetOutput(maxBufferSize);
+  auto output = conv.GetOutput().leftCols(maxBufferSize);
   assert(output.rows() == out_channels);
   assert(output.cols() == maxBufferSize);
 }
@@ -103,7 +103,7 @@ void test_process_basic()
   conv.Process(input, num_frames);
 
   // Get output
-  auto output = conv.GetOutput(num_frames);
+  auto output = conv.GetOutput().leftCols(num_frames);
 
   // Expected outputs (with zero padding for first frame):
   // output[0] = 1.0 * 0.0 (zero-padding) + 2.0 * 1.0 = 2.0
@@ -145,7 +145,7 @@ void test_process_with_bias()
   input(0, 1) = 3.0f;
 
   conv.Process(input, num_frames);
-  auto output = conv.GetOutput(num_frames);
+  auto output = conv.GetOutput().leftCols(num_frames);
 
   // Should have bias added
   assert(output.rows() == out_channels);
@@ -197,7 +197,7 @@ void test_process_multichannel()
   input(1, 1) = 4.0f;
 
   conv.Process(input, num_frames);
-  auto output = conv.GetOutput(num_frames);
+  auto output = conv.GetOutput().leftCols(num_frames);
 
   assert(output.rows() == out_channels);
   assert(output.cols() == num_frames);
@@ -238,7 +238,7 @@ void test_process_dilation()
   input(0, 3) = 4.0f;
 
   conv.Process(input, num_frames);
-  auto output = conv.GetOutput(num_frames);
+  auto output = conv.GetOutput().leftCols(num_frames);
 
   assert(output.rows() == out_channels);
   assert(output.cols() == num_frames);
@@ -283,7 +283,7 @@ void test_process_multiple_calls()
   {
     conv.Process(input, num_frames);
   }
-  auto output = conv.GetOutput(num_frames);
+  auto output = conv.GetOutput().leftCols(num_frames);
   assert(output.rows() == out_channels);
   assert(output.cols() == num_frames);
   // After 3 calls, the last call processes input [1, 2]
@@ -325,10 +325,10 @@ void test_get_output_different_sizes()
   conv.Process(input, 4);
 
   // Get different sized outputs
-  auto output_all = conv.GetOutput(4);
+  auto output_all = conv.GetOutput().leftCols(4);
   assert(output_all.cols() == 4);
 
-  auto output_partial = conv.GetOutput(2);
+  auto output_partial = conv.GetOutput().leftCols(2);
   assert(output_partial.cols() == 2);
   assert(output_partial.rows() == out_channels);
 }
@@ -398,12 +398,12 @@ void test_reset_multiple()
   // Reset with different buffer sizes
   conv.SetMaxBufferSize(64);
   {
-    auto output1 = conv.GetOutput(64);
+    auto output1 = conv.GetOutput().leftCols(64);
     assert(output1.cols() == 64);
   } // output1 goes out of scope here, releasing the block reference
 
   conv.SetMaxBufferSize(128);
-  auto output2 = conv.GetOutput(128);
+  auto output2 = conv.GetOutput().leftCols(128);
   assert(output2.cols() == 128);
 }
 }; // namespace test_conv1d

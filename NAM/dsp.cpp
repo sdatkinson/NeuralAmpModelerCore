@@ -214,10 +214,6 @@ nam::Conv1x1::Conv1x1(const int in_channels, const int out_channels, const bool 
     this->_bias.resize(out_channels);
 }
 
-Eigen::Block<Eigen::MatrixXf> nam::Conv1x1::GetOutput(const int num_frames)
-{
-  return _output.block(0, 0, _output.rows(), num_frames);
-}
 
 void nam::Conv1x1::SetMaxBufferSize(const int maxBufferSize)
 {

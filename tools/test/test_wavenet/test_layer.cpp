@@ -58,8 +58,8 @@ void test_gated()
 
   layer.Process(input, condition, (int)numFrames);
   // Get outputs
-  auto layer_output = layer.GetOutputNextLayer((int)numFrames);
-  auto head_output = layer.GetOutputHead((int)numFrames);
+  auto layer_output = layer.GetOutputNextLayer().leftCols((int)numFrames);
+  auto head_output = layer.GetOutputHead().leftCols((int)numFrames);
   // Copy to test buffers for verification
   output.leftCols((int)numFrames) = layer_output;
   headInput.leftCols((int)numFrames) = head_output;
@@ -138,8 +138,8 @@ void test_non_gated_layer()
 
   layer.Process(input, condition, numFrames);
 
-  auto layer_output = layer.GetOutputNextLayer(numFrames);
-  auto head_output = layer.GetOutputHead(numFrames);
+  auto layer_output = layer.GetOutputNextLayer().leftCols(numFrames);
+  auto head_output = layer.GetOutputHead().leftCols(numFrames);
 
   assert(layer_output.rows() == channels);
   assert(layer_output.cols() == numFrames);
@@ -188,7 +188,7 @@ void test_layer_activations()
     condition.fill(0.5f);
 
     layer.Process(input, condition, numFrames);
-    auto head_output = layer.GetOutputHead(numFrames);
+    auto head_output = layer.GetOutputHead().leftCols(numFrames);
 
     // Should have applied Tanh activation, so output should be between -1 and 1.
     assert(head_output(0, 0) <= 1.0f);
@@ -252,8 +252,8 @@ void test_layer_multichannel()
 
   layer.Process(input, condition, numFrames);
 
-  auto layer_output = layer.GetOutputNextLayer(numFrames);
-  auto head_output = layer.GetOutputHead(numFrames);
+  auto layer_output = layer.GetOutputNextLayer().leftCols(numFrames);
+  auto head_output = layer.GetOutputHead().leftCols(numFrames);
 
   assert(layer_output.rows() == channels);
   assert(layer_output.cols() == numFrames);

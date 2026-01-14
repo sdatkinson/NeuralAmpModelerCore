@@ -57,8 +57,8 @@ void test_layer_array_basic()
 
   layer_array.Process(layer_inputs, condition, numFrames);
 
-  auto layer_outputs = layer_array.GetLayerOutputs(numFrames);
-  auto head_outputs = layer_array.GetHeadOutputs(numFrames);
+  auto layer_outputs = layer_array.GetLayerOutputs().leftCols(numFrames);
+  auto head_outputs = layer_array.GetHeadOutputs().leftCols(numFrames);
 
   assert(layer_outputs.rows() == channels);
   assert(layer_outputs.cols() == numFrames);
@@ -124,7 +124,7 @@ void test_layer_array_with_head_input()
 
   layer_array.Process(layer_inputs, condition, head_inputs, numFrames);
 
-  auto head_outputs = layer_array.GetHeadOutputs(numFrames);
+  auto head_outputs = layer_array.GetHeadOutputs().leftCols(numFrames);
   assert(head_outputs.rows() == head_size);
   assert(head_outputs.cols() == numFrames);
 }

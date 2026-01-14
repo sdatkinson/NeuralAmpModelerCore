@@ -223,7 +223,7 @@ void test_conv1d_process_realtime_safe()
     }
 
     // Verify output is valid
-    auto output = conv.GetOutput(buffer_size);
+    auto output = conv.GetOutput().leftCols(buffer_size);
     assert(output.rows() == out_channels && output.cols() == buffer_size);
     assert(std::isfinite(output(0, 0)));
   }
@@ -290,7 +290,7 @@ void test_layer_process_realtime_safe()
     }
 
     // Verify output is valid
-    auto output = layer.GetOutputNextLayer(buffer_size);
+    auto output = layer.GetOutputNextLayer().leftCols(buffer_size);
     assert(output.rows() == channels && output.cols() == buffer_size);
     assert(std::isfinite(output(0, 0)));
   }
@@ -363,8 +363,8 @@ void test_layer_array_process_realtime_safe()
     }
 
     // Verify output is valid
-    auto layer_outputs = layer_array.GetLayerOutputs(buffer_size);
-    auto head_outputs = layer_array.GetHeadOutputs(buffer_size);
+    auto layer_outputs = layer_array.GetLayerOutputs().leftCols(buffer_size);
+    auto head_outputs = layer_array.GetHeadOutputs().leftCols(buffer_size);
     assert(layer_outputs.rows() == channels && layer_outputs.cols() == buffer_size);
     assert(head_outputs.rows() == head_size && head_outputs.cols() == buffer_size);
     assert(std::isfinite(layer_outputs(0, 0)));

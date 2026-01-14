@@ -23,10 +23,12 @@ public:
   // :param sampleRate: Unused, for interface consistency
   // :param maxBufferSize: Maximum buffer size for output buffer and to size ring buffer
   void SetMaxBufferSize(const int maxBufferSize);
-  // Get output buffer (similar to Conv1x1::GetOutput())
-  // :param num_frames: Number of frames to return
-  // :return: Block reference to output buffer
-  Eigen::Block<Eigen::MatrixXf> GetOutput(const int num_frames);
+  // Get the entire internal output buffer. This is intended for internal wiring
+  // between layers; callers should treat the buffer as pre-allocated storage
+  // and only consider the first `num_frames` columns valid for a given
+  // processing call. Slice with .leftCols(num_frames) as needed.
+  Eigen::MatrixXf& GetOutput() { return _output; }
+  const Eigen::MatrixXf& GetOutput() const { return _output; }
   // Process input and write to internal output buffer
   // :param input: Input matrix (channels x num_frames)
   // :param num_frames: Number of frames to process

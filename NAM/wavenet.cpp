@@ -35,7 +35,8 @@ void nam::wavenet::_Layer::Process(const Eigen::MatrixXf& input, const Eigen::Ma
   // Step 1: input convolutions
   this->_conv.Process(input, num_frames);
   this->_input_mixin.process_(condition, num_frames);
-  this->_z.leftCols(num_frames).noalias() = this->_conv.GetOutput(num_frames) + _input_mixin.GetOutput(num_frames);
+  this->_z.leftCols(num_frames).noalias() =
+    this->_conv.GetOutput().leftCols(num_frames) + _input_mixin.GetOutput().leftCols(num_frames);
 
   // Step 2 & 3: activation and 1x1
   if (!this->_gated)
@@ -62,19 +63,10 @@ void nam::wavenet::_Layer::Process(const Eigen::MatrixXf& input, const Eigen::Ma
   else
     this->_output_head.leftCols(num_frames).noalias() = this->_z.topRows(channels).leftCols(num_frames);
   // Store output to next layer (residual connection: input + _1x1 output)
-  this->_output_next_layer.leftCols(num_frames).noalias() = input.leftCols(num_frames) + _1x1.GetOutput(num_frames);
+  this->_output_next_layer.leftCols(num_frames).noalias() =
+    input.leftCols(num_frames) + _1x1.GetOutput().leftCols(num_frames);
 }
 
-Eigen::Block<Eigen::MatrixXf> nam::wavenet::_Layer::GetOutputNextLayer(const int num_frames)
-{
-  // FIXME use leftCols?
-  return this->_output_next_layer.block(0, 0, this->_output_next_layer.rows(), num_frames);
-}
-
-Eigen::Block<Eigen::MatrixXf> nam::wavenet::_Layer::GetOutputHead(const int num_frames)
-{
-  return this->_output_head.block(0, 0, this->_output_head.rows(), num_frames);
-}
 
 // LayerArray =================================================================
 
@@ -133,7 +125,7 @@ void nam::wavenet::_LayerArray::ProcessInner(const Eigen::MatrixXf& layer_inputs
 {
   // Process rechannel and get output
   this->_rechannel.process_(layer_inputs, num_frames);
-  Eigen::MatrixXf& rechannel_output = _rechannel.GetOutputBuffer();
+  Eigen::MatrixXf& rechannel_output = _rechannel.GetOutput();
 
   // Process layers
   for (size_t i = 0; i < this->_layers.size(); i++)
@@ -148,40 +140,32 @@ void nam::wavenet::_LayerArray::ProcessInner(const Eigen::MatrixXf& layer_inputs
     else
     {
       // Subsequent layers consume the full output buffer of the previous layer
-      Eigen::MatrixXf& prev_output = this->_layers[i - 1].GetOutputNextLayerFull();
+      Eigen::MatrixXf& prev_output = this->_layers[i - 1].GetOutputNextLayer();
       this->_layers[i].Process(prev_output, condition, num_frames);
     }
 
     // Accumulate head output from this layer
-    this->_head_inputs.leftCols(num_frames).noalias() += this->_layers[i].GetOutputHead(num_frames);
+    this->_head_inputs.leftCols(num_frames).noalias() += this->_layers[i].GetOutputHead().leftCols(num_frames);
   }
 
   // Store output from last layer
   const size_t last_layer = this->_layers.size() - 1;
-  this->_layer_outputs.leftCols(num_frames).noalias() = this->_layers[last_layer].GetOutputNextLayer(num_frames);
+  this->_layer_outputs.leftCols(num_frames).noalias() =
+    this->_layers[last_layer].GetOutputNextLayer().leftCols(num_frames);
 
   // Process head rechannel
   _head_rechannel.process_(this->_head_inputs, num_frames);
 }
 
-Eigen::Block<Eigen::MatrixXf> nam::wavenet::_LayerArray::GetLayerOutputs(const int num_frames)
+
+Eigen::MatrixXf& nam::wavenet::_LayerArray::GetHeadOutputs()
 {
-  return this->_layer_outputs.block(0, 0, this->_layer_outputs.rows(), num_frames);
+  return this->_head_rechannel.GetOutput();
 }
 
-Eigen::Block<Eigen::MatrixXf> nam::wavenet::_LayerArray::GetHeadOutputs(const int num_frames)
+const Eigen::MatrixXf& nam::wavenet::_LayerArray::GetHeadOutputs() const
 {
-  return this->_head_rechannel.GetOutput(num_frames);
-}
-
-Eigen::MatrixXf& nam::wavenet::_LayerArray::GetHeadOutputsFull()
-{
-  return this->_head_rechannel.GetOutputBuffer();
-}
-
-const Eigen::MatrixXf& nam::wavenet::_LayerArray::GetHeadOutputsFull() const
-{
-  return this->_head_rechannel.GetOutputBuffer();
+  return this->_head_rechannel.GetOutput();
 }
 
 
@@ -285,15 +269,15 @@ void nam::wavenet::WaveNet::process(NAM_SAMPLE* input, NAM_SAMPLE* output, const
       // Subsequent layer arrays - use outputs from previous layer array.
       // Pass full buffers and slice inside the callee to avoid passing Blocks
       // across API boundaries (which can cause Eigen to allocate temporaries).
-      Eigen::MatrixXf& prev_layer_outputs = this->_layer_arrays[i - 1].GetLayerOutputsFull();
-      Eigen::MatrixXf& prev_head_outputs = this->_layer_arrays[i - 1].GetHeadOutputsFull();
+      Eigen::MatrixXf& prev_layer_outputs = this->_layer_arrays[i - 1].GetLayerOutputs();
+      Eigen::MatrixXf& prev_head_outputs = this->_layer_arrays[i - 1].GetHeadOutputs();
       this->_layer_arrays[i].Process(prev_layer_outputs, this->_condition, prev_head_outputs, num_frames);
     }
   }
 
   // (Head not implemented)
 
-  auto final_head_outputs = this->_layer_arrays.back().GetHeadOutputs(num_frames);
+  auto& final_head_outputs = this->_layer_arrays.back().GetHeadOutputs();
   assert(final_head_outputs.rows() == 1);
   for (int s = 0; s < num_frames; s++)
   {
