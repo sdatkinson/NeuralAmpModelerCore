@@ -205,38 +205,29 @@ public:
   
   void apply(Eigen::MatrixXf& matrix) override
   {
-    // Matrix is organized as (time_steps, channels)
+    // Matrix is organized as (channels, time_steps)
     int n_channels = negative_slopes.size();
-    int actual_channels = matrix.cols();
+    int actual_channels = matrix.rows();
     
+    if (actual_channels > n_channels)
+    {
+      throw std::runtime_error("Number of channels in PReLU activation different from input matrix");
+    }
+
     // Apply each negative slope to its corresponding channel
     for (int channel = 0; channel < std::min(n_channels, actual_channels); channel++)
     {
       // Apply the negative slope to all time steps in this channel
       for (int time_step = 0; time_step < matrix.rows(); time_step++)
       {
-        matrix(time_step, channel) = leaky_relu(matrix(time_step, channel), negative_slopes[channel]);
-      }
-    }
-    
-    // For any remaining channels beyond what we have slopes for, use the last slope
-    if (actual_channels > n_channels && n_channels > 0)
-    {
-      for (int channel = n_channels; channel < actual_channels; channel++)
-      {
-        for (int time_step = 0; time_step < matrix.rows(); time_step++)
-        {
-          matrix(time_step, channel) = leaky_relu(matrix(time_step, channel), negative_slopes.back());
-        }
+        matrix(channel, time_step) = leaky_relu(matrix(channel, time_step), negative_slopes[channel]);
       }
     }
   }
   
   void apply(float* data, long size) override
   {
-    // Fallback implementation for when we don't have matrix dimensions
-    // This is less efficient and doesn't properly handle per-channel slopes
-    // but provides basic functionality
+    // Fallback that operates like leaky_relu, should not be used as it's a waste of a vector for one element
     if (!negative_slopes.empty())
     {
       float slope = negative_slopes[0]; // Use first slope as fallback
@@ -244,6 +235,8 @@ public:
       {
         data[pos] = leaky_relu(data[pos], slope);
       }
+    } else {
+      throw std::runtime_error("negative_slopes not initialized");
     }
   }
 private:

@@ -141,12 +141,11 @@ public:
   static void test_per_channel_behavior()
   {
     // Test that different slopes are applied to different channels
-    Eigen::MatrixXf data(3, 2); // 3 time steps, 2 channels
+    Eigen::MatrixXf data(2, 3); // 2 channels, 3 time steps
     
     // Initialize with some test data
-    data << -1.0f, -2.0f,
-            0.5f, -0.5f,
-            1.0f, 0.0f;
+    data << -1.0f, 0.5f, 1.0f,
+            -2.0f, -0.5f, 0.0f;
     
     // Create PReLU with different slopes for each channel
     std::vector<float> slopes = {0.01f, 0.05f}; // slope 0.01 for channel 0, 0.05 for channel 1
@@ -158,66 +157,43 @@ public:
     // Verify the results
     // Channel 0 (slope = 0.01):
     assert(fabs(data(0, 0) - (-0.01f)) < 1e-6); // -1.0 * 0.01 = -0.01
-    assert(fabs(data(1, 0) - 0.5f) < 1e-6);    // 0.5 (positive, unchanged)
-    assert(fabs(data(2, 0) - 1.0f) < 1e-6);    // 1.0 (positive, unchanged)
+    assert(fabs(data(0, 1) - 0.5f) < 1e-6);    // 0.5 (positive, unchanged)
+    assert(fabs(data(0, 2) - 1.0f) < 1e-6);    // 1.0 (positive, unchanged)
     
     // Channel 1 (slope = 0.05):
-    assert(fabs(data(0, 1) - (-0.10f)) < 1e-6); // -2.0 * 0.05 = -0.10
+    assert(fabs(data(1, 0) - (-0.10f)) < 1e-6); // -2.0 * 0.05 = -0.10
     assert(fabs(data(1, 1) - (-0.025f)) < 1e-6); // -0.5 * 0.05 = -0.025
-    assert(fabs(data(2, 1) - 0.0f) < 1e-6);     // 0.0 (unchanged)
+    assert(fabs(data(1, 2) - 0.0f) < 1e-6);     // 0.0 (unchanged)
   }
 
-  static void test_fallback_behavior()
+  static void test_wrong_number_of_channels()
   {
-    // Test the fallback behavior when we have more channels than slopes
-    Eigen::MatrixXf data(2, 3); // 2 time steps, 3 channels
+    // Test that we fail when we have more channels than slopes
+    Eigen::MatrixXf data(3, 2); // 3 channels, 2 time steps
     
     // Initialize with test data
-    data << -1.0f, -1.0f, -1.0f,
-            1.0f, 1.0f, 1.0f;
+    data << -1.0f, -1.0f,
+            -1.0f, 1.0f,
+            1.0f, 1.0f;
     
     // Create PReLU with only 2 slopes for 3 channels
     std::vector<float> slopes = {0.01f, 0.05f};
     nam::activations::ActivationPReLU prelu(slopes);
     
     // Apply the activation
-    prelu.apply(data);
-    
-    // Verify the results
-    // Channel 0 (slope = 0.01):
-    assert(fabs(data(0, 0) - (-0.01f)) < 1e-6);
-    assert(fabs(data(1, 0) - 1.0f) < 1e-6);
-    
-    // Channel 1 (slope = 0.05):
-    assert(fabs(data(0, 1) - (-0.05f)) < 1e-6);
-    assert(fabs(data(1, 1) - 1.0f) < 1e-6);
-    
-    // Channel 2 should use the last slope (0.05):
-    assert(fabs(data(0, 2) - (-0.05f)) < 1e-6);
-    assert(fabs(data(1, 2) - 1.0f) < 1e-6);
-  }
+    bool caught = false;
+    try
+    {
+      prelu.apply(data);
+    } catch (const std::runtime_error& e) {
+      caught = true;
+    } catch (...) {
 
-  static void test_single_slope()
-  {
-    // Test behavior when constructed with a single slope
-    Eigen::MatrixXf data(2, 2); // 2 time steps, 2 channels
-    
-    // Initialize with test data
-    data << -1.0f, -2.0f,
-            0.5f, -0.5f;
-    
-    // Create PReLU with single slope
-    nam::activations::ActivationPReLU prelu(0.02f);
-    
-    // Apply the activation
-    prelu.apply(data);
-    
-    // Both channels should use the same slope (0.02)
-    assert(fabs(data(0, 0) - (-0.02f)) < 1e-6); // -1.0 * 0.02 = -0.02
-    assert(fabs(data(0, 1) - (-0.04f)) < 1e-6); // -2.0 * 0.02 = -0.04
-    assert(fabs(data(1, 0) - 0.5f) < 1e-6);    // 0.5 (positive, unchanged)
-    assert(fabs(data(1, 1) - (-0.01f)) < 1e-6); // -0.5 * 0.02 = -0.01
-  }
+    }
+
+    assert(caught == true);
+ }
+
 };
 
 }; // namespace test_activations
