@@ -19,6 +19,8 @@ jobs:
       working-directory: ${{github.workspace}}
       run: |
         sudo apt-get update && sudo apt-get install -y clang-format
+        echo "Installed clang-format version:"
+        clang-format --version
         chmod +x format.sh
         ./format.sh
         git diff --exit-code
