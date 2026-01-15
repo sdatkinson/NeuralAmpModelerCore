@@ -24,9 +24,10 @@ void test_layer_array_basic()
   const std::string activation = "ReLU";
   const bool gated = false;
   const bool head_bias = false;
+  const int groups = 1;
 
   auto layer_array = nam::wavenet::_LayerArray(
-    input_size, condition_size, head_size, channels, kernel_size, dilations, activation, gated, head_bias);
+    input_size, condition_size, head_size, channels, kernel_size, dilations, activation, gated, head_bias, groups);
 
   const int numFrames = 4;
   layer_array.SetMaxBufferSize(numFrames);
@@ -78,9 +79,10 @@ void test_layer_array_receptive_field()
   const std::string activation = "ReLU";
   const bool gated = false;
   const bool head_bias = false;
+  const int groups = 1;
 
   auto layer_array = nam::wavenet::_LayerArray(
-    input_size, condition_size, head_size, channels, kernel_size, dilations, activation, gated, head_bias);
+    input_size, condition_size, head_size, channels, kernel_size, dilations, activation, gated, head_bias, groups);
 
   long rf = layer_array.get_receptive_field();
   // Expected: sum of dilation * (kernel_size - 1) for each layer
@@ -104,9 +106,10 @@ void test_layer_array_with_head_input()
   const std::string activation = "ReLU";
   const bool gated = false;
   const bool head_bias = false;
+  const int groups = 1;
 
   auto layer_array = nam::wavenet::_LayerArray(
-    input_size, condition_size, head_size, channels, kernel_size, dilations, activation, gated, head_bias);
+    input_size, condition_size, head_size, channels, kernel_size, dilations, activation, gated, head_bias, groups);
 
   const int numFrames = 2;
   layer_array.SetMaxBufferSize(numFrames);

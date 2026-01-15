@@ -14,7 +14,14 @@ add_executable(loadmodel loadmodel.cpp ${NAM_SOURCES})
 add_executable(benchmodel benchmodel.cpp ${NAM_SOURCES})
 add_executable(run_tests run_tests.cpp ${NAM_SOURCES})
 # Compile run_tests without optimizations to ensure allocation tracking works correctly
+# Also ensure assertions are enabled (NDEBUG is not defined) so tests actually run
 set_target_properties(run_tests PROPERTIES COMPILE_OPTIONS "-O0")
+# Ensure assertions are enabled for run_tests by removing NDEBUG if it was set
+# Release/RelWithDebInfo/MinSizeRel build types automatically define NDEBUG
+# We use a compile option to undefine it, which works on GCC, Clang, and MSVC
+target_compile_options(run_tests PRIVATE
+	$<$<OR:$<CONFIG:Release>,$<CONFIG:RelWithDebInfo>,$<CONFIG:MinSizeRel>>:-U_NDEBUG>
+)
 
 source_group(NAM ${CMAKE_CURRENT_SOURCE_DIR} FILES ${NAM_SOURCES})
 

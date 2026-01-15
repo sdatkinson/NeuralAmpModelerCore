@@ -69,8 +69,6 @@ public:
         }
       }
     }
-
-    std::cout << "Wavenet gating compatibility test passed" << std::endl;
   }
 
   static void test_column_by_column_processing()
@@ -99,8 +97,6 @@ public:
 
       assert(fabs(output(0, s) - expected) < 1e-6);
     }
-
-    std::cout << "Column-by-column processing test passed" << std::endl;
   }
 
   static void test_memory_contiguity()
@@ -142,8 +138,6 @@ public:
         assert(fabs(output(c, s) - expected) < 1e-6);
       }
     }
-
-    std::cout << "Memory contiguity test passed" << std::endl;
   }
 
   static void test_multiple_channels()
@@ -181,8 +175,6 @@ public:
         assert(fabs(output(c, s) - expected) < 1e-6);
       }
     }
-
-    std::cout << "Multiple channels test passed" << std::endl;
   }
 };
 

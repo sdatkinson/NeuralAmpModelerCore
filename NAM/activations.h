@@ -323,12 +323,12 @@ public:
     return table_[i] + (table_[i + 1] - table_[i]) * frac;
   }
 
-  // Vector application (Batch processing)
-  void apply(std::vector<float>& data) const
+  // Override base class virtual method to apply LUT lookup to array of floats
+  void apply(float* data, long size) override
   {
-    for (float& val : data)
+    for (long i = 0; i < size; i++)
     {
-      val = lookup(val);
+      data[i] = lookup(data[i]);
     }
   }
 

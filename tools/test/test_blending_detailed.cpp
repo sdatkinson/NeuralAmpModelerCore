@@ -32,10 +32,6 @@ public:
     nam::gating_activations::BlendingActivation blending_act(&identity_act, &identity_blend_act, 2);
     blending_act.apply(input, output);
 
-    std::cout << "Blending with linear activations:" << std::endl;
-    std::cout << "Input:" << std::endl << input << std::endl;
-    std::cout << "Output:" << std::endl << output << std::endl;
-
     // With linear activations:
     // alpha = blend_input (since linear activation does nothing)
     // output = alpha * input + (1 - alpha) * input = input
@@ -51,9 +47,6 @@ public:
 
     Eigen::MatrixXf output_sigmoid(2, 2);
     blending_act_sigmoid.apply(input, output_sigmoid);
-
-    std::cout << "Blending with sigmoid blending activation:" << std::endl;
-    std::cout << "Output:" << std::endl << output_sigmoid << std::endl;
 
     // With sigmoid blending, alpha values should be between 0 and 1
     // For blend input 0.5, sigmoid(0.5) ≈ 0.622
@@ -74,8 +67,6 @@ public:
     assert(fabs(output_sigmoid(1, 0) - 3.0f) < 1e-6);
     assert(fabs(output_sigmoid(0, 1) - 2.0f) < 1e-6);
     assert(fabs(output_sigmoid(1, 1) - 4.0f) < 1e-6);
-
-    std::cout << "Blending detailed test passed" << std::endl;
   }
 
   static void test_input_buffer_usage()
@@ -107,8 +98,6 @@ public:
     // With input=-1.0, ReLU(-1.0)=0.0, blend=0.5
     // output = 0.5 * 0.0 + (1 - 0.5) * (-1.0) = 0.0 + 0.5 * (-1.0) = -0.5
     assert(fabs(output2(0, 0) - (-0.5f)) < 1e-6);
-
-    std::cout << "Input buffer usage test passed" << std::endl;
   }
 };
 

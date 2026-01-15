@@ -37,7 +37,6 @@ public:
 
     // The output should be element-wise multiplication of the two rows
     // after applying activations
-    std::cout << "GatingActivation basic test passed" << std::endl;
   }
 
   static void test_with_custom_activations()
@@ -61,8 +60,6 @@ public:
     // Verify dimensions
     assert(output.rows() == 1);
     assert(output.cols() == 2);
-
-    std::cout << "GatingActivation custom activations test passed" << std::endl;
   }
 
   static void test_error_handling()
@@ -96,8 +93,6 @@ public:
     // Basic checks
     assert(output.rows() == 1);
     assert(output.cols() == 3);
-
-    std::cout << "BlendingActivation basic test passed" << std::endl;
   }
 
   static void test_blending_behavior()
@@ -139,8 +134,6 @@ public:
     // This is the same as with linear activations
     assert(fabs(output(0, 0) - 1.0f) < 1e-6);
     assert(fabs(output(0, 1) - (-1.0f)) < 1e-6);
-
-    std::cout << "BlendingActivation blending behavior test passed" << std::endl;
   }
 
   static void test_with_custom_activations()
@@ -164,8 +157,6 @@ public:
     // Verify dimensions
     assert(output.rows() == 1);
     assert(output.cols() == 2);
-
-    std::cout << "BlendingActivation custom activations test passed" << std::endl;
   }
 
   static void test_error_handling()
