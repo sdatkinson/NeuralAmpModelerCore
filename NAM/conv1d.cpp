@@ -211,7 +211,6 @@ void Conv1D::process_(const Eigen::MatrixXf& input, Eigen::MatrixXf& output, con
       }
     }
   }
-
   if (this->_bias.size() > 0)
   {
     output.middleCols(j_start, ncols).colwise() += this->_bias;
