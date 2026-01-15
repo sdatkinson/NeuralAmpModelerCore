@@ -488,7 +488,7 @@ void test_layer_grouped_process_realtime_safe()
   const std::string activation = "ReLU";
   const bool gated = false;
   const int groups_input = 2; // groups_input > 1
-  const int groups_1x1 = 1;
+  const int groups_1x1 = 2;   // 1x1 is also grouped
 
   auto layer =
     nam::wavenet::_Layer(condition_size, channels, kernel_size, dilation, activation, gated, groups_input, groups_1x1);
@@ -529,16 +529,20 @@ void test_layer_grouped_process_realtime_safe()
   weights.push_back(1.0f);
   weights.push_back(1.0f);
   weights.push_back(1.0f);
-  // 1x1: (channels, channels) = (4, 4) weights + (4,) bias
-  // Identity matrix
-  for (int i = 0; i < 4; i++)
-  {
-    for (int j = 0; j < 4; j++)
-    {
-      weights.push_back((i == j) ? 1.0f : 0.0f);
-    }
-  }
-  // 1x1 bias: zeros
+  // 1x1: grouped with groups_1x1=2, channels=4
+  // Each group processes 2 channels: Group 0 (channels 0-1), Group 1 (channels 2-3)
+  // Weight layout: for each group g, for each (out_ch, in_ch) in that group
+  // Group 0: identity matrix for channels 0-1 (2x2)
+  weights.push_back(1.0f); // out_ch=0, in_ch=0
+  weights.push_back(0.0f); // out_ch=0, in_ch=1
+  weights.push_back(0.0f); // out_ch=1, in_ch=0
+  weights.push_back(1.0f); // out_ch=1, in_ch=1
+  // Group 1: identity matrix for channels 2-3 (2x2)
+  weights.push_back(1.0f); // out_ch=2, in_ch=2
+  weights.push_back(0.0f); // out_ch=2, in_ch=3
+  weights.push_back(0.0f); // out_ch=3, in_ch=2
+  weights.push_back(1.0f); // out_ch=3, in_ch=3
+  // 1x1 bias: 4 values (one per output channel)
   weights.push_back(0.0f);
   weights.push_back(0.0f);
   weights.push_back(0.0f);
