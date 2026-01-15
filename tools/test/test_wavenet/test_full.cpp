@@ -30,7 +30,7 @@ void test_wavenet_model()
   const int groups_1x1 = 1;
 
   nam::wavenet::LayerArrayParams params(input_size, condition_size, head_size, channels, kernel_size,
-                                         std::move(dilations), activation, gated, head_bias, groups, groups_1x1);
+                                        std::move(dilations), activation, gated, head_bias, groups, groups_1x1);
   std::vector<nam::wavenet::LayerArrayParams> layer_array_params;
   layer_array_params.push_back(std::move(params));
 
@@ -138,7 +138,7 @@ void test_wavenet_zero_input()
   const int groups_1x1 = 1;
 
   nam::wavenet::LayerArrayParams params(input_size, condition_size, head_size, channels, kernel_size,
-                                         std::move(dilations), activation, gated, head_bias, groups, groups_1x1);
+                                        std::move(dilations), activation, gated, head_bias, groups, groups_1x1);
   std::vector<nam::wavenet::LayerArrayParams> layer_array_params;
   layer_array_params.push_back(std::move(params));
 
@@ -179,7 +179,7 @@ void test_wavenet_different_buffer_sizes()
   const int groups_1x1 = 1;
 
   nam::wavenet::LayerArrayParams params(input_size, condition_size, head_size, channels, kernel_size,
-                                         std::move(dilations), activation, gated, head_bias, groups, groups_1x1);
+                                        std::move(dilations), activation, gated, head_bias, groups, groups_1x1);
   std::vector<nam::wavenet::LayerArrayParams> layer_array_params;
   layer_array_params.push_back(std::move(params));
 
@@ -221,7 +221,7 @@ void test_wavenet_prewarm()
   const int groups_1x1 = 1;
 
   nam::wavenet::LayerArrayParams params(input_size, condition_size, head_size, channels, kernel_size,
-                                         std::move(dilations), activation, gated, head_bias, groups, groups_1x1);
+                                        std::move(dilations), activation, gated, head_bias, groups, groups_1x1);
   std::vector<nam::wavenet::LayerArrayParams> layer_array_params;
   layer_array_params.push_back(std::move(params));
 

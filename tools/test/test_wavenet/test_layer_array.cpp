@@ -27,8 +27,8 @@ void test_layer_array_basic()
   const int groups = 1;
   const int groups_1x1 = 1;
 
-  auto layer_array = nam::wavenet::_LayerArray(
-    input_size, condition_size, head_size, channels, kernel_size, dilations, activation, gated, head_bias, groups, groups_1x1);
+  auto layer_array = nam::wavenet::_LayerArray(input_size, condition_size, head_size, channels, kernel_size, dilations,
+                                               activation, gated, head_bias, groups, groups_1x1);
 
   const int numFrames = 4;
   layer_array.SetMaxBufferSize(numFrames);
@@ -83,8 +83,8 @@ void test_layer_array_receptive_field()
   const int groups = 1;
   const int groups_1x1 = 1;
 
-  auto layer_array = nam::wavenet::_LayerArray(
-    input_size, condition_size, head_size, channels, kernel_size, dilations, activation, gated, head_bias, groups, groups_1x1);
+  auto layer_array = nam::wavenet::_LayerArray(input_size, condition_size, head_size, channels, kernel_size, dilations,
+                                               activation, gated, head_bias, groups, groups_1x1);
 
   long rf = layer_array.get_receptive_field();
   // Expected: sum of dilation * (kernel_size - 1) for each layer
@@ -111,8 +111,8 @@ void test_layer_array_with_head_input()
   const int groups = 1;
   const int groups_1x1 = 1;
 
-  auto layer_array = nam::wavenet::_LayerArray(
-    input_size, condition_size, head_size, channels, kernel_size, dilations, activation, gated, head_bias, groups, groups_1x1);
+  auto layer_array = nam::wavenet::_LayerArray(input_size, condition_size, head_size, channels, kernel_size, dilations,
+                                               activation, gated, head_bias, groups, groups_1x1);
 
   const int numFrames = 2;
   layer_array.SetMaxBufferSize(numFrames);
