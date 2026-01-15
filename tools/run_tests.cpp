@@ -4,6 +4,7 @@
 #include <iostream>
 #include "test/test_activations.cpp"
 #include "test/test_conv1d.cpp"
+#include "test/test_conv_1x1.cpp"
 #include "test/test_convnet.cpp"
 #include "test/test_dsp.cpp"
 #include "test/test_fast_lut.cpp"
@@ -82,6 +83,21 @@ int main()
   test_conv1d::test_process_grouped_dilation();
   test_conv1d::test_process_grouped_channel_isolation();
   test_conv1d::test_get_num_weights_grouped();
+
+  test_conv_1x1::test_construct();
+  test_conv_1x1::test_construct_with_groups();
+  test_conv_1x1::test_construct_validation_in_channels();
+  test_conv_1x1::test_construct_validation_out_channels();
+  test_conv_1x1::test_process_basic();
+  test_conv_1x1::test_process_with_bias();
+  test_conv_1x1::test_process_underscore();
+  test_conv_1x1::test_process_grouped_basic();
+  test_conv_1x1::test_process_grouped_with_bias();
+  test_conv_1x1::test_process_grouped_multiple_groups();
+  test_conv_1x1::test_process_grouped_channel_isolation();
+  test_conv_1x1::test_process_underscore_grouped();
+  test_conv_1x1::test_set_max_buffer_size();
+  test_conv_1x1::test_process_multiple_calls();
 
   test_wavenet::test_layer::test_gated();
   test_wavenet::test_layer::test_layer_getters();

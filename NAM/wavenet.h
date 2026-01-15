@@ -17,10 +17,10 @@ class _Layer
 {
 public:
   _Layer(const int condition_size, const int channels, const int kernel_size, const int dilation,
-         const std::string activation, const bool gated, const int groups_input)
+         const std::string activation, const bool gated, const int groups_input, const int groups_1x1)
   : _conv(channels, gated ? 2 * channels : channels, kernel_size, true, dilation, groups_input)
   , _input_mixin(condition_size, gated ? 2 * channels : channels, false)
-  , _1x1(channels, channels, true)
+  , _1x1(channels, channels, true, groups_1x1)
   , _activation(activations::Activation::get_activation(activation)) // needs to support activations with parameters
   , _gated(gated) {};
   // Resize all arrays to be able to process `maxBufferSize` frames.
@@ -78,7 +78,7 @@ class LayerArrayParams
 public:
   LayerArrayParams(const int input_size_, const int condition_size_, const int head_size_, const int channels_,
                    const int kernel_size_, const std::vector<int>&& dilations_, const std::string activation_,
-                   const bool gated_, const bool head_bias_, const int groups_input)
+                   const bool gated_, const bool head_bias_, const int groups_input, const int groups_1x1_)
   : input_size(input_size_)
   , condition_size(condition_size_)
   , head_size(head_size_)
@@ -89,6 +89,7 @@ public:
   , gated(gated_)
   , head_bias(head_bias_)
   , groups_input(groups_input)
+  , groups_1x1(groups_1x1_)
   {
   }
 
@@ -102,6 +103,7 @@ public:
   const bool gated;
   const bool head_bias;
   const int groups_input;
+  const int groups_1x1;
 };
 
 // An array of layers with the same channels, kernel sizes, activations.
@@ -110,7 +112,7 @@ class _LayerArray
 public:
   _LayerArray(const int input_size, const int condition_size, const int head_size, const int channels,
               const int kernel_size, const std::vector<int>& dilations, const std::string activation, const bool gated,
-              const bool head_bias, const int groups_input);
+              const bool head_bias, const int groups_input, const int groups_1x1);
 
   void SetMaxBufferSize(const int maxBufferSize);
 
