@@ -475,6 +475,107 @@ void test_layer_process_realtime_safe()
   }
 }
 
+// Test that Layer::Process() method with grouped convolution (groups_input > 1) does not allocate or free memory
+void test_layer_grouped_process_realtime_safe()
+{
+  // Setup: Create a Layer with grouped convolution
+  const int condition_size = 1;
+  const int channels = 4; // Must be divisible by groups_input
+  const int kernel_size = 2;
+  const int dilation = 1;
+  const std::string activation = "ReLU";
+  const bool gated = false;
+  const int groups_input = 2; // groups_input > 1
+
+  auto layer = nam::wavenet::_Layer(condition_size, channels, kernel_size, dilation, activation, gated, groups_input);
+
+  // Set weights for grouped convolution
+  // With groups_input=2, channels=4: each group has 2 in_channels and 2 out_channels
+  // Conv weights: for each group g, for each kernel position k, for each (out_ch, in_ch)
+  // Group 0: processes channels 0-1, Group 1: processes channels 2-3
+  std::vector<float> weights;
+  // Conv weights: 2 groups, kernel_size=2, 2 out_channels per group, 2 in_channels per group
+  // Group 0, kernel[0]: identity for channels 0-1
+  weights.push_back(1.0f); // out_ch=0, in_ch=0
+  weights.push_back(0.0f); // out_ch=0, in_ch=1
+  weights.push_back(0.0f); // out_ch=1, in_ch=0
+  weights.push_back(1.0f); // out_ch=1, in_ch=1
+  // Group 0, kernel[1]: identity
+  weights.push_back(1.0f);
+  weights.push_back(0.0f);
+  weights.push_back(0.0f);
+  weights.push_back(1.0f);
+  // Group 1, kernel[0]: identity for channels 2-3
+  weights.push_back(1.0f); // out_ch=2, in_ch=2
+  weights.push_back(0.0f); // out_ch=2, in_ch=3
+  weights.push_back(0.0f); // out_ch=3, in_ch=2
+  weights.push_back(1.0f); // out_ch=3, in_ch=3
+  // Group 1, kernel[1]: identity
+  weights.push_back(1.0f);
+  weights.push_back(0.0f);
+  weights.push_back(0.0f);
+  weights.push_back(1.0f);
+  // Conv bias: 4 values (one per output channel)
+  weights.push_back(0.0f);
+  weights.push_back(0.0f);
+  weights.push_back(0.0f);
+  weights.push_back(0.0f);
+  // Input mixin: (channels, condition_size) = (4, 1)
+  weights.push_back(1.0f);
+  weights.push_back(1.0f);
+  weights.push_back(1.0f);
+  weights.push_back(1.0f);
+  // 1x1: (channels, channels) = (4, 4) weights + (4,) bias
+  // Identity matrix
+  for (int i = 0; i < 4; i++)
+  {
+    for (int j = 0; j < 4; j++)
+    {
+      weights.push_back((i == j) ? 1.0f : 0.0f);
+    }
+  }
+  // 1x1 bias: zeros
+  weights.push_back(0.0f);
+  weights.push_back(0.0f);
+  weights.push_back(0.0f);
+  weights.push_back(0.0f);
+
+  auto it = weights.begin();
+  layer.set_weights_(it);
+
+  const int maxBufferSize = 256;
+  layer.SetMaxBufferSize(maxBufferSize);
+
+  // Test with several different buffer sizes
+  std::vector<int> buffer_sizes{1, 8, 16, 32, 64, 128, 256};
+
+  for (int buffer_size : buffer_sizes)
+  {
+    // Prepare input/condition matrices (allocate before tracking)
+    Eigen::MatrixXf input(channels, buffer_size);
+    Eigen::MatrixXf condition(condition_size, buffer_size);
+    input.setConstant(0.5f);
+    condition.setConstant(0.5f);
+
+    std::string test_name =
+      "Layer Process (groups_input=" + std::to_string(groups_input) + ") - Buffer size " + std::to_string(buffer_size);
+    run_allocation_test_no_allocations(
+      nullptr, // No setup needed
+      [&]() {
+        // Call Process() - this should not allocate or free
+        layer.Process(input, condition, buffer_size);
+      },
+      nullptr, // No teardown needed
+      test_name.c_str());
+
+    // Verify output is valid
+    auto output = layer.GetOutputNextLayer().leftCols(buffer_size);
+    assert(output.rows() == channels && output.cols() == buffer_size);
+    assert(std::isfinite(output(0, 0)));
+    assert(std::isfinite(output(channels - 1, buffer_size - 1)));
+  }
+}
+
 // Test that LayerArray::Process() method does not allocate or free memory
 void test_layer_array_process_realtime_safe()
 {
