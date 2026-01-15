@@ -75,6 +75,13 @@ int main()
   test_conv1d::test_set_size_and_weights();
   test_conv1d::test_get_num_weights();
   test_conv1d::test_reset_multiple();
+  test_conv1d::test_process_grouped_basic();
+  test_conv1d::test_process_grouped_with_bias();
+  test_conv1d::test_process_grouped_multiple_groups();
+  test_conv1d::test_process_grouped_kernel_size();
+  test_conv1d::test_process_grouped_dilation();
+  test_conv1d::test_process_grouped_channel_isolation();
+  test_conv1d::test_get_num_weights_grouped();
 
   test_wavenet::test_layer::test_gated();
   test_wavenet::test_layer::test_layer_getters();
