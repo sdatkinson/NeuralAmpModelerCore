@@ -342,10 +342,11 @@ void test_set_size_and_weights()
   const int kernel_size = 2;
   const bool do_bias = false;
   const int dilation = 1;
+  const int groups = 1;
 
   std::vector<float> weights{1.0f, 2.0f};
   auto it = weights.begin();
-  conv.set_size_and_weights_(in_channels, out_channels, kernel_size, dilation, do_bias, 1, it);
+  conv.set_size_and_weights_(in_channels, out_channels, kernel_size, dilation, do_bias, groups, it);
 
   assert(conv.get_in_channels() == in_channels);
   assert(conv.get_out_channels() == out_channels);
