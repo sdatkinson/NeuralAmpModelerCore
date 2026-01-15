@@ -14,26 +14,37 @@ namespace test_conv_1x1
 // Test basic construction
 void test_construct()
 {
-  nam::Conv1x1 conv(2, 3, false);
-  assert(conv.get_in_channels() == 2);
-  assert(conv.get_out_channels() == 3);
+  const int in_channels = 2;
+  const int out_channels = 3;
+  const bool do_bias = false;
+  nam::Conv1x1 conv(in_channels, out_channels, do_bias);
+  assert(conv.get_in_channels() == in_channels);
+  assert(conv.get_out_channels() == out_channels);
 }
 
 // Test construction with groups (default should be 1)
 void test_construct_with_groups()
 {
-  nam::Conv1x1 conv(4, 6, false, 2);
-  assert(conv.get_in_channels() == 4);
-  assert(conv.get_out_channels() == 6);
+  const int in_channels = 4;
+  const int out_channels = 6;
+  const bool do_bias = false;
+  const int groups = 2;
+  nam::Conv1x1 conv(in_channels, out_channels, do_bias, groups);
+  assert(conv.get_in_channels() == in_channels);
+  assert(conv.get_out_channels() == out_channels);
 }
 
 // Test construction validation - in_channels not divisible by groups
 void test_construct_validation_in_channels()
 {
+  const int in_channels = 5;
+  const int out_channels = 6;
+  const bool do_bias = false;
+  const int groups = 2; // 5 not divisible by 2
   bool threw = false;
   try
   {
-    nam::Conv1x1 conv(5, 6, false, 2); // 5 not divisible by 2
+    nam::Conv1x1 conv(in_channels, out_channels, do_bias, groups);
   }
   catch (const std::runtime_error&)
   {
@@ -45,10 +56,14 @@ void test_construct_validation_in_channels()
 // Test construction validation - out_channels not divisible by groups
 void test_construct_validation_out_channels()
 {
+  const int in_channels = 4;
+  const int out_channels = 5;
+  const bool do_bias = false;
+  const int groups = 2; // 5 not divisible by 2
   bool threw = false;
   try
   {
-    nam::Conv1x1 conv(4, 5, false, 2); // 5 not divisible by 2
+    nam::Conv1x1 conv(in_channels, out_channels, do_bias, groups);
   }
   catch (const std::runtime_error&)
   {
@@ -60,7 +75,10 @@ void test_construct_validation_out_channels()
 // Test basic process without groups
 void test_process_basic()
 {
-  nam::Conv1x1 conv(2, 3, false);
+  const int in_channels = 2;
+  const int out_channels = 3;
+  const bool do_bias = false;
+  nam::Conv1x1 conv(in_channels, out_channels, do_bias);
   const int num_frames = 2;
 
   // Set weights: 3x2 matrix
@@ -73,7 +91,7 @@ void test_process_basic()
 
   conv.SetMaxBufferSize(64);
 
-  Eigen::MatrixXf input(2, num_frames);
+  Eigen::MatrixXf input(in_channels, num_frames);
   input(0, 0) = 1.0f;
   input(1, 0) = 2.0f;
   input(0, 1) = 3.0f;
@@ -81,7 +99,7 @@ void test_process_basic()
 
   Eigen::MatrixXf output = conv.process(input, num_frames);
 
-  assert(output.rows() == 3);
+  assert(output.rows() == out_channels);
   assert(output.cols() == num_frames);
   // Frame 0: [1.0, 2.0] * [1.0; 2.0] = [5.0, 11.0, 17.0]
   assert(std::abs(output(0, 0) - 5.0f) < 0.01f); // 1.0*1.0 + 2.0*2.0
@@ -96,7 +114,10 @@ void test_process_basic()
 // Test process with bias
 void test_process_with_bias()
 {
-  nam::Conv1x1 conv(2, 2, true);
+  const int in_channels = 2;
+  const int out_channels = 2;
+  const bool do_bias = true;
+  nam::Conv1x1 conv(in_channels, out_channels, do_bias);
   const int num_frames = 1;
 
   // Set weights: 2x2 identity matrix
@@ -109,13 +130,13 @@ void test_process_with_bias()
 
   conv.SetMaxBufferSize(64);
 
-  Eigen::MatrixXf input(2, num_frames);
+  Eigen::MatrixXf input(in_channels, num_frames);
   input(0, 0) = 5.0f;
   input(1, 0) = 7.0f;
 
   Eigen::MatrixXf output = conv.process(input, num_frames);
 
-  assert(output.rows() == 2);
+  assert(output.rows() == out_channels);
   assert(output.cols() == num_frames);
   // Output should be input + bias (identity weights)
   assert(std::abs(output(0, 0) - 15.0f) < 0.01f); // 5.0 + 10.0
@@ -125,7 +146,10 @@ void test_process_with_bias()
 // Test process_ method (stores to internal buffer)
 void test_process_underscore()
 {
-  nam::Conv1x1 conv(2, 2, false);
+  const int in_channels = 2;
+  const int out_channels = 2;
+  const bool do_bias = false;
+  nam::Conv1x1 conv(in_channels, out_channels, do_bias);
   const int num_frames = 1;
 
   // Set weights: 2x2 identity matrix
@@ -135,14 +159,14 @@ void test_process_underscore()
 
   conv.SetMaxBufferSize(64);
 
-  Eigen::MatrixXf input(2, num_frames);
+  Eigen::MatrixXf input(in_channels, num_frames);
   input(0, 0) = 3.0f;
   input(1, 0) = 4.0f;
 
   conv.process_(input, num_frames);
   auto output = conv.GetOutput().leftCols(num_frames);
 
-  assert(output.rows() == 2);
+  assert(output.rows() == out_channels);
   assert(output.cols() == num_frames);
   assert(std::abs(output(0, 0) - 3.0f) < 0.01f);
   assert(std::abs(output(1, 0) - 4.0f) < 0.01f);
@@ -151,7 +175,11 @@ void test_process_underscore()
 // Test basic grouped convolution with 2 groups
 void test_process_grouped_basic()
 {
-  nam::Conv1x1 conv(4, 4, false, 2);
+  const int in_channels = 4;
+  const int out_channels = 4;
+  const bool do_bias = false;
+  const int groups = 2;
+  nam::Conv1x1 conv(in_channels, out_channels, do_bias, groups);
   const int num_frames = 2;
 
   // For grouped convolution with 2 groups:
@@ -178,7 +206,7 @@ void test_process_grouped_basic()
 
   conv.SetMaxBufferSize(64);
 
-  Eigen::MatrixXf input(4, num_frames);
+  Eigen::MatrixXf input(in_channels, num_frames);
   input(0, 0) = 1.0f; // Group 0, channel 0
   input(1, 0) = 2.0f; // Group 0, channel 1
   input(2, 0) = 3.0f; // Group 1, channel 0
@@ -190,7 +218,7 @@ void test_process_grouped_basic()
 
   Eigen::MatrixXf output = conv.process(input, num_frames);
 
-  assert(output.rows() == 4);
+  assert(output.rows() == out_channels);
   assert(output.cols() == num_frames);
   // Group 0: identity transformation
   assert(std::abs(output(0, 0) - 1.0f) < 0.01f); // out[0] = in[0]
@@ -208,7 +236,11 @@ void test_process_grouped_basic()
 // Test grouped convolution with bias
 void test_process_grouped_with_bias()
 {
-  nam::Conv1x1 conv(4, 4, true, 2);
+  const int in_channels = 4;
+  const int out_channels = 4;
+  const bool do_bias = true;
+  const int groups = 2;
+  nam::Conv1x1 conv(in_channels, out_channels, do_bias, groups);
   const int num_frames = 1;
 
   std::vector<float> weights;
@@ -233,7 +265,7 @@ void test_process_grouped_with_bias()
 
   conv.SetMaxBufferSize(64);
 
-  Eigen::MatrixXf input(4, num_frames);
+  Eigen::MatrixXf input(in_channels, num_frames);
   input(0, 0) = 10.0f;
   input(1, 0) = 20.0f;
   input(2, 0) = 30.0f;
@@ -241,7 +273,7 @@ void test_process_grouped_with_bias()
 
   Eigen::MatrixXf output = conv.process(input, num_frames);
 
-  assert(output.rows() == 4);
+  assert(output.rows() == out_channels);
   assert(output.cols() == num_frames);
   // Output should be input + bias (identity weights)
   assert(std::abs(output(0, 0) - 11.0f) < 0.01f); // 10.0 + 1.0
@@ -253,7 +285,11 @@ void test_process_grouped_with_bias()
 // Test grouped convolution with 4 groups
 void test_process_grouped_multiple_groups()
 {
-  nam::Conv1x1 conv(8, 8, false, 4);
+  const int in_channels = 8;
+  const int out_channels = 8;
+  const bool do_bias = false;
+  const int groups = 4;
+  nam::Conv1x1 conv(in_channels, out_channels, do_bias, groups);
   const int num_frames = 1;
 
   // Each group processes 2 input channels -> 2 output channels
@@ -284,15 +320,15 @@ void test_process_grouped_multiple_groups()
 
   conv.SetMaxBufferSize(64);
 
-  Eigen::MatrixXf input(8, num_frames);
-  for (int i = 0; i < 8; i++)
+  Eigen::MatrixXf input(in_channels, num_frames);
+  for (int i = 0; i < in_channels; i++)
   {
     input(i, 0) = static_cast<float>(i + 1);
   }
 
   Eigen::MatrixXf output = conv.process(input, num_frames);
 
-  assert(output.rows() == 8);
+  assert(output.rows() == out_channels);
   assert(output.cols() == num_frames);
   // Group 0: channels 0-1 scaled by 1.0
   assert(std::abs(output(0, 0) - 1.0f) < 0.01f);
@@ -311,7 +347,11 @@ void test_process_grouped_multiple_groups()
 // Test that groups don't mix channels (channel isolation)
 void test_process_grouped_channel_isolation()
 {
-  nam::Conv1x1 conv(6, 6, false, 3);
+  const int in_channels = 6;
+  const int out_channels = 6;
+  const bool do_bias = false;
+  const int groups = 3;
+  nam::Conv1x1 conv(in_channels, out_channels, do_bias, groups);
   const int num_frames = 1;
 
   // 3 groups, each processes 2 channels
@@ -340,7 +380,7 @@ void test_process_grouped_channel_isolation()
 
   conv.SetMaxBufferSize(64);
 
-  Eigen::MatrixXf input(6, num_frames);
+  Eigen::MatrixXf input(in_channels, num_frames);
   input(0, 0) = 10.0f; // Should be zeroed by group 0
   input(1, 0) = 20.0f; // Should be zeroed by group 0
   input(2, 0) = 30.0f; // Should pass through group 1
@@ -350,7 +390,7 @@ void test_process_grouped_channel_isolation()
 
   Eigen::MatrixXf output = conv.process(input, num_frames);
 
-  assert(output.rows() == 6);
+  assert(output.rows() == out_channels);
   assert(output.cols() == num_frames);
   // Group 0: should be zero
   assert(std::abs(output(0, 0)) < 0.01f);
@@ -366,7 +406,11 @@ void test_process_grouped_channel_isolation()
 // Test process_ with groups
 void test_process_underscore_grouped()
 {
-  nam::Conv1x1 conv(4, 4, false, 2);
+  const int in_channels = 4;
+  const int out_channels = 4;
+  const bool do_bias = false;
+  const int groups = 2;
+  nam::Conv1x1 conv(in_channels, out_channels, do_bias, groups);
   const int num_frames = 1;
 
   // Group 0: identity, Group 1: scale by 2.0
@@ -387,7 +431,7 @@ void test_process_underscore_grouped()
 
   conv.SetMaxBufferSize(64);
 
-  Eigen::MatrixXf input(4, num_frames);
+  Eigen::MatrixXf input(in_channels, num_frames);
   input(0, 0) = 1.0f;
   input(1, 0) = 2.0f;
   input(2, 0) = 3.0f;
@@ -396,7 +440,7 @@ void test_process_underscore_grouped()
   conv.process_(input, num_frames);
   auto output = conv.GetOutput().leftCols(num_frames);
 
-  assert(output.rows() == 4);
+  assert(output.rows() == out_channels);
   assert(output.cols() == num_frames);
   assert(std::abs(output(0, 0) - 1.0f) < 0.01f);
   assert(std::abs(output(1, 0) - 2.0f) < 0.01f);
@@ -407,26 +451,32 @@ void test_process_underscore_grouped()
 // Test SetMaxBufferSize
 void test_set_max_buffer_size()
 {
-  nam::Conv1x1 conv(2, 3, false);
+  const int in_channels = 2;
+  const int out_channels = 3;
+  const bool do_bias = false;
+  nam::Conv1x1 conv(in_channels, out_channels, do_bias);
   const int maxBufferSize = 128;
 
   conv.SetMaxBufferSize(maxBufferSize);
   auto output = conv.GetOutput();
-  assert(output.rows() == 3);
+  assert(output.rows() == out_channels);
   assert(output.cols() == maxBufferSize);
 }
 
 // Test multiple calls to process
 void test_process_multiple_calls()
 {
-  nam::Conv1x1 conv(2, 2, false);
+  const int in_channels = 2;
+  const int out_channels = 2;
+  const bool do_bias = false;
+  nam::Conv1x1 conv(in_channels, out_channels, do_bias);
   // Identity matrix
   std::vector<float> weights{1.0f, 0.0f, 0.0f, 1.0f};
   auto it = weights.begin();
   conv.set_weights_(it);
   conv.SetMaxBufferSize(64);
 
-  Eigen::MatrixXf input1(2, 1);
+  Eigen::MatrixXf input1(in_channels, 1);
   input1(0, 0) = 1.0f;
   input1(1, 0) = 2.0f;
 
@@ -434,7 +484,7 @@ void test_process_multiple_calls()
   assert(std::abs(output1(0, 0) - 1.0f) < 0.01f);
   assert(std::abs(output1(1, 0) - 2.0f) < 0.01f);
 
-  Eigen::MatrixXf input2(2, 1);
+  Eigen::MatrixXf input2(in_channels, 1);
   input2(0, 0) = 3.0f;
   input2(1, 0) = 4.0f;
 
