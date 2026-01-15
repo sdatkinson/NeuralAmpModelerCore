@@ -311,7 +311,7 @@ Eigen::MatrixXf nam::Conv1x1::process(const Eigen::MatrixXf& input, const int nu
 void nam::Conv1x1::process_(const Eigen::MatrixXf& input, const int num_frames)
 {
   assert(num_frames <= _output.cols());
-  
+
   const int numGroups = this->_num_groups;
   const long in_channels = get_in_channels();
   const long out_channels = get_out_channels();

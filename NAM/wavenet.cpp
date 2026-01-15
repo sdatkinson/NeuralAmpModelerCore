@@ -79,9 +79,8 @@ nam::wavenet::_LayerArray::_LayerArray(const int input_size, const int condition
 , _head_rechannel(channels, head_size, head_bias)
 {
   for (size_t i = 0; i < dilations.size(); i++)
-    this->_layers.push_back(
-      _Layer(condition_size, channels, kernel_size, dilations[i], activation, gated, groups_input, groups_condition,
-             groups_1x1));
+    this->_layers.push_back(_Layer(condition_size, channels, kernel_size, dilations[i], activation, gated, groups_input,
+                                   groups_condition, groups_1x1));
 }
 
 void nam::wavenet::_LayerArray::SetMaxBufferSize(const int maxBufferSize)

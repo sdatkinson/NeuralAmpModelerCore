@@ -25,8 +25,8 @@ void test_gated()
   const int groups_input = 1;
   const int groups_condition = 1;
   const int groups_1x1 = 1;
-  auto layer = nam::wavenet::_Layer(conditionSize, channels, kernelSize, dilation, activation, gated, groups_input,
-                                     groups_condition, groups_1x1);
+  auto layer = nam::wavenet::_Layer(
+    conditionSize, channels, kernelSize, dilation, activation, gated, groups_input, groups_condition, groups_1x1);
 
   // Conv, input mixin, 1x1
   std::vector<float> weights{
@@ -101,8 +101,8 @@ void test_layer_getters()
 
   const int groups_condition = 1;
   const int groups_1x1 = 1;
-  auto layer = nam::wavenet::_Layer(conditionSize, channels, kernelSize, dilation, activation, gated, groups_input,
-                                     groups_condition, groups_1x1);
+  auto layer = nam::wavenet::_Layer(
+    conditionSize, channels, kernelSize, dilation, activation, gated, groups_input, groups_condition, groups_1x1);
 
   assert(layer.get_channels() == channels);
   assert(layer.get_kernel_size() == kernelSize);
@@ -122,8 +122,8 @@ void test_non_gated_layer()
 
   const int groups_condition = 1;
   const int groups_1x1 = 1;
-  auto layer = nam::wavenet::_Layer(conditionSize, channels, kernelSize, dilation, activation, gated, groups_input,
-                                     groups_condition, groups_1x1);
+  auto layer = nam::wavenet::_Layer(
+    conditionSize, channels, kernelSize, dilation, activation, gated, groups_input, groups_condition, groups_1x1);
 
   // For non-gated: conv outputs 1 channel, input_mixin outputs 1 channel, 1x1 outputs 1 channel
   // Conv: (1,1,1) weight + (1,) bias
@@ -189,8 +189,8 @@ void test_layer_activations()
     const int groups_input = 1;
     const int groups_condition = 1;
     const int groups_1x1 = 1;
-    auto layer = nam::wavenet::_Layer(conditionSize, channels, kernelSize, dilation, "Tanh", gated, groups_input,
-                                       groups_condition, groups_1x1);
+    auto layer = nam::wavenet::_Layer(
+      conditionSize, channels, kernelSize, dilation, "Tanh", gated, groups_input, groups_condition, groups_1x1);
     std::vector<float> weights{1.0f, 0.0f, 1.0f, 1.0f, 0.0f};
     auto it = weights.begin();
     layer.set_weights_(it);
@@ -225,8 +225,8 @@ void test_layer_multichannel()
 
   const int groups_condition = 1;
   const int groups_1x1 = 1;
-  auto layer = nam::wavenet::_Layer(conditionSize, channels, kernelSize, dilation, activation, gated, groups_input,
-                                     groups_condition, groups_1x1);
+  auto layer = nam::wavenet::_Layer(
+    conditionSize, channels, kernelSize, dilation, activation, gated, groups_input, groups_condition, groups_1x1);
 
   assert(layer.get_channels() == channels);
 
