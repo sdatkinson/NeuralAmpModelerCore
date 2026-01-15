@@ -433,8 +433,9 @@ void test_layer_process_realtime_safe()
   const int dilation = 1;
   const std::string activation = "ReLU";
   const bool gated = false;
+  const int groups_input = 1;
 
-  auto layer = nam::wavenet::_Layer(condition_size, channels, kernel_size, dilation, activation, gated);
+  auto layer = nam::wavenet::_Layer(condition_size, channels, kernel_size, dilation, activation, gated, groups_input);
 
   // Set weights
   std::vector<float> weights{1.0f, 0.0f, // Conv (weight, bias)

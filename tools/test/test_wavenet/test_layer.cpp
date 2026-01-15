@@ -22,7 +22,8 @@ void test_gated()
   const int dilation = 1;
   const std::string activation = "ReLU";
   const bool gated = true;
-  auto layer = nam::wavenet::_Layer(conditionSize, channels, kernelSize, dilation, activation, gated);
+  const int groups_input = 1;
+  auto layer = nam::wavenet::_Layer(conditionSize, channels, kernelSize, dilation, activation, gated, groups_input);
 
   // Conv, input mixin, 1x1
   std::vector<float> weights{
@@ -93,8 +94,9 @@ void test_layer_getters()
   const int dilation = 2;
   const std::string activation = "Tanh";
   const bool gated = false;
+  const int groups_input = 1;
 
-  auto layer = nam::wavenet::_Layer(conditionSize, channels, kernelSize, dilation, activation, gated);
+  auto layer = nam::wavenet::_Layer(conditionSize, channels, kernelSize, dilation, activation, gated, groups_input);
 
   assert(layer.get_channels() == channels);
   assert(layer.get_kernel_size() == kernelSize);
@@ -110,8 +112,9 @@ void test_non_gated_layer()
   const int dilation = 1;
   const std::string activation = "ReLU";
   const bool gated = false;
+  const int groups_input = 1;
 
-  auto layer = nam::wavenet::_Layer(conditionSize, channels, kernelSize, dilation, activation, gated);
+  auto layer = nam::wavenet::_Layer(conditionSize, channels, kernelSize, dilation, activation, gated, groups_input);
 
   // For non-gated: conv outputs 1 channel, input_mixin outputs 1 channel, 1x1 outputs 1 channel
   // Conv: (1,1,1) weight + (1,) bias
@@ -174,7 +177,8 @@ void test_layer_activations()
 
   // Test Tanh activation
   {
-    auto layer = nam::wavenet::_Layer(conditionSize, channels, kernelSize, dilation, "Tanh", gated);
+    const int groups_input = 1;
+    auto layer = nam::wavenet::_Layer(conditionSize, channels, kernelSize, dilation, "Tanh", gated, groups_input);
     std::vector<float> weights{1.0f, 0.0f, 1.0f, 1.0f, 0.0f};
     auto it = weights.begin();
     layer.set_weights_(it);
@@ -205,8 +209,9 @@ void test_layer_multichannel()
   const int dilation = 1;
   const std::string activation = "ReLU";
   const bool gated = false;
+  const int groups_input = 1;
 
-  auto layer = nam::wavenet::_Layer(conditionSize, channels, kernelSize, dilation, activation, gated);
+  auto layer = nam::wavenet::_Layer(conditionSize, channels, kernelSize, dilation, activation, gated, groups_input);
 
   assert(layer.get_channels() == channels);
 
