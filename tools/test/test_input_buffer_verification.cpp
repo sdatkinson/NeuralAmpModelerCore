@@ -31,11 +31,6 @@ public:
     // Apply the activation
     blending_act.apply(input, output);
 
-    std::cout << "Input buffer verification test:" << std::endl;
-    std::cout << "Input: " << input(0, 0) << " (will be modified by ReLU)" << std::endl;
-    std::cout << "Blend value: " << input(1, 0) << std::endl;
-    std::cout << "Output: " << output(0, 0) << std::endl;
-
     // Expected behavior:
     // 1. Store pre-activation input in buffer: input_buffer = -2.0f
     // 2. Apply ReLU to input: activated_input = max(-2.0f, 0) = 0.0f
@@ -45,9 +40,6 @@ public:
 
     float expected = 0.5f * 0.0f + 0.5f * (-2.0f); // = -1.0f
     assert(fabs(output(0, 0) - expected) < 1e-6);
-
-    std::cout << "Expected: " << expected << std::endl;
-    std::cout << "Input buffer verification test passed!" << std::endl;
   }
 
   static void test_buffer_with_different_activations()
@@ -65,11 +57,6 @@ public:
 
     blending_act.apply(input, output);
 
-    std::cout << "LeakyReLU buffer test:" << std::endl;
-    std::cout << "Input: " << input(0, 0) << std::endl;
-    std::cout << "Blend value: " << input(1, 0) << std::endl;
-    std::cout << "Output: " << output(0, 0) << std::endl;
-
     // Expected behavior:
     // 1. Store pre-activation input in buffer: input_buffer = -1.0f
     // 2. Apply LeakyReLU: activated_input = (-1.0f > 0) ? -1.0f : 0.1f * -1.0f = -0.1f
@@ -81,9 +68,6 @@ public:
     float expected = 0.8f * activated_input + 0.2f * (-1.0f); // = -0.28f
 
     assert(fabs(output(0, 0) - expected) < 1e-6);
-
-    std::cout << "Expected: " << expected << std::endl;
-    std::cout << "LeakyReLU buffer test passed!" << std::endl;
   }
 };
 
