@@ -488,7 +488,7 @@ void test_layer_grouped_process_realtime_safe()
   const std::string activation = "ReLU";
   const bool gated = false;
   const int groups_input = 2; // groups_input > 1
-  const int groups_1x1 = 2;   // 1x1 is also grouped
+  const int groups_1x1 = 2; // 1x1 is also grouped
 
   auto layer =
     nam::wavenet::_Layer(condition_size, channels, kernel_size, dilation, activation, gated, groups_input, groups_1x1);
