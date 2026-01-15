@@ -611,27 +611,32 @@ void test_process_grouped_kernel_size()
 
   // Each group: 2 in_channels, 2 out_channels, kernel_size=2
   // Weight layout: for each group g, for each (i,j), for each k
+  // The code expects: for each group, for each (i,j), for each kernel position k
   std::vector<float> weights;
-  // Group 0, kernel[0] (t-1): identity
-  weights.push_back(1.0f); // out[0], in[0]
-  weights.push_back(0.0f); // out[0], in[1]
-  weights.push_back(0.0f); // out[1], in[0]
-  weights.push_back(1.0f); // out[1], in[1]
-  // Group 0, kernel[1] (t): double
-  weights.push_back(2.0f);
-  weights.push_back(0.0f);
-  weights.push_back(0.0f);
-  weights.push_back(2.0f);
-  // Group 1, kernel[0] (t-1): triple
-  weights.push_back(3.0f); // out[2], in[2]
-  weights.push_back(0.0f); // out[2], in[3]
-  weights.push_back(0.0f); // out[3], in[2]
-  weights.push_back(3.0f); // out[3], in[3]
-  // Group 1, kernel[1] (t): quadruple
-  weights.push_back(4.0f);
-  weights.push_back(0.0f);
-  weights.push_back(0.0f);
-  weights.push_back(4.0f);
+  // Group 0, (0,0): kernel[0]=1.0, kernel[1]=2.0
+  weights.push_back(1.0f); // kernel[0], out[0], in[0]
+  weights.push_back(2.0f); // kernel[1], out[0], in[0]
+  // Group 0, (0,1): kernel[0]=0.0, kernel[1]=0.0
+  weights.push_back(0.0f); // kernel[0], out[0], in[1]
+  weights.push_back(0.0f); // kernel[1], out[0], in[1]
+  // Group 0, (1,0): kernel[0]=0.0, kernel[1]=0.0
+  weights.push_back(0.0f); // kernel[0], out[1], in[0]
+  weights.push_back(0.0f); // kernel[1], out[1], in[0]
+  // Group 0, (1,1): kernel[0]=1.0, kernel[1]=2.0
+  weights.push_back(1.0f); // kernel[0], out[1], in[1]
+  weights.push_back(2.0f); // kernel[1], out[1], in[1]
+  // Group 1, (0,0): kernel[0]=3.0, kernel[1]=4.0
+  weights.push_back(3.0f); // kernel[0], out[2], in[2]
+  weights.push_back(4.0f); // kernel[1], out[2], in[2]
+  // Group 1, (0,1): kernel[0]=0.0, kernel[1]=0.0
+  weights.push_back(0.0f); // kernel[0], out[2], in[3]
+  weights.push_back(0.0f); // kernel[1], out[2], in[3]
+  // Group 1, (1,0): kernel[0]=0.0, kernel[1]=0.0
+  weights.push_back(0.0f); // kernel[0], out[3], in[2]
+  weights.push_back(0.0f); // kernel[1], out[3], in[2]
+  // Group 1, (1,1): kernel[0]=3.0, kernel[1]=4.0
+  weights.push_back(3.0f); // kernel[0], out[3], in[3]
+  weights.push_back(4.0f); // kernel[1], out[3], in[3]
 
   auto it = weights.begin();
   conv.set_weights_(it);
