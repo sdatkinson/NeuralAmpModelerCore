@@ -465,8 +465,8 @@ void test_process_grouped_basic()
   assert(std::abs(output(0, 0) - 1.0f) < 0.01f); // out[0] = in[0]
   assert(std::abs(output(1, 0) - 2.0f) < 0.01f); // out[1] = in[1]
   // Group 1: double transformation
-  assert(std::abs(output(2, 0) - 6.0f) < 0.01f);  // out[2] = 2.0 * in[2]
-  assert(std::abs(output(3, 0) - 8.0f) < 0.01f);  // out[3] = 2.0 * in[3]
+  assert(std::abs(output(2, 0) - 6.0f) < 0.01f); // out[2] = 2.0 * in[2]
+  assert(std::abs(output(3, 0) - 8.0f) < 0.01f); // out[3] = 2.0 * in[3]
   // Frame 1
   assert(std::abs(output(0, 1) - 5.0f) < 0.01f);
   assert(std::abs(output(1, 1) - 6.0f) < 0.01f);
@@ -585,14 +585,14 @@ void test_process_grouped_multiple_groups()
   assert(std::abs(output(0, 0) - 1.0f) < 0.01f);
   assert(std::abs(output(1, 0) - 2.0f) < 0.01f);
   // Group 1: channels 2-3 scaled by 2.0
-  assert(std::abs(output(2, 0) - 6.0f) < 0.01f);  // 3.0 * 2.0
-  assert(std::abs(output(3, 0) - 8.0f) < 0.01f);  // 4.0 * 2.0
+  assert(std::abs(output(2, 0) - 6.0f) < 0.01f); // 3.0 * 2.0
+  assert(std::abs(output(3, 0) - 8.0f) < 0.01f); // 4.0 * 2.0
   // Group 2: channels 4-5 scaled by 3.0
   assert(std::abs(output(4, 0) - 15.0f) < 0.01f); // 5.0 * 3.0
   assert(std::abs(output(5, 0) - 18.0f) < 0.01f); // 6.0 * 3.0
   // Group 3: channels 6-7 scaled by 4.0
   assert(std::abs(output(6, 0) - 28.0f) < 0.01f); // 7.0 * 4.0
-  assert(std::abs(output(7, 0) - 32.0f) < 0.01f);  // 8.0 * 4.0
+  assert(std::abs(output(7, 0) - 32.0f) < 0.01f); // 8.0 * 4.0
 }
 
 // Test grouped convolution with kernel_size > 1
@@ -718,7 +718,7 @@ void test_process_grouped_dilation()
   Eigen::MatrixXf input(in_channels, num_frames);
   for (int t = 0; t < num_frames; t++)
   {
-    input(0, t) = static_cast<float>(t + 1);     // Group 0
+    input(0, t) = static_cast<float>(t + 1); // Group 0
     input(1, t) = static_cast<float>(t + 1) * 2;
     input(2, t) = static_cast<float>(t + 1) * 3; // Group 1
     input(3, t) = static_cast<float>(t + 1) * 4;
