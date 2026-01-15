@@ -99,6 +99,8 @@ int main()
   test_wavenet::test_allocation_tracking_pass();
   test_wavenet::test_allocation_tracking_fail();
   test_wavenet::test_conv1d_process_realtime_safe();
+  test_wavenet::test_conv1d_grouped_process_realtime_safe();
+  test_wavenet::test_conv1d_grouped_dilated_process_realtime_safe();
   test_wavenet::test_layer_process_realtime_safe();
   test_wavenet::test_layer_array_process_realtime_safe();
   test_wavenet::test_process_realtime_safe();

@@ -282,6 +282,147 @@ void test_conv1d_process_realtime_safe()
   }
 }
 
+// Test that Conv1D::Process() with grouped convolution (groups > 1) does not allocate or free memory
+void test_conv1d_grouped_process_realtime_safe()
+{
+  // Setup: Create a Conv1D with grouped convolution
+  const int in_channels = 4;
+  const int out_channels = 4;
+  const int kernel_size = 2;
+  const bool do_bias = true;
+  const int dilation = 1;
+  const int groups = 2;
+
+  nam::Conv1D conv;
+  conv.set_size_(in_channels, out_channels, kernel_size, do_bias, dilation, groups);
+
+  // Set weights for grouped convolution
+  // Each group: 2 in_channels, 2 out_channels, kernel_size=2
+  // Weight layout: for each group g, for each (i,j), for each k
+  std::vector<float> weights;
+  // Group 0, kernel[0]: identity
+  weights.push_back(1.0f);
+  weights.push_back(0.0f);
+  weights.push_back(0.0f);
+  weights.push_back(1.0f);
+  // Group 0, kernel[1]: identity
+  weights.push_back(1.0f);
+  weights.push_back(0.0f);
+  weights.push_back(0.0f);
+  weights.push_back(1.0f);
+  // Group 1, kernel[0]: identity
+  weights.push_back(1.0f);
+  weights.push_back(0.0f);
+  weights.push_back(0.0f);
+  weights.push_back(1.0f);
+  // Group 1, kernel[1]: identity
+  weights.push_back(1.0f);
+  weights.push_back(0.0f);
+  weights.push_back(0.0f);
+  weights.push_back(1.0f);
+  // Bias: [0.1, 0.2, 0.3, 0.4]
+  weights.push_back(0.1f);
+  weights.push_back(0.2f);
+  weights.push_back(0.3f);
+  weights.push_back(0.4f);
+
+  auto it = weights.begin();
+  conv.set_weights_(it);
+
+  const int maxBufferSize = 256;
+  conv.SetMaxBufferSize(maxBufferSize);
+
+  // Test with several different buffer sizes
+  std::vector<int> buffer_sizes{1, 8, 16, 32, 64, 128, 256};
+
+  for (int buffer_size : buffer_sizes)
+  {
+    // Prepare input matrix (allocate before tracking)
+    Eigen::MatrixXf input(in_channels, buffer_size);
+    input.setConstant(0.5f);
+
+    std::string test_name = "Conv1D Grouped Process - Buffer size " + std::to_string(buffer_size);
+    run_allocation_test_no_allocations(
+      nullptr, // No setup needed
+      [&]() {
+        // Call Process() - this should not allocate or free
+        conv.Process(input, buffer_size);
+      },
+      nullptr, // No teardown needed
+      test_name.c_str());
+
+    // Verify output is valid
+    auto output = conv.GetOutput().leftCols(buffer_size);
+    assert(output.rows() == out_channels && output.cols() == buffer_size);
+    assert(std::isfinite(output(0, 0)));
+    assert(std::isfinite(output(out_channels - 1, buffer_size - 1)));
+  }
+}
+
+// Test that Conv1D::Process() with grouped convolution and dilation does not allocate or free memory
+void test_conv1d_grouped_dilated_process_realtime_safe()
+{
+  // Setup: Create a Conv1D with grouped convolution and dilation
+  const int in_channels = 6;
+  const int out_channels = 6;
+  const int kernel_size = 2;
+  const bool do_bias = false;
+  const int dilation = 2;
+  const int groups = 3;
+
+  nam::Conv1D conv;
+  conv.set_size_(in_channels, out_channels, kernel_size, do_bias, dilation, groups);
+
+  // Set weights for grouped convolution with 3 groups
+  // Each group: 2 in_channels, 2 out_channels, kernel_size=2
+  std::vector<float> weights;
+  for (int g = 0; g < groups; g++)
+  {
+    // Group g, kernel[0]: identity
+    weights.push_back(1.0f);
+    weights.push_back(0.0f);
+    weights.push_back(0.0f);
+    weights.push_back(1.0f);
+    // Group g, kernel[1]: identity
+    weights.push_back(1.0f);
+    weights.push_back(0.0f);
+    weights.push_back(0.0f);
+    weights.push_back(1.0f);
+  }
+
+  auto it = weights.begin();
+  conv.set_weights_(it);
+
+  const int maxBufferSize = 256;
+  conv.SetMaxBufferSize(maxBufferSize);
+
+  // Test with several different buffer sizes
+  std::vector<int> buffer_sizes{1, 8, 16, 32, 64, 128, 256};
+
+  for (int buffer_size : buffer_sizes)
+  {
+    // Prepare input matrix (allocate before tracking)
+    Eigen::MatrixXf input(in_channels, buffer_size);
+    input.setConstant(0.5f);
+
+    std::string test_name = "Conv1D Grouped Dilated Process - Buffer size " + std::to_string(buffer_size);
+    run_allocation_test_no_allocations(
+      nullptr, // No setup needed
+      [&]() {
+        // Call Process() - this should not allocate or free
+        conv.Process(input, buffer_size);
+      },
+      nullptr, // No teardown needed
+      test_name.c_str());
+
+    // Verify output is valid
+    auto output = conv.GetOutput().leftCols(buffer_size);
+    assert(output.rows() == out_channels && output.cols() == buffer_size);
+    assert(std::isfinite(output(0, 0)));
+    assert(std::isfinite(output(out_channels - 1, buffer_size - 1)));
+  }
+}
+
 // Test that Layer::Process() method does not allocate or free memory
 void test_layer_process_realtime_safe()
 {
