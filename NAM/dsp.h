@@ -177,7 +177,7 @@ std::unique_ptr<DSP> Factory(const nlohmann::json& config, std::vector<float>& w
 class Conv1x1
 {
 public:
-  Conv1x1(const int in_channels, const int out_channels, const bool _bias);
+  Conv1x1(const int in_channels, const int out_channels, const bool _bias, const int groups = 1);
   // Get the entire internal output buffer. This is intended for internal wiring
   // between layers/arrays; callers should treat the buffer as pre-allocated
   // storage and only consider the first `num_frames` columns valid for a given
@@ -199,6 +199,7 @@ public:
 protected:
   Eigen::MatrixXf _weight;
   Eigen::VectorXf _bias;
+  int _num_groups;
 
 private:
   Eigen::MatrixXf _output;

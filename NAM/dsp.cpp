@@ -2,6 +2,7 @@
 #include <cmath> // pow, tanh, expf
 #include <filesystem>
 #include <fstream>
+#include <stdexcept>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -206,8 +207,21 @@ std::unique_ptr<nam::DSP> nam::linear::Factory(const nlohmann::json& config, std
 
 // Conv1x1 ====================================================================
 
-nam::Conv1x1::Conv1x1(const int in_channels, const int out_channels, const bool _bias)
+nam::Conv1x1::Conv1x1(const int in_channels, const int out_channels, const bool _bias, const int groups)
 {
+  // Validate that channels divide evenly by groups
+  if (in_channels % groups != 0)
+  {
+    throw std::runtime_error("in_channels (" + std::to_string(in_channels) + ") must be divisible by numGroups ("
+                             + std::to_string(groups) + ")");
+  }
+  if (out_channels % groups != 0)
+  {
+    throw std::runtime_error("out_channels (" + std::to_string(out_channels) + ") must be divisible by numGroups ("
+                             + std::to_string(groups) + ")");
+  }
+
+  this->_num_groups = groups;
   this->_weight.resize(out_channels, in_channels);
   this->_do_bias = _bias;
   if (_bias)
@@ -222,9 +236,28 @@ void nam::Conv1x1::SetMaxBufferSize(const int maxBufferSize)
 
 void nam::Conv1x1::set_weights_(std::vector<float>::iterator& weights)
 {
-  for (int i = 0; i < this->_weight.rows(); i++)
-    for (int j = 0; j < this->_weight.cols(); j++)
-      this->_weight(i, j) = *(weights++);
+  if (this->_weight.size() > 0)
+  {
+    const long out_channels = this->_weight.rows();
+    const long in_channels = this->_weight.cols();
+    const int numGroups = this->_num_groups;
+    const long out_per_group = out_channels / numGroups;
+    const long in_per_group = in_channels / numGroups;
+
+    // For grouped convolutions, weights are organized per group
+    // Weight layout: weights are [group0, group1, ..., groupN-1]
+    // Each group's weight matrix is (out_channels/numGroups, in_channels/numGroups)
+    for (int g = 0; g < numGroups; g++)
+    {
+      for (auto i = 0; i < out_per_group; i++)
+      {
+        for (auto j = 0; j < in_per_group; j++)
+        {
+          this->_weight(g * out_per_group + i, g * in_per_group + j) = *(weights++);
+        }
+      }
+    }
+  }
   if (this->_do_bias)
     for (int i = 0; i < this->_bias.size(); i++)
       this->_bias(i) = *(weights++);
@@ -232,16 +265,85 @@ void nam::Conv1x1::set_weights_(std::vector<float>::iterator& weights)
 
 Eigen::MatrixXf nam::Conv1x1::process(const Eigen::MatrixXf& input, const int num_frames) const
 {
-  if (this->_do_bias)
-    return (this->_weight * input.leftCols(num_frames)).colwise() + this->_bias;
+  const int numGroups = this->_num_groups;
+  const long in_channels = get_in_channels();
+  const long out_channels = get_out_channels();
+  const long in_per_group = in_channels / numGroups;
+  const long out_per_group = out_channels / numGroups;
+
+  Eigen::MatrixXf result(out_channels, num_frames);
+
+  if (numGroups == 1)
+  {
+    // Standard convolution (no grouping)
+    if (this->_do_bias)
+      result = (this->_weight * input.leftCols(num_frames)).colwise() + this->_bias;
+    else
+      result = this->_weight * input.leftCols(num_frames);
+  }
   else
-    return this->_weight * input.leftCols(num_frames);
+  {
+    // Grouped convolution: process each group separately
+    result.setZero();
+    for (int g = 0; g < numGroups; g++)
+    {
+      // Extract input slice for this group
+      auto input_group = input.leftCols(num_frames).middleRows(g * in_per_group, in_per_group);
+
+      // Extract weight slice for this group
+      auto weight_group = this->_weight.block(g * out_per_group, g * in_per_group, out_per_group, in_per_group);
+
+      // Extract output slice for this group
+      auto output_group = result.middleRows(g * out_per_group, out_per_group);
+
+      // Perform grouped convolution: output_group = weight_group * input_group
+      output_group.noalias() = weight_group * input_group;
+    }
+
+    // Add bias if present
+    if (this->_do_bias)
+      result.colwise() += this->_bias;
+  }
+
+  return result;
 }
 
 void nam::Conv1x1::process_(const Eigen::MatrixXf& input, const int num_frames)
 {
   assert(num_frames <= _output.cols());
-  _output.leftCols(num_frames).noalias() = this->_weight * input.leftCols(num_frames);
+  
+  const int numGroups = this->_num_groups;
+  const long in_channels = get_in_channels();
+  const long out_channels = get_out_channels();
+  const long in_per_group = in_channels / numGroups;
+  const long out_per_group = out_channels / numGroups;
+
+  if (numGroups == 1)
+  {
+    // Standard convolution (no grouping)
+    _output.leftCols(num_frames).noalias() = this->_weight * input.leftCols(num_frames);
+  }
+  else
+  {
+    // Grouped convolution: process each group separately
+    _output.leftCols(num_frames).setZero();
+    for (int g = 0; g < numGroups; g++)
+    {
+      // Extract input slice for this group
+      auto input_group = input.leftCols(num_frames).middleRows(g * in_per_group, in_per_group);
+
+      // Extract weight slice for this group
+      auto weight_group = this->_weight.block(g * out_per_group, g * in_per_group, out_per_group, in_per_group);
+
+      // Extract output slice for this group
+      auto output_group = _output.leftCols(num_frames).middleRows(g * out_per_group, out_per_group);
+
+      // Perform grouped convolution: output_group = weight_group * input_group
+      output_group.noalias() = weight_group * input_group;
+    }
+  }
+
+  // Add bias if present
   if (this->_do_bias)
   {
     _output.leftCols(num_frames).colwise() += this->_bias;
