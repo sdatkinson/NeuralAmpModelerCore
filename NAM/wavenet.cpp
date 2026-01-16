@@ -83,7 +83,7 @@ void nam::wavenet::_Layer::Process(const Eigen::MatrixXf& input, const Eigen::Ma
       this->_output_head.leftCols(num_frames).noalias() = this->_z.topRows(bottleneck).leftCols(num_frames);
   }
 
-   // Store output to next layer (residual connection: input + _1x1 output)
+  // Store output to next layer (residual connection: input + _1x1 output)
   this->_output_next_layer.leftCols(num_frames).noalias() =
     input.leftCols(num_frames) + _1x1.GetOutput().leftCols(num_frames);
 }
