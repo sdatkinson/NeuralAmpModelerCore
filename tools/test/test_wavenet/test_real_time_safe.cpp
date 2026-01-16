@@ -809,4 +809,127 @@ void test_process_realtime_safe()
     }
   }
 }
+
+// Test that WaveNet::process() method with 3 input channels and 2 output channels does not allocate or free memory
+void test_process_3in_2out_realtime_safe()
+{
+  // Setup: Create WaveNet with 3 input channels and 2 output channels
+  const int input_size = 3; // 3 input channels
+  const int condition_size = 3; // condition matches input channels
+  const int head_size = 2; // 2 output channels
+  const int channels = 4; // internal channels
+  const int bottleneck = 2; // bottleneck (will be used for head)
+  const int kernel_size = 1;
+  const std::string activation = "ReLU";
+  const bool gated = false;
+  const bool head_bias = false;
+  const float head_scale = 1.0f;
+  const bool with_head = false;
+  const int groups = 1;
+  const int groups_1x1 = 1;
+
+  std::vector<nam::wavenet::LayerArrayParams> layer_array_params;
+  std::vector<int> dilations1{1};
+  layer_array_params.push_back(nam::wavenet::LayerArrayParams(input_size, condition_size, head_size, channels,
+                                                              bottleneck, kernel_size, std::move(dilations1),
+                                                              activation, gated, head_bias, groups, groups_1x1));
+
+  // Calculate weights:
+  // _rechannel: Conv1x1(3, 4, bias=false) = 3*4 = 12 weights
+  // Layer:
+  //   _conv: Conv1D(4, 2, kernel_size=1, bias=true) = 1*(2*4) + 2 = 10 weights
+  //   _input_mixin: Conv1x1(3, 2, bias=false) = 3*2 = 6 weights
+  //   _1x1: Conv1x1(2, 4, bias=true) = 2*4 + 4 = 12 weights
+  // _head_rechannel: Conv1x1(2, 2, bias=false) = 2*2 = 4 weights
+  // Total: 12 + 10 + 6 + 12 + 4 = 44 weights
+  std::vector<float> weights;
+  // _rechannel weights (3->4): identity-like pattern
+  for (int out_ch = 0; out_ch < 4; out_ch++)
+  {
+    for (int in_ch = 0; in_ch < 3; in_ch++)
+    {
+      weights.push_back((out_ch < 3 && out_ch == in_ch) ? 1.0f : 0.0f);
+    }
+  }
+  // Layer: _conv weights (4->2, kernel_size=1, with bias)
+  // Weight layout: for each kernel position k, for each out_channel, for each in_channel
+  for (int out_ch = 0; out_ch < 2; out_ch++)
+  {
+    for (int in_ch = 0; in_ch < 4; in_ch++)
+    {
+      weights.push_back((out_ch == in_ch) ? 1.0f : 0.0f);
+    }
+  }
+  // _conv bias (2 values)
+  weights.insert(weights.end(), {0.0f, 0.0f});
+  // _input_mixin weights (3->2)
+  for (int out_ch = 0; out_ch < 2; out_ch++)
+  {
+    for (int in_ch = 0; in_ch < 3; in_ch++)
+    {
+      weights.push_back((out_ch == in_ch) ? 1.0f : 0.0f);
+    }
+  }
+  // _1x1 weights (2->4, with bias)
+  for (int out_ch = 0; out_ch < 4; out_ch++)
+  {
+    for (int in_ch = 0; in_ch < 2; in_ch++)
+    {
+      weights.push_back((out_ch < 2 && out_ch == in_ch) ? 1.0f : 0.0f);
+    }
+  }
+  // _1x1 bias (4 values)
+  weights.insert(weights.end(), {0.0f, 0.0f, 0.0f, 0.0f});
+  // _head_rechannel weights (2->2)
+  for (int out_ch = 0; out_ch < 2; out_ch++)
+  {
+    for (int in_ch = 0; in_ch < 2; in_ch++)
+    {
+      weights.push_back((out_ch == in_ch) ? 1.0f : 0.0f);
+    }
+  }
+  weights.push_back(head_scale);
+
+  const int in_channels = 3;
+  auto wavenet =
+    std::make_unique<nam::wavenet::WaveNet>(in_channels, layer_array_params, head_scale, with_head, weights, 48000.0);
+
+  const int maxBufferSize = 256;
+  wavenet->Reset(48000.0, maxBufferSize);
+
+  // Test with several different buffer sizes
+  std::vector<int> buffer_sizes{1, 8, 16, 32, 64, 128, 256};
+
+  for (int buffer_size : buffer_sizes)
+  {
+    // Prepare input/output buffers for 3 input channels and 2 output channels (allocate before tracking)
+    std::vector<std::vector<NAM_SAMPLE>> input(3, std::vector<NAM_SAMPLE>(buffer_size, 0.5f));
+    std::vector<std::vector<NAM_SAMPLE>> output(2, std::vector<NAM_SAMPLE>(buffer_size, 0.0f));
+    std::vector<NAM_SAMPLE*> inputPtrs(3);
+    std::vector<NAM_SAMPLE*> outputPtrs(2);
+    for (int ch = 0; ch < 3; ch++)
+      inputPtrs[ch] = input[ch].data();
+    for (int ch = 0; ch < 2; ch++)
+      outputPtrs[ch] = output[ch].data();
+
+    std::string test_name = "WaveNet process (3in, 2out) - Buffer size " + std::to_string(buffer_size);
+    run_allocation_test_no_allocations(
+      nullptr, // No setup needed
+      [&]() {
+        // Call process() - this should not allocate or free
+        wavenet->process(inputPtrs.data(), outputPtrs.data(), buffer_size);
+      },
+      nullptr, // No teardown needed
+      test_name.c_str());
+
+    // Verify output is valid
+    for (int ch = 0; ch < 2; ch++)
+    {
+      for (int i = 0; i < buffer_size; i++)
+      {
+        assert(std::isfinite(output[ch][i]));
+      }
+    }
+  }
+}
 } // namespace test_wavenet
