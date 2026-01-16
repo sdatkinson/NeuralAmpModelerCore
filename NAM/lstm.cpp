@@ -171,7 +171,7 @@ std::unique_ptr<nam::DSP> nam::lstm::Factory(const nlohmann::json& config, std::
   const int input_size = config["input_size"];
   const int hidden_size = config["hidden_size"];
   // Default to 1 channel in/out for backward compatibility
-  const int in_channels = config.value("in_channels", input_size);
+  const int in_channels = config.value("in_channels", 1);
   const int out_channels = config.value("out_channels", 1);
   return std::make_unique<nam::lstm::LSTM>(
     in_channels, out_channels, num_layers, input_size, hidden_size, weights, expectedSampleRate);
