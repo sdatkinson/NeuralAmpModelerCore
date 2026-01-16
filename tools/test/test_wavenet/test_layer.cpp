@@ -18,14 +18,15 @@ void test_gated()
   // Issue 101
   const int conditionSize = 1;
   const int channels = 1;
+  const int bottleneck = channels;
   const int kernelSize = 1;
   const int dilation = 1;
   const std::string activation = "ReLU";
   const bool gated = true;
   const int groups_input = 1;
   const int groups_1x1 = 1;
-  auto layer =
-    nam::wavenet::_Layer(conditionSize, channels, kernelSize, dilation, activation, gated, groups_input, groups_1x1);
+  auto layer = nam::wavenet::_Layer(
+    conditionSize, channels, bottleneck, kernelSize, dilation, activation, gated, groups_input, groups_1x1);
 
   // Conv, input mixin, 1x1
   std::vector<float> weights{
@@ -48,7 +49,7 @@ void test_gated()
   Eigen::MatrixXf input, condition, headInput, output;
   input.resize(channels, numFrames);
   condition.resize(conditionSize, numFrames);
-  headInput.resize(channels, numFrames);
+  headInput.resize(bottleneck, numFrames);
   output.resize(channels, numFrames);
 
   const float signalValue = 0.25f;
@@ -92,6 +93,7 @@ void test_layer_getters()
 {
   const int conditionSize = 2;
   const int channels = 4;
+  const int bottleneck = channels;
   const int kernelSize = 3;
   const int dilation = 2;
   const std::string activation = "Tanh";
@@ -99,8 +101,8 @@ void test_layer_getters()
   const int groups_input = 1;
   const int groups_1x1 = 1;
 
-  auto layer =
-    nam::wavenet::_Layer(conditionSize, channels, kernelSize, dilation, activation, gated, groups_input, groups_1x1);
+  auto layer = nam::wavenet::_Layer(
+    conditionSize, channels, bottleneck, kernelSize, dilation, activation, gated, groups_input, groups_1x1);
 
   assert(layer.get_channels() == channels);
   assert(layer.get_kernel_size() == kernelSize);
@@ -112,6 +114,7 @@ void test_non_gated_layer()
 {
   const int conditionSize = 1;
   const int channels = 1;
+  const int bottleneck = channels;
   const int kernelSize = 1;
   const int dilation = 1;
   const std::string activation = "ReLU";
@@ -119,8 +122,8 @@ void test_non_gated_layer()
   const int groups_input = 1;
   const int groups_1x1 = 1;
 
-  auto layer =
-    nam::wavenet::_Layer(conditionSize, channels, kernelSize, dilation, activation, gated, groups_input, groups_1x1);
+  auto layer = nam::wavenet::_Layer(
+    conditionSize, channels, bottleneck, kernelSize, dilation, activation, gated, groups_input, groups_1x1);
 
   // For non-gated: conv outputs 1 channel, input_mixin outputs 1 channel, 1x1 outputs 1 channel
   // Conv: (1,1,1) weight + (1,) bias
@@ -152,7 +155,7 @@ void test_non_gated_layer()
 
   assert(layer_output.rows() == channels);
   assert(layer_output.cols() == numFrames);
-  assert(head_output.rows() == channels);
+  assert(head_output.rows() == bottleneck);
   assert(head_output.cols() == numFrames);
 
   // With identity-like weights: input=1, condition=1
@@ -183,10 +186,11 @@ void test_layer_activations()
 
   // Test Tanh activation
   {
+    const int bottleneck = channels;
     const int groups_input = 1;
     const int groups_1x1 = 1;
-    auto layer =
-      nam::wavenet::_Layer(conditionSize, channels, kernelSize, dilation, "Tanh", gated, groups_input, groups_1x1);
+    auto layer = nam::wavenet::_Layer(
+      conditionSize, channels, bottleneck, kernelSize, dilation, "Tanh", gated, groups_input, groups_1x1);
     std::vector<float> weights{1.0f, 0.0f, 1.0f, 1.0f, 0.0f};
     auto it = weights.begin();
     layer.set_weights_(it);
@@ -213,6 +217,7 @@ void test_layer_multichannel()
 {
   const int conditionSize = 2;
   const int channels = 3;
+  const int bottleneck = channels;
   const int kernelSize = 1;
   const int dilation = 1;
   const std::string activation = "ReLU";
@@ -220,8 +225,8 @@ void test_layer_multichannel()
   const int groups_input = 1;
   const int groups_1x1 = 1;
 
-  auto layer =
-    nam::wavenet::_Layer(conditionSize, channels, kernelSize, dilation, activation, gated, groups_input, groups_1x1);
+  auto layer = nam::wavenet::_Layer(
+    conditionSize, channels, bottleneck, kernelSize, dilation, activation, gated, groups_input, groups_1x1);
 
   assert(layer.get_channels() == channels);
 
@@ -272,7 +277,158 @@ void test_layer_multichannel()
 
   assert(layer_output.rows() == channels);
   assert(layer_output.cols() == numFrames);
-  assert(head_output.rows() == channels);
+  assert(head_output.rows() == bottleneck);
+  assert(head_output.cols() == numFrames);
+}
+
+// Test layer with bottleneck different from channels
+void test_layer_bottleneck()
+{
+  const int conditionSize = 1;
+  const int channels = 4;
+  const int bottleneck = 2; // bottleneck < channels
+  const int kernelSize = 1;
+  const int dilation = 1;
+  const std::string activation = "ReLU";
+  const bool gated = false;
+  const int groups_input = 1;
+  const int groups_1x1 = 1;
+
+  auto layer = nam::wavenet::_Layer(
+    conditionSize, channels, bottleneck, kernelSize, dilation, activation, gated, groups_input, groups_1x1);
+
+  // With bottleneck < channels, the internal conv and input_mixin should have bottleneck channels,
+  // but the 1x1 should map from bottleneck back to channels
+  // Conv: (channels, bottleneck, kernelSize=1) + bias -> outputs bottleneck channels
+  // Input mixin: (conditionSize, bottleneck) -> outputs bottleneck channels
+  // 1x1: (bottleneck, channels) + bias -> outputs channels channels
+
+  // Set weights
+  std::vector<float> weights;
+  // Conv weights: out_channels x in_channels x kernelSize = bottleneck x channels x kernelSize = 2 x 4 x 1 = 8 weights
+  // Weight layout for Conv1D: for each out_channel, for each in_channel, for each kernel position
+  // Use identity-like pattern: out_channel i connects to in_channel i (for i < bottleneck)
+  for (int out_ch = 0; out_ch < bottleneck; out_ch++)
+  {
+    for (int in_ch = 0; in_ch < channels; in_ch++)
+    {
+      weights.push_back((out_ch == in_ch) ? 1.0f : 0.0f);
+    }
+  }
+  // Conv bias: bottleneck values
+  weights.insert(weights.end(), {0.0f, 0.0f});
+  // Input mixin: conditionSize x bottleneck = 1 x 2 = 2 weights
+  weights.insert(weights.end(), {1.0f, 1.0f});
+  // 1x1 weights: out_channels x in_channels = channels x bottleneck = 4 x 2 = 8 weights
+  // Weight layout for Conv1x1: for each out_channel, for each in_channel
+  // Identity-like pattern: out_channel i connects to in_channel i (for i < bottleneck)
+  for (int out_ch = 0; out_ch < channels; out_ch++)
+  {
+    for (int in_ch = 0; in_ch < bottleneck; in_ch++)
+    {
+      weights.push_back((out_ch == in_ch) ? 1.0f : 0.0f);
+    }
+  }
+  // 1x1 bias: channels values
+  weights.insert(weights.end(), {0.0f, 0.0f, 0.0f, 0.0f});
+
+  auto it = weights.begin();
+  layer.set_weights_(it);
+  assert(it == weights.end());
+
+  const int numFrames = 2;
+  layer.SetMaxBufferSize(numFrames);
+
+  Eigen::MatrixXf input(channels, numFrames);
+  Eigen::MatrixXf condition(conditionSize, numFrames);
+  input.fill(1.0f);
+  condition.fill(1.0f);
+
+  layer.Process(input, condition, numFrames);
+
+  auto layer_output = layer.GetOutputNextLayer().leftCols(numFrames);
+  auto head_output = layer.GetOutputHead().leftCols(numFrames);
+
+  // Layer output should have channels rows (for next layer)
+  assert(layer_output.rows() == channels);
+  assert(layer_output.cols() == numFrames);
+  // Head output should have bottleneck rows (internal channel count)
+  assert(head_output.rows() == bottleneck);
+  assert(head_output.cols() == numFrames);
+}
+
+// Test layer with bottleneck and gated activation
+void test_layer_bottleneck_gated()
+{
+  const int conditionSize = 1;
+  const int channels = 4;
+  const int bottleneck = 2; // bottleneck < channels
+  const int kernelSize = 1;
+  const int dilation = 1;
+  const std::string activation = "ReLU";
+  const bool gated = true; // gated doubles the internal bottleneck channels
+  const int groups_input = 1;
+  const int groups_1x1 = 1;
+
+  auto layer = nam::wavenet::_Layer(
+    conditionSize, channels, bottleneck, kernelSize, dilation, activation, gated, groups_input, groups_1x1);
+
+  // With gated=true and bottleneck=2, internal channels should be 2*bottleneck=4
+  // Conv: (channels, 2*bottleneck, kernelSize=1) = (4, 4, 1) + bias
+  // Input mixin: (conditionSize, 2*bottleneck) = (1, 4)
+  // 1x1: (bottleneck, channels) = (2, 4) + bias
+
+  // Set weights
+  std::vector<float> weights;
+  // Conv weights: out_channels x in_channels x kernelSize = (2*bottleneck) x channels x kernelSize = 4 x 4 x 1 = 16
+  // weights Weight layout for Conv1D: for each out_channel, for each in_channel, for each kernel position Identity
+  // pattern: out_channel i connects to in_channel i (for i < min(2*bottleneck, channels))
+  for (int out_ch = 0; out_ch < 2 * bottleneck; out_ch++)
+  {
+    for (int in_ch = 0; in_ch < channels; in_ch++)
+    {
+      weights.push_back((out_ch == in_ch) ? 1.0f : 0.0f);
+    }
+  }
+  // Conv bias: 2*bottleneck = 4 values
+  weights.insert(weights.end(), {0.0f, 0.0f, 0.0f, 0.0f});
+  // Input mixin: conditionSize x (2*bottleneck) = 1 x 4 = 4 weights
+  weights.insert(weights.end(), {1.0f, 1.0f, 1.0f, 1.0f});
+  // 1x1 weights: out_channels x in_channels = channels x bottleneck = 4 x 2 = 8 weights
+  // Weight layout for Conv1x1: for each out_channel, for each in_channel
+  // Identity pattern: out_channel i connects to in_channel i (for i < bottleneck)
+  for (int out_ch = 0; out_ch < channels; out_ch++)
+  {
+    for (int in_ch = 0; in_ch < bottleneck; in_ch++)
+    {
+      weights.push_back((out_ch == in_ch) ? 1.0f : 0.0f);
+    }
+  }
+  // 1x1 bias: channels = 4 values
+  weights.insert(weights.end(), {0.0f, 0.0f, 0.0f, 0.0f});
+
+  auto it = weights.begin();
+  layer.set_weights_(it);
+  assert(it == weights.end());
+
+  const int numFrames = 2;
+  layer.SetMaxBufferSize(numFrames);
+
+  Eigen::MatrixXf input(channels, numFrames);
+  Eigen::MatrixXf condition(conditionSize, numFrames);
+  input.fill(1.0f);
+  condition.fill(1.0f);
+
+  layer.Process(input, condition, numFrames);
+
+  auto layer_output = layer.GetOutputNextLayer().leftCols(numFrames);
+  auto head_output = layer.GetOutputHead().leftCols(numFrames);
+
+  // Layer output should have channels rows (for next layer)
+  assert(layer_output.rows() == channels);
+  assert(layer_output.cols() == numFrames);
+  // Head output should have bottleneck rows (the activated portion, not the full 2*bottleneck)
+  assert(head_output.rows() == bottleneck);
   assert(head_output.cols() == numFrames);
 }
 }; // namespace test_layer

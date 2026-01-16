@@ -20,7 +20,7 @@ set_target_properties(run_tests PROPERTIES COMPILE_OPTIONS "-O0")
 # Release/RelWithDebInfo/MinSizeRel build types automatically define NDEBUG
 # We use a compile option to undefine it, which works on GCC, Clang, and MSVC
 target_compile_options(run_tests PRIVATE
-	$<$<OR:$<CONFIG:Release>,$<CONFIG:RelWithDebInfo>,$<CONFIG:MinSizeRel>>:-U_NDEBUG>
+	$<$<OR:$<CONFIG:Release>,$<CONFIG:RelWithDebInfo>,$<CONFIG:MinSizeRel>>:-UNDEBUG>
 )
 
 source_group(NAM ${CMAKE_CURRENT_SOURCE_DIR} FILES ${NAM_SOURCES})

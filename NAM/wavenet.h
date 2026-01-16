@@ -16,13 +16,14 @@ namespace wavenet
 class _Layer
 {
 public:
-  _Layer(const int condition_size, const int channels, const int kernel_size, const int dilation,
+  _Layer(const int condition_size, const int channels, const int bottleneck, const int kernel_size, const int dilation,
          const std::string activation, const bool gated, const int groups_input, const int groups_1x1)
-  : _conv(channels, gated ? 2 * channels : channels, kernel_size, true, dilation, groups_input)
-  , _input_mixin(condition_size, gated ? 2 * channels : channels, false)
-  , _1x1(channels, channels, true, groups_1x1)
+  : _conv(channels, gated ? 2 * bottleneck : bottleneck, kernel_size, true, dilation, groups_input)
+  , _input_mixin(condition_size, gated ? 2 * bottleneck : bottleneck, false)
+  , _1x1(bottleneck, channels, true, groups_1x1)
   , _activation(activations::Activation::get_activation(activation)) // needs to support activations with parameters
-  , _gated(gated) {};
+  , _gated(gated)
+  , _bottleneck(bottleneck) {};
   // Resize all arrays to be able to process `maxBufferSize` frames.
   void SetMaxBufferSize(const int maxBufferSize);
   // Set the parameters of this module
@@ -71,18 +72,21 @@ private:
 
   activations::Activation* _activation;
   const bool _gated;
+  const int _bottleneck; // Internal channel count (not doubled when gated)
 };
 
 class LayerArrayParams
 {
 public:
   LayerArrayParams(const int input_size_, const int condition_size_, const int head_size_, const int channels_,
-                   const int kernel_size_, const std::vector<int>&& dilations_, const std::string activation_,
-                   const bool gated_, const bool head_bias_, const int groups_input, const int groups_1x1_)
+                   const int bottleneck_, const int kernel_size_, const std::vector<int>&& dilations_,
+                   const std::string activation_, const bool gated_, const bool head_bias_, const int groups_input,
+                   const int groups_1x1_)
   : input_size(input_size_)
   , condition_size(condition_size_)
   , head_size(head_size_)
   , channels(channels_)
+  , bottleneck(bottleneck_)
   , kernel_size(kernel_size_)
   , dilations(std::move(dilations_))
   , activation(activation_)
@@ -97,6 +101,7 @@ public:
   const int condition_size;
   const int head_size;
   const int channels;
+  const int bottleneck;
   const int kernel_size;
   std::vector<int> dilations;
   const std::string activation;
@@ -111,8 +116,9 @@ class _LayerArray
 {
 public:
   _LayerArray(const int input_size, const int condition_size, const int head_size, const int channels,
-              const int kernel_size, const std::vector<int>& dilations, const std::string activation, const bool gated,
-              const bool head_bias, const int groups_input, const int groups_1x1);
+              const int bottleneck, const int kernel_size, const std::vector<int>& dilations,
+              const std::string activation, const bool gated, const bool head_bias, const int groups_input,
+              const int groups_1x1);
 
   void SetMaxBufferSize(const int maxBufferSize);
 
@@ -150,11 +156,14 @@ private:
   std::vector<_Layer> _layers;
   // Output from last layer (for next layer array)
   Eigen::MatrixXf _layer_outputs;
-  // Accumulated head inputs from all layers
+  // Accumulated head inputs from all layers (bottleneck channels)
   Eigen::MatrixXf _head_inputs;
 
-  // Rechannel for the head
+  // Rechannel for the head (bottleneck -> head_size)
   Conv1x1 _head_rechannel;
+
+  // Bottleneck size (internal channel count)
+  const int _bottleneck;
 
   long _get_channels() const;
   // Common processing logic after head inputs are set

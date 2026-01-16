@@ -104,6 +104,8 @@ int main()
   test_wavenet::test_layer::test_non_gated_layer();
   test_wavenet::test_layer::test_layer_activations();
   test_wavenet::test_layer::test_layer_multichannel();
+  test_wavenet::test_layer::test_layer_bottleneck();
+  test_wavenet::test_layer::test_layer_bottleneck_gated();
   test_wavenet::test_layer_array::test_layer_array_basic();
   test_wavenet::test_layer_array::test_layer_array_receptive_field();
   test_wavenet::test_layer_array::test_layer_array_with_head_input();
@@ -118,6 +120,7 @@ int main()
   test_wavenet::test_conv1d_grouped_process_realtime_safe();
   test_wavenet::test_conv1d_grouped_dilated_process_realtime_safe();
   test_wavenet::test_layer_process_realtime_safe();
+  test_wavenet::test_layer_bottleneck_process_realtime_safe();
   test_wavenet::test_layer_grouped_process_realtime_safe();
   test_wavenet::test_layer_array_process_realtime_safe();
   test_wavenet::test_process_realtime_safe();
