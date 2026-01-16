@@ -51,7 +51,7 @@ private:
 class LSTM : public DSP
 {
 public:
-  LSTM(const int num_layers, const int input_size, const int hidden_size, std::vector<float>& weights,
+  LSTM(const int in_channels, const int out_channels, const int num_layers, const int input_size, const int hidden_size, std::vector<float>& weights,
        const double expected_sample_rate = -1.0);
   ~LSTM() = default;
 
@@ -61,7 +61,7 @@ protected:
 
   Eigen::VectorXf _head_weight;
   float _head_bias;
-  void process(NAM_SAMPLE* input, NAM_SAMPLE* output, const int num_frames) override;
+  void process(NAM_SAMPLE** input, NAM_SAMPLE** output, const int num_frames) override;
   std::vector<LSTMCell> _layers;
 
   float _process_sample(const float x);

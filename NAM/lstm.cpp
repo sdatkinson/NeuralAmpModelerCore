@@ -65,9 +65,9 @@ void nam::lstm::LSTMCell::process_(const Eigen::VectorXf& x)
   }
 }
 
-nam::lstm::LSTM::LSTM(const int num_layers, const int input_size, const int hidden_size, std::vector<float>& weights,
+nam::lstm::LSTM::LSTM(const int in_channels, const int out_channels, const int num_layers, const int input_size, const int hidden_size, std::vector<float>& weights,
                       const double expected_sample_rate)
-: DSP(expected_sample_rate)
+: DSP(in_channels, out_channels, expected_sample_rate)
 {
   this->_input.resize(1);
   std::vector<float>::iterator it = weights.begin();
@@ -80,10 +80,18 @@ nam::lstm::LSTM::LSTM(const int num_layers, const int input_size, const int hidd
   assert(it == weights.end());
 }
 
-void nam::lstm::LSTM::process(NAM_SAMPLE* input, NAM_SAMPLE* output, const int num_frames)
+void nam::lstm::LSTM::process(NAM_SAMPLE** input, NAM_SAMPLE** output, const int num_frames)
 {
+  const int out_channels = NumOutputChannels();
+  
+  // For now, process first input channel and replicate to all output channels
+  // Can be extended later for true multi-channel support
   for (int i = 0; i < num_frames; i++)
-    output[i] = this->_process_sample(input[i]);
+  {
+    const float sample = this->_process_sample(input[0][i]);
+    for (int ch = 0; ch < out_channels; ch++)
+      output[ch][i] = sample;
+  }
 }
 
 int nam::lstm::LSTM::PrewarmSamples()
@@ -112,7 +120,10 @@ std::unique_ptr<nam::DSP> nam::lstm::Factory(const nlohmann::json& config, std::
   const int num_layers = config["num_layers"];
   const int input_size = config["input_size"];
   const int hidden_size = config["hidden_size"];
-  return std::make_unique<nam::lstm::LSTM>(num_layers, input_size, hidden_size, weights, expectedSampleRate);
+  // Default to 1 channel in/out for backward compatibility
+  const int in_channels = config.value("in_channels", input_size);
+  const int out_channels = config.value("out_channels", 1);
+  return std::make_unique<nam::lstm::LSTM>(in_channels, out_channels, num_layers, input_size, hidden_size, weights, expectedSampleRate);
 }
 
 // Register the factory

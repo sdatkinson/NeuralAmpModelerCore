@@ -158,11 +158,19 @@ std::unique_ptr<DSP> get_dsp(dspData& conf)
   }
   if (inputLevel.have)
   {
-    out->SetInputLevel(inputLevel.value);
+    // Set the same level for all input channels (backward compatibility)
+    for (int ch = 0; ch < out->NumInputChannels(); ch++)
+    {
+      out->SetInputLevel(ch, inputLevel.value);
+    }
   }
   if (outputLevel.have)
   {
-    out->SetOutputLevel(outputLevel.value);
+    // Set the same level for all output channels (backward compatibility)
+    for (int ch = 0; ch < out->NumOutputChannels(); ch++)
+    {
+      out->SetOutputLevel(ch, outputLevel.value);
+    }
   }
 
   // "pre-warm" the model to settle initial conditions

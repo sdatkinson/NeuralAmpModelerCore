@@ -775,7 +775,7 @@ void test_process_realtime_safe()
   weights.insert(weights.end(), {1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f});
   weights.push_back(head_scale);
 
-  auto wavenet = std::make_unique<nam::wavenet::WaveNet>(layer_array_params, head_scale, with_head, weights, 48000.0);
+  auto wavenet = std::make_unique<nam::wavenet::WaveNet>(input_size, head_size, layer_array_params, head_scale, with_head, weights, 48000.0);
 
   const int maxBufferSize = 256;
   wavenet->Reset(48000.0, maxBufferSize);
@@ -794,7 +794,9 @@ void test_process_realtime_safe()
       nullptr, // No setup needed
       [&]() {
         // Call process() - this should not allocate or free
-        wavenet->process(input.data(), output.data(), buffer_size);
+        NAM_SAMPLE* inputPtrs[] = {input.data()};
+        NAM_SAMPLE* outputPtrs[] = {output.data()};
+        wavenet->process(inputPtrs, outputPtrs, buffer_size);
       },
       nullptr, // No teardown needed
       test_name.c_str());
