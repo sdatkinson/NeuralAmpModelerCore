@@ -32,7 +32,6 @@ void nam::wavenet::_Layer::set_weights_(std::vector<float>::iterator& weights)
 
 void nam::wavenet::_Layer::Process(const Eigen::MatrixXf& input, const Eigen::MatrixXf& condition, const int num_frames)
 {
-  const long channels = this->get_channels();
   const long bottleneck = this->_bottleneck; // Use the actual bottleneck value, not the doubled output channels
 
   // Step 1: input convolutions
