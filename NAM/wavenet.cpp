@@ -192,7 +192,8 @@ long nam::wavenet::_LayerArray::_get_channels() const
 
 // WaveNet ====================================================================
 
-nam::wavenet::WaveNet::WaveNet(const int in_channels, const int out_channels, const std::vector<nam::wavenet::LayerArrayParams>& layer_array_params,
+nam::wavenet::WaveNet::WaveNet(const int in_channels, const int out_channels,
+                               const std::vector<nam::wavenet::LayerArrayParams>& layer_array_params,
                                const float head_scale, const bool with_head, std::vector<float> weights,
                                const double expected_sample_rate)
 : DSP(in_channels, out_channels, expected_sample_rate)
@@ -265,7 +266,7 @@ void nam::wavenet::WaveNet::process(NAM_SAMPLE** input, NAM_SAMPLE** output, con
 {
   assert(num_frames <= mMaxBufferSize);
   const int out_channels = NumOutputChannels();
-  
+
   this->_set_condition_array(input, num_frames);
 
   // Main layer arrays:
@@ -293,7 +294,7 @@ void nam::wavenet::WaveNet::process(NAM_SAMPLE** input, NAM_SAMPLE** output, con
   auto& final_head_outputs = this->_layer_arrays.back().GetHeadOutputs();
   const int out_channels = NumOutputChannels();
   assert(final_head_outputs.rows() == out_channels);
-  
+
   for (int ch = 0; ch < out_channels; ch++)
   {
     for (int s = 0; s < num_frames; s++)
@@ -323,11 +324,11 @@ std::unique_ptr<nam::DSP> nam::wavenet::Factory(const nlohmann::json& config, st
   }
   const bool with_head = !config["head"].is_null();
   const float head_scale = config["head_scale"];
-  
+
   // Determine channels from first layer (input_size) and last layer (head_size)
   const int in_channels = config.value("in_channels", layer_array_params[0].input_size);
   const int out_channels = config.value("out_channels", layer_array_params.back().head_size);
-  
+
   return std::make_unique<nam::wavenet::WaveNet>(
     in_channels, out_channels, layer_array_params, head_scale, with_head, weights, expectedSampleRate);
 }

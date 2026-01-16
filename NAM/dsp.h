@@ -134,7 +134,8 @@ private:
 class Buffer : public DSP
 {
 public:
-  Buffer(const int in_channels, const int out_channels, const int receptive_field, const double expected_sample_rate = -1.0);
+  Buffer(const int in_channels, const int out_channels, const int receptive_field,
+         const double expected_sample_rate = -1.0);
 
 protected:
   int _receptive_field;
@@ -157,8 +158,8 @@ protected:
 class Linear : public Buffer
 {
 public:
-  Linear(const int in_channels, const int out_channels, const int receptive_field, const bool _bias, const std::vector<float>& weights,
-         const double expected_sample_rate = -1.0);
+  Linear(const int in_channels, const int out_channels, const int receptive_field, const bool _bias,
+         const std::vector<float>& weights, const double expected_sample_rate = -1.0);
   void process(NAM_SAMPLE** input, NAM_SAMPLE** output, const int num_frames) override;
 
 protected:

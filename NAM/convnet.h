@@ -77,8 +77,9 @@ private:
 class ConvNet : public Buffer
 {
 public:
-  ConvNet(const int in_channels, const int out_channels, const int channels, const std::vector<int>& dilations, const bool batchnorm, const std::string activation,
-          std::vector<float>& weights, const double expected_sample_rate = -1.0, const int groups = 1);
+  ConvNet(const int in_channels, const int out_channels, const int channels, const std::vector<int>& dilations,
+          const bool batchnorm, const std::string activation, std::vector<float>& weights,
+          const double expected_sample_rate = -1.0, const int groups = 1);
   ~ConvNet() = default;
 
   void process(NAM_SAMPLE** input, NAM_SAMPLE** output, const int num_frames) override;

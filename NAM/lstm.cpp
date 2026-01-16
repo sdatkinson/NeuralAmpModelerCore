@@ -65,8 +65,8 @@ void nam::lstm::LSTMCell::process_(const Eigen::VectorXf& x)
   }
 }
 
-nam::lstm::LSTM::LSTM(const int in_channels, const int out_channels, const int num_layers, const int input_size, const int hidden_size, std::vector<float>& weights,
-                      const double expected_sample_rate)
+nam::lstm::LSTM::LSTM(const int in_channels, const int out_channels, const int num_layers, const int input_size,
+                      const int hidden_size, std::vector<float>& weights, const double expected_sample_rate)
 : DSP(in_channels, out_channels, expected_sample_rate)
 {
   this->_input.resize(1);
@@ -83,7 +83,7 @@ nam::lstm::LSTM::LSTM(const int in_channels, const int out_channels, const int n
 void nam::lstm::LSTM::process(NAM_SAMPLE** input, NAM_SAMPLE** output, const int num_frames)
 {
   const int out_channels = NumOutputChannels();
-  
+
   // For now, process first input channel and replicate to all output channels
   // Can be extended later for true multi-channel support
   for (int i = 0; i < num_frames; i++)
@@ -123,7 +123,8 @@ std::unique_ptr<nam::DSP> nam::lstm::Factory(const nlohmann::json& config, std::
   // Default to 1 channel in/out for backward compatibility
   const int in_channels = config.value("in_channels", input_size);
   const int out_channels = config.value("out_channels", 1);
-  return std::make_unique<nam::lstm::LSTM>(in_channels, out_channels, num_layers, input_size, hidden_size, weights, expectedSampleRate);
+  return std::make_unique<nam::lstm::LSTM>(
+    in_channels, out_channels, num_layers, input_size, hidden_size, weights, expectedSampleRate);
 }
 
 // Register the factory

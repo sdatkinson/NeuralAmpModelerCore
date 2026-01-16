@@ -51,8 +51,8 @@ private:
 class LSTM : public DSP
 {
 public:
-  LSTM(const int in_channels, const int out_channels, const int num_layers, const int input_size, const int hidden_size, std::vector<float>& weights,
-       const double expected_sample_rate = -1.0);
+  LSTM(const int in_channels, const int out_channels, const int num_layers, const int input_size, const int hidden_size,
+       std::vector<float>& weights, const double expected_sample_rate = -1.0);
   ~LSTM() = default;
 
 protected:

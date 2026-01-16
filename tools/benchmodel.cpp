@@ -43,12 +43,12 @@ int main(int argc, char* argv[])
     // Allocate multi-channel buffers
     const int in_channels = model->NumInputChannels();
     const int out_channels = model->NumOutputChannels();
-    
+
     std::vector<std::vector<double>> inputBuffers(in_channels);
     std::vector<std::vector<double>> outputBuffers(out_channels);
     std::vector<double*> inputPtrs(in_channels);
     std::vector<double*> outputPtrs(out_channels);
-    
+
     for (int ch = 0; ch < in_channels; ch++)
     {
       inputBuffers[ch].resize(AUDIO_BUFFER_SIZE, 0.0);
