@@ -478,6 +478,91 @@ void test_layer_process_realtime_safe()
   }
 }
 
+// Test that Layer::Process() method with bottleneck != channels does not allocate or free memory
+void test_layer_bottleneck_process_realtime_safe()
+{
+  // Setup: Create a Layer with bottleneck different from channels
+  const int condition_size = 1;
+  const int channels = 4;
+  const int bottleneck = 2; // bottleneck < channels
+  const int kernel_size = 1;
+  const int dilation = 1;
+  const std::string activation = "ReLU";
+  const bool gated = false;
+  const int groups_input = 1;
+  const int groups_1x1 = 1;
+
+  auto layer = nam::wavenet::_Layer(condition_size, channels, bottleneck, kernel_size, dilation, activation, gated,
+                                    groups_input, groups_1x1);
+
+  // Set weights for bottleneck != channels
+  // Conv: (channels, bottleneck, kernelSize=1) = (4, 2, 1) + bias
+  // Input mixin: (conditionSize, bottleneck) = (1, 2)
+  // 1x1: (bottleneck, channels) = (2, 4) + bias
+  std::vector<float> weights;
+  // Conv weights: out_channels x in_channels x kernelSize = bottleneck x channels x kernelSize = 2 x 4 x 1 = 8 weights
+  // Weight layout for Conv1D: for each out_channel, for each in_channel, for each kernel position
+  // Identity-like pattern: out_channel i connects to in_channel i (for i < bottleneck)
+  for (int out_ch = 0; out_ch < bottleneck; out_ch++)
+  {
+    for (int in_ch = 0; in_ch < channels; in_ch++)
+    {
+      weights.push_back((out_ch == in_ch) ? 1.0f : 0.0f);
+    }
+  }
+  // Conv bias: bottleneck values
+  weights.insert(weights.end(), {0.0f, 0.0f});
+  // Input mixin: conditionSize x bottleneck = 1 x 2 = 2 weights
+  weights.insert(weights.end(), {1.0f, 1.0f});
+  // 1x1 weights: out_channels x in_channels = channels x bottleneck = 4 x 2 = 8 weights
+  // Weight layout for Conv1x1: for each out_channel, for each in_channel
+  // Identity-like pattern: out_channel i connects to in_channel i (for i < bottleneck)
+  for (int out_ch = 0; out_ch < channels; out_ch++)
+  {
+    for (int in_ch = 0; in_ch < bottleneck; in_ch++)
+    {
+      weights.push_back((out_ch == in_ch) ? 1.0f : 0.0f);
+    }
+  }
+  // 1x1 bias: channels values
+  weights.insert(weights.end(), {0.0f, 0.0f, 0.0f, 0.0f});
+
+  auto it = weights.begin();
+  layer.set_weights_(it);
+
+  const int maxBufferSize = 256;
+  layer.SetMaxBufferSize(maxBufferSize);
+
+  // Test with several different buffer sizes
+  std::vector<int> buffer_sizes{1, 8, 16, 32, 64, 128, 256};
+
+  for (int buffer_size : buffer_sizes)
+  {
+    // Prepare input/condition matrices (allocate before tracking)
+    Eigen::MatrixXf input(channels, buffer_size);
+    Eigen::MatrixXf condition(condition_size, buffer_size);
+    input.setConstant(0.5f);
+    condition.setConstant(0.5f);
+
+    std::string test_name = "Layer Process (bottleneck=" + std::to_string(bottleneck) + ", channels=" +
+                            std::to_string(channels) + ") - Buffer size " + std::to_string(buffer_size);
+    run_allocation_test_no_allocations(
+      nullptr, // No setup needed
+      [&]() {
+        // Call Process() - this should not allocate or free
+        layer.Process(input, condition, buffer_size);
+      },
+      nullptr, // No teardown needed
+      test_name.c_str());
+
+    // Verify output is valid
+    auto output = layer.GetOutputNextLayer().leftCols(buffer_size);
+    assert(output.rows() == channels && output.cols() == buffer_size);
+    assert(std::isfinite(output(0, 0)));
+    assert(std::isfinite(output(channels - 1, buffer_size - 1)));
+  }
+}
+
 // Test that Layer::Process() method with grouped convolution (groups_input > 1) does not allocate or free memory
 void test_layer_grouped_process_realtime_safe()
 {
