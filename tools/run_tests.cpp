@@ -104,8 +104,8 @@ int main()
   test_wavenet::test_layer::test_non_gated_layer();
   test_wavenet::test_layer::test_layer_activations();
   test_wavenet::test_layer::test_layer_multichannel();
-  // test_wavenet::test_layer::test_layer_bottleneck();  // Temporarily disabled - investigating resize error
-  // test_wavenet::test_layer::test_layer_bottleneck_gated();  // Temporarily disabled
+  test_wavenet::test_layer::test_layer_bottleneck();
+  test_wavenet::test_layer::test_layer_bottleneck_gated();
   test_wavenet::test_layer_array::test_layer_array_basic();
   test_wavenet::test_layer_array::test_layer_array_receptive_field();
   test_wavenet::test_layer_array::test_layer_array_with_head_input();

@@ -22,7 +22,8 @@ public:
   , _input_mixin(condition_size, gated ? 2 * bottleneck : bottleneck, false)
   , _1x1(bottleneck, channels, true, groups_1x1)
   , _activation(activations::Activation::get_activation(activation)) // needs to support activations with parameters
-  , _gated(gated) {};
+  , _gated(gated)
+  , _bottleneck(bottleneck) {};
   // Resize all arrays to be able to process `maxBufferSize` frames.
   void SetMaxBufferSize(const int maxBufferSize);
   // Set the parameters of this module
@@ -71,6 +72,7 @@ private:
 
   activations::Activation* _activation;
   const bool _gated;
+  const int _bottleneck; // Internal channel count (not doubled when gated)
 };
 
 class LayerArrayParams
@@ -154,11 +156,14 @@ private:
   std::vector<_Layer> _layers;
   // Output from last layer (for next layer array)
   Eigen::MatrixXf _layer_outputs;
-  // Accumulated head inputs from all layers
+  // Accumulated head inputs from all layers (bottleneck channels)
   Eigen::MatrixXf _head_inputs;
 
-  // Rechannel for the head
+  // Rechannel for the head (bottleneck -> head_size)
   Conv1x1 _head_rechannel;
+
+  // Bottleneck size (internal channel count)
+  const int _bottleneck;
 
   long _get_channels() const;
   // Common processing logic after head inputs are set

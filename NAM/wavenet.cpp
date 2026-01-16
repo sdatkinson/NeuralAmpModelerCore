@@ -13,12 +13,14 @@ void nam::wavenet::_Layer::SetMaxBufferSize(const int maxBufferSize)
 {
   _conv.SetMaxBufferSize(maxBufferSize);
   _input_mixin.SetMaxBufferSize(maxBufferSize);
-  _z.resize(this->_conv.get_out_channels(), maxBufferSize);
+  const long z_channels = this->_conv.get_out_channels(); // This is 2*bottleneck when gated, bottleneck when not
+  _z.resize(z_channels, maxBufferSize);
   _1x1.SetMaxBufferSize(maxBufferSize);
   // Pre-allocate output buffers
   const long channels = this->get_channels();
   this->_output_next_layer.resize(channels, maxBufferSize);
-  this->_output_head.resize(channels, maxBufferSize);
+  // _output_head stores the activated portion: bottleneck rows (the actual bottleneck value, not doubled)
+  this->_output_head.resize(this->_bottleneck, maxBufferSize);
 }
 
 void nam::wavenet::_Layer::set_weights_(std::vector<float>::iterator& weights)
@@ -31,6 +33,7 @@ void nam::wavenet::_Layer::set_weights_(std::vector<float>::iterator& weights)
 void nam::wavenet::_Layer::Process(const Eigen::MatrixXf& input, const Eigen::MatrixXf& condition, const int num_frames)
 {
   const long channels = this->get_channels();
+  const long bottleneck = this->_bottleneck; // Use the actual bottleneck value, not the doubled output channels
 
   // Step 1: input convolutions
   this->_conv.Process(input, num_frames);
@@ -50,19 +53,20 @@ void nam::wavenet::_Layer::Process(const Eigen::MatrixXf& input, const Eigen::Ma
     // do this column-wise:
     for (int i = 0; i < num_frames; i++)
     {
-      this->_activation->apply(this->_z.block(0, i, channels, 1));
+      this->_activation->apply(this->_z.block(0, i, bottleneck, 1));
       // TODO Need to support other activation functions here instead of hardcoded sigmoid
-      activations::Activation::get_activation("Sigmoid")->apply(this->_z.block(channels, i, channels, 1));
+      activations::Activation::get_activation("Sigmoid")->apply(this->_z.block(bottleneck, i, bottleneck, 1));
     }
-    this->_z.block(0, 0, channels, num_frames).array() *= this->_z.block(channels, 0, channels, num_frames).array();
-    _1x1.process_(_z.topRows(channels), num_frames); // Might not be RT safe
+    this->_z.block(0, 0, bottleneck, num_frames).array() *=
+      this->_z.block(bottleneck, 0, bottleneck, num_frames).array();
+    _1x1.process_(_z.topRows(bottleneck), num_frames); // Might not be RT safe
   }
 
   // Store output to head (skip connection: activated conv output)
   if (!this->_gated)
     this->_output_head.leftCols(num_frames).noalias() = this->_z.leftCols(num_frames);
   else
-    this->_output_head.leftCols(num_frames).noalias() = this->_z.topRows(channels).leftCols(num_frames);
+    this->_output_head.leftCols(num_frames).noalias() = this->_z.topRows(bottleneck).leftCols(num_frames);
   // Store output to next layer (residual connection: input + _1x1 output)
   this->_output_next_layer.leftCols(num_frames).noalias() =
     input.leftCols(num_frames) + _1x1.GetOutput().leftCols(num_frames);
@@ -77,7 +81,8 @@ nam::wavenet::_LayerArray::_LayerArray(const int input_size, const int condition
                                        const bool gated, const bool head_bias, const int groups_input,
                                        const int groups_1x1)
 : _rechannel(input_size, channels, false)
-, _head_rechannel(channels, head_size, head_bias)
+, _head_rechannel(bottleneck, head_size, head_bias)
+, _bottleneck(bottleneck)
 {
   for (size_t i = 0; i < dilations.size(); i++)
     this->_layers.push_back(_Layer(
@@ -95,7 +100,7 @@ void nam::wavenet::_LayerArray::SetMaxBufferSize(const int maxBufferSize)
   // Pre-allocate output buffers
   const long channels = this->_get_channels();
   this->_layer_outputs.resize(channels, maxBufferSize);
-  this->_head_inputs.resize(channels, maxBufferSize);
+  this->_head_inputs.resize(this->_bottleneck, maxBufferSize);
 }
 
 
