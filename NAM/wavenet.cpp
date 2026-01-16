@@ -20,6 +20,10 @@ void nam::wavenet::_Layer::SetMaxBufferSize(const int maxBufferSize)
   _input_mixin.SetMaxBufferSize(maxBufferSize);
   _z.resize(this->_conv.get_out_channels(), maxBufferSize);
   _1x1.SetMaxBufferSize(maxBufferSize);
+  if (_head1x1 != nullptr)
+  {
+    _head1x1.SetMaxBufferSize(maxBufferSize);
+  }
 }
 
 void nam::wavenet::_Layer::set_weights_(std::vector<float>::iterator& weights)
@@ -27,6 +31,10 @@ void nam::wavenet::_Layer::set_weights_(std::vector<float>::iterator& weights)
   this->_conv.set_weights_(weights);
   this->_input_mixin.set_weights_(weights);
   this->_1x1.set_weights_(weights);
+  if (this->_head1x1 != nullptr)
+  {
+    this->_head1x1.set_weights_(weights);
+  }
 }
 
 void nam::wavenet::_Layer::process_(const Eigen::MatrixXf& input, const Eigen::MatrixXf& condition,
@@ -57,8 +65,13 @@ void nam::wavenet::_Layer::process_(const Eigen::MatrixXf& input, const Eigen::M
     }
     this->_z.block(0, 0, channels, num_frames).array() *= this->_z.block(channels, 0, channels, num_frames).array();
   }
-
-  head_input.leftCols(num_frames).noalias() += this->_z.block(0, 0, channels, num_frames);
+  
+  if (this->_head1x1) {
+    this->_head1x1.process_(this->_z.block(0, 0, channels, num_frames), num_frames);
+    head_input.leftCols(num_frames).noalias() += this->_head1x1.GetOutput(num_frames);
+  } else {
+    head_input.leftCols(num_frames).noalias() += this->_z.block(0, 0, channels, num_frames);
+  }
   if (!_gated)
   {
     _1x1.process_(_z, num_frames);
@@ -68,6 +81,7 @@ void nam::wavenet::_Layer::process_(const Eigen::MatrixXf& input, const Eigen::M
     // Probably not RT-safe yet
     _1x1.process_(_z.topRows(channels), num_frames);
   }
+  // layer output
   output.middleCols(j_start, ncols).noalias() = input.middleCols(i_start, ncols) + _1x1.GetOutput(num_frames);
 }
 

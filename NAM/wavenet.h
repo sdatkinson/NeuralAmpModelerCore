@@ -30,6 +30,21 @@ public:
   , _1x1(channels, channels, true)
   , _activation(activations::Activation::get_activation(activation)) // needs to support activations with parameters
   , _gated(gated) {};
+  _Layer(const int condition_size, const int channels, const int kernel_size, const int dilation,
+         const std::string activation, const bool gated, const bool head1x1)
+  : _conv(channels, gated ? 2 * channels : channels, kernel_size, true, dilation)
+  , _input_mixin(condition_size, gated ? 2 * channels : channels, false)
+  , _1x1(channels, channels, true)
+  , _activation(activations::Activation::get_activation(activation)) // needs to support activations with parameters
+  , _gated(gated) {
+    if (head1x1)
+    {
+      _head1x1(channels, channels, true);
+    } else {
+      _head1x1 = nullptr;
+    }
+  };
+ 
   // Resize all arrays to be able to process `maxBufferSize` frames.
   void SetMaxBufferSize(const int maxBufferSize);
   // Set the parameters of this module
@@ -60,6 +75,8 @@ private:
   Conv1x1 _input_mixin;
   // The post-activation 1x1 convolution
   Conv1x1 _1x1;
+  // The pre-activation 1x1 convolution, optional
+  Conv1x1 _head1x1;
   // The internal state
   Eigen::MatrixXf _z;
 
