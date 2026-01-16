@@ -335,8 +335,8 @@ std::unique_ptr<nam::DSP> nam::wavenet::Factory(const nlohmann::json& config, st
   if (layer_array_params.empty())
     throw std::runtime_error("WaveNet config requires at least one layer array");
 
-  // Determine input channels from config or first layer
-  const int in_channels = config.value("in_channels", layer_array_params[0].input_size);
+  // Backward compatibility: assume 1 input channel
+  const int in_channels = config.value("in_channels", 1);
 
   // out_channels is determined from last layer array's head_size
   return std::make_unique<nam::wavenet::WaveNet>(
