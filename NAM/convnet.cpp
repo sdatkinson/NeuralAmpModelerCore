@@ -156,7 +156,6 @@ void nam::convnet::_Head::process_(const Eigen::MatrixXf& input, Eigen::MatrixXf
 {
   const long length = i_end - i_start;
   const long out_channels = this->_weight.rows();
-  const long in_channels = this->_weight.cols();
 
   // Resize output to (out_channels x length)
   output.resize(out_channels, length);

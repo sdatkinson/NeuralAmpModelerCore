@@ -349,7 +349,6 @@ std::unique_ptr<nam::DSP> nam::wavenet::Factory(const nlohmann::json& config, st
 
   // Determine input channels from config or first layer
   const int in_channels = config.value("in_channels", layer_array_params[0].input_size);
-  const int out_channels = config.value("out_channels", layer_array_params.back().head_size);
 
   // out_channels is determined from last layer array's head_size
   return std::make_unique<nam::wavenet::WaveNet>(

@@ -73,9 +73,6 @@ nam::lstm::LSTM::LSTM(const int in_channels, const int out_channels, const int n
   this->_input.resize(input_size);
   this->_output.resize(out_channels);
 
-  // Store input_size for first layer
-  this->_first_layer_input_size = input_size;
-
   std::vector<float>::iterator it = weights.begin();
   for (int i = 0; i < num_layers; i++)
     this->_layers.push_back(LSTMCell(i == 0 ? input_size : hidden_size, hidden_size, it));
