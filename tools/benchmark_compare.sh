@@ -33,10 +33,9 @@ run_benchmark() {
     
     echo -e "${YELLOW}Running benchmark on branch: ${branch_name}${NC}"
     
-    # Clean build directory - remove only untracked files, preserve tracked files like .gitignore
+    # Clean build directory - remove all contents since nothing is tracked
     if [ -d "$BUILD_DIR" ]; then
-        # Remove files/directories that aren't tracked by git (process depth-first)
-        find "$BUILD_DIR" -mindepth 1 -depth -exec sh -c 'if ! git ls-files --error-unmatch "$1" >/dev/null 2>&1; then rm -rf "$1"; fi' _ {} \;
+        rm -rf "$BUILD_DIR"/*
     fi
     mkdir -p "$BUILD_DIR"
     
