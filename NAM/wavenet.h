@@ -17,13 +17,22 @@ class _Layer
 {
 public:
   _Layer(const int condition_size, const int channels, const int bottleneck, const int kernel_size, const int dilation,
-         const std::string activation, const bool gated, const int groups_input, const int groups_1x1)
-  : _conv(channels, gated ? 2 * bottleneck : bottleneck, kernel_size, true, dilation, groups_input)
-  , _input_mixin(condition_size, gated ? 2 * bottleneck : bottleneck, false)
-  , _1x1(bottleneck, channels, true, groups_1x1)
+         const std::string activation, const bool gated, const int groups_input, const int groups_1x1,
+         const bool head1x1)
+  : _conv(channels, gated ? 2 * channels : channels, kernel_size, true, dilation)
+  , _input_mixin(condition_size, gated ? 2 * channels : channels, false)
+  , _1x1(channels, channels, true)
   , _activation(activations::Activation::get_activation(activation)) // needs to support activations with parameters
-  , _gated(gated)
-  , _bottleneck(bottleneck) {};
+  , _gated(gated) 
+  , _bottleneck(bottleneck) {
+    if (head1x1)
+    {
+      _head1x1(channels, channels, true);
+    } else {
+      _head1x1 = nullptr;
+    }
+  };
+ 
   // Resize all arrays to be able to process `maxBufferSize` frames.
   void SetMaxBufferSize(const int maxBufferSize);
   // Set the parameters of this module
@@ -63,6 +72,8 @@ private:
   Conv1x1 _input_mixin;
   // The post-activation 1x1 convolution
   Conv1x1 _1x1;
+  // The pre-activation 1x1 convolution, optional
+  Conv1x1 _head1x1;
   // The internal state
   Eigen::MatrixXf _z;
   // Output to next layer (residual connection: input + _1x1 output)

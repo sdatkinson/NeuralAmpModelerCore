@@ -21,6 +21,10 @@ void nam::wavenet::_Layer::SetMaxBufferSize(const int maxBufferSize)
   this->_output_next_layer.resize(channels, maxBufferSize);
   // _output_head stores the activated portion: bottleneck rows (the actual bottleneck value, not doubled)
   this->_output_head.resize(this->_bottleneck, maxBufferSize);
+  if (_head1x1 != nullptr)
+  {
+    _head1x1.SetMaxBufferSize(maxBufferSize);
+  }
 }
 
 void nam::wavenet::_Layer::set_weights_(std::vector<float>::iterator& weights)
@@ -28,6 +32,10 @@ void nam::wavenet::_Layer::set_weights_(std::vector<float>::iterator& weights)
   this->_conv.set_weights_(weights);
   this->_input_mixin.set_weights_(weights);
   this->_1x1.set_weights_(weights);
+  if (this->_head1x1 != nullptr)
+  {
+    this->_head1x1.set_weights_(weights);
+  }
 }
 
 void nam::wavenet::_Layer::Process(const Eigen::MatrixXf& input, const Eigen::MatrixXf& condition, const int num_frames)
@@ -61,16 +69,24 @@ void nam::wavenet::_Layer::Process(const Eigen::MatrixXf& input, const Eigen::Ma
     _1x1.process_(_z.topRows(bottleneck), num_frames); // Might not be RT safe
   }
 
-  // Store output to head (skip connection: activated conv output)
-  if (!this->_gated)
-    this->_output_head.leftCols(num_frames).noalias() = this->_z.leftCols(num_frames);
-  else
-    this->_output_head.leftCols(num_frames).noalias() = this->_z.topRows(bottleneck).leftCols(num_frames);
-  // Store output to next layer (residual connection: input + _1x1 output)
+  if (this->_head1x1) {
+    if (!this->_gated)
+      this->_head1x1.process_(this->_z.leftCols(num_frames));
+    else
+      this->_head1x1.process(this->_z.topRows(bottleneck).leftCols(num_frames));
+    this->_output_head.leftCols(num_frames).noalias() += this->_head1x1.GetOutput(num_frames);
+  } else {
+    // Store output to head (skip connection: activated conv output)
+    if (!this->_gated)
+      this->_output_head.leftCols(num_frames).noalias() = this->_z.leftCols(num_frames);
+    else
+      this->_output_head.leftCols(num_frames).noalias() = this->_z.topRows(bottleneck).leftCols(num_frames);
+  }
+
+   // Store output to next layer (residual connection: input + _1x1 output)
   this->_output_next_layer.leftCols(num_frames).noalias() =
     input.leftCols(num_frames) + _1x1.GetOutput().leftCols(num_frames);
 }
-
 
 // LayerArray =================================================================
 
