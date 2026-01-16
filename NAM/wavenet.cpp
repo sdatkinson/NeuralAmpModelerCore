@@ -72,15 +72,16 @@ void nam::wavenet::_Layer::Process(const Eigen::MatrixXf& input, const Eigen::Ma
 // LayerArray =================================================================
 
 nam::wavenet::_LayerArray::_LayerArray(const int input_size, const int condition_size, const int head_size,
-                                       const int channels, const int kernel_size, const std::vector<int>& dilations,
-                                       const std::string activation, const bool gated, const bool head_bias,
-                                       const int groups_input, const int groups_1x1)
+                                       const int channels, const int bottleneck, const int kernel_size,
+                                       const std::vector<int>& dilations, const std::string activation,
+                                       const bool gated, const bool head_bias, const int groups_input,
+                                       const int groups_1x1)
 : _rechannel(input_size, channels, false)
 , _head_rechannel(channels, head_size, head_bias)
 {
   for (size_t i = 0; i < dilations.size(); i++)
-    this->_layers.push_back(
-      _Layer(condition_size, channels, kernel_size, dilations[i], activation, gated, groups_input, groups_1x1));
+    this->_layers.push_back(_Layer(
+      condition_size, channels, bottleneck, kernel_size, dilations[i], activation, gated, groups_input, groups_1x1));
 }
 
 void nam::wavenet::_LayerArray::SetMaxBufferSize(const int maxBufferSize)
@@ -199,9 +200,9 @@ nam::wavenet::WaveNet::WaveNet(const std::vector<nam::wavenet::LayerArrayParams>
   {
     this->_layer_arrays.push_back(nam::wavenet::_LayerArray(
       layer_array_params[i].input_size, layer_array_params[i].condition_size, layer_array_params[i].head_size,
-      layer_array_params[i].channels, layer_array_params[i].kernel_size, layer_array_params[i].dilations,
-      layer_array_params[i].activation, layer_array_params[i].gated, layer_array_params[i].head_bias,
-      layer_array_params[i].groups_input, layer_array_params[i].groups_1x1));
+      layer_array_params[i].channels, layer_array_params[i].bottleneck, layer_array_params[i].kernel_size,
+      layer_array_params[i].dilations, layer_array_params[i].activation, layer_array_params[i].gated,
+      layer_array_params[i].head_bias, layer_array_params[i].groups_input, layer_array_params[i].groups_1x1));
     if (i > 0)
       if (layer_array_params[i].channels != layer_array_params[i - 1].head_size)
       {
@@ -300,8 +301,10 @@ std::unique_ptr<nam::DSP> nam::wavenet::Factory(const nlohmann::json& config, st
     nlohmann::json layer_config = config["layers"][i];
     const int groups = layer_config.value("groups", 1); // defaults to 1
     const int groups_1x1 = layer_config.value("groups_1x1", 1); // defaults to 1
+    const int channels = layer_config["channels"];
+    const int bottleneck = layer_config.value("bottleneck", channels); // defaults to channels if not present
     layer_array_params.push_back(nam::wavenet::LayerArrayParams(
-      layer_config["input_size"], layer_config["condition_size"], layer_config["head_size"], layer_config["channels"],
+      layer_config["input_size"], layer_config["condition_size"], layer_config["head_size"], channels, bottleneck,
       layer_config["kernel_size"], layer_config["dilations"], layer_config["activation"], layer_config["gated"],
       layer_config["head_bias"], groups, groups_1x1));
   }
