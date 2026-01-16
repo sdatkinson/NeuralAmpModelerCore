@@ -13,6 +13,8 @@ namespace test_convnet
 // Test basic ConvNet construction and processing
 void test_convnet_basic()
 {
+  const int in_channels = 1;
+  const int out_channels = 1;
   const int channels = 2;
   const std::vector<int> dilations{1, 2};
   const bool batchnorm = false;
@@ -32,7 +34,7 @@ void test_convnet_basic()
   // Head weights (2 weights + 1 bias)
   weights.insert(weights.end(), {1.0f, 1.0f, 0.0f});
 
-  nam::convnet::ConvNet convnet(1, 1, channels, dilations, batchnorm, activation, weights, expected_sample_rate);
+  nam::convnet::ConvNet convnet(in_channels, out_channels, channels, dilations, batchnorm, activation, weights, expected_sample_rate);
 
   const int numFrames = 4;
   const int maxBufferSize = 64;
@@ -57,6 +59,8 @@ void test_convnet_basic()
 // Test ConvNet with batchnorm
 void test_convnet_batchnorm()
 {
+  const int in_channels = 1;
+  const int out_channels = 1;
   const int channels = 1;
   const std::vector<int> dilations{1};
   const bool batchnorm = true;
@@ -76,7 +80,7 @@ void test_convnet_batchnorm()
   // Head weights (1 weight + 1 bias)
   weights.insert(weights.end(), {1.0f, 0.0f});
 
-  nam::convnet::ConvNet convnet(1, 1, channels, dilations, batchnorm, activation, weights, expected_sample_rate);
+  nam::convnet::ConvNet convnet(in_channels, out_channels, channels, dilations, batchnorm, activation, weights, expected_sample_rate);
 
   const int numFrames = 4;
   const int maxBufferSize = 64;
@@ -99,6 +103,8 @@ void test_convnet_batchnorm()
 // Test ConvNet with multiple blocks
 void test_convnet_multiple_blocks()
 {
+  const int in_channels = 1;
+  const int out_channels = 1;
   const int channels = 2;
   const std::vector<int> dilations{1, 2, 4};
   const bool batchnorm = false;
@@ -121,7 +127,7 @@ void test_convnet_multiple_blocks()
   // Head weights
   weights.insert(weights.end(), {1.0f, 1.0f, 0.0f});
 
-  nam::convnet::ConvNet convnet(1, 1, channels, dilations, batchnorm, activation, weights, expected_sample_rate);
+  nam::convnet::ConvNet convnet(in_channels, out_channels, channels, dilations, batchnorm, activation, weights, expected_sample_rate);
 
   const int numFrames = 8;
   const int maxBufferSize = 64;
@@ -144,6 +150,8 @@ void test_convnet_multiple_blocks()
 // Test ConvNet with zero input
 void test_convnet_zero_input()
 {
+  const int in_channels = 1;
+  const int out_channels = 1;
   const int channels = 1;
   const std::vector<int> dilations{1};
   const bool batchnorm = false;
@@ -156,7 +164,7 @@ void test_convnet_zero_input()
   // Head weights (1 weight + 1 bias)
   weights.insert(weights.end(), {1.0f, 0.0f});
 
-  nam::convnet::ConvNet convnet(1, 1, channels, dilations, batchnorm, activation, weights, expected_sample_rate);
+  nam::convnet::ConvNet convnet(in_channels, out_channels, channels, dilations, batchnorm, activation, weights, expected_sample_rate);
 
   const int numFrames = 4;
   convnet.Reset(expected_sample_rate, numFrames);
@@ -178,6 +186,8 @@ void test_convnet_zero_input()
 // Test ConvNet with different buffer sizes
 void test_convnet_different_buffer_sizes()
 {
+  const int in_channels = 1;
+  const int out_channels = 1;
   const int channels = 1;
   const std::vector<int> dilations{1};
   const bool batchnorm = false;
@@ -190,7 +200,7 @@ void test_convnet_different_buffer_sizes()
   // Head weights (1 weight + 1 bias)
   weights.insert(weights.end(), {1.0f, 0.0f});
 
-  nam::convnet::ConvNet convnet(1, 1, channels, dilations, batchnorm, activation, weights, expected_sample_rate);
+  nam::convnet::ConvNet convnet(in_channels, out_channels, channels, dilations, batchnorm, activation, weights, expected_sample_rate);
 
   // Test with different buffer sizes
   convnet.Reset(expected_sample_rate, 64);
@@ -215,6 +225,8 @@ void test_convnet_different_buffer_sizes()
 // Test ConvNet prewarm functionality
 void test_convnet_prewarm()
 {
+  const int in_channels = 1;
+  const int out_channels = 1;
   const int channels = 2;
   const std::vector<int> dilations{1, 2, 4};
   const bool batchnorm = false;
@@ -231,7 +243,7 @@ void test_convnet_prewarm()
   // Head weights (2 weights + 1 bias)
   weights.insert(weights.end(), {1.0f, 1.0f, 0.0f});
 
-  nam::convnet::ConvNet convnet(1, 1, channels, dilations, batchnorm, activation, weights, expected_sample_rate);
+  nam::convnet::ConvNet convnet(in_channels, out_channels, channels, dilations, batchnorm, activation, weights, expected_sample_rate);
 
   // Test that prewarm can be called without errors
   convnet.Reset(expected_sample_rate, 64);
@@ -255,6 +267,8 @@ void test_convnet_prewarm()
 // Test multiple process() calls (ring buffer functionality)
 void test_convnet_multiple_calls()
 {
+  const int in_channels = 1;
+  const int out_channels = 1;
   const int channels = 1;
   const std::vector<int> dilations{1};
   const bool batchnorm = false;
@@ -267,7 +281,7 @@ void test_convnet_multiple_calls()
   // Head weights (1 weight + 1 bias)
   weights.insert(weights.end(), {1.0f, 0.0f});
 
-  nam::convnet::ConvNet convnet(1, 1, channels, dilations, batchnorm, activation, weights, expected_sample_rate);
+  nam::convnet::ConvNet convnet(in_channels, out_channels, channels, dilations, batchnorm, activation, weights, expected_sample_rate);
 
   const int numFrames = 2;
   convnet.Reset(expected_sample_rate, numFrames);
