@@ -19,8 +19,6 @@ nam::DSP::DSP(const int in_channels, const int out_channels, const double expect
 : mInChannels(in_channels)
 , mOutChannels(out_channels)
 , mExpectedSampleRate(expected_sample_rate)
-, mInputLevels(in_channels)
-, mOutputLevels(out_channels)
 {
   if (in_channels <= 0 || out_channels <= 0)
   {
@@ -113,60 +111,36 @@ void nam::DSP::SetMaxBufferSize(const int maxBufferSize)
   mMaxBufferSize = maxBufferSize;
 }
 
-double nam::DSP::GetInputLevel(const int channel)
+double nam::DSP::GetInputLevel()
 {
-  if (channel < 0 || channel >= mInChannels)
-  {
-    throw std::runtime_error("Invalid input channel index");
-  }
-  return mInputLevels[channel].level;
+  return mInputLevel.level;
 }
 
-double nam::DSP::GetOutputLevel(const int channel)
+double nam::DSP::GetOutputLevel()
 {
-  if (channel < 0 || channel >= mOutChannels)
-  {
-    throw std::runtime_error("Invalid output channel index");
-  }
-  return mOutputLevels[channel].level;
+  return mOutputLevel.level;
 }
 
-bool nam::DSP::HasInputLevel(const int channel)
+bool nam::DSP::HasInputLevel()
 {
-  if (channel < 0 || channel >= mInChannels)
-  {
-    throw std::runtime_error("Invalid input channel index");
-  }
-  return mInputLevels[channel].haveLevel;
+  return mInputLevel.haveLevel;
 }
 
-bool nam::DSP::HasOutputLevel(const int channel)
+bool nam::DSP::HasOutputLevel()
 {
-  if (channel < 0 || channel >= mOutChannels)
-  {
-    throw std::runtime_error("Invalid output channel index");
-  }
-  return mOutputLevels[channel].haveLevel;
+  return mOutputLevel.haveLevel;
 }
 
-void nam::DSP::SetInputLevel(const int channel, const double inputLevel)
+void nam::DSP::SetInputLevel(const double inputLevel)
 {
-  if (channel < 0 || channel >= mInChannels)
-  {
-    throw std::runtime_error("Invalid input channel index");
-  }
-  mInputLevels[channel].haveLevel = true;
-  mInputLevels[channel].level = inputLevel;
+  mInputLevel.haveLevel = true;
+  mInputLevel.level = inputLevel;
 }
 
-void nam::DSP::SetOutputLevel(const int channel, const double outputLevel)
+void nam::DSP::SetOutputLevel(const double outputLevel)
 {
-  if (channel < 0 || channel >= mOutChannels)
-  {
-    throw std::runtime_error("Invalid output channel index");
-  }
-  mOutputLevels[channel].haveLevel = true;
-  mOutputLevels[channel].level = outputLevel;
+  mOutputLevel.haveLevel = true;
+  mOutputLevel.level = outputLevel;
 }
 
 // Buffer =====================================================================
@@ -191,7 +165,6 @@ void nam::Buffer::_set_receptive_field(const int new_receptive_field, const int 
 
   // Resize buffers for all input channels
   _input_buffers.resize(in_channels);
-  _input_buffer_offset.resize(in_channels);
   for (int ch = 0; ch < in_channels; ch++)
   {
     _input_buffers[ch].resize(input_buffer_size);
@@ -210,7 +183,7 @@ void nam::Buffer::_update_buffers_(NAM_SAMPLE** input, const int num_frames)
   const int out_channels = NumOutputChannels();
 
   // Make sure that the buffers are big enough for the receptive field and the
-  // frames needed for each channel!
+  // frames needed. All channels use the same buffer size.
   const long minimum_input_buffer_size = (long)this->_receptive_field + _INPUT_BUFFER_SAFETY_FACTOR * num_frames;
 
   for (int ch = 0; ch < in_channels; ch++)
@@ -223,14 +196,18 @@ void nam::Buffer::_update_buffers_(NAM_SAMPLE** input, const int num_frames)
       this->_input_buffers[ch].resize(new_buffer_size);
       std::fill(this->_input_buffers[ch].begin(), this->_input_buffers[ch].end(), 0.0f);
     }
+  }
 
-    // If we'd run off the end of the input buffer, then we need to move the data
-    // back to the start of the buffer and start again.
-    if (this->_input_buffer_offset[ch] + num_frames > (long)this->_input_buffers[ch].size())
-      this->_rewind_buffers_();
+  // If we'd run off the end of the input buffer, then we need to move the data
+  // back to the start of the buffer and start again. All channels move together.
+  const long buffer_size = (long)this->_input_buffers[0].size();
+  if (this->_input_buffer_offset + num_frames > buffer_size)
+    this->_rewind_buffers_();
 
-    // Put the new samples into the input buffer for this channel
-    for (long i = this->_input_buffer_offset[ch], j = 0; j < num_frames; i++, j++)
+  // Put the new samples into the input buffer for each channel
+  for (int ch = 0; ch < in_channels; ch++)
+  {
+    for (long i = this->_input_buffer_offset, j = 0; j < num_frames; i++, j++)
       this->_input_buffers[ch][i] = (float)input[ch][j];
   }
 
@@ -246,38 +223,30 @@ void nam::Buffer::_rewind_buffers_()
 {
   const int in_channels = NumInputChannels();
 
-  // Rewind buffers for all input channels
+  // Rewind buffers for all input channels (they all move together)
   for (int ch = 0; ch < in_channels; ch++)
   {
     // Copy the input buffer back
     // RF-1 samples because we've got at least one new one inbound.
-    for (long i = 0, j = this->_input_buffer_offset[ch] - this->_receptive_field; i < this->_receptive_field; i++, j++)
+    for (long i = 0, j = this->_input_buffer_offset - this->_receptive_field; i < this->_receptive_field; i++, j++)
       this->_input_buffers[ch][i] = this->_input_buffers[ch][j];
-    // And reset the offset.
-    // Even though we could be stingy about that one sample that we won't be using
-    // (because a new set is incoming) it's probably not worth the
-    // hyper-optimization and liable for bugs. And the code looks way tidier this
-    // way.
-    this->_input_buffer_offset[ch] = this->_receptive_field;
   }
+  // And reset the offset.
+  // Even though we could be stingy about that one sample that we won't be using
+  // (because a new set is incoming) it's probably not worth the
+  // hyper-optimization and liable for bugs. And the code looks way tidier this
+  // way.
+  this->_input_buffer_offset = this->_receptive_field;
 }
 
 void nam::Buffer::_reset_input_buffer()
 {
-  const int in_channels = NumInputChannels();
-  for (int ch = 0; ch < in_channels; ch++)
-  {
-    this->_input_buffer_offset[ch] = this->_receptive_field;
-  }
+  this->_input_buffer_offset = this->_receptive_field;
 }
 
 void nam::Buffer::_advance_input_buffer_(const int num_frames)
 {
-  const int in_channels = NumInputChannels();
-  for (int ch = 0; ch < in_channels; ch++)
-  {
-    this->_input_buffer_offset[ch] += num_frames;
-  }
+  this->_input_buffer_offset += num_frames;
 }
 
 // Linear =====================================================================
@@ -314,7 +283,7 @@ void nam::Linear::process(NAM_SAMPLE** input, NAM_SAMPLE** output, const int num
   {
     for (int i = 0; i < num_frames; i++)
     {
-      const long offset = this->_input_buffer_offset[ch] - this->_weight.size() + i + 1;
+      const long offset = this->_input_buffer_offset - this->_weight.size() + i + 1;
       auto input_vec = Eigen::Map<const Eigen::VectorXf>(&this->_input_buffers[ch][offset], this->_receptive_field);
       output[ch][i] = this->_bias + this->_weight.dot(input_vec);
     }
