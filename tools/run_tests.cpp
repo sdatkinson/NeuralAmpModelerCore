@@ -125,6 +125,7 @@ int main()
   test_wavenet::test_layer_grouped_process_realtime_safe();
   test_wavenet::test_layer_array_process_realtime_safe();
   test_wavenet::test_process_realtime_safe();
+  test_wavenet::test_process_3in_2out_realtime_safe();
 
   test_convnet::test_convnet_basic();
   test_convnet::test_convnet_batchnorm();
