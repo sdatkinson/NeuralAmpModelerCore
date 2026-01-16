@@ -260,24 +260,12 @@ void nam::wavenet::WaveNet::SetMaxBufferSize(const int maxBufferSize)
 void nam::wavenet::WaveNet::_set_condition_array(NAM_SAMPLE** input, const int num_frames)
 {
   const int in_channels = NumInputChannels();
-  const int condition_dim = this->_get_condition_dim();
-
-  assert(in_channels <= condition_dim);
-
   // Fill condition array with input channels
   for (int ch = 0; ch < in_channels; ch++)
   {
     for (int j = 0; j < num_frames; j++)
     {
       this->_condition(ch, j) = input[ch][j];
-    }
-  }
-  // Zero-fill remaining condition channels if in_channels < condition_dim
-  for (int ch = in_channels; ch < condition_dim; ch++)
-  {
-    for (int j = 0; j < num_frames; j++)
-    {
-      this->_condition(ch, j) = 0.0f;
     }
   }
 }
