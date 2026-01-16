@@ -49,7 +49,7 @@ void test_gated()
   Eigen::MatrixXf input, condition, headInput, output;
   input.resize(channels, numFrames);
   condition.resize(conditionSize, numFrames);
-  headInput.resize(channels, numFrames);
+  headInput.resize(bottleneck, numFrames);
   output.resize(channels, numFrames);
 
   const float signalValue = 0.25f;
