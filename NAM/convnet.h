@@ -66,12 +66,12 @@ class _Head
 {
 public:
   _Head() {};
-  _Head(const int channels, std::vector<float>::iterator& weights);
-  void process_(const Eigen::MatrixXf& input, Eigen::VectorXf& output, const long i_start, const long i_end) const;
+  _Head(const int in_channels, const int out_channels, std::vector<float>::iterator& weights);
+  void process_(const Eigen::MatrixXf& input, Eigen::MatrixXf& output, const long i_start, const long i_end) const;
 
 private:
-  Eigen::VectorXf _weight;
-  float _bias = 0.0f;
+  Eigen::MatrixXf _weight; // (out_channels, in_channels)
+  Eigen::VectorXf _bias; // (out_channels,)
 };
 
 class ConvNet : public Buffer
@@ -88,8 +88,8 @@ public:
 protected:
   std::vector<ConvNetBlock> _blocks;
   std::vector<Eigen::MatrixXf> _block_vals;
-  std::vector<Eigen::VectorXf> _head_outputs;
-  std::vector<_Head> _heads;
+  Eigen::MatrixXf _head_output; // (out_channels, num_frames)
+  _Head _head;
   void _verify_weights(const int channels, const std::vector<int>& dilations, const bool batchnorm,
                        const size_t actual_weights);
   void _update_buffers_(NAM_SAMPLE** input, const int num_frames) override;

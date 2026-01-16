@@ -64,23 +64,26 @@ public:
   int NumInputChannels() const { return mInChannels; };
   // Number of output channels
   int NumOutputChannels() const { return mOutChannels; };
-  // Input Level, in dBu, corresponding to 0 dBFS for a sine wave, for a specific channel
+  // Input Level, in dBu, corresponding to 0 dBFS for a sine wave
   // You should call HasInputLevel() first to be safe.
-  double GetInputLevel(const int channel);
+  // Note: input level is assumed global over all inputs.
+  double GetInputLevel();
   // Get how loud this model is, in dB.
   // Throws a std::runtime_error if the model doesn't know how loud it is.
+  // Note: loudness is assumed global over all outputs.
   double GetLoudness() const;
-  // Output Level, in dBu, corresponding to 0 dBFS for a sine wave, for a specific channel
+  // Output Level, in dBu, corresponding to 0 dBFS for a sine wave
   // You should call HasOutputLevel() first to be safe.
-  double GetOutputLevel(const int channel);
-  // Does this model know its input level for a specific channel?
-  // If channel == -1, returns true if any channel has a level set.
-  bool HasInputLevel(const int channel = -1);
+  // Note: output level is assumed global over all outputs.
+  double GetOutputLevel();
+  // Does this model know its input level?
+  // Note: input level is assumed global over all inputs.
+  bool HasInputLevel();
   // Get whether the model knows how loud it is.
   bool HasLoudness() const { return mHasLoudness; };
-  // Does this model know its output level for a specific channel?
-  // If channel == -1, returns true if any channel has a level set.
-  bool HasOutputLevel(const int channel = -1);
+  // Does this model know its output level?
+  // Note: output level is assumed global over all outputs.
+  bool HasOutputLevel();
   // General function for resetting the DSP unit.
   // This doesn't call prewarm(). If you want to do that, then you might want to use ResetAndPrewarm().
   // See https://github.com/sdatkinson/NeuralAmpModelerCore/issues/96 for the reasoning.
@@ -91,12 +94,13 @@ public:
     Reset(sampleRate, maxBufferSize);
     prewarm();
   }
-  void SetInputLevel(const int channel, const double inputLevel);
+  void SetInputLevel(const double inputLevel);
   // Set the loudness, in dB.
   // This is usually defined to be the loudness to a standardized input. The trainer has its own, but you can always
   // use this to define it a different way if you like yours better.
+  // Note: loudness is assumed global over all outputs.
   void SetLoudness(const double loudness);
-  void SetOutputLevel(const int channel, const double outputLevel);
+  void SetOutputLevel(const double outputLevel);
 
 protected:
   bool mHasLoudness = false;
@@ -124,8 +128,9 @@ private:
     bool haveLevel = false;
     float level = 0.0;
   };
-  std::vector<Level> mInputLevels;
-  std::vector<Level> mOutputLevels;
+  // Note: input/output levels are assumed global over all inputs/outputs
+  Level mInputLevel;
+  Level mOutputLevel;
 };
 
 // Class where an input buffer is kept so that long-time effects can be
@@ -139,8 +144,8 @@ public:
 
 protected:
   int _receptive_field;
-  // First location where we add new samples from the input (per channel)
-  std::vector<long> _input_buffer_offset;
+  // First location where we add new samples from the input (same for all channels)
+  long _input_buffer_offset;
   // Per-channel input buffers
   std::vector<std::vector<float>> _input_buffers;
   std::vector<std::vector<float>> _output_buffers;

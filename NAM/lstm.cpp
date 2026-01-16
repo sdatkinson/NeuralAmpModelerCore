@@ -69,28 +69,59 @@ nam::lstm::LSTM::LSTM(const int in_channels, const int out_channels, const int n
                       const int hidden_size, std::vector<float>& weights, const double expected_sample_rate)
 : DSP(in_channels, out_channels, expected_sample_rate)
 {
-  this->_input.resize(1);
+  // Allocate input and output vectors
+  this->_input.resize(input_size);
+  this->_output.resize(out_channels);
+
+  // Store input_size for first layer
+  this->_first_layer_input_size = input_size;
+
   std::vector<float>::iterator it = weights.begin();
   for (int i = 0; i < num_layers; i++)
     this->_layers.push_back(LSTMCell(i == 0 ? input_size : hidden_size, hidden_size, it));
-  this->_head_weight.resize(hidden_size);
-  for (int i = 0; i < hidden_size; i++)
-    this->_head_weight[i] = *(it++);
-  this->_head_bias = *(it++);
+
+  // Load head weight as matrix (out_channels x hidden_size)
+  // Weights are stored row-major: first row (output 0), then row 1 (output 1), etc.
+  this->_head_weight.resize(out_channels, hidden_size);
+  for (int out_ch = 0; out_ch < out_channels; out_ch++)
+  {
+    for (int h = 0; h < hidden_size; h++)
+    {
+      this->_head_weight(out_ch, h) = *(it++);
+    }
+  }
+
+  // Load head bias as vector (out_channels)
+  this->_head_bias.resize(out_channels);
+  for (int out_ch = 0; out_ch < out_channels; out_ch++)
+  {
+    this->_head_bias(out_ch) = *(it++);
+  }
+
   assert(it == weights.end());
 }
 
 void nam::lstm::LSTM::process(NAM_SAMPLE** input, NAM_SAMPLE** output, const int num_frames)
 {
+  const int in_channels = NumInputChannels();
   const int out_channels = NumOutputChannels();
 
-  // For now, process first input channel and replicate to all output channels
-  // Can be extended later for true multi-channel support
   for (int i = 0; i < num_frames; i++)
   {
-    const float sample = this->_process_sample(input[0][i]);
+    // Copy multi-channel input to _input vector
+    for (int ch = 0; ch < in_channels; ch++)
+    {
+      this->_input(ch) = input[ch][i];
+    }
+
+    // Process sample (stores result in _output)
+    this->_process_sample();
+
+    // Copy multi-channel output from _output to output arrays
     for (int ch = 0; ch < out_channels; ch++)
-      output[ch][i] = sample;
+    {
+      output[ch][i] = this->_output(ch);
+    }
   }
 }
 
@@ -102,15 +133,37 @@ int nam::lstm::LSTM::PrewarmSamples()
   return result <= 0 ? 1 : result;
 }
 
-float nam::lstm::LSTM::_process_sample(const float x)
+void nam::lstm::LSTM::_process_sample()
 {
+  const int in_channels = NumInputChannels();
+  const int out_channels = NumOutputChannels();
+
   if (this->_layers.size() == 0)
-    return x;
-  this->_input(0) = x;
+  {
+    // No layers - pass input through to output (using first in_channels of output)
+    const int channels_to_copy = std::min(in_channels, out_channels);
+    for (int ch = 0; ch < channels_to_copy; ch++)
+      this->_output(ch) = this->_input(ch);
+    // Zero-fill remaining output channels if in_channels < out_channels
+    for (int ch = channels_to_copy; ch < out_channels; ch++)
+      this->_output(ch) = 0.0f;
+    return;
+  }
+
   this->_layers[0].process_(this->_input);
   for (size_t i = 1; i < this->_layers.size(); i++)
     this->_layers[i].process_(this->_layers[i - 1].get_hidden_state());
-  return this->_head_weight.dot(this->_layers[this->_layers.size() - 1].get_hidden_state()) + this->_head_bias;
+
+  // Compute output using head weight matrix and bias vector
+  // _output = _head_weight * hidden_state + _head_bias
+  const Eigen::VectorXf& hidden_state = this->_layers[this->_layers.size() - 1].get_hidden_state();
+
+  // Compute matrix-vector product: (out_channels x hidden_size) * (hidden_size) = (out_channels)
+  // Store directly in _output (which is already sized correctly in constructor)
+  this->_output.noalias() = this->_head_weight * hidden_state;
+
+  // Add bias: (out_channels) += (out_channels)
+  this->_output.noalias() += this->_head_bias;
 }
 
 // Factory to instantiate from nlohmann json

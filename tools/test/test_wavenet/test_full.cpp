@@ -47,8 +47,8 @@ void test_wavenet_model()
   weights.push_back(1.0f); // Head rechannel
   weights.push_back(head_scale); // Head scale
 
-  auto wavenet = std::make_unique<nam::wavenet::WaveNet>(
-    input_size, head_size, layer_array_params, head_scale, with_head, weights, 48000.0);
+  auto wavenet =
+    std::make_unique<nam::wavenet::WaveNet>(input_size, layer_array_params, head_scale, with_head, weights, 48000.0);
 
   const int numFrames = 4;
   const int maxBufferSize = 64;
@@ -107,8 +107,8 @@ void test_wavenet_multiple_arrays()
   weights.insert(weights.end(), {1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f});
   weights.push_back(head_scale);
 
-  auto wavenet = std::make_unique<nam::wavenet::WaveNet>(
-    input_size, head_size, layer_array_params, head_scale, with_head, weights, 48000.0);
+  auto wavenet =
+    std::make_unique<nam::wavenet::WaveNet>(input_size, layer_array_params, head_scale, with_head, weights, 48000.0);
 
   const int numFrames = 4;
   const int maxBufferSize = 64;
@@ -153,8 +153,8 @@ void test_wavenet_zero_input()
 
   std::vector<float> weights{1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f, head_scale};
 
-  auto wavenet = std::make_unique<nam::wavenet::WaveNet>(
-    input_size, head_size, layer_array_params, head_scale, with_head, weights, 48000.0);
+  auto wavenet =
+    std::make_unique<nam::wavenet::WaveNet>(input_size, layer_array_params, head_scale, with_head, weights, 48000.0);
 
   const int numFrames = 4;
   wavenet->Reset(48000.0, numFrames);
@@ -198,8 +198,8 @@ void test_wavenet_different_buffer_sizes()
 
   std::vector<float> weights{1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f, head_scale};
 
-  auto wavenet = std::make_unique<nam::wavenet::WaveNet>(
-    input_size, head_size, layer_array_params, head_scale, with_head, weights, 48000.0);
+  auto wavenet =
+    std::make_unique<nam::wavenet::WaveNet>(input_size, layer_array_params, head_scale, with_head, weights, 48000.0);
 
   // Test with different buffer sizes
   wavenet->Reset(48000.0, 64);
@@ -265,8 +265,8 @@ void test_wavenet_prewarm()
   weights.push_back(1.0f);
   weights.push_back(head_scale);
 
-  auto wavenet = std::make_unique<nam::wavenet::WaveNet>(
-    input_size, head_size, layer_array_params, head_scale, with_head, weights, 48000.0);
+  auto wavenet =
+    std::make_unique<nam::wavenet::WaveNet>(input_size, layer_array_params, head_scale, with_head, weights, 48000.0);
 
   // Test that prewarm can be called without errors
   wavenet->Reset(48000.0, 64);

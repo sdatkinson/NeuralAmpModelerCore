@@ -174,9 +174,8 @@ private:
 class WaveNet : public DSP
 {
 public:
-  WaveNet(const int in_channels, const int out_channels, const std::vector<LayerArrayParams>& layer_array_params,
-          const float head_scale, const bool with_head, std::vector<float> weights,
-          const double expected_sample_rate = -1.0);
+  WaveNet(const int in_channels, const std::vector<LayerArrayParams>& layer_array_params, const float head_scale,
+          const bool with_head, std::vector<float> weights, const double expected_sample_rate = -1.0);
   ~WaveNet() = default;
   void process(NAM_SAMPLE** input, NAM_SAMPLE** output, const int num_frames) override;
   void set_weights_(std::vector<float>& weights);

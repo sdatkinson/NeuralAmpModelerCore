@@ -157,16 +157,17 @@ void nam::convnet::_Head::process_(const Eigen::MatrixXf& input, Eigen::MatrixXf
   const long length = i_end - i_start;
   const long out_channels = this->_weight.rows();
   const long in_channels = this->_weight.cols();
-  
+
   // Resize output to (out_channels x length)
   output.resize(out_channels, length);
 
   // Extract input slice: (in_channels x length)
   Eigen::MatrixXf input_slice = input.middleCols(i_start, length);
-  
-  // Compute output = weight * input_slice: (out_channels x in_channels) * (in_channels x length) = (out_channels x length)
+
+  // Compute output = weight * input_slice: (out_channels x in_channels) * (in_channels x length) = (out_channels x
+  // length)
   output.noalias() = this->_weight * input_slice;
-  
+
   // Add bias to each column: output.colwise() += bias
   // output is (out_channels x length), bias is (out_channels x 1), so colwise() += works
   output.colwise() += this->_bias;

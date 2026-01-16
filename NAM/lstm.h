@@ -59,16 +59,18 @@ protected:
   // Hacky, but a half-second seems to work for most models.
   int PrewarmSamples() override;
 
-  Eigen::VectorXf _head_weight;
-  float _head_bias;
+  Eigen::MatrixXf _head_weight; // (out_channels x hidden_size)
+  Eigen::VectorXf _head_bias; // (out_channels)
   void process(NAM_SAMPLE** input, NAM_SAMPLE** output, const int num_frames) override;
   std::vector<LSTMCell> _layers;
 
-  float _process_sample(const float x);
+  void _process_sample();
 
   // Input to the LSTM.
-  // Since this is assumed to not be a parametric model, its shape should be (1,)
+  // Since this is assumed to not be a parametric model, its shape should be (in_channels,)
   Eigen::VectorXf _input;
+  // Output from _process_sample - multi-channel output vector (size out_channels)
+  Eigen::VectorXf _output;
 };
 
 // Factory to instantiate from nlohmann json

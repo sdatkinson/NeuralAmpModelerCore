@@ -261,9 +261,9 @@ void nam::wavenet::WaveNet::_set_condition_array(NAM_SAMPLE** input, const int n
 {
   const int in_channels = NumInputChannels();
   const int condition_dim = this->_get_condition_dim();
-  
+
   assert(in_channels <= condition_dim);
-  
+
   // Fill condition array with input channels
   for (int ch = 0; ch < in_channels; ch++)
   {
