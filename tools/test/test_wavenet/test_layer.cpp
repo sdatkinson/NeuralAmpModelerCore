@@ -305,26 +305,28 @@ void test_layer_bottleneck()
 
   // Set weights
   std::vector<float> weights;
-  // Conv weights: channels x bottleneck x kernelSize = 4 x 2 x 1 = 8 weights
-  // Use identity-like pattern for first two input channels
-  for (int i = 0; i < channels; i++)
+  // Conv weights: out_channels x in_channels x kernelSize = bottleneck x channels x kernelSize = 2 x 4 x 1 = 8 weights
+  // Weight layout for Conv1D: for each out_channel, for each in_channel, for each kernel position
+  // Use identity-like pattern: out_channel i connects to in_channel i (for i < bottleneck)
+  for (int out_ch = 0; out_ch < bottleneck; out_ch++)
   {
-    for (int j = 0; j < bottleneck; j++)
+    for (int in_ch = 0; in_ch < channels; in_ch++)
     {
-      weights.push_back((i == j) ? 1.0f : 0.0f);
+      weights.push_back((out_ch == in_ch) ? 1.0f : 0.0f);
     }
   }
   // Conv bias: bottleneck values
   weights.insert(weights.end(), {0.0f, 0.0f});
   // Input mixin: conditionSize x bottleneck = 1 x 2 = 2 weights
   weights.insert(weights.end(), {1.0f, 1.0f});
-  // 1x1 weights: bottleneck x channels = 2 x 4 = 8 weights
-  // Identity-like pattern
-  for (int i = 0; i < bottleneck; i++)
+  // 1x1 weights: out_channels x in_channels = channels x bottleneck = 4 x 2 = 8 weights
+  // Weight layout for Conv1x1: for each out_channel, for each in_channel
+  // Identity-like pattern: out_channel i connects to in_channel i (for i < bottleneck)
+  for (int out_ch = 0; out_ch < channels; out_ch++)
   {
-    for (int j = 0; j < channels; j++)
+    for (int in_ch = 0; in_ch < bottleneck; in_ch++)
     {
-      weights.push_back((i == j) ? 1.0f : 0.0f);
+      weights.push_back((out_ch == in_ch) ? 1.0f : 0.0f);
     }
   }
   // 1x1 bias: channels values

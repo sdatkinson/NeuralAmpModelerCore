@@ -19,6 +19,7 @@ void test_wavenet_model()
   const int condition_size = 1;
   const int head_size = 1;
   const int channels = 1;
+  const int bottleneck = channels;
   const int kernel_size = 1;
   std::vector<int> dilations{1};
   const std::string activation = "ReLU";
@@ -29,7 +30,7 @@ void test_wavenet_model()
   const int groups = 1;
   const int groups_1x1 = 1;
 
-  nam::wavenet::LayerArrayParams params(input_size, condition_size, head_size, channels, kernel_size,
+  nam::wavenet::LayerArrayParams params(input_size, condition_size, head_size, channels, bottleneck, kernel_size,
                                         std::move(dilations), activation, gated, head_bias, groups, groups_1x1);
   std::vector<nam::wavenet::LayerArrayParams> layer_array_params;
   layer_array_params.push_back(std::move(params));
