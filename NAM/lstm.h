@@ -54,6 +54,7 @@ public:
   LSTM(const int in_channels, const int out_channels, const int num_layers, const int input_size, const int hidden_size,
        std::vector<float>& weights, const double expected_sample_rate = -1.0);
   ~LSTM() = default;
+  void process(NAM_SAMPLE** input, NAM_SAMPLE** output, const int num_frames) override;
 
 protected:
   // Hacky, but a half-second seems to work for most models.
@@ -61,7 +62,6 @@ protected:
 
   Eigen::MatrixXf _head_weight; // (out_channels x hidden_size)
   Eigen::VectorXf _head_bias; // (out_channels)
-  void process(NAM_SAMPLE** input, NAM_SAMPLE** output, const int num_frames) override;
   std::vector<LSTMCell> _layers;
 
   void _process_sample();

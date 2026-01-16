@@ -16,9 +16,9 @@
 constexpr const long _INPUT_BUFFER_SAFETY_FACTOR = 32;
 
 nam::DSP::DSP(const int in_channels, const int out_channels, const double expected_sample_rate)
-: mInChannels(in_channels)
+: mExpectedSampleRate(expected_sample_rate)
+, mInChannels(in_channels)
 , mOutChannels(out_channels)
-, mExpectedSampleRate(expected_sample_rate)
 {
   if (in_channels <= 0 || out_channels <= 0)
   {
