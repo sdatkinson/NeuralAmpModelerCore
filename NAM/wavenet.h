@@ -189,7 +189,7 @@ protected:
   virtual void _set_condition_array(NAM_SAMPLE** input, const int num_frames);
   // How many conditioning inputs are there.
   // Just one--the audio.
-  virtual int _get_condition_dim() const { return 1; };
+  virtual int _get_condition_dim() const { return NumInputChannels(); };
 
 private:
   std::vector<_LayerArray> _layer_arrays;
