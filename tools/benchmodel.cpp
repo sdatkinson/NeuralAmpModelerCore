@@ -40,18 +40,31 @@ int main(int argc, char* argv[])
     model->Reset(model->GetExpectedSampleRate(), bufferSize);
     size_t numBuffers = (48000 / bufferSize) * 2;
 
-    // Fill input buffer with zeroes.
-    // Output buffer doesn't matter.
-    for (int i = 0; i < AUDIO_BUFFER_SIZE; i++)
+    // Allocate multi-channel buffers
+    const int in_channels = model->NumInputChannels();
+    const int out_channels = model->NumOutputChannels();
+
+    std::vector<std::vector<double>> inputBuffers(in_channels);
+    std::vector<std::vector<double>> outputBuffers(out_channels);
+    std::vector<double*> inputPtrs(in_channels);
+    std::vector<double*> outputPtrs(out_channels);
+
+    for (int ch = 0; ch < in_channels; ch++)
     {
-      inputBuffer[i] = 0.0;
+      inputBuffers[ch].resize(AUDIO_BUFFER_SIZE, 0.0);
+      inputPtrs[ch] = inputBuffers[ch].data();
+    }
+    for (int ch = 0; ch < out_channels; ch++)
+    {
+      outputBuffers[ch].resize(AUDIO_BUFFER_SIZE, 0.0);
+      outputPtrs[ch] = outputBuffers[ch].data();
     }
 
     std::cout << "Running benchmark\n";
     auto t1 = high_resolution_clock::now();
     for (size_t i = 0; i < numBuffers; i++)
     {
-      model->process(inputBuffer, outputBuffer, AUDIO_BUFFER_SIZE);
+      model->process(inputPtrs.data(), outputPtrs.data(), AUDIO_BUFFER_SIZE);
     }
     auto t2 = high_resolution_clock::now();
     std::cout << "Finished\n";

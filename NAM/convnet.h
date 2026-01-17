@@ -66,32 +66,33 @@ class _Head
 {
 public:
   _Head() {};
-  _Head(const int channels, std::vector<float>::iterator& weights);
-  void process_(const Eigen::MatrixXf& input, Eigen::VectorXf& output, const long i_start, const long i_end) const;
+  _Head(const int in_channels, const int out_channels, std::vector<float>::iterator& weights);
+  void process_(const Eigen::MatrixXf& input, Eigen::MatrixXf& output, const long i_start, const long i_end) const;
 
 private:
-  Eigen::VectorXf _weight;
-  float _bias = 0.0f;
+  Eigen::MatrixXf _weight; // (out_channels, in_channels)
+  Eigen::VectorXf _bias; // (out_channels,)
 };
 
 class ConvNet : public Buffer
 {
 public:
-  ConvNet(const int channels, const std::vector<int>& dilations, const bool batchnorm, const std::string activation,
-          std::vector<float>& weights, const double expected_sample_rate = -1.0, const int groups = 1);
+  ConvNet(const int in_channels, const int out_channels, const int channels, const std::vector<int>& dilations,
+          const bool batchnorm, const std::string activation, std::vector<float>& weights,
+          const double expected_sample_rate = -1.0, const int groups = 1);
   ~ConvNet() = default;
 
-  void process(NAM_SAMPLE* input, NAM_SAMPLE* output, const int num_frames) override;
+  void process(NAM_SAMPLE** input, NAM_SAMPLE** output, const int num_frames) override;
   void SetMaxBufferSize(const int maxBufferSize) override;
 
 protected:
   std::vector<ConvNetBlock> _blocks;
   std::vector<Eigen::MatrixXf> _block_vals;
-  Eigen::VectorXf _head_output;
+  Eigen::MatrixXf _head_output; // (out_channels, num_frames)
   _Head _head;
   void _verify_weights(const int channels, const std::vector<int>& dilations, const bool batchnorm,
                        const size_t actual_weights);
-  void _update_buffers_(NAM_SAMPLE* input, const int num_frames) override;
+  void _update_buffers_(NAM_SAMPLE** input, const int num_frames) override;
   void _rewind_buffers_() override;
 
   int mPrewarmSamples = 0; // Pre-compute during initialization

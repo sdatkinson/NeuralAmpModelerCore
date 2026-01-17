@@ -18,6 +18,7 @@
 #include "test/test_wavenet_gating_compatibility.cpp"
 #include "test/test_blending_detailed.cpp"
 #include "test/test_input_buffer_verification.cpp"
+#include "test/test_lstm.cpp"
 
 int main()
 {
@@ -124,6 +125,7 @@ int main()
   test_wavenet::test_layer_grouped_process_realtime_safe();
   test_wavenet::test_layer_array_process_realtime_safe();
   test_wavenet::test_process_realtime_safe();
+  test_wavenet::test_process_3in_2out_realtime_safe();
 
   test_convnet::test_convnet_basic();
   test_convnet::test_convnet_batchnorm();
@@ -132,6 +134,19 @@ int main()
   test_convnet::test_convnet_different_buffer_sizes();
   test_convnet::test_convnet_prewarm();
   test_convnet::test_convnet_multiple_calls();
+
+  // LSTM tests
+  test_lstm::test_lstm_basic();
+  test_lstm::test_lstm_multiple_layers();
+  test_lstm::test_lstm_zero_input();
+  test_lstm::test_lstm_different_buffer_sizes();
+  test_lstm::test_lstm_prewarm();
+  test_lstm::test_lstm_multiple_calls();
+  test_lstm::test_lstm_multichannel();
+  test_lstm::test_lstm_large_hidden_size();
+  test_lstm::test_lstm_different_input_size();
+  test_lstm::test_lstm_state_evolution();
+  test_lstm::test_lstm_no_layers();
 
   // Gating activations tests
   test_gating_activations::TestGatingActivation::test_basic_functionality();

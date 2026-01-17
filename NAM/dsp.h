@@ -40,7 +40,7 @@ public:
   // Older models won't know, but newer ones will come with a loudness from the training based on their response to a
   // standardized input.
   // We may choose to have the models figure out for themselves how loud they are in here in the future.
-  DSP(const double expected_sample_rate);
+  DSP(const int in_channels, const int out_channels, const double expected_sample_rate);
   virtual ~DSP() = default;
   // prewarm() does any required intial work required to "settle" model initial conditions
   // it can be somewhat expensive, so should not be called during realtime audio processing
@@ -54,25 +54,36 @@ public:
   // 1. The core DSP algorithm is run (This is what should probably be
   //    overridden in subclasses).
   // 2. The output level is applied and the result stored to `output`.
-  virtual void process(NAM_SAMPLE* input, NAM_SAMPLE* output, const int num_frames);
+  // `input` and `output` are double pointers where the first pointer indexes channels
+  // and the second indexes frames: input[channel][frame]
+  virtual void process(NAM_SAMPLE** input, NAM_SAMPLE** output, const int num_frames);
   // Expected sample rate, in Hz.
   // TODO throw if it doesn't know.
   double GetExpectedSampleRate() const { return mExpectedSampleRate; };
+  // Number of input channels
+  int NumInputChannels() const { return mInChannels; };
+  // Number of output channels
+  int NumOutputChannels() const { return mOutChannels; };
   // Input Level, in dBu, corresponding to 0 dBFS for a sine wave
   // You should call HasInputLevel() first to be safe.
-  double GetInputLevel() { return mInputLevel.level; };
+  // Note: input level is assumed global over all inputs.
+  double GetInputLevel();
   // Get how loud this model is, in dB.
   // Throws a std::runtime_error if the model doesn't know how loud it is.
+  // Note: loudness is assumed global over all outputs.
   double GetLoudness() const;
   // Output Level, in dBu, corresponding to 0 dBFS for a sine wave
   // You should call HasOutputLevel() first to be safe.
-  double GetOutputLevel() { return mOutputLevel.level; };
-  // Does this model know its output level?
-  bool HasInputLevel() { return mInputLevel.haveLevel; };
+  // Note: output level is assumed global over all outputs.
+  double GetOutputLevel();
+  // Does this model know its input level?
+  // Note: input level is assumed global over all inputs.
+  bool HasInputLevel();
   // Get whether the model knows how loud it is.
   bool HasLoudness() const { return mHasLoudness; };
   // Does this model know its output level?
-  bool HasOutputLevel() { return mOutputLevel.haveLevel; };
+  // Note: output level is assumed global over all outputs.
+  bool HasOutputLevel();
   // General function for resetting the DSP unit.
   // This doesn't call prewarm(). If you want to do that, then you might want to use ResetAndPrewarm().
   // See https://github.com/sdatkinson/NeuralAmpModelerCore/issues/96 for the reasoning.
@@ -83,20 +94,13 @@ public:
     Reset(sampleRate, maxBufferSize);
     prewarm();
   }
-  void SetInputLevel(const double inputLevel)
-  {
-    mInputLevel.haveLevel = true;
-    mInputLevel.level = inputLevel;
-  };
+  void SetInputLevel(const double inputLevel);
   // Set the loudness, in dB.
   // This is usually defined to be the loudness to a standardized input. The trainer has its own, but you can always
   // use this to define it a different way if you like yours better.
+  // Note: loudness is assumed global over all outputs.
   void SetLoudness(const double loudness);
-  void SetOutputLevel(const double outputLevel)
-  {
-    mOutputLevel.haveLevel = true;
-    mOutputLevel.level = outputLevel;
-  };
+  void SetOutputLevel(const double outputLevel);
 
 protected:
   bool mHasLoudness = false;
@@ -117,11 +121,14 @@ protected:
   int GetMaxBufferSize() const { return mMaxBufferSize; };
 
 private:
+  const int mInChannels;
+  const int mOutChannels;
   struct Level
   {
     bool haveLevel = false;
     float level = 0.0;
   };
+  // Note: input/output levels are assumed global over all inputs/outputs
   Level mInputLevel;
   Level mOutputLevel;
 };
@@ -132,23 +139,23 @@ private:
 class Buffer : public DSP
 {
 public:
-  Buffer(const int receptive_field, const double expected_sample_rate = -1.0);
+  Buffer(const int in_channels, const int out_channels, const int receptive_field,
+         const double expected_sample_rate = -1.0);
 
 protected:
-  // Input buffer
-  const int _input_buffer_channels = 1; // Mono
   int _receptive_field;
-  // First location where we add new samples from the input
+  // First location where we add new samples from the input (same for all channels)
   long _input_buffer_offset;
-  std::vector<float> _input_buffer;
-  std::vector<float> _output_buffer;
+  // Per-channel input buffers
+  std::vector<std::vector<float>> _input_buffers;
+  std::vector<std::vector<float>> _output_buffers;
 
   void _advance_input_buffer_(const int num_frames);
   void _set_receptive_field(const int new_receptive_field, const int input_buffer_size);
   void _set_receptive_field(const int new_receptive_field);
   void _reset_input_buffer();
   // Use this->_input_post_gain
-  virtual void _update_buffers_(NAM_SAMPLE* input, int num_frames);
+  virtual void _update_buffers_(NAM_SAMPLE** input, int num_frames);
   virtual void _rewind_buffers_();
 };
 
@@ -156,9 +163,9 @@ protected:
 class Linear : public Buffer
 {
 public:
-  Linear(const int receptive_field, const bool _bias, const std::vector<float>& weights,
-         const double expected_sample_rate = -1.0);
-  void process(NAM_SAMPLE* input, NAM_SAMPLE* output, const int num_frames) override;
+  Linear(const int in_channels, const int out_channels, const int receptive_field, const bool _bias,
+         const std::vector<float>& weights, const double expected_sample_rate = -1.0);
+  void process(NAM_SAMPLE** input, NAM_SAMPLE** output, const int num_frames) override;
 
 protected:
   Eigen::VectorXf _weight;
