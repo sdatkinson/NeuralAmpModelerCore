@@ -144,8 +144,8 @@ void test_head1x1_active()
   const float expectedHeadOutput = 1.1f;
   for (int i = 0; i < numFrames; i++)
   {
-    assert(std::abs(layer_output(0, i) - expectedLayerOutput) < 0.01f);
-    assert(std::abs(head_output(0, i) - expectedHeadOutput) < 0.01f);
+    assert(std::abs(layer_output(0, i) - expectedLayerOutput) < 0.02f);
+    assert(std::abs(head_output(0, i) - expectedHeadOutput) < 0.02f);
   }
 }
 

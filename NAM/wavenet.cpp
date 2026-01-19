@@ -23,11 +23,13 @@ void nam::wavenet::_Layer::SetMaxBufferSize(const int maxBufferSize)
   if (_head1x1)
   {
     this->_output_head.resize(_head1x1->get_out_channels(), maxBufferSize);
+    this->_output_head.setZero(); // Ensure consistent initialization across platforms
     _head1x1->SetMaxBufferSize(maxBufferSize);
   }
   else
   {
     this->_output_head.resize(this->_bottleneck, maxBufferSize);
+    this->_output_head.setZero(); // Ensure consistent initialization across platforms
   }
 }
 
