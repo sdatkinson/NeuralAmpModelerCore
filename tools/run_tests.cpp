@@ -176,6 +176,11 @@ int main()
   test_input_buffer_verification::TestInputBufferVerification::test_buffer_stores_pre_activation_values();
   test_input_buffer_verification::TestInputBufferVerification::test_buffer_with_different_activations();
 
+#ifdef ADDASSERT
+  std::cerr << "Checking that we're successfully asserting. We should now fail." << std::endl;
+  assert(false);
+#endif
+
   std::cout << "Success!" << std::endl;
   return 0;
 }
