@@ -1,12 +1,11 @@
 #include <algorithm>
-#include <fstream>
-#include <iomanip>
 #include <iostream>
 #include <math.h>
-#include <filesystem>
+#include <sstream>
 
 #include <Eigen/Dense>
 
+#include "get_dsp.h"
 #include "registry.h"
 #include "wavenet.h"
 
@@ -415,19 +414,8 @@ std::unique_ptr<nam::DSP> nam::wavenet::Factory(const nlohmann::json& config, st
   std::unique_ptr<nam::DSP> condition_dsp = nullptr;
   if (config.find("condition_dsp") != config.end())
   {
-    nlohmann::json condition_dsp_json = config["condition_dsp"];
-
-    // Dump condition_dsp_json to a local file for debugging
-    std::filesystem::path debug_file = "../temp/debug_condition_dsp.nam";
-    std::ofstream out_file(debug_file);
-    if (out_file.is_open())
-    {
-      out_file << std::setw(2) << condition_dsp_json << std::endl;
-      out_file.close();
-    }
-
-    // Use get_dsp with the file path instead of JSON object
-    condition_dsp = nam::get_dsp(debug_file);
+    const nlohmann::json& condition_dsp_json = config["condition_dsp"];
+    condition_dsp = nam::get_dsp(condition_dsp_json);
     if (condition_dsp->GetExpectedSampleRate() != expectedSampleRate)
     {
       std::stringstream ss;
