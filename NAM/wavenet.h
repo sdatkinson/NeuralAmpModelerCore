@@ -33,7 +33,7 @@ public:
          const Head1x1Params& head1x1_params)
   : _conv(channels, gated ? 2 * bottleneck : bottleneck, kernel_size, true, dilation)
   , _input_mixin(condition_size, gated ? 2 * bottleneck : bottleneck, false)
-  , _1x1(bottleneck, channels, true)
+  , _1x1(bottleneck, channels, groups_1x1)
   , _activation(activations::Activation::get_activation(activation)) // needs to support activations with parameters
   , _gated(gated) 
   , _bottleneck(bottleneck)
@@ -83,7 +83,7 @@ private:
   Conv1x1 _input_mixin;
   // The post-activation 1x1 convolution
   Conv1x1 _1x1;
-  // The pre-activation 1x1 convolution, optional
+  // The post-activation 1x1 convolution outputting to the head, optional
   std::unique_ptr<Conv1x1> _head1x1;
   // The internal state
   Eigen::MatrixXf _z;

@@ -80,7 +80,7 @@ void nam::wavenet::_Layer::Process(const Eigen::MatrixXf& input, const Eigen::Ma
       this->_head1x1->process_(this->_z.leftCols(num_frames), num_frames);
     else
       this->_head1x1->process(this->_z.topRows(bottleneck).leftCols(num_frames), num_frames);
-    this->_output_head.leftCols(num_frames).noalias() += this->_head1x1->GetOutput().leftCols(num_frames);
+    this->_output_head.leftCols(num_frames).noalias() = this->_head1x1->GetOutput().leftCols(num_frames);
   } else {
     // Store output to head (skip connection: activated conv output)
     if (!this->_gated)
