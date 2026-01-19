@@ -257,6 +257,8 @@ nam::wavenet::WaveNet::WaveNet(const int in_channels,
 void nam::wavenet::WaveNet::set_weights_(std::vector<float>& weights)
 {
   std::vector<float>::iterator it = weights.begin();
+  // Note: condition_dsp already has its own weights from construction,
+  // so we don't need to set its weights here.
   for (size_t i = 0; i < this->_layer_arrays.size(); i++)
     this->_layer_arrays[i].set_weights_(it);
   this->_head_scale = *(it++); // TODO `LayerArray.absorb_head_scale()`
@@ -373,7 +375,9 @@ void nam::wavenet::WaveNet::process(NAM_SAMPLE** input, NAM_SAMPLE** output, con
     if (i == 0)
     {
       // First layer array - no head input
-      this->_layer_arrays[i].Process(this->_condition_output, this->_condition_output, num_frames);
+      // layer_inputs should be the original input (before condition_dsp processing),
+      // condition should be the processed condition output (after condition_dsp)
+      this->_layer_arrays[i].Process(this->_condition_input, this->_condition_output, num_frames);
     }
     else
     {

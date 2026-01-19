@@ -71,19 +71,21 @@ std::unique_ptr<nam::wavenet::WaveNet> create_simple_wavenet(
     weights.push_back(0.0f);
   }
 
-  // Input mixin weights (identity-like)
+  // Input mixin weights (condition_size -> bottleneck): weight matrix is (bottleneck, condition_size)
+  // Identity mapping: output channel i maps to input channel i (for i < min(bottleneck, condition_size))
   for (int i = 0; i < bottleneck; i++)
   {
     for (int j = 0; j < condition_size; j++)
     {
-      weights.push_back((i == j && j < condition_size) ? 1.0f : 0.0f);
+      weights.push_back((i == j) ? 1.0f : 0.0f);
     }
   }
 
-  // 1x1 weights (identity-like)
-  for (int i = 0; i < bottleneck; i++)
+  // 1x1 weights (bottleneck -> channels): weight matrix is (channels, bottleneck)
+  // Identity mapping: output channel i maps to input channel i (for i < min(channels, bottleneck))
+  for (int i = 0; i < channels; i++)
   {
-    for (int j = 0; j < channels; j++)
+    for (int j = 0; j < bottleneck; j++)
     {
       weights.push_back((i == j) ? 1.0f : 0.0f);
     }
@@ -95,12 +97,12 @@ std::unique_ptr<nam::wavenet::WaveNet> create_simple_wavenet(
   }
 
   // Head rechannel weights (bottleneck -> head_size): weight matrix is (head_size, bottleneck)
-  // Identity mapping: output channel i maps to input channel i (for i < bottleneck)
+  // Identity mapping: output channel i maps to input channel i (for i < min(head_size, bottleneck))
   for (int i = 0; i < head_size; i++)
   {
     for (int j = 0; j < bottleneck; j++)
     {
-      weights.push_back((i == j && i < bottleneck) ? 1.0f : 0.0f);
+      weights.push_back((i == j) ? 1.0f : 0.0f);
     }
   }
 
