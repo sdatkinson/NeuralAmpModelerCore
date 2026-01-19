@@ -25,6 +25,7 @@ else()
 endif()
 
 set(NAM_DEPS_PATH "${CMAKE_CURRENT_SOURCE_DIR}/Dependencies")
+include_directories(SYSTEM "${NAM_DEPS_PATH}/eigen")
 
 add_subdirectory(tools)
 
