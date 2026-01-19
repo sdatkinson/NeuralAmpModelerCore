@@ -175,7 +175,7 @@ class WaveNet : public DSP
 {
 public:
   WaveNet(const int in_channels, const std::vector<LayerArrayParams>& layer_array_params, const float head_scale,
-          const bool with_head, std::vector<float> weights, std::unique_ptr<WaveNet> condition_dsp,
+          const bool with_head, std::vector<float> weights, std::unique_ptr<DSP> condition_dsp,
           const double expected_sample_rate = -1.0);
   ~WaveNet() = default;
   void process(NAM_SAMPLE** input, NAM_SAMPLE** output, const int num_frames) override;
@@ -186,7 +186,7 @@ protected:
   // Element-wise arrays:
   Eigen::MatrixXf _condition_input;
   Eigen::MatrixXf _condition_output;
-  std::unique_ptr<WaveNet> _condition_dsp;
+  std::unique_ptr<DSP> _condition_dsp;
   // Temporary buffers for condition DSP processing (to avoid allocations in _process_condition)
   std::vector<std::vector<NAM_SAMPLE>> _condition_dsp_input_buffers;
   std::vector<std::vector<NAM_SAMPLE>> _condition_dsp_output_buffers;

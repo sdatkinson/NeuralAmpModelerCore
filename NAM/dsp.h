@@ -23,6 +23,13 @@
 
 namespace nam
 {
+namespace wavenet
+{
+// Forward declaration to allow WaveNet to access protected members of DSP
+// Not sure I like this.
+class WaveNet;
+} // namespace wavenet
+
 enum EArchitectures
 {
   kLinear = 0,
@@ -103,6 +110,8 @@ public:
   void SetOutputLevel(const double outputLevel);
 
 protected:
+  friend class wavenet::WaveNet; // Allow WaveNet to access protected members. Used in condition DSP.
+
   bool mHasLoudness = false;
   // How loud is the model? In dB
   double mLoudness = 0.0;

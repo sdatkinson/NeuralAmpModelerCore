@@ -195,7 +195,7 @@ long nam::wavenet::_LayerArray::_get_channels() const
 nam::wavenet::WaveNet::WaveNet(const int in_channels,
                                const std::vector<nam::wavenet::LayerArrayParams>& layer_array_params,
                                const float head_scale, const bool with_head, std::vector<float> weights,
-                               std::unique_ptr<WaveNet> condition_dsp, const double expected_sample_rate)
+                               std::unique_ptr<DSP> condition_dsp, const double expected_sample_rate)
 : DSP(in_channels,
       layer_array_params.empty() ? throw std::runtime_error("WaveNet requires at least one layer array")
                                  : layer_array_params.back().head_size,
@@ -432,7 +432,7 @@ std::unique_ptr<nam::DSP> nam::wavenet::Factory(const nlohmann::json& config, st
   const int in_channels = config.value("in_channels", 1);
 
   // out_channels is determined from last layer array's head_size
-  std::unique_ptr<nam::wavenet::WaveNet> condition_dsp = nullptr;
+  std::unique_ptr<nam::DSP> condition_dsp = nullptr;
   return std::make_unique<nam::wavenet::WaveNet>(
     in_channels, layer_array_params, head_scale, with_head, weights, std::move(condition_dsp), expectedSampleRate);
 }
