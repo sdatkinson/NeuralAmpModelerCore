@@ -832,12 +832,14 @@ void test_process_3in_2out_realtime_safe()
   const bool with_head = false;
   const int groups = 1;
   const int groups_1x1 = 1;
+ 
+  nam::wavenet::Head1x1Params head1x1_params(false, channels, 1);
 
   std::vector<nam::wavenet::LayerArrayParams> layer_array_params;
   std::vector<int> dilations1{1};
   layer_array_params.push_back(nam::wavenet::LayerArrayParams(input_size, condition_size, head_size, channels,
                                                               bottleneck, kernel_size, std::move(dilations1),
-                                                              activation, gated, head_bias, groups, groups_1x1));
+                                                              activation, gated, head_bias, groups, groups_1x1, head1x1_params));
 
   // Calculate weights:
   // _rechannel: Conv1x1(3, 4, bias=false) = 3*4 = 12 weights
