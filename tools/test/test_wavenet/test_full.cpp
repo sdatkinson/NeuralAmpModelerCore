@@ -48,7 +48,8 @@ void test_wavenet_model()
   weights.push_back(1.0f); // Head rechannel
   weights.push_back(head_scale); // Head scale
 
-  auto wavenet = std::make_unique<nam::wavenet::WaveNet>(layer_array_params, head_scale, with_head, weights, 48000.0);
+  auto wavenet =
+    std::make_unique<nam::wavenet::WaveNet>(input_size, layer_array_params, head_scale, with_head, weights, 48000.0);
 
   const int numFrames = 4;
   const int maxBufferSize = 64;
@@ -56,8 +57,10 @@ void test_wavenet_model()
 
   std::vector<NAM_SAMPLE> input(numFrames, 1.0f);
   std::vector<NAM_SAMPLE> output(numFrames, 0.0f);
+  NAM_SAMPLE* inputPtrs[] = {input.data()};
+  NAM_SAMPLE* outputPtrs[] = {output.data()};
 
-  wavenet->process(input.data(), output.data(), numFrames);
+  wavenet->process(inputPtrs, outputPtrs, numFrames);
 
   // Verify output dimensions
   assert(output.size() == numFrames);
@@ -106,7 +109,8 @@ void test_wavenet_multiple_arrays()
   weights.insert(weights.end(), {1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f});
   weights.push_back(head_scale);
 
-  auto wavenet = std::make_unique<nam::wavenet::WaveNet>(layer_array_params, head_scale, with_head, weights, 48000.0);
+  auto wavenet =
+    std::make_unique<nam::wavenet::WaveNet>(input_size, layer_array_params, head_scale, with_head, weights, 48000.0);
 
   const int numFrames = 4;
   const int maxBufferSize = 64;
@@ -114,8 +118,10 @@ void test_wavenet_multiple_arrays()
 
   std::vector<NAM_SAMPLE> input(numFrames, 1.0f);
   std::vector<NAM_SAMPLE> output(numFrames, 0.0f);
+  NAM_SAMPLE* inputPtrs[] = {input.data()};
+  NAM_SAMPLE* outputPtrs[] = {output.data()};
 
-  wavenet->process(input.data(), output.data(), numFrames);
+  wavenet->process(inputPtrs, outputPtrs, numFrames);
 
   assert(output.size() == numFrames);
   for (int i = 0; i < numFrames; i++)
@@ -150,15 +156,18 @@ void test_wavenet_zero_input()
 
   std::vector<float> weights{1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f, head_scale};
 
-  auto wavenet = std::make_unique<nam::wavenet::WaveNet>(layer_array_params, head_scale, with_head, weights, 48000.0);
+  auto wavenet =
+    std::make_unique<nam::wavenet::WaveNet>(input_size, layer_array_params, head_scale, with_head, weights, 48000.0);
 
   const int numFrames = 4;
   wavenet->Reset(48000.0, numFrames);
 
   std::vector<NAM_SAMPLE> input(numFrames, 0.0f);
   std::vector<NAM_SAMPLE> output(numFrames, 0.0f);
+  NAM_SAMPLE* inputPtrs[] = {input.data()};
+  NAM_SAMPLE* outputPtrs[] = {output.data()};
 
-  wavenet->process(input.data(), output.data(), numFrames);
+  wavenet->process(inputPtrs, outputPtrs, numFrames);
 
   // With zero input, output should be finite (may be zero or non-zero depending on bias)
   for (int i = 0; i < numFrames; i++)
@@ -193,18 +202,23 @@ void test_wavenet_different_buffer_sizes()
 
   std::vector<float> weights{1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f, head_scale};
 
-  auto wavenet = std::make_unique<nam::wavenet::WaveNet>(layer_array_params, head_scale, with_head, weights, 48000.0);
+  auto wavenet =
+    std::make_unique<nam::wavenet::WaveNet>(input_size, layer_array_params, head_scale, with_head, weights, 48000.0);
 
   // Test with different buffer sizes
   wavenet->Reset(48000.0, 64);
   std::vector<NAM_SAMPLE> input1(32, 1.0f);
   std::vector<NAM_SAMPLE> output1(32, 0.0f);
-  wavenet->process(input1.data(), output1.data(), 32);
+  NAM_SAMPLE* inputPtrs1[] = {input1.data()};
+  NAM_SAMPLE* outputPtrs1[] = {output1.data()};
+  wavenet->process(inputPtrs1, outputPtrs1, 32);
 
   wavenet->Reset(48000.0, 128);
   std::vector<NAM_SAMPLE> input2(64, 1.0f);
   std::vector<NAM_SAMPLE> output2(64, 0.0f);
-  wavenet->process(input2.data(), output2.data(), 64);
+  NAM_SAMPLE* inputPtrs2[] = {input2.data()};
+  NAM_SAMPLE* outputPtrs2[] = {output2.data()};
+  wavenet->process(inputPtrs2, outputPtrs2, 64);
 
   // Both should work without errors
   assert(output1.size() == 32);
@@ -256,7 +270,8 @@ void test_wavenet_prewarm()
   weights.push_back(1.0f);
   weights.push_back(head_scale);
 
-  auto wavenet = std::make_unique<nam::wavenet::WaveNet>(layer_array_params, head_scale, with_head, weights, 48000.0);
+  auto wavenet =
+    std::make_unique<nam::wavenet::WaveNet>(input_size, layer_array_params, head_scale, with_head, weights, 48000.0);
 
   // Test that prewarm can be called without errors
   wavenet->Reset(48000.0, 64);
@@ -266,7 +281,9 @@ void test_wavenet_prewarm()
   const int numFrames = 4;
   std::vector<NAM_SAMPLE> input(numFrames, 1.0f);
   std::vector<NAM_SAMPLE> output(numFrames, 0.0f);
-  wavenet->process(input.data(), output.data(), numFrames);
+  NAM_SAMPLE* inputPtrs[] = {input.data()};
+  NAM_SAMPLE* outputPtrs[] = {output.data()};
+  wavenet->process(inputPtrs, outputPtrs, numFrames);
 
   // Output should be finite
   for (int i = 0; i < numFrames; i++)
