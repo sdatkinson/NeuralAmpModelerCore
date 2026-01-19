@@ -30,8 +30,9 @@ void test_wavenet_model()
   const int groups = 1;
   const int groups_1x1 = 1;
 
+  nam::wavenet::Head1x1Params head1x1_params(false, channels, 1);
   nam::wavenet::LayerArrayParams params(input_size, condition_size, head_size, channels, bottleneck, kernel_size,
-                                        std::move(dilations), activation, gated, head_bias, groups, groups_1x1);
+                                        std::move(dilations), activation, gated, head_bias, groups, groups_1x1, head1x1_params);
   std::vector<nam::wavenet::LayerArrayParams> layer_array_params;
   layer_array_params.push_back(std::move(params));
 
@@ -88,14 +89,15 @@ void test_wavenet_multiple_arrays()
   std::vector<int> dilations1{1};
   const int bottleneck = channels;
   const int groups_1x1 = 1;
+  nam::wavenet::Head1x1Params head1x1_params(false, channels, 1);
   layer_array_params.push_back(nam::wavenet::LayerArrayParams(input_size, condition_size, head_size, channels,
                                                               bottleneck, kernel_size, std::move(dilations1), activation,
-                                                              gated, head_bias, groups, groups_1x1));
+                                                              gated, head_bias, groups, groups_1x1, head1x1_params));
   // Second array (head_size of first must match channels of second)
   std::vector<int> dilations2{1};
   layer_array_params.push_back(nam::wavenet::LayerArrayParams(head_size, condition_size, head_size, channels,
                                                               bottleneck, kernel_size, std::move(dilations2), activation,
-                                                              gated, head_bias, groups, groups_1x1));
+                                                              gated, head_bias, groups, groups_1x1, head1x1_params));
 
   std::vector<float> weights;
   // Array 0: rechannel, layer, head_rechannel
@@ -139,9 +141,10 @@ void test_wavenet_zero_input()
   const bool with_head = false;
   const int groups = 1;
   const int groups_1x1 = 1;
+  nam::wavenet::Head1x1Params head1x1_params(false, channels, 1);
 
   nam::wavenet::LayerArrayParams params(input_size, condition_size, head_size, channels, bottleneck, kernel_size,
-                                        std::move(dilations), activation, gated, head_bias, groups, groups_1x1);
+                                        std::move(dilations), activation, gated, head_bias, groups, groups_1x1, head1x1_params);
   std::vector<nam::wavenet::LayerArrayParams> layer_array_params;
   layer_array_params.push_back(std::move(params));
 
@@ -181,9 +184,10 @@ void test_wavenet_different_buffer_sizes()
   const bool with_head = false;
   const int groups = 1;
   const int groups_1x1 = 1;
+  nam::wavenet::Head1x1Params head1x1_params(false, channels, 1);
 
   nam::wavenet::LayerArrayParams params(input_size, condition_size, head_size, channels, bottleneck, kernel_size,
-                                        std::move(dilations), activation, gated, head_bias, groups, groups_1x1);
+                                        std::move(dilations), activation, gated, head_bias, groups, groups_1x1, head1x1_params);
   std::vector<nam::wavenet::LayerArrayParams> layer_array_params;
   layer_array_params.push_back(std::move(params));
 
@@ -224,9 +228,10 @@ void test_wavenet_prewarm()
   const bool with_head = false;
   const int groups = 1;
   const int groups_1x1 = 1;
+  nam::wavenet::Head1x1Params head1x1_params(false, channels, 1);
 
   nam::wavenet::LayerArrayParams params(input_size, condition_size, head_size, channels, bottleneck, kernel_size,
-                                        std::move(dilations), activation, gated, head_bias, groups, groups_1x1);
+                                        std::move(dilations), activation, gated, head_bias, groups, groups_1x1, head1x1_params);
   std::vector<nam::wavenet::LayerArrayParams> layer_array_params;
   layer_array_params.push_back(std::move(params));
 

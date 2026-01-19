@@ -437,8 +437,9 @@ void test_layer_process_realtime_safe()
   const int groups_input = 1;
   const int groups_1x1 = 1;
 
+  nam::wavenet::Head1x1Params head1x1_params(false, channels, 1);
   auto layer = nam::wavenet::_Layer(condition_size, channels, bottleneck, kernel_size, dilation, activation, gated,
-                                    groups_input, groups_1x1);
+                                    groups_input, groups_1x1, head1x1_params);
 
   // Set weights
   std::vector<float> weights{1.0f, 0.0f, // Conv (weight, bias)
@@ -491,9 +492,10 @@ void test_layer_bottleneck_process_realtime_safe()
   const bool gated = false;
   const int groups_input = 1;
   const int groups_1x1 = 1;
+  nam::wavenet::Head1x1Params head1x1_params(false, channels, 1);
 
   auto layer = nam::wavenet::_Layer(condition_size, channels, bottleneck, kernel_size, dilation, activation, gated,
-                                    groups_input, groups_1x1);
+                                    groups_input, groups_1x1, head1x1_params);
 
   // Set weights for bottleneck != channels
   // Conv: (channels, bottleneck, kernelSize=1) = (4, 2, 1) + bias
@@ -576,9 +578,10 @@ void test_layer_grouped_process_realtime_safe()
   const bool gated = false;
   const int groups_input = 2; // groups_input > 1
   const int groups_1x1 = 2; // 1x1 is also grouped
+  nam::wavenet::Head1x1Params head1x1_params(false, channels, 1);
 
   auto layer = nam::wavenet::_Layer(condition_size, channels, bottleneck, kernel_size, dilation, activation, gated,
-                                    groups_input, groups_1x1);
+                                    groups_input, groups_1x1, head1x1_params);
 
   // Set weights for grouped convolution
   // With groups_input=2, channels=4: each group has 2 in_channels and 2 out_channels
@@ -687,9 +690,10 @@ void test_layer_array_process_realtime_safe()
   const bool head_bias = false;
   const int groups = 1;
   const int groups_1x1 = 1;
+  nam::wavenet::Head1x1Params head1x1_params(false, channels, 1);
 
   auto layer_array = nam::wavenet::_LayerArray(input_size, condition_size, head_size, channels, bottleneck, kernel_size,
-                                               dilations, activation, gated, head_bias, groups, groups_1x1);
+                                               dilations, activation, gated, head_bias, groups, groups_1x1, head1x1_params);
 
   // Set weights: rechannel(1), layer(conv:1+1, input_mixin:1, 1x1:1+1), head_rechannel(1)
   std::vector<float> weights{1.0f, // Rechannel
@@ -756,14 +760,15 @@ void test_process_realtime_safe()
   std::vector<int> dilations1{1};
   const int bottleneck = channels;
   const int groups_1x1 = 1;
+  nam::wavenet::Head1x1Params head1x1_params(false, channels, 1);
   layer_array_params.push_back(nam::wavenet::LayerArrayParams(input_size, condition_size, head_size, channels,
                                                               bottleneck, kernel_size, std::move(dilations1), activation,
-                                                              gated, head_bias, groups, groups_1x1));
+                                                              gated, head_bias, groups, groups_1x1, head1x1_params));
   // Second layer array (head_size of first must match channels of second)
   std::vector<int> dilations2{1};
   layer_array_params.push_back(nam::wavenet::LayerArrayParams(head_size, condition_size, head_size, channels,
                                                               bottleneck, kernel_size, std::move(dilations2), activation,
-                                                              gated, head_bias, groups, groups_1x1));
+                                                              gated, head_bias, groups, groups_1x1, head1x1_params));
 
   // Weights: Array 0: rechannel(1), layer(conv:1+1, input_mixin:1, 1x1:1+1), head_rechannel(1)
   //          Array 1: same structure

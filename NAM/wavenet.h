@@ -2,6 +2,7 @@
 
 #include <string>
 #include <vector>
+#include <memory>
 
 #include "json.hpp"
 #include <Eigen/Dense>
@@ -13,23 +14,33 @@ namespace nam
 {
 namespace wavenet
 {
+// Parameters for head1x1 configuration
+struct Head1x1Params
+{
+  Head1x1Params(bool active_, int out_channels_, int groups_)
+    : active(active_), out_channels(out_channels_), groups(groups_) {}
+
+  const bool active;
+  const int out_channels;
+  const int groups;
+};
+
 class _Layer
 {
 public:
   _Layer(const int condition_size, const int channels, const int bottleneck, const int kernel_size, const int dilation,
          const std::string activation, const bool gated, const int groups_input, const int groups_1x1,
-         const bool head1x1)
-  : _conv(channels, gated ? 2 * channels : channels, kernel_size, true, dilation)
-  , _input_mixin(condition_size, gated ? 2 * channels : channels, false)
-  , _1x1(channels, channels, true)
+         const Head1x1Params& head1x1_params)
+  : _conv(channels, gated ? 2 * bottleneck : bottleneck, kernel_size, true, dilation)
+  , _input_mixin(condition_size, gated ? 2 * bottleneck : bottleneck, false)
+  , _1x1(bottleneck, channels, true)
   , _activation(activations::Activation::get_activation(activation)) // needs to support activations with parameters
   , _gated(gated) 
-  , _bottleneck(bottleneck) {
-    if (head1x1)
+  , _bottleneck(bottleneck)
+  {
+    if (head1x1_params.active)
     {
-      _head1x1(channels, channels, true);
-    } else {
-      _head1x1 = nullptr;
+      _head1x1 = std::make_unique<Conv1x1>(bottleneck, head1x1_params.out_channels, true, head1x1_params.groups);
     }
   };
  
@@ -73,7 +84,7 @@ private:
   // The post-activation 1x1 convolution
   Conv1x1 _1x1;
   // The pre-activation 1x1 convolution, optional
-  Conv1x1 _head1x1;
+  std::unique_ptr<Conv1x1> _head1x1;
   // The internal state
   Eigen::MatrixXf _z;
   // Output to next layer (residual connection: input + _1x1 output)
@@ -92,7 +103,7 @@ public:
   LayerArrayParams(const int input_size_, const int condition_size_, const int head_size_, const int channels_,
                    const int bottleneck_, const int kernel_size_, const std::vector<int>&& dilations_,
                    const std::string activation_, const bool gated_, const bool head_bias_, const int groups_input,
-                   const int groups_1x1_)
+                   const int groups_1x1_, const Head1x1Params& head1x1_params_)
   : input_size(input_size_)
   , condition_size(condition_size_)
   , head_size(head_size_)
@@ -105,6 +116,7 @@ public:
   , head_bias(head_bias_)
   , groups_input(groups_input)
   , groups_1x1(groups_1x1_)
+  , head1x1_params(head1x1_params_)
   {
   }
 
@@ -120,6 +132,7 @@ public:
   const bool head_bias;
   const int groups_input;
   const int groups_1x1;
+  const Head1x1Params head1x1_params;
 };
 
 // An array of layers with the same channels, kernel sizes, activations.
@@ -129,7 +142,7 @@ public:
   _LayerArray(const int input_size, const int condition_size, const int head_size, const int channels,
               const int bottleneck, const int kernel_size, const std::vector<int>& dilations,
               const std::string activation, const bool gated, const bool head_bias, const int groups_input,
-              const int groups_1x1);
+              const int groups_1x1, const Head1x1Params& head1x1_params);
 
   void SetMaxBufferSize(const int maxBufferSize);
 
