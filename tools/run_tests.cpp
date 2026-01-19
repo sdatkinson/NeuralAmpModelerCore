@@ -14,6 +14,7 @@
 #include "test/test_wavenet/test_layer_array.cpp"
 #include "test/test_wavenet/test_full.cpp"
 #include "test/test_wavenet/test_real_time_safe.cpp"
+#include "test/test_wavenet/test_condition_processing.cpp"
 #include "test/test_gating_activations.cpp"
 #include "test/test_wavenet_gating_compatibility.cpp"
 #include "test/test_blending_detailed.cpp"
@@ -126,6 +127,8 @@ int main()
   test_wavenet::test_layer_array_process_realtime_safe();
   test_wavenet::test_process_realtime_safe();
   test_wavenet::test_process_3in_2out_realtime_safe();
+  test_wavenet::test_condition_processing::test_with_condition_dsp();
+  test_wavenet::test_condition_processing::test_with_condition_dsp_multichannel();
 
   test_convnet::test_convnet_basic();
   test_convnet::test_convnet_batchnorm();
