@@ -50,11 +50,6 @@ int main()
   test_dsp::test_set_input_level();
   test_dsp::test_set_output_level();
 
-  test_get_dsp::test_gets_input_level();
-  test_get_dsp::test_gets_output_level();
-  test_get_dsp::test_null_input_level();
-  test_get_dsp::test_null_output_level();
-
   test_ring_buffer::test_construct();
   test_ring_buffer::test_reset();
   test_ring_buffer::test_reset_with_receptive_field();
@@ -175,6 +170,15 @@ int main()
   // Input buffer verification tests
   test_input_buffer_verification::TestInputBufferVerification::test_buffer_stores_pre_activation_values();
   test_input_buffer_verification::TestInputBufferVerification::test_buffer_with_different_activations();
+
+  test_get_dsp::test_gets_input_level();
+  test_get_dsp::test_gets_output_level();
+  test_get_dsp::test_null_input_level();
+  test_get_dsp::test_null_output_level();
+
+  // Finally, some end-to-end tests.
+  std::cerr << "Running end-to-end tests" << std::endl;
+  test_get_dsp::test_load_and_process_nam_files();
 
 #ifdef ADDASSERT
   std::cerr << "Checking that we're successfully asserting. We should now fail." << std::endl;

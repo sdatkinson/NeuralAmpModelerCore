@@ -1,6 +1,9 @@
 #include <algorithm>
+#include <fstream>
+#include <iomanip>
 #include <iostream>
 #include <math.h>
+#include <filesystem>
 
 #include <Eigen/Dense>
 
@@ -409,18 +412,53 @@ void nam::wavenet::WaveNet::process(NAM_SAMPLE** input, NAM_SAMPLE** output, con
 std::unique_ptr<nam::DSP> nam::wavenet::Factory(const nlohmann::json& config, std::vector<float>& weights,
                                                 const double expectedSampleRate)
 {
+  std::unique_ptr<nam::DSP> condition_dsp = nullptr;
+  if (config.find("condition_dsp") != config.end())
+  {
+    nlohmann::json condition_dsp_json = config["condition_dsp"];
+
+    // Dump condition_dsp_json to a local file for debugging
+    std::filesystem::path debug_file = "../temp/debug_condition_dsp.nam";
+    std::ofstream out_file(debug_file);
+    if (out_file.is_open())
+    {
+      out_file << std::setw(2) << condition_dsp_json << std::endl;
+      out_file.close();
+    }
+
+    // Use get_dsp with the file path instead of JSON object
+    condition_dsp = nam::get_dsp(debug_file);
+    if (condition_dsp->GetExpectedSampleRate() != expectedSampleRate)
+    {
+      std::stringstream ss;
+      ss << "Condition DSP expected sample rate (" << condition_dsp->GetExpectedSampleRate()
+         << ") doesn't match WaveNet expected sample rate (" << expectedSampleRate << "!\n";
+      throw std::runtime_error(ss.str().c_str());
+    }
+  }
   std::vector<nam::wavenet::LayerArrayParams> layer_array_params;
   for (size_t i = 0; i < config["layers"].size(); i++)
   {
     nlohmann::json layer_config = config["layers"][i];
+
     const int groups = layer_config.value("groups", 1); // defaults to 1
     const int groups_1x1 = layer_config.value("groups_1x1", 1); // defaults to 1
+
     const int channels = layer_config["channels"];
     const int bottleneck = layer_config.value("bottleneck", channels); // defaults to channels if not present
-    layer_array_params.push_back(nam::wavenet::LayerArrayParams(
-      layer_config["input_size"], layer_config["condition_size"], layer_config["head_size"], channels, bottleneck,
-      layer_config["kernel_size"], layer_config["dilations"], layer_config["activation"], layer_config["gated"],
-      layer_config["head_bias"], groups, groups_1x1));
+
+    const int input_size = layer_config["input_size"];
+    const int condition_size = layer_config["condition_size"];
+    const int head_size = layer_config["head_size"];
+    const int kernel_size = layer_config["kernel_size"];
+    const auto dilations = layer_config["dilations"];
+    const std::string activation = layer_config["activation"].get<std::string>();
+    const bool gated = layer_config["gated"];
+    const bool head_bias = layer_config["head_bias"];
+
+    layer_array_params.push_back(nam::wavenet::LayerArrayParams(input_size, condition_size, head_size, channels,
+                                                                bottleneck, kernel_size, dilations, activation, gated,
+                                                                head_bias, groups, groups_1x1));
   }
   const bool with_head = !config["head"].is_null();
   const float head_scale = config["head_scale"];
@@ -432,7 +470,6 @@ std::unique_ptr<nam::DSP> nam::wavenet::Factory(const nlohmann::json& config, st
   const int in_channels = config.value("in_channels", 1);
 
   // out_channels is determined from last layer array's head_size
-  std::unique_ptr<nam::DSP> condition_dsp = nullptr;
   return std::make_unique<nam::wavenet::WaveNet>(
     in_channels, layer_array_params, head_scale, with_head, weights, std::move(condition_dsp), expectedSampleRate);
 }

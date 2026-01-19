@@ -1,4 +1,6 @@
 #include <cassert>
+#include <cmath>
+#include <filesystem>
 #include <memory>
 #include <string>
 #include <vector>
@@ -78,5 +80,81 @@ void test_null_output_level()
   std::unique_ptr<nam::DSP> dsp = get_dsp(config);
   assert(dsp->HasInputLevel());
   assert(!dsp->HasOutputLevel());
+}
+
+// Helper function to process buffers through a DSP model
+void process_buffers(nam::DSP* dsp, int num_buffers, int buffer_size)
+{
+  const int in_channels = dsp->NumInputChannels();
+  const int out_channels = dsp->NumOutputChannels();
+  const double sample_rate = dsp->GetExpectedSampleRate() > 0 ? dsp->GetExpectedSampleRate() : 48000.0;
+
+  // Reset the model
+  dsp->Reset(sample_rate, buffer_size);
+
+  // Allocate buffers for all channels
+  std::vector<std::vector<NAM_SAMPLE>> inputBuffers(in_channels);
+  std::vector<std::vector<NAM_SAMPLE>> outputBuffers(out_channels);
+  std::vector<NAM_SAMPLE*> inputPtrs(in_channels);
+  std::vector<NAM_SAMPLE*> outputPtrs(out_channels);
+
+  for (int ch = 0; ch < in_channels; ch++)
+  {
+    inputBuffers[ch].resize(buffer_size, (NAM_SAMPLE)0.0);
+    inputPtrs[ch] = inputBuffers[ch].data();
+  }
+  for (int ch = 0; ch < out_channels; ch++)
+  {
+    outputBuffers[ch].resize(buffer_size, (NAM_SAMPLE)0.0);
+    outputPtrs[ch] = outputBuffers[ch].data();
+  }
+
+  // Process num_buffers buffers
+  for (int buf = 0; buf < num_buffers; buf++)
+  {
+    // Fill input with some test data (simple sine-like pattern)
+    for (int ch = 0; ch < in_channels; ch++)
+    {
+      for (int i = 0; i < buffer_size; i++)
+      {
+        inputBuffers[ch][i] = (NAM_SAMPLE)(0.1 * (ch + 1) * ((buf * buffer_size + i) % 100) / 100.0);
+      }
+    }
+
+    // Process the buffer
+    dsp->process(inputPtrs.data(), outputPtrs.data(), buffer_size);
+
+    // Verify output is finite
+    for (int ch = 0; ch < out_channels; ch++)
+    {
+      for (int i = 0; i < buffer_size; i++)
+      {
+        assert(std::isfinite(outputBuffers[ch][i]));
+      }
+    }
+  }
+}
+
+void test_load_and_process_nam_files()
+{
+  // Test loading and processing three different .nam files
+  // Paths are relative to build directory where tests run
+  const std::vector<std::string> nam_files = {
+    "../example_models/wavenet.nam", "../example_models/lstm.nam", "../example_models/wavenet_condition_dsp.nam"};
+
+  const int num_buffers = 3;
+  const int buffer_size = 64;
+
+  for (const auto& nam_file : nam_files)
+  {
+    std::filesystem::path model_path(nam_file);
+
+    // Load the model
+    std::unique_ptr<nam::DSP> dsp = nam::get_dsp(model_path);
+    assert(dsp != nullptr);
+
+    // Process buffers through the model
+    process_buffers(dsp.get(), num_buffers, buffer_size);
+  }
 }
 }; // namespace test_get_dsp
