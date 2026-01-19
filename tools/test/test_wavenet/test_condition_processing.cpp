@@ -168,15 +168,20 @@ void test_with_condition_dsp_multichannel()
   }
   NAM_SAMPLE* inputPtrs[] = {input1.data(), input2.data()};
 
-  std::vector<NAM_SAMPLE> output(numFrames, 0.0f);
-  NAM_SAMPLE* outputPtrs[] = {output.data()};
+  // Allocate output buffers for all output channels (out_channels = 3)
+  std::vector<NAM_SAMPLE> output1(numFrames, 0.0f);
+  std::vector<NAM_SAMPLE> output2(numFrames, 0.0f);
+  std::vector<NAM_SAMPLE> output3(numFrames, 0.0f);
+  NAM_SAMPLE* outputPtrs[] = {output1.data(), output2.data(), output3.data()};
 
   wavenet->process(inputPtrs, outputPtrs, numFrames);
 
-  // Verify output is non-zero and finite
+  // Verify output is non-zero and finite for all channels
   for (int i = 0; i < numFrames; i++)
   {
-    assert(std::isfinite(output[i]));
+    assert(std::isfinite(output1[i]));
+    assert(std::isfinite(output2[i]));
+    assert(std::isfinite(output3[i]));
   }
 }
 
