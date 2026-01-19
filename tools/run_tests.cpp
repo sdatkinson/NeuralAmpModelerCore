@@ -117,7 +117,7 @@ int main()
   test_wavenet::test_full::test_wavenet_prewarm();
   test_wavenet::test_head1x1::test_head1x1_inactive();
   test_wavenet::test_head1x1::test_head1x1_active();
-  // test_wavenet::test_head1x1::test_head1x1_gated(); // Temporarily disabled
+  test_wavenet::test_head1x1::test_head1x1_gated();
   test_wavenet::test_head1x1::test_head1x1_groups();
   test_wavenet::test_head1x1::test_head1x1_different_out_channels();
   test_wavenet::test_allocation_tracking_pass();
