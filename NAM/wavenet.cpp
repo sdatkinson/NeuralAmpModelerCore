@@ -58,29 +58,33 @@ void nam::wavenet::_Layer::Process(const Eigen::MatrixXf& input, const Eigen::Ma
     this->_conv.GetOutput().leftCols(num_frames) + _input_mixin.GetOutput().leftCols(num_frames);
 
   // Step 2 & 3: activation and 1x1
-  if (!this->_gated)
+  if (this->_gating_mode == GatingMode::NONE)
   {
     this->_activation->apply(this->_z.leftCols(num_frames));
     _1x1.process_(_z, num_frames);
   }
-  else
+  else if (this->_gating_mode == GatingMode::GATED)
   {
-    // CAREFUL: .topRows() and .bottomRows() won't be memory-contiguous for a column-major matrix (Issue 125). Need to
-    // do this column-wise:
-    for (int i = 0; i < num_frames; i++)
-    {
-      this->_activation->apply(this->_z.block(0, i, bottleneck, 1));
-      // TODO Need to support other activation functions here instead of hardcoded sigmoid
-      activations::Activation::get_activation("Sigmoid")->apply(this->_z.block(bottleneck, i, bottleneck, 1));
-    }
-    this->_z.block(0, 0, bottleneck, num_frames).array() *=
-      this->_z.block(bottleneck, 0, bottleneck, num_frames).array();
-    _1x1.process_(_z.topRows(bottleneck), num_frames); // Might not be RT safe
+    // Use the GatingActivation class
+    // Extract the blocks first to avoid temporary reference issues
+    auto input_block = this->_z.leftCols(num_frames);
+    auto output_block = this->_z.topRows(bottleneck).leftCols(num_frames);
+    this->_gating_activation->apply(input_block, output_block);
+    _1x1.process_(this->_z.topRows(bottleneck), num_frames);
+  }
+  else if (this->_gating_mode == GatingMode::BLENDED)
+  {
+    // Use the BlendingActivation class
+    // Extract the blocks first to avoid temporary reference issues
+    auto input_block = this->_z.leftCols(num_frames);
+    auto output_block = this->_z.topRows(bottleneck).leftCols(num_frames);
+    this->_blending_activation->apply(input_block, output_block);
+    _1x1.process_(this->_z.topRows(bottleneck), num_frames);
   }
 
   if (this->_head1x1)
   {
-    if (!this->_gated)
+    if (this->_gating_mode == GatingMode::NONE)
       this->_head1x1->process_(this->_z.leftCols(num_frames), num_frames);
     else
       this->_head1x1->process(this->_z.topRows(bottleneck).leftCols(num_frames), num_frames);
@@ -89,7 +93,7 @@ void nam::wavenet::_Layer::Process(const Eigen::MatrixXf& input, const Eigen::Ma
   else
   {
     // Store output to head (skip connection: activated conv output)
-    if (!this->_gated)
+    if (this->_gating_mode == GatingMode::NONE)
       this->_output_head.leftCols(num_frames).noalias() = this->_z.leftCols(num_frames);
     else
       this->_output_head.leftCols(num_frames).noalias() = this->_z.topRows(bottleneck).leftCols(num_frames);
@@ -105,15 +109,16 @@ void nam::wavenet::_Layer::Process(const Eigen::MatrixXf& input, const Eigen::Ma
 nam::wavenet::_LayerArray::_LayerArray(const int input_size, const int condition_size, const int head_size,
                                        const int channels, const int bottleneck, const int kernel_size,
                                        const std::vector<int>& dilations, const std::string activation,
-                                       const bool gated, const bool head_bias, const int groups_input,
-                                       const int groups_1x1, const Head1x1Params& head1x1_params)
+                                       const GatingMode gating_mode, const bool head_bias, const int groups_input,
+                                       const int groups_1x1, const Head1x1Params& head1x1_params,
+                                       const std::string& gating_activation, const std::string& blending_activation)
 : _rechannel(input_size, channels, false)
 , _head_rechannel(bottleneck, head_size, head_bias)
 , _bottleneck(bottleneck)
 {
   for (size_t i = 0; i < dilations.size(); i++)
-    this->_layers.push_back(_Layer(condition_size, channels, bottleneck, kernel_size, dilations[i], activation, gated,
-                                   groups_input, groups_1x1, head1x1_params));
+    this->_layers.push_back(_Layer(condition_size, channels, bottleneck, kernel_size, dilations[i], activation, gating_mode,
+                                   groups_input, groups_1x1, head1x1_params, gating_activation, blending_activation));
 }
 
 void nam::wavenet::_LayerArray::SetMaxBufferSize(const int maxBufferSize)
@@ -263,9 +268,10 @@ nam::wavenet::WaveNet::WaveNet(const int in_channels,
     this->_layer_arrays.push_back(nam::wavenet::_LayerArray(
       layer_array_params[i].input_size, layer_array_params[i].condition_size, layer_array_params[i].head_size,
       layer_array_params[i].channels, layer_array_params[i].bottleneck, layer_array_params[i].kernel_size,
-      layer_array_params[i].dilations, layer_array_params[i].activation, layer_array_params[i].gated,
+      layer_array_params[i].dilations, layer_array_params[i].activation, layer_array_params[i].gating_mode,
       layer_array_params[i].head_bias, layer_array_params[i].groups_input, layer_array_params[i].groups_1x1,
-      layer_array_params[i].head1x1_params));
+      layer_array_params[i].head1x1_params, layer_array_params[i].gating_activation,
+      layer_array_params[i].blending_activation));
     if (i > 0)
       if (layer_array_params[i].channels != layer_array_params[i - 1].head_size)
       {
@@ -468,7 +474,41 @@ std::unique_ptr<nam::DSP> nam::wavenet::Factory(const nlohmann::json& config, st
     const int kernel_size = layer_config["kernel_size"];
     const auto dilations = layer_config["dilations"];
     const std::string activation = layer_config["activation"].get<std::string>();
-    const bool gated = layer_config["gated"];
+    // Parse gating mode - support both old "gated" boolean and new "gating_mode" string
+    GatingMode gating_mode = GatingMode::NONE;
+    std::string gating_activation = "Sigmoid";
+    std::string blending_activation = "Sigmoid";
+    
+    if (layer_config.find("gating_mode") != layer_config.end())
+    {
+      std::string gating_mode_str = layer_config["gating_mode"].get<std::string>();
+      if (gating_mode_str == "gated")
+        gating_mode = GatingMode::GATED;
+      else if (gating_mode_str == "blended")
+        gating_mode = GatingMode::BLENDED;
+      else if (gating_mode_str == "none")
+        gating_mode = GatingMode::NONE;
+      else
+        throw std::runtime_error("Invalid gating_mode: " + gating_mode_str);
+      
+      // Parse configurable activations if present
+      if (layer_config.find("gating_activation") != layer_config.end())
+      {
+        gating_activation = layer_config["gating_activation"].get<std::string>();
+      }
+      if (layer_config.find("blending_activation") != layer_config.end())
+      {
+        blending_activation = layer_config["blending_activation"].get<std::string>();
+      }
+    }
+    else if (layer_config.find("gated") != layer_config.end())
+    {
+      // Backward compatibility: convert old "gated" boolean to new enum
+      bool gated = layer_config["gated"];
+      gating_mode = gated ? GatingMode::GATED : GatingMode::NONE;
+    }
+    // If neither is present, default to NONE
+    
     const bool head_bias = layer_config["head_bias"];
 
     // Parse head1x1 parameters
@@ -478,8 +518,9 @@ std::unique_ptr<nam::DSP> nam::wavenet::Factory(const nlohmann::json& config, st
     nam::wavenet::Head1x1Params head1x1_params(head1x1_active, head1x1_out_channels, head1x1_groups);
 
     layer_array_params.push_back(nam::wavenet::LayerArrayParams(input_size, condition_size, head_size, channels,
-                                                                bottleneck, kernel_size, dilations, activation, gated,
-                                                                head_bias, groups, groups_1x1, head1x1_params));
+                                                                bottleneck, kernel_size, dilations, activation, gating_mode,
+                                                                head_bias, groups, groups_1x1, head1x1_params,
+                                                                gating_activation, blending_activation));
   }
   const bool with_head = !config["head"].is_null();
   const float head_scale = config["head_scale"];

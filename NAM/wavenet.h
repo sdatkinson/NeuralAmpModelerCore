@@ -9,11 +9,26 @@
 
 #include "dsp.h"
 #include "conv1d.h"
+#include "gating_activations.h"
 
 namespace nam
 {
 namespace wavenet
 {
+
+// Gating mode for WaveNet layers
+enum class GatingMode
+{
+  NONE,    // No gating or blending
+  GATED,   // Traditional gating (element-wise multiplication)
+  BLENDED  // Blending (weighted average)
+};
+
+// Helper function for backward compatibility with boolean gated parameter
+inline GatingMode gating_mode_from_bool(bool gated)
+{
+  return gated ? GatingMode::GATED : GatingMode::NONE;
+}
 // Parameters for head1x1 configuration
 struct Head1x1Params
 {
@@ -32,21 +47,50 @@ struct Head1x1Params
 class _Layer
 {
 public:
+  // New constructor with GatingMode enum and configurable activations
   _Layer(const int condition_size, const int channels, const int bottleneck, const int kernel_size, const int dilation,
-         const std::string activation, const bool gated, const int groups_input, const int groups_1x1,
-         const Head1x1Params& head1x1_params)
-  : _conv(channels, gated ? 2 * bottleneck : bottleneck, kernel_size, true, dilation)
-  , _input_mixin(condition_size, gated ? 2 * bottleneck : bottleneck, false)
+         const std::string activation, const GatingMode gating_mode, const int groups_input, const int groups_1x1,
+         const Head1x1Params& head1x1_params, const std::string& gating_activation = "Sigmoid", 
+         const std::string& blending_activation = "Sigmoid")
+  : _conv(channels, (gating_mode != GatingMode::NONE) ? 2 * bottleneck : bottleneck, kernel_size, true, dilation)
+  , _input_mixin(condition_size, (gating_mode != GatingMode::NONE) ? 2 * bottleneck : bottleneck, false)
   , _1x1(bottleneck, channels, groups_1x1)
   , _activation(activations::Activation::get_activation(activation)) // needs to support activations with parameters
-  , _gated(gated)
+  , _gating_mode(gating_mode)
   , _bottleneck(bottleneck)
   {
     if (head1x1_params.active)
     {
       _head1x1 = std::make_unique<Conv1x1>(bottleneck, head1x1_params.out_channels, true, head1x1_params.groups);
     }
+    
+    // Initialize gating/blending activation if needed
+    if (gating_mode == GatingMode::GATED)
+    {
+      _gating_activation = std::make_unique<gating_activations::GatingActivation>(
+        _activation, 
+        activations::Activation::get_activation(gating_activation),
+        bottleneck
+      );
+    }
+    else if (gating_mode == GatingMode::BLENDED)
+    {
+      _blending_activation = std::make_unique<gating_activations::BlendingActivation>(
+        _activation,
+        activations::Activation::get_activation(blending_activation),
+        bottleneck
+      );
+    }
   };
+  
+  // Backward compatibility constructor with boolean gated parameter
+  _Layer(const int condition_size, const int channels, const int bottleneck, const int kernel_size, const int dilation,
+         const std::string activation, const bool gated, const int groups_input, const int groups_1x1,
+         const Head1x1Params& head1x1_params)
+  : _Layer(condition_size, channels, bottleneck, kernel_size, dilation, activation,
+           gating_mode_from_bool(gated), groups_input, groups_1x1, head1x1_params, "Sigmoid", "Sigmoid")
+  {
+  }
 
   // Resize all arrays to be able to process `maxBufferSize` frames.
   void SetMaxBufferSize(const int maxBufferSize);
@@ -97,8 +141,12 @@ private:
   Eigen::MatrixXf _output_head;
 
   activations::Activation* _activation;
-  const bool _gated;
+  const GatingMode _gating_mode;
   const int _bottleneck; // Internal channel count (not doubled when gated)
+  
+  // Gating/blending activation objects
+  std::unique_ptr<gating_activations::GatingActivation> _gating_activation;
+  std::unique_ptr<gating_activations::BlendingActivation> _blending_activation;
 };
 
 class LayerArrayParams
@@ -106,8 +154,9 @@ class LayerArrayParams
 public:
   LayerArrayParams(const int input_size_, const int condition_size_, const int head_size_, const int channels_,
                    const int bottleneck_, const int kernel_size_, const std::vector<int>&& dilations_,
-                   const std::string activation_, const bool gated_, const bool head_bias_, const int groups_input,
-                   const int groups_1x1_, const Head1x1Params& head1x1_params_)
+                   const std::string activation_, const GatingMode gating_mode_, const bool head_bias_, 
+                   const int groups_input, const int groups_1x1_, const Head1x1Params& head1x1_params_,
+                   const std::string& gating_activation_ = "Sigmoid", const std::string& blending_activation_ = "Sigmoid")
   : input_size(input_size_)
   , condition_size(condition_size_)
   , head_size(head_size_)
@@ -116,11 +165,13 @@ public:
   , kernel_size(kernel_size_)
   , dilations(std::move(dilations_))
   , activation(activation_)
-  , gated(gated_)
+  , gating_mode(gating_mode_)
   , head_bias(head_bias_)
   , groups_input(groups_input)
   , groups_1x1(groups_1x1_)
   , head1x1_params(head1x1_params_)
+  , gating_activation(gating_activation_)
+  , blending_activation(blending_activation_)
   {
   }
 
@@ -132,21 +183,46 @@ public:
   const int kernel_size;
   std::vector<int> dilations;
   const std::string activation;
-  const bool gated;
+  const GatingMode gating_mode;
   const bool head_bias;
   const int groups_input;
   const int groups_1x1;
   const Head1x1Params head1x1_params;
+  const std::string gating_activation;
+  const std::string blending_activation;
+  
+  // Backward compatibility constructor with boolean gated parameter
+  LayerArrayParams(const int input_size_, const int condition_size_, const int head_size_, const int channels_,
+                   const int bottleneck_, const int kernel_size_, const std::vector<int>&& dilations_,
+                   const std::string activation_, const bool gated_, const bool head_bias_, const int groups_input,
+                   const int groups_1x1_, const Head1x1Params& head1x1_params_)
+  : LayerArrayParams(input_size_, condition_size_, head_size_, channels_, bottleneck_, kernel_size_,
+                     std::move(dilations_), activation_, gating_mode_from_bool(gated_), head_bias_, groups_input,
+                     groups_1x1_, head1x1_params_, "Sigmoid", "Sigmoid")
+  {
+  }
 };
 
 // An array of layers with the same channels, kernel sizes, activations.
 class _LayerArray
 {
 public:
+  // New constructor with GatingMode enum and configurable activations
+  _LayerArray(const int input_size, const int condition_size, const int head_size, const int channels,
+              const int bottleneck, const int kernel_size, const std::vector<int>& dilations,
+              const std::string activation, const GatingMode gating_mode, const bool head_bias, const int groups_input,
+              const int groups_1x1, const Head1x1Params& head1x1_params, const std::string& gating_activation = "Sigmoid",
+              const std::string& blending_activation = "Sigmoid");
+  
+  // Backward compatibility constructor with boolean gated parameter
   _LayerArray(const int input_size, const int condition_size, const int head_size, const int channels,
               const int bottleneck, const int kernel_size, const std::vector<int>& dilations,
               const std::string activation, const bool gated, const bool head_bias, const int groups_input,
-              const int groups_1x1, const Head1x1Params& head1x1_params);
+              const int groups_1x1, const Head1x1Params& head1x1_params)
+  : _LayerArray(input_size, condition_size, head_size, channels, bottleneck, kernel_size, dilations,
+                activation, gating_mode_from_bool(gated), head_bias, groups_input, groups_1x1, head1x1_params)
+  {
+  }
 
   void SetMaxBufferSize(const int maxBufferSize);
 
