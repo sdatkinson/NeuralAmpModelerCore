@@ -10,15 +10,15 @@ namespace nam
 {
 // Feature-wise Linear Modulation (FiLM)
 //
-// Given an `input` (out_channels x num_frames) and a `condition`
-// (in_channels x num_frames), compute:
+// Given an `input` (input_dim x num_frames) and a `condition`
+// (condition_dim x num_frames), compute:
 //   scale, shift = Conv1x1(condition) split across channels
 //   output = input * scale + shift  (elementwise)
 class FiLM
 {
 public:
-  FiLM(const int in_channels, const int out_channels)
-  : _cond_to_scale_shift(in_channels, 2 * out_channels, /*bias=*/true)
+  FiLM(const int condition_dim, const int input_dim)
+  : _cond_to_scale_shift(condition_dim, 2 * input_dim, /*bias=*/true)
   {
   }
 
@@ -32,21 +32,21 @@ public:
   void SetMaxBufferSize(const int maxBufferSize)
   {
     _cond_to_scale_shift.SetMaxBufferSize(maxBufferSize);
-    _output.resize(get_out_channels(), maxBufferSize);
+    _output.resize(get_input_dim(), maxBufferSize);
   }
 
   void set_weights_(std::vector<float>::iterator& weights) { _cond_to_scale_shift.set_weights_(weights); }
 
-  long get_in_channels() const { return _cond_to_scale_shift.get_in_channels(); }
-  long get_out_channels() const { return _cond_to_scale_shift.get_out_channels() / 2; }
+  long get_condition_dim() const { return _cond_to_scale_shift.get_in_channels(); }
+  long get_input_dim() const { return _cond_to_scale_shift.get_out_channels() / 2; }
 
-  // :param input: (out_channels x num_frames)
-  // :param condition: (in_channels x num_frames)
-  // Writes (out_channels x num_frames) into internal output buffer; access via GetOutput().
+  // :param input: (input_dim x num_frames)
+  // :param condition: (condition_dim x num_frames)
+  // Writes (input_dim x num_frames) into internal output buffer; access via GetOutput().
   void Process(const Eigen::MatrixXf& input, const Eigen::MatrixXf& condition, const int num_frames)
   {
-    assert(get_out_channels() == input.rows());
-    assert(get_in_channels() == condition.rows());
+    assert(get_input_dim() == input.rows());
+    assert(get_condition_dim() == condition.rows());
     assert(num_frames <= input.cols());
     assert(num_frames <= condition.cols());
     assert(num_frames <= _output.cols());
@@ -54,15 +54,15 @@ public:
     _cond_to_scale_shift.process_(condition, num_frames);
     const auto& scale_shift = _cond_to_scale_shift.GetOutput();
 
-    // scale = top out_channels, shift = bottom out_channels
-    const auto scale = scale_shift.topRows(get_out_channels()).leftCols(num_frames);
-    const auto shift = scale_shift.bottomRows(get_out_channels()).leftCols(num_frames);
+    // scale = top input_dim, shift = bottom input_dim
+    const auto scale = scale_shift.topRows(get_input_dim()).leftCols(num_frames);
+    const auto shift = scale_shift.bottomRows(get_input_dim()).leftCols(num_frames);
 
     _output.leftCols(num_frames).array() = input.leftCols(num_frames).array() * scale.array() + shift.array();
   }
 
 private:
-  Conv1x1 _cond_to_scale_shift; // in_channels -> 2*out_channels
-  Eigen::MatrixXf _output; // out_channels x maxBufferSize
+  Conv1x1 _cond_to_scale_shift; // condition_dim -> 2*input_dim
+  Eigen::MatrixXf _output; // input_dim x maxBufferSize
 };
 } // namespace nam
