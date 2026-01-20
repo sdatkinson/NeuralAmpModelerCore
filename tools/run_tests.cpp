@@ -14,6 +14,7 @@
 #include "test/test_wavenet/test_layer_array.cpp"
 #include "test/test_wavenet/test_full.cpp"
 #include "test/test_wavenet/test_real_time_safe.cpp"
+#include "test/test_wavenet/test_condition_processing.cpp"
 #include "test/test_wavenet/test_head1x1.cpp"
 #include "test/test_gating_activations.cpp"
 #include "test/test_wavenet_gating_compatibility.cpp"
@@ -49,11 +50,6 @@ int main()
   test_dsp::test_has_output_level();
   test_dsp::test_set_input_level();
   test_dsp::test_set_output_level();
-
-  test_get_dsp::test_gets_input_level();
-  test_get_dsp::test_gets_output_level();
-  test_get_dsp::test_null_input_level();
-  test_get_dsp::test_null_output_level();
 
   test_ring_buffer::test_construct();
   test_ring_buffer::test_reset();
@@ -132,6 +128,8 @@ int main()
   test_wavenet::test_layer_array_process_realtime_safe();
   test_wavenet::test_process_realtime_safe();
   test_wavenet::test_process_3in_2out_realtime_safe();
+  test_wavenet::test_condition_processing::test_with_condition_dsp();
+  test_wavenet::test_condition_processing::test_with_condition_dsp_multichannel();
 
   test_convnet::test_convnet_basic();
   test_convnet::test_convnet_batchnorm();
@@ -178,6 +176,20 @@ int main()
   // Input buffer verification tests
   test_input_buffer_verification::TestInputBufferVerification::test_buffer_stores_pre_activation_values();
   test_input_buffer_verification::TestInputBufferVerification::test_buffer_with_different_activations();
+
+  test_get_dsp::test_gets_input_level();
+  test_get_dsp::test_gets_output_level();
+  test_get_dsp::test_null_input_level();
+  test_get_dsp::test_null_output_level();
+
+  // Finally, some end-to-end tests.
+  std::cerr << "Running end-to-end tests" << std::endl;
+  test_get_dsp::test_load_and_process_nam_files();
+
+#ifdef ADDASSERT
+  std::cerr << "Checking that we're successfully asserting. We should now fail." << std::endl;
+  assert(false);
+#endif
 
   std::cout << "Success!" << std::endl;
   return 0;

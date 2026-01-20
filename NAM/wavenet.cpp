@@ -1,9 +1,11 @@
 #include <algorithm>
 #include <iostream>
 #include <math.h>
+#include <sstream>
 
 #include <Eigen/Dense>
 
+#include "get_dsp.h"
 #include "registry.h"
 #include "wavenet.h"
 
@@ -19,7 +21,8 @@ void nam::wavenet::_Layer::SetMaxBufferSize(const int maxBufferSize)
   // Pre-allocate output buffers
   const long channels = this->get_channels();
   this->_output_next_layer.resize(channels, maxBufferSize);
-  // _output_head stores the activated portion: bottleneck rows when no head1x1, or head1x1 out_channels when head1x1 is active
+  // _output_head stores the activated portion: bottleneck rows when no head1x1, or head1x1 out_channels when head1x1 is
+  // active
   if (_head1x1)
   {
     this->_output_head.resize(_head1x1->get_out_channels(), maxBufferSize);
@@ -75,13 +78,16 @@ void nam::wavenet::_Layer::Process(const Eigen::MatrixXf& input, const Eigen::Ma
     _1x1.process_(_z.topRows(bottleneck), num_frames); // Might not be RT safe
   }
 
-  if (this->_head1x1) {
+  if (this->_head1x1)
+  {
     if (!this->_gated)
       this->_head1x1->process_(this->_z.leftCols(num_frames), num_frames);
     else
       this->_head1x1->process(this->_z.topRows(bottleneck).leftCols(num_frames), num_frames);
     this->_output_head.leftCols(num_frames).noalias() = this->_head1x1->GetOutput().leftCols(num_frames);
-  } else {
+  }
+  else
+  {
     // Store output to head (skip connection: activated conv output)
     if (!this->_gated)
       this->_output_head.leftCols(num_frames).noalias() = this->_z.leftCols(num_frames);
@@ -106,8 +112,8 @@ nam::wavenet::_LayerArray::_LayerArray(const int input_size, const int condition
 , _bottleneck(bottleneck)
 {
   for (size_t i = 0; i < dilations.size(); i++)
-    this->_layers.push_back(_Layer(
-      condition_size, channels, bottleneck, kernel_size, dilations[i], activation, gated, groups_input, groups_1x1, head1x1_params));
+    this->_layers.push_back(_Layer(condition_size, channels, bottleneck, kernel_size, dilations[i], activation, gated,
+                                   groups_input, groups_1x1, head1x1_params));
 }
 
 void nam::wavenet::_LayerArray::SetMaxBufferSize(const int maxBufferSize)
@@ -217,19 +223,43 @@ long nam::wavenet::_LayerArray::_get_channels() const
 nam::wavenet::WaveNet::WaveNet(const int in_channels,
                                const std::vector<nam::wavenet::LayerArrayParams>& layer_array_params,
                                const float head_scale, const bool with_head, std::vector<float> weights,
-                               const double expected_sample_rate)
+                               std::unique_ptr<DSP> condition_dsp, const double expected_sample_rate)
 : DSP(in_channels,
       layer_array_params.empty() ? throw std::runtime_error("WaveNet requires at least one layer array")
                                  : layer_array_params.back().head_size,
       expected_sample_rate)
+, _condition_dsp(std::move(condition_dsp))
 , _head_scale(head_scale)
 {
+  // Assert that if there's a condition DSP, its input is compatible with what it'll get from this WaveNet:
+  if (this->_condition_dsp != nullptr)
+  {
+    if (this->_get_condition_dim() != this->_condition_dsp->NumInputChannels())
+    {
+      std::stringstream ss;
+      ss << "input channels of WaveNet (" << in_channels << ") don't match input channels of condition DSP ("
+         << this->_condition_dsp->NumInputChannels() << "!\n";
+      throw std::runtime_error(ss.str().c_str());
+    }
+  }
   if (layer_array_params.empty())
     throw std::runtime_error("WaveNet requires at least one layer array");
   if (with_head)
     throw std::runtime_error("Head not implemented!");
   for (size_t i = 0; i < layer_array_params.size(); i++)
   {
+    // Quick assert that the condition_dsp will output compatibly with this layer array
+    if (this->_condition_dsp != nullptr)
+    {
+      if (layer_array_params[i].condition_size != this->_condition_dsp->NumOutputChannels())
+      {
+        std::stringstream ss;
+        ss << "condition_size of layer " << i << " (" << layer_array_params[i].condition_size
+           << ") doesn't match output channels of condition DSP (" << this->_condition_dsp->NumOutputChannels()
+           << "!\n";
+        throw std::runtime_error(ss.str().c_str());
+      }
+    }
     this->_layer_arrays.push_back(nam::wavenet::_LayerArray(
       layer_array_params[i].input_size, layer_array_params[i].condition_size, layer_array_params[i].head_size,
       layer_array_params[i].channels, layer_array_params[i].bottleneck, layer_array_params[i].kernel_size,
@@ -247,7 +277,8 @@ nam::wavenet::WaveNet::WaveNet(const int in_channels,
   }
   this->set_weights_(weights);
 
-  mPrewarmSamples = 1;
+  // Finally, figure out how much pre-warming is needed for this model.
+  mPrewarmSamples = this->_condition_dsp != nullptr ? this->_condition_dsp->PrewarmSamples() : 1;
   for (size_t i = 0; i < this->_layer_arrays.size(); i++)
     mPrewarmSamples += this->_layer_arrays[i].get_receptive_field();
 }
@@ -255,9 +286,11 @@ nam::wavenet::WaveNet::WaveNet(const int in_channels,
 void nam::wavenet::WaveNet::set_weights_(std::vector<float>& weights)
 {
   std::vector<float>::iterator it = weights.begin();
+  // Note: condition_dsp already has its own weights from construction,
+  // so we don't need to set its weights here.
   for (size_t i = 0; i < this->_layer_arrays.size(); i++)
     this->_layer_arrays[i].set_weights_(it);
-  this->_head_scale = *(it++);
+  this->_head_scale = *(it++); // TODO `LayerArray.absorb_head_scale()`
   if (it != weights.end())
   {
     std::stringstream ss;
@@ -275,9 +308,72 @@ void nam::wavenet::WaveNet::set_weights_(std::vector<float>& weights)
 void nam::wavenet::WaveNet::SetMaxBufferSize(const int maxBufferSize)
 {
   DSP::SetMaxBufferSize(maxBufferSize);
-  this->_condition.resize(this->_get_condition_dim(), maxBufferSize);
+  this->_condition_input.resize(this->_get_condition_dim(), maxBufferSize);
+  // Resize condition output
+  if (this->_condition_dsp == nullptr)
+  {
+    this->_condition_output.resize(this->_get_condition_dim(), maxBufferSize);
+  }
+  else
+  {
+    this->_condition_dsp->SetMaxBufferSize(maxBufferSize);
+    const int condition_output_channels = this->_condition_dsp->NumOutputChannels();
+    this->_condition_output.resize(condition_output_channels, maxBufferSize);
+
+    // Resize temporary buffers for condition DSP processing
+    const int condition_dim = this->_get_condition_dim();
+    this->_condition_dsp_input_buffers.resize(condition_dim);
+    this->_condition_dsp_output_buffers.resize(condition_output_channels);
+    this->_condition_dsp_input_ptrs.resize(condition_dim);
+    this->_condition_dsp_output_ptrs.resize(condition_output_channels);
+
+    for (int ch = 0; ch < condition_dim; ch++)
+    {
+      this->_condition_dsp_input_buffers[ch].resize(maxBufferSize);
+      this->_condition_dsp_input_ptrs[ch] = this->_condition_dsp_input_buffers[ch].data();
+    }
+
+    for (int ch = 0; ch < condition_output_channels; ch++)
+    {
+      this->_condition_dsp_output_buffers[ch].resize(maxBufferSize);
+      this->_condition_dsp_output_ptrs[ch] = this->_condition_dsp_output_buffers[ch].data();
+    }
+  }
+
   for (size_t i = 0; i < this->_layer_arrays.size(); i++)
     this->_layer_arrays[i].SetMaxBufferSize(maxBufferSize);
+}
+
+void nam::wavenet::WaveNet::_process_condition(const int num_frames)
+{
+  if (this->_condition_dsp == nullptr)
+  {
+    this->_condition_output.leftCols(num_frames) = this->_condition_input.leftCols(num_frames);
+  }
+  else
+  {
+    // Copy input data from Eigen matrix to pre-allocated contiguous buffers
+    // Since Eigen matrices are column-major, rows are not contiguous
+    // TODO maybe use row-major here?
+    const int condition_dim = this->_get_condition_dim();
+    for (int ch = 0; ch < condition_dim; ch++)
+    {
+      for (int j = 0; j < num_frames; j++)
+        this->_condition_dsp_input_buffers[ch][j] = (NAM_SAMPLE)this->_condition_input(ch, j);
+    }
+
+    // Process through condition DSP using pre-allocated buffers
+    this->_condition_dsp->process(
+      this->_condition_dsp_input_ptrs.data(), this->_condition_dsp_output_ptrs.data(), num_frames);
+
+    // Copy output data back to Eigen matrix
+    const int condition_output_channels = this->_condition_dsp->NumOutputChannels();
+    for (int ch = 0; ch < condition_output_channels; ch++)
+    {
+      for (int j = 0; j < num_frames; j++)
+        this->_condition_output(ch, j) = (float)this->_condition_dsp_output_buffers[ch][j];
+    }
+  }
 }
 
 void nam::wavenet::WaveNet::_set_condition_array(NAM_SAMPLE** input, const int num_frames)
@@ -288,7 +384,7 @@ void nam::wavenet::WaveNet::_set_condition_array(NAM_SAMPLE** input, const int n
   {
     for (int j = 0; j < num_frames; j++)
     {
-      this->_condition(ch, j) = input[ch][j];
+      this->_condition_input(ch, j) = input[ch][j];
     }
   }
 }
@@ -299,6 +395,7 @@ void nam::wavenet::WaveNet::process(NAM_SAMPLE** input, NAM_SAMPLE** output, con
   const int out_channels = NumOutputChannels();
 
   this->_set_condition_array(input, num_frames);
+  this->_process_condition(num_frames);
 
   // Main layer arrays:
   // Layer-to-layer
@@ -307,7 +404,9 @@ void nam::wavenet::WaveNet::process(NAM_SAMPLE** input, NAM_SAMPLE** output, con
     if (i == 0)
     {
       // First layer array - no head input
-      this->_layer_arrays[i].Process(this->_condition, this->_condition, num_frames);
+      // layer_inputs should be the original input (before condition_dsp processing),
+      // condition should be the processed condition output (after condition_dsp)
+      this->_layer_arrays[i].Process(this->_condition_input, this->_condition_output, num_frames);
     }
     else
     {
@@ -316,7 +415,7 @@ void nam::wavenet::WaveNet::process(NAM_SAMPLE** input, NAM_SAMPLE** output, con
       // across API boundaries (which can cause Eigen to allocate temporaries).
       Eigen::MatrixXf& prev_layer_outputs = this->_layer_arrays[i - 1].GetLayerOutputs();
       Eigen::MatrixXf& prev_head_outputs = this->_layer_arrays[i - 1].GetHeadOutputs();
-      this->_layer_arrays[i].Process(prev_layer_outputs, this->_condition, prev_head_outputs, num_frames);
+      this->_layer_arrays[i].Process(prev_layer_outputs, this->_condition_output, prev_head_outputs, num_frames);
     }
   }
 
@@ -339,25 +438,48 @@ void nam::wavenet::WaveNet::process(NAM_SAMPLE** input, NAM_SAMPLE** output, con
 std::unique_ptr<nam::DSP> nam::wavenet::Factory(const nlohmann::json& config, std::vector<float>& weights,
                                                 const double expectedSampleRate)
 {
+  std::unique_ptr<nam::DSP> condition_dsp = nullptr;
+  if (config.find("condition_dsp") != config.end())
+  {
+    const nlohmann::json& condition_dsp_json = config["condition_dsp"];
+    condition_dsp = nam::get_dsp(condition_dsp_json);
+    if (condition_dsp->GetExpectedSampleRate() != expectedSampleRate)
+    {
+      std::stringstream ss;
+      ss << "Condition DSP expected sample rate (" << condition_dsp->GetExpectedSampleRate()
+         << ") doesn't match WaveNet expected sample rate (" << expectedSampleRate << "!\n";
+      throw std::runtime_error(ss.str().c_str());
+    }
+  }
   std::vector<nam::wavenet::LayerArrayParams> layer_array_params;
   for (size_t i = 0; i < config["layers"].size(); i++)
   {
     nlohmann::json layer_config = config["layers"][i];
+
     const int groups = layer_config.value("groups", 1); // defaults to 1
     const int groups_1x1 = layer_config.value("groups_1x1", 1); // defaults to 1
+
     const int channels = layer_config["channels"];
     const int bottleneck = layer_config.value("bottleneck", channels); // defaults to channels if not present
-    
+
+    const int input_size = layer_config["input_size"];
+    const int condition_size = layer_config["condition_size"];
+    const int head_size = layer_config["head_size"];
+    const int kernel_size = layer_config["kernel_size"];
+    const auto dilations = layer_config["dilations"];
+    const std::string activation = layer_config["activation"].get<std::string>();
+    const bool gated = layer_config["gated"];
+    const bool head_bias = layer_config["head_bias"];
+
     // Parse head1x1 parameters
     bool head1x1_active = layer_config.value("head1x1_active", false);
     int head1x1_out_channels = layer_config.value("head1x1_out_channels", channels);
     int head1x1_groups = layer_config.value("head1x1_groups", 1);
     nam::wavenet::Head1x1Params head1x1_params(head1x1_active, head1x1_out_channels, head1x1_groups);
-    
-    layer_array_params.push_back(nam::wavenet::LayerArrayParams(
-      layer_config["input_size"], layer_config["condition_size"], layer_config["head_size"], channels, bottleneck,
-      layer_config["kernel_size"], layer_config["dilations"], layer_config["activation"], layer_config["gated"],
-      layer_config["head_bias"], groups, groups_1x1, head1x1_params));
+
+    layer_array_params.push_back(nam::wavenet::LayerArrayParams(input_size, condition_size, head_size, channels,
+                                                                bottleneck, kernel_size, dilations, activation, gated,
+                                                                head_bias, groups, groups_1x1, head1x1_params));
   }
   const bool with_head = !config["head"].is_null();
   const float head_scale = config["head_scale"];
@@ -370,7 +492,7 @@ std::unique_ptr<nam::DSP> nam::wavenet::Factory(const nlohmann::json& config, st
 
   // out_channels is determined from last layer array's head_size
   return std::make_unique<nam::wavenet::WaveNet>(
-    in_channels, layer_array_params, head_scale, with_head, weights, expectedSampleRate);
+    in_channels, layer_array_params, head_scale, with_head, weights, std::move(condition_dsp), expectedSampleRate);
 }
 
 // Register the factory

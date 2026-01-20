@@ -18,7 +18,11 @@ namespace wavenet
 struct Head1x1Params
 {
   Head1x1Params(bool active_, int out_channels_, int groups_)
-    : active(active_), out_channels(out_channels_), groups(groups_) {}
+  : active(active_)
+  , out_channels(out_channels_)
+  , groups(groups_)
+  {
+  }
 
   const bool active;
   const int out_channels;
@@ -35,7 +39,7 @@ public:
   , _input_mixin(condition_size, gated ? 2 * bottleneck : bottleneck, false)
   , _1x1(bottleneck, channels, groups_1x1)
   , _activation(activations::Activation::get_activation(activation)) // needs to support activations with parameters
-  , _gated(gated) 
+  , _gated(gated)
   , _bottleneck(bottleneck)
   {
     if (head1x1_params.active)
@@ -43,7 +47,7 @@ public:
       _head1x1 = std::make_unique<Conv1x1>(bottleneck, head1x1_params.out_channels, true, head1x1_params.groups);
     }
   };
- 
+
   // Resize all arrays to be able to process `maxBufferSize` frames.
   void SetMaxBufferSize(const int maxBufferSize);
   // Set the parameters of this module
@@ -199,16 +203,27 @@ class WaveNet : public DSP
 {
 public:
   WaveNet(const int in_channels, const std::vector<LayerArrayParams>& layer_array_params, const float head_scale,
-          const bool with_head, std::vector<float> weights, const double expected_sample_rate = -1.0);
+          const bool with_head, std::vector<float> weights, std::unique_ptr<DSP> condition_dsp,
+          const double expected_sample_rate = -1.0);
   ~WaveNet() = default;
   void process(NAM_SAMPLE** input, NAM_SAMPLE** output, const int num_frames) override;
   void set_weights_(std::vector<float>& weights);
+  void set_weights_(std::vector<float>::iterator& weights);
 
 protected:
   // Element-wise arrays:
-  Eigen::MatrixXf _condition;
+  Eigen::MatrixXf _condition_input;
+  Eigen::MatrixXf _condition_output;
+  std::unique_ptr<DSP> _condition_dsp;
+  // Temporary buffers for condition DSP processing (to avoid allocations in _process_condition)
+  std::vector<std::vector<NAM_SAMPLE>> _condition_dsp_input_buffers;
+  std::vector<std::vector<NAM_SAMPLE>> _condition_dsp_output_buffers;
+  std::vector<NAM_SAMPLE*> _condition_dsp_input_ptrs;
+  std::vector<NAM_SAMPLE*> _condition_dsp_output_ptrs;
 
   void SetMaxBufferSize(const int maxBufferSize) override;
+  // Compute the conditioning array to be given to the layer arrays
+  virtual void _process_condition(const int num_frames);
   // Fill in the "condition" array that's fed into the various parts of the net.
   virtual void _set_condition_array(NAM_SAMPLE** input, const int num_frames);
   // How many conditioning inputs are there.

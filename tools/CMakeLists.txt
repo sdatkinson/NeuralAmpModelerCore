@@ -23,6 +23,12 @@ target_compile_options(run_tests PRIVATE
 	$<$<OR:$<CONFIG:Release>,$<CONFIG:RelWithDebInfo>,$<CONFIG:MinSizeRel>>:-UNDEBUG>
 )
 
+# Option to enable ADDASSERT test (tests that assertions are actually enabled)
+option(ENABLE_ASSERT_TEST "Enable ADDASSERT test to verify assertions are enabled" OFF)
+if(ENABLE_ASSERT_TEST)
+	target_compile_definitions(run_tests PRIVATE ADDASSERT)
+endif()
+
 source_group(NAM ${CMAKE_CURRENT_SOURCE_DIR} FILES ${NAM_SOURCES})
 
 target_compile_features(${TOOLS} PUBLIC cxx_std_20)

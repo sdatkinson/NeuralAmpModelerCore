@@ -692,8 +692,9 @@ void test_layer_array_process_realtime_safe()
   const int groups_1x1 = 1;
   nam::wavenet::Head1x1Params head1x1_params(false, channels, 1);
 
-  auto layer_array = nam::wavenet::_LayerArray(input_size, condition_size, head_size, channels, bottleneck, kernel_size,
-                                               dilations, activation, gated, head_bias, groups, groups_1x1, head1x1_params);
+  auto layer_array =
+    nam::wavenet::_LayerArray(input_size, condition_size, head_size, channels, bottleneck, kernel_size, dilations,
+                              activation, gated, head_bias, groups, groups_1x1, head1x1_params);
 
   // Set weights: rechannel(1), layer(conv:1+1, input_mixin:1, 1x1:1+1), head_rechannel(1)
   std::vector<float> weights{1.0f, // Rechannel
@@ -761,14 +762,14 @@ void test_process_realtime_safe()
   const int bottleneck = channels;
   const int groups_1x1 = 1;
   nam::wavenet::Head1x1Params head1x1_params(false, channels, 1);
-  layer_array_params.push_back(nam::wavenet::LayerArrayParams(input_size, condition_size, head_size, channels,
-                                                              bottleneck, kernel_size, std::move(dilations1), activation,
-                                                              gated, head_bias, groups, groups_1x1, head1x1_params));
+  layer_array_params.push_back(nam::wavenet::LayerArrayParams(
+    input_size, condition_size, head_size, channels, bottleneck, kernel_size, std::move(dilations1), activation, gated,
+    head_bias, groups, groups_1x1, head1x1_params));
   // Second layer array (head_size of first must match channels of second)
   std::vector<int> dilations2{1};
-  layer_array_params.push_back(nam::wavenet::LayerArrayParams(head_size, condition_size, head_size, channels,
-                                                              bottleneck, kernel_size, std::move(dilations2), activation,
-                                                              gated, head_bias, groups, groups_1x1, head1x1_params));
+  layer_array_params.push_back(nam::wavenet::LayerArrayParams(
+    head_size, condition_size, head_size, channels, bottleneck, kernel_size, std::move(dilations2), activation, gated,
+    head_bias, groups, groups_1x1, head1x1_params));
 
   // Weights: Array 0: rechannel(1), layer(conv:1+1, input_mixin:1, 1x1:1+1), head_rechannel(1)
   //          Array 1: same structure
@@ -780,8 +781,9 @@ void test_process_realtime_safe()
   weights.insert(weights.end(), {1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f});
   weights.push_back(head_scale);
 
-  auto wavenet =
-    std::make_unique<nam::wavenet::WaveNet>(input_size, layer_array_params, head_scale, with_head, weights, 48000.0);
+  std::unique_ptr<nam::wavenet::WaveNet> condition_dsp = nullptr;
+  auto wavenet = std::make_unique<nam::wavenet::WaveNet>(
+    input_size, layer_array_params, head_scale, with_head, weights, std::move(condition_dsp), 48000.0);
 
   const int maxBufferSize = 256;
   wavenet->Reset(48000.0, maxBufferSize);
@@ -832,14 +834,14 @@ void test_process_3in_2out_realtime_safe()
   const bool with_head = false;
   const int groups = 1;
   const int groups_1x1 = 1;
- 
+
   nam::wavenet::Head1x1Params head1x1_params(false, channels, 1);
 
   std::vector<nam::wavenet::LayerArrayParams> layer_array_params;
   std::vector<int> dilations1{1};
-  layer_array_params.push_back(nam::wavenet::LayerArrayParams(input_size, condition_size, head_size, channels,
-                                                              bottleneck, kernel_size, std::move(dilations1),
-                                                              activation, gated, head_bias, groups, groups_1x1, head1x1_params));
+  layer_array_params.push_back(nam::wavenet::LayerArrayParams(
+    input_size, condition_size, head_size, channels, bottleneck, kernel_size, std::move(dilations1), activation, gated,
+    head_bias, groups, groups_1x1, head1x1_params));
 
   // Calculate weights:
   // _rechannel: Conv1x1(3, 4, bias=false) = 3*4 = 12 weights
@@ -898,8 +900,9 @@ void test_process_3in_2out_realtime_safe()
   weights.push_back(head_scale);
 
   const int in_channels = 3;
-  auto wavenet =
-    std::make_unique<nam::wavenet::WaveNet>(in_channels, layer_array_params, head_scale, with_head, weights, 48000.0);
+  std::unique_ptr<nam::wavenet::WaveNet> condition_dsp = nullptr;
+  auto wavenet = std::make_unique<nam::wavenet::WaveNet>(
+    in_channels, layer_array_params, head_scale, with_head, weights, std::move(condition_dsp), 48000.0);
 
   const int maxBufferSize = 256;
   wavenet->Reset(48000.0, maxBufferSize);
