@@ -31,6 +31,59 @@ nam::activations::Activation* nam::activations::Activation::get_activation(const
   return _activations[name];
 }
 
+nam::activations::Activation* nam::activations::Activation::get_activation(const nlohmann::json& activation_config)
+{
+  // If it's a string, use the existing string-based lookup
+  if (activation_config.is_string())
+  {
+    std::string name = activation_config.get<std::string>();
+    return get_activation(name);
+  }
+  
+  // If it's an object, parse the activation type and parameters
+  if (activation_config.is_object())
+  {
+    std::string type = activation_config["type"].get<std::string>();
+    
+    // Handle different activation types with parameters
+    if (type == "PReLU")
+    {
+      if (activation_config.find("negative_slope") != activation_config.end())
+      {
+        float negative_slope = activation_config["negative_slope"].get<float>();
+        return new ActivationPReLU(negative_slope);
+      }
+      else if (activation_config.find("negative_slopes") != activation_config.end())
+      {
+        std::vector<float> negative_slopes = activation_config["negative_slopes"].get<std::vector<float>>();
+        return new ActivationPReLU(negative_slopes);
+      }
+      // If no parameters provided, use default
+      return new ActivationPReLU(0.01);
+    }
+    else if (type == "LeakyReLU")
+    {
+      float negative_slope = activation_config.value("negative_slope", 0.01f);
+      return new ActivationLeakyReLU(negative_slope);
+    }
+    else if (type == "LeakyHardTanh")
+    {
+      float min_val = activation_config.value("min_val", -1.0f);
+      float max_val = activation_config.value("max_val", 1.0f);
+      float min_slope = activation_config.value("min_slope", 0.01f);
+      float max_slope = activation_config.value("max_slope", 0.01f);
+      return new ActivationLeakyHardTanh(min_val, max_val, min_slope, max_slope);
+    }
+    else
+    {
+      // For other activation types without parameters, use the default string-based lookup
+      return get_activation(type);
+    }
+  }
+  
+  return nullptr;
+}
+
 void nam::activations::Activation::enable_fast_tanh()
 {
   nam::activations::Activation::using_fast_tanh = true;

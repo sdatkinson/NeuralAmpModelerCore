@@ -6,6 +6,7 @@
 #include <unordered_map>
 #include <Eigen/Dense>
 #include <functional>
+#include "json.hpp"
 
 namespace nam
 {
@@ -102,6 +103,7 @@ public:
   virtual void apply(float* data, long size) {}
 
   static Activation* get_activation(const std::string name);
+  static Activation* get_activation(const nlohmann::json& activation_config);
   static void enable_fast_tanh();
   static void disable_fast_tanh();
   static bool using_fast_tanh;
@@ -226,20 +228,31 @@ public:
   void apply(Eigen::MatrixXf& matrix) override
   {
     // Matrix is organized as (channels, time_steps)
-    int n_channels = negative_slopes.size();
-    int actual_channels = matrix.rows();
-
-    // NOTE: check not done during runtime on release builds
-    // model loader should make sure dimensions match
-    assert(actual_channels == n_channels);
-
+    unsigned long actual_channels = static_cast<unsigned long>(matrix.rows());
+    
+    // Prepare the slopes for the current matrix size
+    std::vector<float> slopes_for_channels = negative_slopes;
+    
+    if (slopes_for_channels.size() == 1 && actual_channels > 1)
+    {
+      // Broadcast single slope to all channels
+      float slope = slopes_for_channels[0];
+      slopes_for_channels.clear();
+      slopes_for_channels.resize(actual_channels, slope);
+    }
+    else if (slopes_for_channels.size() != actual_channels)
+    {
+      // This should not happen in normal usage, but handle gracefully
+      slopes_for_channels.resize(actual_channels, 0.01f); // Default slope
+    }
+    
     // Apply each negative slope to its corresponding channel
-    for (int channel = 0; channel < std::min(n_channels, actual_channels); channel++)
+    for (unsigned long channel = 0; channel < actual_channels; channel++)
     {
       // Apply the negative slope to all time steps in this channel
-      for (int time_step = 0; time_step < matrix.rows(); time_step++)
+      for (int time_step = 0; time_step < matrix.cols(); time_step++)
       {
-        matrix(channel, time_step) = leaky_relu(matrix(channel, time_step), negative_slopes[channel]);
+        matrix(channel, time_step) = leaky_relu(matrix(channel, time_step), slopes_for_channels[channel]);
       }
     }
   }

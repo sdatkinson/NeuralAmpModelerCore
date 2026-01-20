@@ -118,7 +118,7 @@ public:
     assert(fabs(output(0, 1) - (-1.0f)) < 1e-6);
 
     // Test with sigmoid blending activation
-    nam::activations::Activation* sigmoid_act = nam::activations::Activation::get_activation("Sigmoid");
+    nam::activations::Activation* sigmoid_act = nam::activations::Activation::get_activation(std::string("Sigmoid"));
     nam::gating_activations::BlendingActivation blending_act2(&identity_act, sigmoid_act, 1);
     blending_act2.apply(input, output);
 

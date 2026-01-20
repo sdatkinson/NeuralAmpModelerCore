@@ -195,4 +195,118 @@ public:
   }
 };
 
+class TestJSONActivationParsing
+{
+public:
+  static void test_string_activation()
+  {
+    nlohmann::json str_activation = "ReLU";
+    auto act = nam::activations::Activation::get_activation(str_activation);
+    assert(act != nullptr);
+    // Don't delete global activation objects
+  }
+
+  static void test_json_prelu_single_slope()
+  {
+    nlohmann::json prelu_single = {
+      {"type", "PReLU"},
+      {"negative_slope", 0.25f}
+    };
+    auto act = nam::activations::Activation::get_activation(prelu_single);
+    assert(act != nullptr);
+    delete act; // Delete dynamically allocated object
+  }
+
+  static void test_json_prelu_multi_slope()
+  {
+    nlohmann::json prelu_multi = {
+      {"type", "PReLU"},
+      {"negative_slopes", {0.1f, 0.2f, 0.3f, 0.4f}}
+    };
+    auto act = nam::activations::Activation::get_activation(prelu_multi);
+    assert(act != nullptr);
+    delete act; // Delete dynamically allocated object
+  }
+
+  static void test_json_leaky_relu()
+  {
+    nlohmann::json leaky_relu = {
+      {"type", "LeakyReLU"},
+      {"negative_slope", 0.15f}
+    };
+    auto act = nam::activations::Activation::get_activation(leaky_relu);
+    assert(act != nullptr);
+    delete act; // Delete dynamically allocated object
+  }
+
+  static void test_json_leaky_hardtanh()
+  {
+    nlohmann::json leaky_hardtanh = {
+      {"type", "LeakyHardTanh"},
+      {"min_val", -2.0f},
+      {"max_val", 2.0f},
+      {"min_slope", 0.1f},
+      {"max_slope", 0.1f}
+    };
+    auto act = nam::activations::Activation::get_activation(leaky_hardtanh);
+    assert(act != nullptr);
+    delete act; // Delete dynamically allocated object
+  }
+
+  static void test_json_unknown_activation()
+  {
+    nlohmann::json unknown_activation = {
+      {"type", "UnknownActivation"}
+    };
+    auto act = nam::activations::Activation::get_activation(unknown_activation);
+    assert(act == nullptr); // Should fail for unknown activation type
+  }
+
+  static void test_functional_verification()
+  {
+    // Create test data with 4 channels and 3 time steps
+    Eigen::MatrixXf test_data(4, 3);
+    test_data << 
+      -1.0, -0.5, 0.0,
+      -2.0, 0.0, 1.0,
+      -0.5, 0.5, 1.5,
+      -1.5, -1.0, 0.5;
+
+    // Test PReLU with multiple slopes
+    nlohmann::json functional_prelu = {
+      {"type", "PReLU"},
+      {"negative_slopes", {0.1f, 0.2f, 0.3f, 0.4f}}
+    };
+    auto functional_act = nam::activations::Activation::get_activation(functional_prelu);
+    assert(functional_act != nullptr);
+
+    Eigen::MatrixXf result = test_data;
+    functional_act->apply(result);
+
+    // Verify specific values
+    // Channel 0, slope 0.1: -1.0 * 0.1 = -0.1
+    assert(fabs(result(0, 0) - (-0.1f)) < 1e-6);
+
+    // Channel 1, slope 0.2: -2.0 * 0.2 = -0.4
+    assert(fabs(result(1, 0) - (-0.4f)) < 1e-6);
+
+    // Channel 2, slope 0.3: -0.5 * 0.3 = -0.15
+    assert(fabs(result(2, 0) - (-0.15f)) < 1e-6);
+
+    // Channel 3, slope 0.4: -1.5 * 0.4 = -0.6
+    assert(fabs(result(3, 0) - (-0.6f)) < 1e-6);
+
+    // Positive values should be unchanged
+    for (int i = 0; i < result.rows(); i++) {
+      for (int j = 0; j < result.cols(); j++) {
+        if (test_data(i, j) >= 0) {
+          assert(fabs(result(i, j) - test_data(i, j)) < 1e-6);
+        }
+      }
+    }
+
+    delete functional_act;
+  }
+};
+
 }; // namespace test_activations
