@@ -58,6 +58,11 @@ void nam::wavenet::_Layer::Process(const Eigen::MatrixXf& input, const Eigen::Ma
     this->_conv.GetOutput().leftCols(num_frames) + _input_mixin.GetOutput().leftCols(num_frames);
 
   // Step 2 & 3: activation and 1x1
+  //
+  // A note about the gating/blending activations:
+  // They take 2x dimension as input.
+  // The top channels are for the "primary" activation and will be in-place modified for the final result.
+  // The bottom channels are for the "secondary" activation and should not be used post-activation.
   if (this->_gating_mode == GatingMode::NONE)
   {
     this->_activation->apply(this->_z.leftCols(num_frames));
