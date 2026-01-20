@@ -71,6 +71,13 @@ public:
     }
   }
 
+  // in-place
+  void Process_(Eigen::MatrixXf& input, const Eigen::MatrixXf& condition, const int num_frames)
+  {
+    Process(input, condition, num_frames);
+    input.leftCols(num_frames).noalias() = _output.leftCols(num_frames);
+  }
+
 private:
   Conv1x1 _cond_to_scale_shift; // condition_dim -> (shift ? 2 : 1) * input_dim
   Eigen::MatrixXf _output; // input_dim x maxBufferSize

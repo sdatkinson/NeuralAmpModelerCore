@@ -102,6 +102,9 @@ int main()
   test_film::test_set_max_buffer_size();
   test_film::test_process_bias_only();
   test_film::test_process_scale_only();
+  test_film::test_process_inplace_with_shift();
+  test_film::test_process_inplace_scale_only();
+  test_film::test_process_inplace_partial_frames();
 
   test_wavenet::test_layer::test_gated();
   test_wavenet::test_layer::test_layer_getters();
