@@ -7,6 +7,7 @@
 #include "test/test_conv_1x1.cpp"
 #include "test/test_convnet.cpp"
 #include "test/test_dsp.cpp"
+#include "test/test_film.cpp"
 #include "test/test_fast_lut.cpp"
 #include "test/test_get_dsp.cpp"
 #include "test/test_ring_buffer.cpp"
@@ -97,6 +98,10 @@ int main()
   test_conv_1x1::test_process_underscore_grouped();
   test_conv_1x1::test_set_max_buffer_size();
   test_conv_1x1::test_process_multiple_calls();
+
+  test_film::test_set_max_buffer_size();
+  test_film::test_process_bias_only();
+  test_film::test_process_scale_only();
 
   test_wavenet::test_layer::test_gated();
   test_wavenet::test_layer::test_layer_getters();
