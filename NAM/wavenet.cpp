@@ -52,27 +52,31 @@ void nam::wavenet::_Layer::Process(const Eigen::MatrixXf& input, const Eigen::Ma
   const long bottleneck = this->_bottleneck; // Use the actual bottleneck value, not the doubled output channels
 
   // Step 1: input convolutions
-  if (this->_conv_pre_film != nullptr)
+  if (this->_conv_pre_film)
   {
-    this->_conv_pre_film->Process(input, condition, num_frames);
-    this->_conv.Process(this->_conv_pre_film->GetOutput(), num_frames);
+    this->_conv_pre_film->Process_(input, condition, num_frames);
   }
-  else
+  this->_conv.Process(input, num_frames);
+  if (this->_conv_post_film)
   {
-    this->_conv.Process(input, num_frames);
+    this->_conv_post_film->Process_(this->_conv.GetOutput(), condition, num_frames);
   }
 
+  if (this->_input_mixin_pre_film)
+  {
+    this->_input_mixin_pre_film->Process_(condition, num_frames);
+  }
   this->_input_mixin.process_(condition, num_frames);
-  if (this->_conv_post_film != nullptr)
+  if (this->_input_mixin_post_film)
   {
-    this->_conv_post_film->Process(this->_conv.GetOutput(), condition, num_frames);
-    this->_z.leftCols(num_frames).noalias() = this->_conv_post_film->GetOutput().leftCols(num_frames);
+    this->_input_mixin_post_film->Process_(this->_input_mixin.GetOutput(), condition, num_frames);
   }
-  else
+  this->_z.leftCols(num_frames).noalias() =
+    _conv.GetOutput().leftCols(num_frames) + _input_mixin.GetOutput().leftCols(num_frames);
+  if (this->_activation_pre_film)
   {
-    this->_z.leftCols(num_frames).noalias() = this->_conv.GetOutput().leftCols(num_frames);
+    this->_activation_pre_film->Process_(this->_z, num_frames);
   }
-  this->_z.leftCols(num_frames).noalias() += _input_mixin.GetOutput().leftCols(num_frames);
 
   // Step 2 & 3: activation and 1x1
   //
@@ -83,6 +87,10 @@ void nam::wavenet::_Layer::Process(const Eigen::MatrixXf& input, const Eigen::Ma
   if (this->_gating_mode == GatingMode::NONE)
   {
     this->_activation->apply(this->_z.leftCols(num_frames));
+    if (this->_activation_post_film)
+    {
+      this->_activation_post_film->Process_(this->_z, num_frames);
+    }
     _1x1.process_(_z, num_frames);
   }
   else if (this->_gating_mode == GatingMode::GATED)
@@ -92,6 +100,10 @@ void nam::wavenet::_Layer::Process(const Eigen::MatrixXf& input, const Eigen::Ma
     auto input_block = this->_z.leftCols(num_frames);
     auto output_block = this->_z.topRows(bottleneck).leftCols(num_frames);
     this->_gating_activation->apply(input_block, output_block);
+    if (this->_gating_activation_post_film)
+    {
+      this->_activation_post_film->Process_(this->_z.topRows(bottleneck), num_frames);
+    }
     _1x1.process_(this->_z.topRows(bottleneck), num_frames);
   }
   else if (this->_gating_mode == GatingMode::BLENDED)
@@ -101,19 +113,37 @@ void nam::wavenet::_Layer::Process(const Eigen::MatrixXf& input, const Eigen::Ma
     auto input_block = this->_z.leftCols(num_frames);
     auto output_block = this->_z.topRows(bottleneck).leftCols(num_frames);
     this->_blending_activation->apply(input_block, output_block);
+    if (this->_activation_post_film)
+    {
+      this->_activation_post_film->Process_(this->_z.topRows(bottleneck), num_frames);
+    }
     _1x1.process_(this->_z.topRows(bottleneck), num_frames);
+    if (this->_1x1_post_film)
+    {
+      this->_1x1_post_film->Process_(this->_1x1.GetOutput(), num_frames);
+    }
   }
 
   if (this->_head1x1)
   {
     if (this->_gating_mode == GatingMode::NONE)
+    {
       this->_head1x1->process_(this->_z.leftCols(num_frames), num_frames);
+    }
     else
-      this->_head1x1->process(this->_z.topRows(bottleneck).leftCols(num_frames), num_frames);
+    {
+      this->_head1x1->process_(this->_z.topRows(bottleneck).leftCols(num_frames), num_frames);
+    }
+    this->_head1x1->process(this->_z.topRows(bottleneck).leftCols(num_frames), num_frames);
+    if (this->_head1x1_post_film)
+    {
+      this->_head1x1_post_film->Process_(this->_head1x1->GetOutput(), num_frames);
+    }
     this->_output_head.leftCols(num_frames).noalias() = this->_head1x1->GetOutput().leftCols(num_frames);
   }
-  else
+  else // No head 1x1
   {
+    // (No FiLM)
     // Store output to head (skip connection: activated conv output)
     if (this->_gating_mode == GatingMode::NONE)
       this->_output_head.leftCols(num_frames).noalias() = this->_z.leftCols(num_frames);
