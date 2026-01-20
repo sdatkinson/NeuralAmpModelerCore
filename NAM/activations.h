@@ -232,19 +232,9 @@ public:
     
     // Prepare the slopes for the current matrix size
     std::vector<float> slopes_for_channels = negative_slopes;
-    
-    if (slopes_for_channels.size() == 1 && actual_channels > 1)
-    {
-      // Broadcast single slope to all channels
-      float slope = slopes_for_channels[0];
-      slopes_for_channels.clear();
-      slopes_for_channels.resize(actual_channels, slope);
-    }
-    else if (slopes_for_channels.size() != actual_channels)
-    {
-      // This should not happen in normal usage, but handle gracefully
-      slopes_for_channels.resize(actual_channels, 0.01f); // Default slope
-    }
+
+    // Fail loudly if input has more channels than activation
+    assert(actual_channels == negative_slopes.size());
     
     // Apply each negative slope to its corresponding channel
     for (unsigned long channel = 0; channel < actual_channels; channel++)
