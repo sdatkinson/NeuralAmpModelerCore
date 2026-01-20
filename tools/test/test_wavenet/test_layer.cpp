@@ -27,7 +27,7 @@ void test_gated()
   const int groups_1x1 = 1;
   nam::wavenet::Head1x1Params head1x1_params(false, channels, 1);
   auto layer = nam::wavenet::_Layer(conditionSize, channels, bottleneck, kernelSize, dilation, activation, gating_mode,
-                                    groups_input, groups_1x1, head1x1_params);
+                                    groups_input, groups_1x1, head1x1_params, "Sigmoid", "");
 
   // Conv, input mixin, 1x1
   std::vector<float> weights{
@@ -104,7 +104,7 @@ void test_layer_getters()
   nam::wavenet::Head1x1Params head1x1_params(false, channels, 1);
 
   auto layer = nam::wavenet::_Layer(conditionSize, channels, bottleneck, kernelSize, dilation, activation, gating_mode,
-                                    groups_input, groups_1x1, head1x1_params);
+                                    groups_input, groups_1x1, head1x1_params, "", "");
 
   assert(layer.get_channels() == channels);
   assert(layer.get_kernel_size() == kernelSize);
@@ -126,7 +126,7 @@ void test_non_gated_layer()
   nam::wavenet::Head1x1Params head1x1_params(false, channels, 1);
 
   auto layer = nam::wavenet::_Layer(conditionSize, channels, bottleneck, kernelSize, dilation, activation, gating_mode,
-                                    groups_input, groups_1x1, head1x1_params);
+                                    groups_input, groups_1x1, head1x1_params, "", "");
 
   // For non-gated: conv outputs 1 channel, input_mixin outputs 1 channel, 1x1 outputs 1 channel
   // Conv: (1,1,1) weight + (1,) bias
@@ -194,7 +194,7 @@ void test_layer_activations()
     const int groups_1x1 = 1;
     nam::wavenet::Head1x1Params head1x1_params(false, channels, 1);
     auto layer = nam::wavenet::_Layer(conditionSize, channels, bottleneck, kernelSize, dilation, "Tanh", gating_mode,
-                                      groups_input, groups_1x1, head1x1_params);
+                                      groups_input, groups_1x1, head1x1_params, "", "");
     std::vector<float> weights{1.0f, 0.0f, 1.0f, 1.0f, 0.0f};
     auto it = weights.begin();
     layer.set_weights_(it);
@@ -231,7 +231,7 @@ void test_layer_multichannel()
   nam::wavenet::Head1x1Params head1x1_params(false, channels, 1);
 
   auto layer = nam::wavenet::_Layer(conditionSize, channels, bottleneck, kernelSize, dilation, activation, gating_mode,
-                                    groups_input, groups_1x1, head1x1_params);
+                                    groups_input, groups_1x1, head1x1_params, "", "");
 
   assert(layer.get_channels() == channels);
 
@@ -301,7 +301,7 @@ void test_layer_bottleneck()
   nam::wavenet::Head1x1Params head1x1_params(false, channels, 1);
 
   auto layer = nam::wavenet::_Layer(conditionSize, channels, bottleneck, kernelSize, dilation, activation, gating_mode,
-                                    groups_input, groups_1x1, head1x1_params);
+                                    groups_input, groups_1x1, head1x1_params, "", "");
 
   // With bottleneck < channels, the internal conv and input_mixin should have bottleneck channels,
   // but the 1x1 should map from bottleneck back to channels
@@ -379,7 +379,7 @@ void test_layer_bottleneck_gated()
   nam::wavenet::Head1x1Params head1x1_params(false, channels, 1);
 
   auto layer = nam::wavenet::_Layer(conditionSize, channels, bottleneck, kernelSize, dilation, activation, gating_mode,
-                                    groups_input, groups_1x1, head1x1_params);
+                                    groups_input, groups_1x1, head1x1_params, "Sigmoid", "");
 
   // With gated=true and bottleneck=2, internal channels should be 2*bottleneck=4
   // Conv: (channels, 2*bottleneck, kernelSize=1) = (4, 4, 1) + bias

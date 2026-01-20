@@ -477,36 +477,48 @@ std::unique_ptr<nam::DSP> nam::wavenet::Factory(const nlohmann::json& config, st
     const std::string activation = layer_config["activation"].get<std::string>();
     // Parse gating mode - support both old "gated" boolean and new "gating_mode" string
     GatingMode gating_mode = GatingMode::NONE;
-    std::string gating_activation = "Sigmoid";
-    std::string blending_activation = "Sigmoid";
+    std::string gating_activation;
+    std::string blending_activation;
 
     if (layer_config.find("gating_mode") != layer_config.end())
     {
       std::string gating_mode_str = layer_config["gating_mode"].get<std::string>();
       if (gating_mode_str == "gated")
+      {
         gating_mode = GatingMode::GATED;
+        gating_activation = layer_config["gating_activation"].get<std::string>();
+        blending_activation.clear();
+      }
       else if (gating_mode_str == "blended")
+      {
         gating_mode = GatingMode::BLENDED;
+        blending_activation = layer_config["blending_activation"].get<std::string>();
+        gating_activation.clear();
+      }
       else if (gating_mode_str == "none")
+      {
         gating_mode = GatingMode::NONE;
+        gating_activation.clear();
+        blending_activation.clear();
+      }
       else
         throw std::runtime_error("Invalid gating_mode: " + gating_mode_str);
-
-      // Parse configurable activations if present
-      if (layer_config.find("gating_activation") != layer_config.end())
-      {
-        gating_activation = layer_config["gating_activation"].get<std::string>();
-      }
-      if (layer_config.find("blending_activation") != layer_config.end())
-      {
-        blending_activation = layer_config["blending_activation"].get<std::string>();
-      }
     }
     else if (layer_config.find("gated") != layer_config.end())
     {
       // Backward compatibility: convert old "gated" boolean to new enum
       bool gated = layer_config["gated"];
       gating_mode = gated ? GatingMode::GATED : GatingMode::NONE;
+      if (gated)
+      {
+        gating_activation = "Sigmoid";
+        blending_activation.clear();
+      }
+      else
+      {
+        gating_activation.clear();
+        blending_activation.clear();
+      }
     }
     else
     {

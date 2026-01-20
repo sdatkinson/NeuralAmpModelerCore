@@ -33,7 +33,7 @@ public:
     {
       auto layer =
         nam::wavenet::_Layer(conditionSize, channels, bottleneck, kernelSize, dilation, activation,
-                             nam::wavenet::GatingMode::GATED, groups_input, groups_1x1, head1x1_params, gating_act);
+                             nam::wavenet::GatingMode::GATED, groups_input, groups_1x1, head1x1_params, gating_act, "");
 
       // Verify that the layer was created successfully and has correct dimensions
       assert(layer.get_channels() == channels);
@@ -186,15 +186,15 @@ public:
     // Create layers with different gating activations
     auto layer_sigmoid =
       nam::wavenet::_Layer(conditionSize, channels, bottleneck, kernelSize, dilation, activation,
-                           nam::wavenet::GatingMode::GATED, groups_input, groups_1x1, head1x1_params, "Sigmoid");
+                           nam::wavenet::GatingMode::GATED, groups_input, groups_1x1, head1x1_params, "Sigmoid", "");
 
     auto layer_tanh =
       nam::wavenet::_Layer(conditionSize, channels, bottleneck, kernelSize, dilation, activation,
-                           nam::wavenet::GatingMode::GATED, groups_input, groups_1x1, head1x1_params, "Tanh");
+                           nam::wavenet::GatingMode::GATED, groups_input, groups_1x1, head1x1_params, "Tanh", "");
 
     auto layer_relu =
       nam::wavenet::_Layer(conditionSize, channels, bottleneck, kernelSize, dilation, activation,
-                           nam::wavenet::GatingMode::GATED, groups_input, groups_1x1, head1x1_params, "ReLU");
+                           nam::wavenet::GatingMode::GATED, groups_input, groups_1x1, head1x1_params, "ReLU", "");
 
     // Set max buffer size for all layers
     const int num_frames = 10;
