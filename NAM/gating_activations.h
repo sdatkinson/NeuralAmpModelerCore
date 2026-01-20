@@ -82,8 +82,6 @@ public:
       output.block(0, i, num_channels, 1) = input_block.array() * gating_block.array();
     }
     
-    // Debug: Print first sample to verify gating is working
-    // std::cout << "GatingActivation debug: first output sample = " << output(0, 0) << std::endl;
   }
 
   /**
@@ -117,10 +115,8 @@ public:
   , blending_activation(blend_act)
   , num_channels(input_channels)
   {
-    if (num_channels <= 0)
-    {
-      throw std::invalid_argument("BlendingActivation: number of input channels must be positive");
-    }
+    assert(num_channels > 0);
+
     // Initialize input buffer with correct size
     // Note: current code copies column-by-column so we only need (num_channels, 1)
     input_buffer.resize(num_channels, 1);
