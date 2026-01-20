@@ -23,7 +23,7 @@ void test_wavenet_model()
   const int kernel_size = 1;
   std::vector<int> dilations{1};
   const std::string activation = "ReLU";
-  const bool gated = false;
+  const nam::wavenet::GatingMode gating_mode = nam::wavenet::GatingMode::NONE;
   const bool head_bias = false;
   const float head_scale = 1.0f;
   const bool with_head = false;
@@ -33,8 +33,8 @@ void test_wavenet_model()
 
   nam::wavenet::Head1x1Params head1x1_params(head1x1_active, channels, 1);
   nam::wavenet::LayerArrayParams params(input_size, condition_size, head_size, channels, bottleneck, kernel_size,
-                                        std::move(dilations), activation, gated, head_bias, groups, groups_1x1,
-                                        head1x1_params);
+                                        std::move(dilations), activation, gating_mode, head_bias, groups, groups_1x1,
+                                        head1x1_params, "");
   std::vector<nam::wavenet::LayerArrayParams> layer_array_params;
   layer_array_params.push_back(std::move(params));
 
@@ -84,7 +84,7 @@ void test_wavenet_multiple_arrays()
   const int kernel_size = 1;
   std::vector<int> dilations{1};
   const std::string activation = "ReLU";
-  const bool gated = false;
+  const nam::wavenet::GatingMode gating_mode = nam::wavenet::GatingMode::NONE;
   const bool head_bias = false;
   const float head_scale = 0.5f;
   const bool with_head = false;
@@ -99,13 +99,13 @@ void test_wavenet_multiple_arrays()
 
   nam::wavenet::Head1x1Params head1x1_params(head1x1_active, channels, 1);
   layer_array_params.push_back(nam::wavenet::LayerArrayParams(
-    input_size, condition_size, head_size, channels, bottleneck, kernel_size, std::move(dilations1), activation, gated,
-    head_bias, groups, groups_1x1, head1x1_params));
+    input_size, condition_size, head_size, channels, bottleneck, kernel_size, std::move(dilations1), activation,
+    gating_mode, head_bias, groups, groups_1x1, head1x1_params, ""));
   // Second array (head_size of first must match channels of second)
   std::vector<int> dilations2{1};
   layer_array_params.push_back(nam::wavenet::LayerArrayParams(
-    head_size, condition_size, head_size, channels, bottleneck, kernel_size, std::move(dilations2), activation, gated,
-    head_bias, groups, groups_1x1, head1x1_params));
+    head_size, condition_size, head_size, channels, bottleneck, kernel_size, std::move(dilations2), activation,
+    gating_mode, head_bias, groups, groups_1x1, head1x1_params, ""));
 
   std::vector<float> weights;
   // Array 0: rechannel, layer, head_rechannel
@@ -147,7 +147,7 @@ void test_wavenet_zero_input()
   const int kernel_size = 1;
   std::vector<int> dilations{1};
   const std::string activation = "ReLU";
-  const bool gated = false;
+  const nam::wavenet::GatingMode gating_mode = nam::wavenet::GatingMode::NONE;
   const bool head_bias = false;
   const float head_scale = 1.0f;
   const bool with_head = false;
@@ -157,8 +157,8 @@ void test_wavenet_zero_input()
   nam::wavenet::Head1x1Params head1x1_params(head1x1_active, channels, 1);
 
   nam::wavenet::LayerArrayParams params(input_size, condition_size, head_size, channels, bottleneck, kernel_size,
-                                        std::move(dilations), activation, gated, head_bias, groups, groups_1x1,
-                                        head1x1_params);
+                                        std::move(dilations), activation, gating_mode, head_bias, groups, groups_1x1,
+                                        head1x1_params, "");
   std::vector<nam::wavenet::LayerArrayParams> layer_array_params;
   layer_array_params.push_back(std::move(params));
 
@@ -196,7 +196,7 @@ void test_wavenet_different_buffer_sizes()
   const int kernel_size = 1;
   std::vector<int> dilations{1};
   const std::string activation = "ReLU";
-  const bool gated = false;
+  const nam::wavenet::GatingMode gating_mode = nam::wavenet::GatingMode::NONE;
   const bool head_bias = false;
   const float head_scale = 1.0f;
   const bool with_head = false;
@@ -206,8 +206,8 @@ void test_wavenet_different_buffer_sizes()
   nam::wavenet::Head1x1Params head1x1_params(head1x1_active, channels, 1);
 
   nam::wavenet::LayerArrayParams params(input_size, condition_size, head_size, channels, bottleneck, kernel_size,
-                                        std::move(dilations), activation, gated, head_bias, groups, groups_1x1,
-                                        head1x1_params);
+                                        std::move(dilations), activation, gating_mode, head_bias, groups, groups_1x1,
+                                        head1x1_params, "");
   std::vector<nam::wavenet::LayerArrayParams> layer_array_params;
   layer_array_params.push_back(std::move(params));
 
@@ -248,7 +248,7 @@ void test_wavenet_prewarm()
   const int kernel_size = 3;
   std::vector<int> dilations{1, 2, 4};
   const std::string activation = "ReLU";
-  const bool gated = false;
+  const nam::wavenet::GatingMode gating_mode = nam::wavenet::GatingMode::NONE;
   const bool head_bias = false;
   const float head_scale = 1.0f;
   const bool with_head = false;
@@ -259,8 +259,8 @@ void test_wavenet_prewarm()
   nam::wavenet::Head1x1Params head1x1_params(head1x1_active, channels, 1);
 
   nam::wavenet::LayerArrayParams params(input_size, condition_size, head_size, channels, bottleneck, kernel_size,
-                                        std::move(dilations), activation, gated, head_bias, groups, groups_1x1,
-                                        head1x1_params);
+                                        std::move(dilations), activation, gating_mode, head_bias, groups, groups_1x1,
+                                        head1x1_params, "");
   std::vector<nam::wavenet::LayerArrayParams> layer_array_params;
   layer_array_params.push_back(std::move(params));
 

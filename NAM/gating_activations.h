@@ -37,7 +37,13 @@ public:
   , gating_activation(gating_act)
   , num_channels(input_channels)
   {
-    assert(num_channels > 0);
+    if (num_channels <= 0)
+    {
+      throw std::invalid_argument("GatingActivation: number of input channels must be positive");
+    }
+    // Initialize input buffer with correct size
+    // Note: current code copies column-by-column so we only need (num_channels, 1)
+    input_buffer.resize(num_channels, 1);
   }
 
   ~GatingActivation() = default;
@@ -47,7 +53,8 @@ public:
    * @param input Input matrix with shape (input_channels + gating_channels) x num_samples
    * @param output Output matrix with shape input_channels x num_samples
    */
-  void apply(Eigen::MatrixXf& input, Eigen::MatrixXf& output)
+  template <typename InputDerived, typename OutputDerived>
+  void apply(const Eigen::MatrixBase<InputDerived>& input, Eigen::MatrixBase<OutputDerived>& output)
   {
     // Validate input dimensions (assert for real-time performance)
     const int total_channels = 2 * num_channels;
@@ -59,6 +66,9 @@ public:
     const int num_samples = input.cols();
     for (int i = 0; i < num_samples; i++)
     {
+      // Store pre-activation input values in buffer to avoid overwriting issues
+      input_buffer = input.block(0, i, num_channels, 1);
+
       // Apply activation to input channels
       Eigen::MatrixXf input_block = input.block(0, i, num_channels, 1);
       input_activation->apply(input_block);
@@ -87,6 +97,7 @@ private:
   activations::Activation* input_activation;
   activations::Activation* gating_activation;
   int num_channels;
+  Eigen::MatrixXf input_buffer;
 };
 
 class BlendingActivation
@@ -103,10 +114,8 @@ public:
   , blending_activation(blend_act)
   , num_channels(input_channels)
   {
-    if (num_channels <= 0)
-    {
-      throw std::invalid_argument("BlendingActivation: number of input channels must be positive");
-    }
+    assert(num_channels > 0);
+
     // Initialize input buffer with correct size
     // Note: current code copies column-by-column so we only need (num_channels, 1)
     input_buffer.resize(num_channels, 1);
@@ -119,7 +128,8 @@ public:
    * @param input Input matrix with shape (input_channels + blend_channels) x num_samples
    * @param output Output matrix with shape input_channels x num_samples
    */
-  void apply(Eigen::MatrixXf& input, Eigen::MatrixXf& output)
+  template <typename InputDerived, typename OutputDerived>
+  void apply(const Eigen::MatrixBase<InputDerived>& input, Eigen::MatrixBase<OutputDerived>& output)
   {
     // Validate input dimensions (assert for real-time performance)
     const int total_channels = num_channels * 2; // 2*channels in, channels out

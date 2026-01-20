@@ -21,6 +21,7 @@
 #include "test/test_blending_detailed.cpp"
 #include "test/test_input_buffer_verification.cpp"
 #include "test/test_lstm.cpp"
+#include "test/test_wavenet_configurable_gating.cpp"
 
 int main()
 {
@@ -176,6 +177,9 @@ int main()
   // Input buffer verification tests
   test_input_buffer_verification::TestInputBufferVerification::test_buffer_stores_pre_activation_values();
   test_input_buffer_verification::TestInputBufferVerification::test_buffer_with_different_activations();
+
+  // Configurable gating/blending tests
+  run_configurable_gating_tests();
 
   test_get_dsp::test_gets_input_level();
   test_get_dsp::test_gets_output_level();

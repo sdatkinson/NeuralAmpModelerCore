@@ -28,7 +28,7 @@ std::unique_ptr<nam::wavenet::WaveNet> create_simple_wavenet(
   const int kernel_size = 1;
   std::vector<int> dilations{1};
   const std::string activation = "ReLU";
-  const bool gated = false;
+  const nam::wavenet::GatingMode gating_mode = nam::wavenet::GatingMode::NONE;
   const bool head_bias = false;
   const bool with_head = false;
   const int groups = 1;
@@ -38,8 +38,8 @@ std::unique_ptr<nam::wavenet::WaveNet> create_simple_wavenet(
   nam::wavenet::Head1x1Params head1x1_params(head1x1_active, channels, head1x1_groups);
 
   nam::wavenet::LayerArrayParams params(input_size, condition_size, head_size, channels, bottleneck, kernel_size,
-                                        std::move(dilations), activation, gated, head_bias, groups, groups_1x1,
-                                        head1x1_params);
+                                        std::move(dilations), activation, gating_mode, head_bias, groups, groups_1x1,
+                                        head1x1_params, "");
   std::vector<nam::wavenet::LayerArrayParams> layer_array_params;
   layer_array_params.push_back(std::move(params));
 
