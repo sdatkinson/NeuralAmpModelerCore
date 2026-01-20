@@ -33,9 +33,13 @@ std::unique_ptr<nam::wavenet::WaveNet> create_simple_wavenet(
   const bool with_head = false;
   const int groups = 1;
   const int groups_1x1 = 1;
+  const bool head1x1_active = false;
+  const int head1x1_groups = 1;
+  nam::wavenet::Head1x1Params head1x1_params(head1x1_active, channels, head1x1_groups);
 
   nam::wavenet::LayerArrayParams params(input_size, condition_size, head_size, channels, bottleneck, kernel_size,
-                                        std::move(dilations), activation, gated, head_bias, groups, groups_1x1);
+                                        std::move(dilations), activation, gated, head_bias, groups, groups_1x1,
+                                        head1x1_params);
   std::vector<nam::wavenet::LayerArrayParams> layer_array_params;
   layer_array_params.push_back(std::move(params));
 

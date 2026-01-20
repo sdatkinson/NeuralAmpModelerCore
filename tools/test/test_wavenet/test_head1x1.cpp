@@ -26,10 +26,10 @@ void test_head1x1_inactive()
   const int groups_input = 1;
   const int groups_1x1 = 1;
   const bool head1x1_active = false;
-  
+
   nam::wavenet::Head1x1Params head1x1_params(head1x1_active, channels, 1);
-  auto layer = nam::wavenet::_Layer(
-    conditionSize, channels, bottleneck, kernelSize, dilation, activation, gated, groups_input, groups_1x1, head1x1_params);
+  auto layer = nam::wavenet::_Layer(conditionSize, channels, bottleneck, kernelSize, dilation, activation, gated,
+                                    groups_input, groups_1x1, head1x1_params);
 
   // Set weights (same as non-gated layer test)
   // With bottleneck=channels=2:
@@ -39,7 +39,7 @@ void test_head1x1_inactive()
   std::vector<float> weights{// Conv: weights=1.0, bias=0.0
                              1.0f, 0.0f, 0.0f, 1.0f, // weights (identity)
                              0.0f, 0.0f, // bias
-                             // Input mixin: weights=1.0
+                                         // Input mixin: weights=1.0
                              1.0f, 1.0f,
                              // 1x1: weights=1.0, bias=0.0
                              1.0f, 0.0f, 0.0f, 1.0f, // weights (identity)
@@ -93,11 +93,11 @@ void test_head1x1_active()
   const int groups_1x1 = 1;
   const bool head1x1_active = true;
   const int head1x1_groups = 1;
-  
+
   // Create head1x1 with different out_channels to verify it's being used
   nam::wavenet::Head1x1Params head1x1_params(head1x1_active, channels, head1x1_groups);
-  auto layer = nam::wavenet::_Layer(
-    conditionSize, channels, bottleneck, kernelSize, dilation, activation, gated, groups_input, groups_1x1, head1x1_params);
+  auto layer = nam::wavenet::_Layer(conditionSize, channels, bottleneck, kernelSize, dilation, activation, gated,
+                                    groups_input, groups_1x1, head1x1_params);
 
   // Set weights: conv, input_mixin, 1x1, head1x1
   // With bottleneck=channels=2:
@@ -108,7 +108,7 @@ void test_head1x1_active()
   std::vector<float> weights{// Conv: weights=1.0, bias=0.0
                              1.0f, 0.0f, 0.0f, 1.0f, // weights (identity)
                              0.0f, 0.0f, // bias
-                             // Input mixin: weights=1.0
+                                         // Input mixin: weights=1.0
                              1.0f, 1.0f,
                              // 1x1: weights=1.0, bias=0.0
                              1.0f, 0.0f, 0.0f, 1.0f, // weights (identity)
@@ -166,10 +166,10 @@ void test_head1x1_gated()
   const int groups_1x1 = 1;
   const bool head1x1_active = true;
   const int head1x1_groups = 1;
-  
+
   nam::wavenet::Head1x1Params head1x1_params(head1x1_active, channels, head1x1_groups);
-  auto layer = nam::wavenet::_Layer(
-    conditionSize, channels, bottleneck, kernelSize, dilation, activation, gated, groups_input, groups_1x1, head1x1_params);
+  auto layer = nam::wavenet::_Layer(conditionSize, channels, bottleneck, kernelSize, dilation, activation, gated,
+                                    groups_input, groups_1x1, head1x1_params);
 
   // For gated: conv outputs 2*bottleneck, input_mixin outputs 2*bottleneck, 1x1 outputs channels
   // head1x1 outputs channels
@@ -178,28 +178,27 @@ void test_head1x1_gated()
   // Input mixin: (conditionSize, 2*bottleneck) = (1, 4) = 4 weights
   // 1x1: (bottleneck, channels) + bias = (2, 2) + 2 = 4 + 2 = 6 weights
   // head1x1: (bottleneck, head1x1_out_channels) + bias = (2, 2) + 2 = 4 + 2 = 6 weights
-  std::vector<float> weights{
-    // Conv: (channels, 2*bottleneck, kernelSize=1) weights + (2*bottleneck,) bias
-    // Weight layout: for each kernel position, for each output channel, for each input channel
-    // For kernel position 0:
-    // Output channel 0: connects to input channels 0 and 1
-    1.0f, 0.0f, // output channel 0
-    // Output channel 1: connects to input channels 0 and 1
-    0.0f, 1.0f, // output channel 1
-    // Output channel 2: connects to input channels 0 and 1
-    1.0f, 0.0f, // output channel 2
-    // Output channel 3: connects to input channels 0 and 1
-    0.0f, 1.0f, // output channel 3
-    // Bias: 2*bottleneck values
-    0.0f, 0.0f, 0.0f, 0.0f,
-    // Input mixin: (conditionSize, 2*bottleneck) weights (all 1.0 for simplicity)
-    1.0f, 1.0f, 1.0f, 1.0f,
-    // 1x1: (bottleneck, channels) weights + (channels,) bias (identity)
-    1.0f, 0.0f, 0.0f, 1.0f, // weights (identity)
-    0.0f, 0.0f, // bias
-    // head1x1: (bottleneck, head1x1_out_channels) weights + (head1x1_out_channels,) bias
-    0.5f, 0.0f, 0.0f, 0.5f, // weights
-    0.1f, 0.1f};
+  std::vector<float> weights{// Conv: (channels, 2*bottleneck, kernelSize=1) weights + (2*bottleneck,) bias
+                             // Weight layout: for each kernel position, for each output channel, for each input channel
+                             // For kernel position 0:
+                             // Output channel 0: connects to input channels 0 and 1
+                             1.0f, 0.0f, // output channel 0
+                             // Output channel 1: connects to input channels 0 and 1
+                             0.0f, 1.0f, // output channel 1
+                             // Output channel 2: connects to input channels 0 and 1
+                             1.0f, 0.0f, // output channel 2
+                             // Output channel 3: connects to input channels 0 and 1
+                             0.0f, 1.0f, // output channel 3
+                             // Bias: 2*bottleneck values
+                             0.0f, 0.0f, 0.0f, 0.0f,
+                             // Input mixin: (conditionSize, 2*bottleneck) weights (all 1.0 for simplicity)
+                             1.0f, 1.0f, 1.0f, 1.0f,
+                             // 1x1: (bottleneck, channels) weights + (channels,) bias (identity)
+                             1.0f, 0.0f, 0.0f, 1.0f, // weights (identity)
+                             0.0f, 0.0f, // bias
+                             // head1x1: (bottleneck, head1x1_out_channels) weights + (head1x1_out_channels,) bias
+                             0.5f, 0.0f, 0.0f, 0.5f, // weights
+                             0.1f, 0.1f};
 
   auto it = weights.begin();
   layer.set_weights_(it);
@@ -222,7 +221,7 @@ void test_head1x1_gated()
   // Layer output should have 'channels' rows
   assert(layer_output.rows() == channels);
   assert(layer_output.cols() == numFrames);
-  
+
   // Head output should have head1x1_out_channels rows (same as channels in this case)
   assert(head_output.rows() == head1x1_params.out_channels);
   assert(head_output.cols() == numFrames);
@@ -257,10 +256,10 @@ void test_head1x1_groups()
   const int groups_1x1 = 1;
   const bool head1x1_active = true;
   const int head1x1_groups = 2; // Grouped head1x1
-  
+
   nam::wavenet::Head1x1Params head1x1_params(head1x1_active, channels, head1x1_groups);
-  auto layer = nam::wavenet::_Layer(
-    conditionSize, channels, bottleneck, kernelSize, dilation, activation, gated, groups_input, groups_1x1, head1x1_params);
+  auto layer = nam::wavenet::_Layer(conditionSize, channels, bottleneck, kernelSize, dilation, activation, gated,
+                                    groups_input, groups_1x1, head1x1_params);
 
   // With grouped head1x1, we need to provide weights for each group
   // For groups=2, channels=4, bottleneck=4: each group has 2 in_channels and 2 out_channels
@@ -291,7 +290,7 @@ void test_head1x1_groups()
     // head1x1: for each group, (out_channels_per_group, in_channels_per_group) + bias_per_group
     // Group 1: (2,2) weights + 2 bias
     1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f,
-    // Group 2: (2,2) weights + 2 bias  
+    // Group 2: (2,2) weights + 2 bias
     1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f};
 
   auto it = weights.begin();
@@ -338,10 +337,10 @@ void test_head1x1_different_out_channels()
   const bool head1x1_active = true;
   const int head1x1_out_channels = 2; // Different from bottleneck
   const int head1x1_groups = 1;
-  
+
   nam::wavenet::Head1x1Params head1x1_params(head1x1_active, head1x1_out_channels, head1x1_groups);
-  auto layer = nam::wavenet::_Layer(
-    conditionSize, channels, bottleneck, kernelSize, dilation, activation, gated, groups_input, groups_1x1, head1x1_params);
+  auto layer = nam::wavenet::_Layer(conditionSize, channels, bottleneck, kernelSize, dilation, activation, gated,
+                                    groups_input, groups_1x1, head1x1_params);
 
   // head1x1 should map from bottleneck to head1x1_out_channels
   // With channels=4, bottleneck=4, head1x1_out_channels=2:
@@ -349,27 +348,26 @@ void test_head1x1_different_out_channels()
   // Input mixin: (conditionSize, bottleneck) = (1, 4) = 4 weights
   // 1x1: (bottleneck, channels) + bias = (4, 4) + 4 = 16 + 4 = 20 weights
   // head1x1: (bottleneck, head1x1_out_channels) + bias = (4, 2) + 2 = 8 + 2 = 10 weights
-  std::vector<float> weights{
-    // Conv: (channels, bottleneck, kernelSize=1) + bias (identity weights)
-    1.0f, 0.0f, 0.0f, 0.0f, // output channel 0
-    0.0f, 1.0f, 0.0f, 0.0f, // output channel 1
-    0.0f, 0.0f, 1.0f, 0.0f, // output channel 2
-    0.0f, 0.0f, 0.0f, 1.0f, // output channel 3
-    // Conv bias: bottleneck values
-    0.0f, 0.0f, 0.0f, 0.0f,
-    // Input mixin: (conditionSize, bottleneck) weights
-    1.0f, 1.0f, 1.0f, 1.0f,
-    // 1x1: (bottleneck, channels) + bias (identity weights)
-    1.0f, 0.0f, 0.0f, 0.0f, // output channel 0
-    0.0f, 1.0f, 0.0f, 0.0f, // output channel 1
-    0.0f, 0.0f, 1.0f, 0.0f, // output channel 2
-    0.0f, 0.0f, 0.0f, 1.0f, // output channel 3
-    // 1x1 bias: channels values
-    0.0f, 0.0f, 0.0f, 0.0f,
-    // head1x1: (bottleneck, head1x1_out_channels) + bias
-    0.5f, 0.5f, 0.5f, 0.5f, // weights for output channel 0 (average all input channels)
-    0.5f, 0.5f, 0.5f, 0.5f, // weights for output channel 1 (average all input channels)
-    0.1f, 0.1f}; // bias for output channels 0 and 1
+  std::vector<float> weights{// Conv: (channels, bottleneck, kernelSize=1) + bias (identity weights)
+                             1.0f, 0.0f, 0.0f, 0.0f, // output channel 0
+                             0.0f, 1.0f, 0.0f, 0.0f, // output channel 1
+                             0.0f, 0.0f, 1.0f, 0.0f, // output channel 2
+                             0.0f, 0.0f, 0.0f, 1.0f, // output channel 3
+                             // Conv bias: bottleneck values
+                             0.0f, 0.0f, 0.0f, 0.0f,
+                             // Input mixin: (conditionSize, bottleneck) weights
+                             1.0f, 1.0f, 1.0f, 1.0f,
+                             // 1x1: (bottleneck, channels) + bias (identity weights)
+                             1.0f, 0.0f, 0.0f, 0.0f, // output channel 0
+                             0.0f, 1.0f, 0.0f, 0.0f, // output channel 1
+                             0.0f, 0.0f, 1.0f, 0.0f, // output channel 2
+                             0.0f, 0.0f, 0.0f, 1.0f, // output channel 3
+                             // 1x1 bias: channels values
+                             0.0f, 0.0f, 0.0f, 0.0f,
+                             // head1x1: (bottleneck, head1x1_out_channels) + bias
+                             0.5f, 0.5f, 0.5f, 0.5f, // weights for output channel 0 (average all input channels)
+                             0.5f, 0.5f, 0.5f, 0.5f, // weights for output channel 1 (average all input channels)
+                             0.1f, 0.1f}; // bias for output channels 0 and 1
 
   auto it = weights.begin();
   layer.set_weights_(it);

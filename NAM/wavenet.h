@@ -18,7 +18,11 @@ namespace wavenet
 struct Head1x1Params
 {
   Head1x1Params(bool active_, int out_channels_, int groups_)
-    : active(active_), out_channels(out_channels_), groups(groups_) {}
+  : active(active_)
+  , out_channels(out_channels_)
+  , groups(groups_)
+  {
+  }
 
   const bool active;
   const int out_channels;
@@ -35,7 +39,7 @@ public:
   , _input_mixin(condition_size, gated ? 2 * bottleneck : bottleneck, false)
   , _1x1(bottleneck, channels, groups_1x1)
   , _activation(activations::Activation::get_activation(activation)) // needs to support activations with parameters
-  , _gated(gated) 
+  , _gated(gated)
   , _bottleneck(bottleneck)
   {
     if (head1x1_params.active)
@@ -43,7 +47,7 @@ public:
       _head1x1 = std::make_unique<Conv1x1>(bottleneck, head1x1_params.out_channels, true, head1x1_params.groups);
     }
   };
- 
+
   // Resize all arrays to be able to process `maxBufferSize` frames.
   void SetMaxBufferSize(const int maxBufferSize);
   // Set the parameters of this module
