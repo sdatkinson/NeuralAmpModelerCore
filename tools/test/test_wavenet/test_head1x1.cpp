@@ -22,13 +22,13 @@ void test_head1x1_inactive()
   const int kernelSize = 1;
   const int dilation = 1;
   const std::string activation = "ReLU";
-  const bool gated = false;
+  const nam::wavenet::GatingMode gating_mode = nam::wavenet::GatingMode::NONE;
   const int groups_input = 1;
   const int groups_1x1 = 1;
   const bool head1x1_active = false;
 
   nam::wavenet::Head1x1Params head1x1_params(head1x1_active, channels, 1);
-  auto layer = nam::wavenet::_Layer(conditionSize, channels, bottleneck, kernelSize, dilation, activation, gated,
+  auto layer = nam::wavenet::_Layer(conditionSize, channels, bottleneck, kernelSize, dilation, activation, gating_mode,
                                     groups_input, groups_1x1, head1x1_params);
 
   // Set weights (same as non-gated layer test)
@@ -88,7 +88,7 @@ void test_head1x1_active()
   const int kernelSize = 1;
   const int dilation = 1;
   const std::string activation = "ReLU";
-  const bool gated = false;
+  const nam::wavenet::GatingMode gating_mode = nam::wavenet::GatingMode::NONE;
   const int groups_input = 1;
   const int groups_1x1 = 1;
   const bool head1x1_active = true;
@@ -96,7 +96,7 @@ void test_head1x1_active()
 
   // Create head1x1 with different out_channels to verify it's being used
   nam::wavenet::Head1x1Params head1x1_params(head1x1_active, channels, head1x1_groups);
-  auto layer = nam::wavenet::_Layer(conditionSize, channels, bottleneck, kernelSize, dilation, activation, gated,
+  auto layer = nam::wavenet::_Layer(conditionSize, channels, bottleneck, kernelSize, dilation, activation, gating_mode,
                                     groups_input, groups_1x1, head1x1_params);
 
   // Set weights: conv, input_mixin, 1x1, head1x1
@@ -161,14 +161,14 @@ void test_head1x1_gated()
   const int kernelSize = 1;
   const int dilation = 1;
   const std::string activation = "ReLU";
-  const bool gated = true;
+  const nam::wavenet::GatingMode gating_mode = nam::wavenet::GatingMode::GATED;
   const int groups_input = 1;
   const int groups_1x1 = 1;
   const bool head1x1_active = true;
   const int head1x1_groups = 1;
 
   nam::wavenet::Head1x1Params head1x1_params(head1x1_active, channels, head1x1_groups);
-  auto layer = nam::wavenet::_Layer(conditionSize, channels, bottleneck, kernelSize, dilation, activation, gated,
+  auto layer = nam::wavenet::_Layer(conditionSize, channels, bottleneck, kernelSize, dilation, activation, gating_mode,
                                     groups_input, groups_1x1, head1x1_params);
 
   // For gated: conv outputs 2*bottleneck, input_mixin outputs 2*bottleneck, 1x1 outputs channels
@@ -251,14 +251,14 @@ void test_head1x1_groups()
   const int kernelSize = 1;
   const int dilation = 1;
   const std::string activation = "ReLU";
-  const bool gated = false;
+  const nam::wavenet::GatingMode gating_mode = nam::wavenet::GatingMode::NONE;
   const int groups_input = 1;
   const int groups_1x1 = 1;
   const bool head1x1_active = true;
   const int head1x1_groups = 2; // Grouped head1x1
 
   nam::wavenet::Head1x1Params head1x1_params(head1x1_active, channels, head1x1_groups);
-  auto layer = nam::wavenet::_Layer(conditionSize, channels, bottleneck, kernelSize, dilation, activation, gated,
+  auto layer = nam::wavenet::_Layer(conditionSize, channels, bottleneck, kernelSize, dilation, activation, gating_mode,
                                     groups_input, groups_1x1, head1x1_params);
 
   // With grouped head1x1, we need to provide weights for each group
@@ -331,7 +331,7 @@ void test_head1x1_different_out_channels()
   const int kernelSize = 1;
   const int dilation = 1;
   const std::string activation = "ReLU";
-  const bool gated = false;
+  const nam::wavenet::GatingMode gating_mode = nam::wavenet::GatingMode::NONE;
   const int groups_input = 1;
   const int groups_1x1 = 1;
   const bool head1x1_active = true;
@@ -339,7 +339,7 @@ void test_head1x1_different_out_channels()
   const int head1x1_groups = 1;
 
   nam::wavenet::Head1x1Params head1x1_params(head1x1_active, head1x1_out_channels, head1x1_groups);
-  auto layer = nam::wavenet::_Layer(conditionSize, channels, bottleneck, kernelSize, dilation, activation, gated,
+  auto layer = nam::wavenet::_Layer(conditionSize, channels, bottleneck, kernelSize, dilation, activation, gating_mode,
                                     groups_input, groups_1x1, head1x1_params);
 
   // head1x1 should map from bottleneck to head1x1_out_channels
@@ -353,7 +353,7 @@ void test_head1x1_different_out_channels()
                              0.0f, 1.0f, 0.0f, 0.0f, // output channel 1
                              0.0f, 0.0f, 1.0f, 0.0f, // output channel 2
                              0.0f, 0.0f, 0.0f, 1.0f, // output channel 3
-                             // Conv bias: bottleneck values
+                                                     // Conv bias: bottleneck values
                              0.0f, 0.0f, 0.0f, 0.0f,
                              // Input mixin: (conditionSize, bottleneck) weights
                              1.0f, 1.0f, 1.0f, 1.0f,
@@ -362,7 +362,7 @@ void test_head1x1_different_out_channels()
                              0.0f, 1.0f, 0.0f, 0.0f, // output channel 1
                              0.0f, 0.0f, 1.0f, 0.0f, // output channel 2
                              0.0f, 0.0f, 0.0f, 1.0f, // output channel 3
-                             // 1x1 bias: channels values
+                                                     // 1x1 bias: channels values
                              0.0f, 0.0f, 0.0f, 0.0f,
                              // head1x1: (bottleneck, head1x1_out_channels) + bias
                              0.5f, 0.5f, 0.5f, 0.5f, // weights for output channel 0 (average all input channels)
