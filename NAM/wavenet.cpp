@@ -52,10 +52,27 @@ void nam::wavenet::_Layer::Process(const Eigen::MatrixXf& input, const Eigen::Ma
   const long bottleneck = this->_bottleneck; // Use the actual bottleneck value, not the doubled output channels
 
   // Step 1: input convolutions
-  this->_conv.Process(input, num_frames);
+  if (this->_conv_pre_film != nullptr)
+  {
+    this->_conv_pre_film->Process(input, condition, num_frames);
+    this->_conv.Process(this->_conv_pre_film->GetOutput(), num_frames);
+  }
+  else
+  {
+    this->_conv.Process(input, num_frames);
+  }
+
   this->_input_mixin.process_(condition, num_frames);
-  this->_z.leftCols(num_frames).noalias() =
-    this->_conv.GetOutput().leftCols(num_frames) + _input_mixin.GetOutput().leftCols(num_frames);
+  if (this->_conv_post_film != nullptr)
+  {
+    this->_conv_post_film->Process(this->_conv.GetOutput(), condition, num_frames);
+    this->_z.leftCols(num_frames).noalias() = this->_conv_post_film->GetOutput().leftCols(num_frames);
+  }
+  else
+  {
+    this->_z.leftCols(num_frames).noalias() = this->_conv.GetOutput().leftCols(num_frames);
+  }
+  this->_z.leftCols(num_frames).noalias() += _input_mixin.GetOutput().leftCols(num_frames);
 
   // Step 2 & 3: activation and 1x1
   //
