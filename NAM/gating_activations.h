@@ -53,7 +53,7 @@ public:
    * @param input Input matrix with shape (input_channels + gating_channels) x num_samples
    * @param output Output matrix with shape input_channels x num_samples
    */
-  template<typename InputDerived, typename OutputDerived>
+  template <typename InputDerived, typename OutputDerived>
   void apply(const Eigen::MatrixBase<InputDerived>& input, Eigen::MatrixBase<OutputDerived>& output)
   {
     // Validate input dimensions (assert for real-time performance)
@@ -81,7 +81,6 @@ public:
       // For wavenet compatibility, we assume one-to-one mapping
       output.block(0, i, num_channels, 1) = input_block.array() * gating_block.array();
     }
-    
   }
 
   /**
@@ -129,7 +128,7 @@ public:
    * @param input Input matrix with shape (input_channels + blend_channels) x num_samples
    * @param output Output matrix with shape input_channels x num_samples
    */
-  template<typename InputDerived, typename OutputDerived>
+  template <typename InputDerived, typename OutputDerived>
   void apply(const Eigen::MatrixBase<InputDerived>& input, Eigen::MatrixBase<OutputDerived>& output)
   {
     // Validate input dimensions (assert for real-time performance)
