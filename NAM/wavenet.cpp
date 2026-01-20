@@ -111,15 +111,14 @@ nam::wavenet::_LayerArray::_LayerArray(const int input_size, const int condition
                                        const std::vector<int>& dilations, const std::string activation,
                                        const GatingMode gating_mode, const bool head_bias, const int groups_input,
                                        const int groups_1x1, const Head1x1Params& head1x1_params,
-                                       const std::string& gating_activation, const std::string& blending_activation)
+                                       const std::string& secondary_activation)
 : _rechannel(input_size, channels, false)
 , _head_rechannel(bottleneck, head_size, head_bias)
 , _bottleneck(bottleneck)
 {
   for (size_t i = 0; i < dilations.size(); i++)
     this->_layers.push_back(_Layer(condition_size, channels, bottleneck, kernel_size, dilations[i], activation,
-                                   gating_mode, groups_input, groups_1x1, head1x1_params, gating_activation,
-                                   blending_activation));
+                                   gating_mode, groups_input, groups_1x1, head1x1_params, secondary_activation));
 }
 
 void nam::wavenet::_LayerArray::SetMaxBufferSize(const int maxBufferSize)
@@ -271,8 +270,7 @@ nam::wavenet::WaveNet::WaveNet(const int in_channels,
       layer_array_params[i].channels, layer_array_params[i].bottleneck, layer_array_params[i].kernel_size,
       layer_array_params[i].dilations, layer_array_params[i].activation, layer_array_params[i].gating_mode,
       layer_array_params[i].head_bias, layer_array_params[i].groups_input, layer_array_params[i].groups_1x1,
-      layer_array_params[i].head1x1_params, layer_array_params[i].gating_activation,
-      layer_array_params[i].blending_activation));
+      layer_array_params[i].head1x1_params, layer_array_params[i].secondary_activation));
     if (i > 0)
       if (layer_array_params[i].channels != layer_array_params[i - 1].head_size)
       {
@@ -477,8 +475,7 @@ std::unique_ptr<nam::DSP> nam::wavenet::Factory(const nlohmann::json& config, st
     const std::string activation = layer_config["activation"].get<std::string>();
     // Parse gating mode - support both old "gated" boolean and new "gating_mode" string
     GatingMode gating_mode = GatingMode::NONE;
-    std::string gating_activation;
-    std::string blending_activation;
+    std::string secondary_activation;
 
     if (layer_config.find("gating_mode") != layer_config.end())
     {
@@ -486,20 +483,17 @@ std::unique_ptr<nam::DSP> nam::wavenet::Factory(const nlohmann::json& config, st
       if (gating_mode_str == "gated")
       {
         gating_mode = GatingMode::GATED;
-        gating_activation = layer_config["gating_activation"].get<std::string>();
-        blending_activation.clear();
+        secondary_activation = layer_config["secondary_activation"].get<std::string>();
       }
       else if (gating_mode_str == "blended")
       {
         gating_mode = GatingMode::BLENDED;
-        blending_activation = layer_config["blending_activation"].get<std::string>();
-        gating_activation.clear();
+        secondary_activation = layer_config["secondary_activation"].get<std::string>();
       }
       else if (gating_mode_str == "none")
       {
         gating_mode = GatingMode::NONE;
-        gating_activation.clear();
-        blending_activation.clear();
+        secondary_activation.clear();
       }
       else
         throw std::runtime_error("Invalid gating_mode: " + gating_mode_str);
@@ -511,18 +505,16 @@ std::unique_ptr<nam::DSP> nam::wavenet::Factory(const nlohmann::json& config, st
       gating_mode = gated ? GatingMode::GATED : GatingMode::NONE;
       if (gated)
       {
-        gating_activation = "Sigmoid";
-        blending_activation.clear();
+        secondary_activation = "Sigmoid";
       }
       else
       {
-        gating_activation.clear();
-        blending_activation.clear();
+        secondary_activation.clear();
       }
     }
     else
     {
-      throw std::invalid_argument("No information on gatung mode found for layer array " + std::to_string(i));
+      throw std::invalid_argument("No information on gating mode found for layer array " + std::to_string(i));
     }
 
     const bool head_bias = layer_config["head_bias"];
@@ -535,7 +527,7 @@ std::unique_ptr<nam::DSP> nam::wavenet::Factory(const nlohmann::json& config, st
 
     layer_array_params.push_back(nam::wavenet::LayerArrayParams(
       input_size, condition_size, head_size, channels, bottleneck, kernel_size, dilations, activation, gating_mode,
-      head_bias, groups, groups_1x1, head1x1_params, gating_activation, blending_activation));
+      head_bias, groups, groups_1x1, head1x1_params, secondary_activation));
   }
   const bool with_head = !config["head"].is_null();
   const float head_scale = config["head_scale"];

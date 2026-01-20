@@ -51,8 +51,7 @@ public:
   // New constructor with GatingMode enum and configurable activations
   _Layer(const int condition_size, const int channels, const int bottleneck, const int kernel_size, const int dilation,
          const std::string activation, const GatingMode gating_mode, const int groups_input, const int groups_1x1,
-         const Head1x1Params& head1x1_params, const std::string& gating_activation,
-         const std::string& blending_activation)
+         const Head1x1Params& head1x1_params, const std::string& secondary_activation)
   : _conv(channels, (gating_mode != GatingMode::NONE) ? 2 * bottleneck : bottleneck, kernel_size, true, dilation)
   , _input_mixin(condition_size, (gating_mode != GatingMode::NONE) ? 2 * bottleneck : bottleneck, false)
   , _1x1(bottleneck, channels, groups_1x1)
@@ -68,24 +67,22 @@ public:
     // Validate & initialize gating/blending activation
     if (gating_mode == GatingMode::GATED)
     {
+      if (secondary_activation.empty())
+        throw std::invalid_argument("secondary_activation must be provided for gated mode");
       _gating_activation = std::make_unique<gating_activations::GatingActivation>(
-        _activation, activations::Activation::get_activation(gating_activation), bottleneck);
+        _activation, activations::Activation::get_activation(secondary_activation), bottleneck);
     }
     else if (gating_mode == GatingMode::BLENDED)
     {
+      if (secondary_activation.empty())
+        throw std::invalid_argument("secondary_activation must be provided for blended mode");
       _blending_activation = std::make_unique<gating_activations::BlendingActivation>(
-        _activation, activations::Activation::get_activation(blending_activation), bottleneck);
+        _activation, activations::Activation::get_activation(secondary_activation), bottleneck);
     }
     else
     {
-      if (!gating_activation.empty())
-      {
-        throw std::invalid_argument("Gating activation provided for non-gated mode");
-      }
-      if (!blending_activation.empty())
-      {
-        throw std::invalid_argument("Blending activation provided for non-gated mode");
-      }
+      if (!secondary_activation.empty())
+        throw std::invalid_argument("secondary_activation provided for none mode");
     }
   };
 
@@ -153,7 +150,7 @@ public:
                    const int bottleneck_, const int kernel_size_, const std::vector<int>&& dilations_,
                    const std::string activation_, const GatingMode gating_mode_, const bool head_bias_,
                    const int groups_input, const int groups_1x1_, const Head1x1Params& head1x1_params_,
-                   const std::string& gating_activation_, const std::string& blending_activation_)
+                   const std::string& secondary_activation_)
   : input_size(input_size_)
   , condition_size(condition_size_)
   , head_size(head_size_)
@@ -167,8 +164,7 @@ public:
   , groups_input(groups_input)
   , groups_1x1(groups_1x1_)
   , head1x1_params(head1x1_params_)
-  , gating_activation(gating_activation_)
-  , blending_activation(blending_activation_)
+  , secondary_activation(secondary_activation_)
   {
   }
 
@@ -185,8 +181,7 @@ public:
   const int groups_input;
   const int groups_1x1;
   const Head1x1Params head1x1_params;
-  const std::string gating_activation;
-  const std::string blending_activation;
+  const std::string secondary_activation;
 };
 
 // An array of layers with the same channels, kernel sizes, activations.
@@ -197,8 +192,7 @@ public:
   _LayerArray(const int input_size, const int condition_size, const int head_size, const int channels,
               const int bottleneck, const int kernel_size, const std::vector<int>& dilations,
               const std::string activation, const GatingMode gating_mode, const bool head_bias, const int groups_input,
-              const int groups_1x1, const Head1x1Params& head1x1_params, const std::string& gating_activation,
-              const std::string& blending_activation);
+              const int groups_1x1, const Head1x1Params& head1x1_params, const std::string& secondary_activation);
 
   void SetMaxBufferSize(const int maxBufferSize);
 
