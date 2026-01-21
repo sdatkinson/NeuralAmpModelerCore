@@ -207,7 +207,8 @@ public:
   Eigen::MatrixXf process(const Eigen::MatrixXf& input) const { return process(input, (int)input.cols()); };
   Eigen::MatrixXf process(const Eigen::MatrixXf& input, const int num_frames) const;
   // Store output to pre-allocated _output; access with GetOutput()
-  void process_(const Eigen::MatrixXf& input, const int num_frames);
+  // Uses Eigen::Ref to accept matrices and block expressions without creating temporaries (real-time safe)
+  void process_(const Eigen::Ref<const Eigen::MatrixXf>& input, const int num_frames);
 
   long get_out_channels() const { return this->_weight.rows(); };
   long get_in_channels() const { return this->_weight.cols(); };

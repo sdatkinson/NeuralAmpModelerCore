@@ -417,7 +417,7 @@ Eigen::MatrixXf nam::Conv1x1::process(const Eigen::MatrixXf& input, const int nu
   return result;
 }
 
-void nam::Conv1x1::process_(const Eigen::MatrixXf& input, const int num_frames)
+void nam::Conv1x1::process_(const Eigen::Ref<const Eigen::MatrixXf>& input, const int num_frames)
 {
   assert(num_frames <= _output.cols());
 

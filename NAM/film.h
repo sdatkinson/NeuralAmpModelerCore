@@ -47,7 +47,9 @@ public:
   // :param input: (input_dim x num_frames)
   // :param condition: (condition_dim x num_frames)
   // Writes (input_dim x num_frames) into internal output buffer; access via GetOutput().
-  void Process(const Eigen::MatrixXf& input, const Eigen::MatrixXf& condition, const int num_frames)
+  // Uses Eigen::Ref to accept matrices and block expressions without creating temporaries (real-time safe)
+  void Process(const Eigen::Ref<const Eigen::MatrixXf>& input, const Eigen::Ref<const Eigen::MatrixXf>& condition,
+               const int num_frames)
   {
     assert(get_input_dim() == input.rows());
     assert(get_condition_dim() == condition.rows());
@@ -72,7 +74,9 @@ public:
   }
 
   // in-place
-  void Process_(Eigen::MatrixXf& input, const Eigen::MatrixXf& condition, const int num_frames)
+  // Uses Eigen::Ref to accept matrices and block expressions without creating temporaries (real-time safe)
+  void Process_(Eigen::Ref<Eigen::MatrixXf> input, const Eigen::Ref<const Eigen::MatrixXf>& condition,
+                const int num_frames)
   {
     Process(input, condition, num_frames);
     input.leftCols(num_frames).noalias() = _output.leftCols(num_frames);
