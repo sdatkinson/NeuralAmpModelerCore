@@ -584,7 +584,7 @@ std::unique_ptr<nam::DSP> nam::wavenet::Factory(const nlohmann::json& config, st
   {
     nlohmann::json layer_config = config["layers"][i];
 
-    const int groups = layer_config.value("groups", 1); // defaults to 1
+    const int groups = layer_config.value("groups_input", 1); // defaults to 1
     const int groups_input_mixin = layer_config.value("groups_input_mixin", 1); // defaults to 1
     const int groups_1x1 = layer_config.value("groups_1x1", 1); // defaults to 1
 
