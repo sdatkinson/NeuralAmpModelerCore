@@ -710,12 +710,12 @@ void test_layer_post_activation_film_gated_realtime_safe()
   auto layer =
     nam::wavenet::_Layer(condition_size, channels, bottleneck, kernel_size, dilation, activation, gating_mode,
                          groups_input, groups_input_mixin, groups_1x1, head1x1_params, secondary_activation,
-                         inactive_film, // pre_input_film
-                         inactive_film, // pre_condition_film
+                         inactive_film, // conv_pre_film
                          inactive_film, // conv_post_film
+                         inactive_film, // input_mixin_pre_film
                          inactive_film, // input_mixin_post_film
+                         inactive_film, // activation_pre_film
                          active_film, // activation_post_film - THIS IS THE KEY ONE
-                         inactive_film, // _1x1_pre_film
                          inactive_film, // _1x1_post_film
                          inactive_film // head1x1_post_film
     );
@@ -738,23 +738,19 @@ void test_layer_post_activation_film_gated_realtime_safe()
   weights.push_back(0.5f); // ch0
   weights.push_back(0.5f); // ch1
 
-  // 1x1 weights: (channels, bottleneck) + bias = (2, 1) + 2 = 2 + 2 = 4
+  // 1x1 weights: (bottleneck, channels) + bias = (1, 2) + 2 = 2 + 2 = 4
   weights.push_back(1.0f);
   weights.push_back(1.0f);
   weights.push_back(0.0f); // bias
   weights.push_back(0.0f);
 
-  // activation_post_film: Conv1x1(condition_size, 2*bottleneck, bias=true) = (1, 2, bias) = 2 + 2 = 4
+  // activation_post_film: FiLM(condition_size, bottleneck, shift=true)
+  // Creates Conv1x1(condition_size, 2*bottleneck, bias=true) internally
+  // Weight count: (1 * 2) + 2 = 4 weights
   weights.push_back(1.0f); // scale weight
   weights.push_back(0.0f); // shift weight
   weights.push_back(1.0f); // scale bias
   weights.push_back(0.0f); // shift bias
-
-  // TODO: Figure out where these 4 extra weights go - placeholder for now
-  weights.push_back(0.0f);
-  weights.push_back(0.0f);
-  weights.push_back(0.0f);
-  weights.push_back(0.0f);
 
   auto it = weights.begin();
   layer.set_weights_(it);
@@ -821,12 +817,12 @@ void test_layer_post_activation_film_blended_realtime_safe()
   auto layer =
     nam::wavenet::_Layer(condition_size, channels, bottleneck, kernel_size, dilation, activation, gating_mode,
                          groups_input, groups_input_mixin, groups_1x1, head1x1_params, secondary_activation,
-                         inactive_film, // pre_input_film
-                         inactive_film, // pre_condition_film
+                         inactive_film, // conv_pre_film
                          inactive_film, // conv_post_film
+                         inactive_film, // input_mixin_pre_film
                          inactive_film, // input_mixin_post_film
+                         inactive_film, // activation_pre_film
                          active_film, // activation_post_film - THIS IS THE KEY ONE
-                         inactive_film, // _1x1_pre_film
                          inactive_film, // _1x1_post_film
                          inactive_film // head1x1_post_film
     );
@@ -849,23 +845,19 @@ void test_layer_post_activation_film_blended_realtime_safe()
   weights.push_back(0.5f); // ch0
   weights.push_back(0.5f); // ch1
 
-  // 1x1 weights: (channels, bottleneck) + bias = (2, 1) + 2 = 2 + 2 = 4
+  // 1x1 weights: (bottleneck, channels) + bias = (1, 2) + 2 = 2 + 2 = 4
   weights.push_back(1.0f);
   weights.push_back(1.0f);
   weights.push_back(0.0f); // bias
   weights.push_back(0.0f);
 
-  // activation_post_film: Conv1x1(condition_size, 2*bottleneck, bias=true) = (1, 2, bias) = 2 + 2 = 4
+  // activation_post_film: FiLM(condition_size, bottleneck, shift=true)
+  // Creates Conv1x1(condition_size, 2*bottleneck, bias=true) internally
+  // Weight count: (1 * 2) + 2 = 4 weights
   weights.push_back(1.0f); // scale weight
   weights.push_back(0.0f); // shift weight
   weights.push_back(1.0f); // scale bias
   weights.push_back(0.0f); // shift bias
-
-  // TODO: Figure out where these 4 extra weights go - placeholder for now
-  weights.push_back(0.0f);
-  weights.push_back(0.0f);
-  weights.push_back(0.0f);
-  weights.push_back(0.0f);
 
   auto it = weights.begin();
   layer.set_weights_(it);
