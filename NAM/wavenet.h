@@ -134,7 +134,7 @@ private:
   // Output to head (skip connection: activated conv output)
   Eigen::MatrixXf _output_head;
 
-  activations::Activation* _activation;
+  activations::Activation::Ptr _activation;
   const GatingMode _gating_mode;
   const int _bottleneck; // Internal channel count (not doubled when gated)
 

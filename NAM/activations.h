@@ -3,6 +3,7 @@
 #include <cassert>
 #include <string>
 #include <cmath> // expf
+#include <memory>
 #include <unordered_map>
 #include <Eigen/Dense>
 #include <functional>
@@ -92,6 +93,9 @@ inline float hardswish(float x)
 class Activation
 {
 public:
+  // Type alias for shared pointer to Activation
+  using Ptr = std::shared_ptr<Activation>;
+
   Activation() = default;
   virtual ~Activation() = default;
   virtual void apply(Eigen::MatrixXf& matrix) { apply(matrix.data(), matrix.rows() * matrix.cols()); }
@@ -102,8 +106,8 @@ public:
   }
   virtual void apply(float* data, long size) {}
 
-  static Activation* get_activation(const std::string name);
-  static Activation* get_activation(const nlohmann::json& activation_config);
+  static Ptr get_activation(const std::string name);
+  static Ptr get_activation(const nlohmann::json& activation_config);
   static void enable_fast_tanh();
   static void disable_fast_tanh();
   static bool using_fast_tanh;
@@ -111,7 +115,7 @@ public:
   static void disable_lut(std::string function_name);
 
 protected:
-  static std::unordered_map<std::string, Activation*> _activations;
+  static std::unordered_map<std::string, Ptr> _activations;
 };
 
 // identity function activation

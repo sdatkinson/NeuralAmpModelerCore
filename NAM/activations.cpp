@@ -1,29 +1,43 @@
 #include "activations.h"
 
-nam::activations::ActivationTanh _TANH = nam::activations::ActivationTanh();
-nam::activations::ActivationFastTanh _FAST_TANH = nam::activations::ActivationFastTanh();
-nam::activations::ActivationHardTanh _HARD_TANH = nam::activations::ActivationHardTanh();
-nam::activations::ActivationReLU _RELU = nam::activations::ActivationReLU();
-nam::activations::ActivationLeakyReLU _LEAKY_RELU =
-  nam::activations::ActivationLeakyReLU(0.01); // FIXME does not parameterize LeakyReLU
-nam::activations::ActivationPReLU _PRELU = nam::activations::ActivationPReLU(0.01); // Same as leaky ReLU by default
-nam::activations::ActivationSigmoid _SIGMOID = nam::activations::ActivationSigmoid();
-nam::activations::ActivationSwish _SWISH = nam::activations::ActivationSwish();
-nam::activations::ActivationHardSwish _HARD_SWISH = nam::activations::ActivationHardSwish();
-nam::activations::ActivationLeakyHardTanh _LEAKY_HARD_TANH = nam::activations::ActivationLeakyHardTanh();
+// Global singleton instances (statically allocated, never deleted)
+static nam::activations::ActivationTanh _TANH;
+static nam::activations::ActivationFastTanh _FAST_TANH;
+static nam::activations::ActivationHardTanh _HARD_TANH;
+static nam::activations::ActivationReLU _RELU;
+static nam::activations::ActivationLeakyReLU _LEAKY_RELU(0.01); // FIXME does not parameterize LeakyReLU
+static nam::activations::ActivationPReLU _PRELU(0.01); // Same as leaky ReLU by default
+static nam::activations::ActivationSigmoid _SIGMOID;
+static nam::activations::ActivationSwish _SWISH;
+static nam::activations::ActivationHardSwish _HARD_SWISH;
+static nam::activations::ActivationLeakyHardTanh _LEAKY_HARD_TANH;
 
 bool nam::activations::Activation::using_fast_tanh = false;
 
-std::unordered_map<std::string, nam::activations::Activation*> nam::activations::Activation::_activations = {
-  {"Tanh", &_TANH},  {"Hardtanh", &_HARD_TANH},   {"Fasttanh", &_FAST_TANH},
-  {"ReLU", &_RELU},  {"LeakyReLU", &_LEAKY_RELU}, {"Sigmoid", &_SIGMOID},
-  {"SiLU", &_SWISH}, {"Hardswish", &_HARD_SWISH}, {"LeakyHardtanh", &_LEAKY_HARD_TANH},
-  {"PReLU", &_PRELU}};
+// Helper to create a non-owning shared_ptr (no-op deleter) for singletons
+template<typename T>
+nam::activations::Activation::Ptr make_singleton_ptr(T& singleton)
+{
+  return nam::activations::Activation::Ptr(&singleton, [](nam::activations::Activation*){});
+}
 
-nam::activations::Activation* tanh_bak = nullptr;
-nam::activations::Activation* sigmoid_bak = nullptr;
+std::unordered_map<std::string, nam::activations::Activation::Ptr> nam::activations::Activation::_activations = {
+  {"Tanh", make_singleton_ptr(_TANH)},
+  {"Hardtanh", make_singleton_ptr(_HARD_TANH)},
+  {"Fasttanh", make_singleton_ptr(_FAST_TANH)},
+  {"ReLU", make_singleton_ptr(_RELU)},
+  {"LeakyReLU", make_singleton_ptr(_LEAKY_RELU)},
+  {"Sigmoid", make_singleton_ptr(_SIGMOID)},
+  {"SiLU", make_singleton_ptr(_SWISH)},
+  {"Hardswish", make_singleton_ptr(_HARD_SWISH)},
+  {"LeakyHardtanh", make_singleton_ptr(_LEAKY_HARD_TANH)},
+  {"PReLU", make_singleton_ptr(_PRELU)}
+};
 
-nam::activations::Activation* nam::activations::Activation::get_activation(const std::string name)
+nam::activations::Activation::Ptr tanh_bak = nullptr;
+nam::activations::Activation::Ptr sigmoid_bak = nullptr;
+
+nam::activations::Activation::Ptr nam::activations::Activation::get_activation(const std::string name)
 {
   if (_activations.find(name) == _activations.end())
     return nullptr;
@@ -31,7 +45,7 @@ nam::activations::Activation* nam::activations::Activation::get_activation(const
   return _activations[name];
 }
 
-nam::activations::Activation* nam::activations::Activation::get_activation(const nlohmann::json& activation_config)
+nam::activations::Activation::Ptr nam::activations::Activation::get_activation(const nlohmann::json& activation_config)
 {
   // If it's a string, use the existing string-based lookup
   if (activation_config.is_string())
@@ -39,32 +53,33 @@ nam::activations::Activation* nam::activations::Activation::get_activation(const
     std::string name = activation_config.get<std::string>();
     return get_activation(name);
   }
-  
+
   // If it's an object, parse the activation type and parameters
   if (activation_config.is_object())
   {
     std::string type = activation_config["type"].get<std::string>();
-    
+
     // Handle different activation types with parameters
+    // These return owning shared_ptr (will be deleted when last reference goes out of scope)
     if (type == "PReLU")
     {
       if (activation_config.find("negative_slope") != activation_config.end())
       {
         float negative_slope = activation_config["negative_slope"].get<float>();
-        return new ActivationPReLU(negative_slope);
+        return std::make_shared<ActivationPReLU>(negative_slope);
       }
       else if (activation_config.find("negative_slopes") != activation_config.end())
       {
         std::vector<float> negative_slopes = activation_config["negative_slopes"].get<std::vector<float>>();
-        return new ActivationPReLU(negative_slopes);
+        return std::make_shared<ActivationPReLU>(negative_slopes);
       }
       // If no parameters provided, use default
-      return new ActivationPReLU(0.01);
+      return std::make_shared<ActivationPReLU>(0.01f);
     }
     else if (type == "LeakyReLU")
     {
       float negative_slope = activation_config.value("negative_slope", 0.01f);
-      return new ActivationLeakyReLU(negative_slope);
+      return std::make_shared<ActivationLeakyReLU>(negative_slope);
     }
     else if (type == "LeakyHardTanh")
     {
@@ -72,7 +87,7 @@ nam::activations::Activation* nam::activations::Activation::get_activation(const
       float max_val = activation_config.value("max_val", 1.0f);
       float min_slope = activation_config.value("min_slope", 0.01f);
       float max_slope = activation_config.value("max_slope", 0.01f);
-      return new ActivationLeakyHardTanh(min_val, max_val, min_slope, max_slope);
+      return std::make_shared<ActivationLeakyHardTanh>(min_val, max_val, min_slope, max_slope);
     }
     else
     {
@@ -80,7 +95,7 @@ nam::activations::Activation* nam::activations::Activation::get_activation(const
       return get_activation(type);
     }
   }
-  
+
   return nullptr;
 }
 
@@ -122,8 +137,7 @@ void nam::activations::Activation::enable_lut(std::string function_name, float m
   {
     throw std::runtime_error("Tried to enable LUT for a function other than Tanh or Sigmoid");
   }
-  FastLUTActivation lut_activation(min, max, n_points, fn);
-  _activations[function_name] = &lut_activation;
+  _activations[function_name] = std::make_shared<FastLUTActivation>(min, max, n_points, fn);
 }
 
 void nam::activations::Activation::disable_lut(std::string function_name)

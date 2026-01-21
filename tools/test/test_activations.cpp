@@ -41,7 +41,7 @@ public:
   {
     const std::string name = "Fasttanh";
     auto a = nam::activations::Activation::get_activation(name);
-    _test_class(a);
+    _test_class(a.get());
   }
 
 private:
@@ -94,7 +94,7 @@ public:
   {
     const std::string name = "LeakyReLU";
     auto a = nam::activations::Activation::get_activation(name);
-    _test_class(a);
+    _test_class(a.get());
   }
 
 private:
@@ -203,7 +203,7 @@ public:
     nlohmann::json str_activation = "ReLU";
     auto act = nam::activations::Activation::get_activation(str_activation);
     assert(act != nullptr);
-    // Don't delete global activation objects
+    // shared_ptr handles memory management automatically
   }
 
   static void test_json_prelu_single_slope()
@@ -214,7 +214,7 @@ public:
     };
     auto act = nam::activations::Activation::get_activation(prelu_single);
     assert(act != nullptr);
-    delete act; // Delete dynamically allocated object
+    // shared_ptr handles memory management automatically
   }
 
   static void test_json_prelu_multi_slope()
@@ -225,7 +225,7 @@ public:
     };
     auto act = nam::activations::Activation::get_activation(prelu_multi);
     assert(act != nullptr);
-    delete act; // Delete dynamically allocated object
+    // shared_ptr handles memory management automatically
   }
 
   static void test_json_leaky_relu()
@@ -236,7 +236,7 @@ public:
     };
     auto act = nam::activations::Activation::get_activation(leaky_relu);
     assert(act != nullptr);
-    delete act; // Delete dynamically allocated object
+    // shared_ptr handles memory management automatically
   }
 
   static void test_json_leaky_hardtanh()
@@ -250,7 +250,7 @@ public:
     };
     auto act = nam::activations::Activation::get_activation(leaky_hardtanh);
     assert(act != nullptr);
-    delete act; // Delete dynamically allocated object
+    // shared_ptr handles memory management automatically
   }
 
   static void test_json_unknown_activation()
@@ -266,7 +266,7 @@ public:
   {
     // Create test data with 4 channels and 3 time steps
     Eigen::MatrixXf test_data(4, 3);
-    test_data << 
+    test_data <<
       -1.0, -0.5, 0.0,
       -2.0, 0.0, 1.0,
       -0.5, 0.5, 1.5,
@@ -304,8 +304,7 @@ public:
         }
       }
     }
-
-    delete functional_act;
+    // shared_ptr handles memory management automatically
   }
 };
 

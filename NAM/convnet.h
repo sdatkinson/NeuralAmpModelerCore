@@ -58,7 +58,7 @@ public:
 private:
   BatchNorm batchnorm;
   bool _batchnorm = false;
-  activations::Activation* activation = nullptr;
+  activations::Activation::Ptr activation;
   Eigen::MatrixXf _output; // Output buffer owned by the block
 };
 
