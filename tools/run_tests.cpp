@@ -134,6 +134,8 @@ int main()
   test_wavenet::test_layer_process_realtime_safe();
   test_wavenet::test_layer_bottleneck_process_realtime_safe();
   test_wavenet::test_layer_grouped_process_realtime_safe();
+  test_wavenet::test_layer_all_films_with_shift_realtime_safe();
+  test_wavenet::test_layer_all_films_without_shift_realtime_safe();
   test_wavenet::test_layer_array_process_realtime_safe();
   test_wavenet::test_process_realtime_safe();
   test_wavenet::test_process_3in_2out_realtime_safe();
