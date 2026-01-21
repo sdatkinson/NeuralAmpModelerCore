@@ -121,7 +121,7 @@ static nam::wavenet::_Layer make_layer(const int condition_size, const int chann
   return nam::wavenet::_Layer(condition_size, channels, bottleneck, kernel_size, dilation, activation_config,
                               gating_mode, groups_input, groups_input_mixin, groups_1x1, head1x1_params,
                               secondary_activation, film_params, film_params, film_params, film_params, film_params,
-                              film_params, film_params, film_params, film_params);
+                              film_params, film_params, film_params);
 }
 
 // Helper function to create a LayerArray with default FiLM parameters
@@ -133,10 +133,10 @@ static nam::wavenet::_LayerArray make_layer_array(
   const std::string& secondary_activation)
 {
   auto film_params = make_default_film_params();
-  return nam::wavenet::_LayerArray(
-    input_size, condition_size, head_size, channels, bottleneck, kernel_size, dilations, activation_config, gating_mode,
-    head_bias, groups_input, groups_input_mixin, groups_1x1, head1x1_params, secondary_activation, film_params,
-    film_params, film_params, film_params, film_params, film_params, film_params, film_params, film_params);
+  return nam::wavenet::_LayerArray(input_size, condition_size, head_size, channels, bottleneck, kernel_size, dilations,
+                                   activation_config, gating_mode, head_bias, groups_input, groups_input_mixin,
+                                   groups_1x1, head1x1_params, secondary_activation, film_params, film_params,
+                                   film_params, film_params, film_params, film_params, film_params, film_params);
 }
 
 // Helper function to create LayerArrayParams with default FiLM parameters
@@ -148,11 +148,10 @@ static nam::wavenet::LayerArrayParams make_layer_array_params(
   const std::string& secondary_activation)
 {
   auto film_params = make_default_film_params();
-  return nam::wavenet::LayerArrayParams(input_size, condition_size, head_size, channels, bottleneck, kernel_size,
-                                        std::move(dilations), activation_config, gating_mode, head_bias, groups_input,
-                                        groups_input_mixin, groups_1x1, head1x1_params, secondary_activation,
-                                        film_params, film_params, film_params, film_params, film_params, film_params,
-                                        film_params, film_params, film_params);
+  return nam::wavenet::LayerArrayParams(
+    input_size, condition_size, head_size, channels, bottleneck, kernel_size, std::move(dilations), activation_config,
+    gating_mode, head_bias, groups_input, groups_input_mixin, groups_1x1, head1x1_params, secondary_activation,
+    film_params, film_params, film_params, film_params, film_params, film_params, film_params, film_params);
 }
 
 // Helper function to create a Layer with all FiLMs active
@@ -171,7 +170,7 @@ static nam::wavenet::_Layer make_layer_all_films(const int condition_size, const
   return nam::wavenet::_Layer(condition_size, channels, bottleneck, kernel_size, dilation, activation_config,
                               gating_mode, groups_input, groups_input_mixin, groups_1x1, head1x1_params,
                               secondary_activation, film_params, film_params, film_params, film_params, film_params,
-                              film_params, film_params, film_params, head1x1_post_film_params);
+                              film_params, film_params, head1x1_post_film_params);
 }
 // Helper function to run allocation tracking tests
 // setup: Function to run before tracking starts (can be nullptr)
@@ -784,8 +783,8 @@ static void test_layer_all_films_realtime_safe_impl(const bool shift)
   // FiLM weights (each FiLM uses Conv1x1: condition_size -> (shift ? 2 : 1) * input_dim with bias)
   // With shift=true: each FiLM needs (2 * input_dim) * condition_size weights + (2 * input_dim) biases = 4 weights
   // With shift=false: each FiLM needs input_dim * condition_size weights + input_dim biases = 2 weights
-  // All 8 FiLMs are active (excluding head1x1_post_film since head1x1 is false)
-  for (int i = 0; i < 8; i++)
+  // All 7 FiLMs are active (excluding head1x1_post_film since head1x1 is false)
+  for (int i = 0; i < 7; i++)
   {
     if (shift)
     {

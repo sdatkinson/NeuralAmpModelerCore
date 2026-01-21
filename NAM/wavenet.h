@@ -68,8 +68,8 @@ public:
          const std::string& secondary_activation, const _FiLMParams& conv_pre_film_params,
          const _FiLMParams& conv_post_film_params, const _FiLMParams& input_mixin_pre_film_params,
          const _FiLMParams& input_mixin_post_film_params, const _FiLMParams& activation_pre_film_params,
-         const _FiLMParams& activation_post_film_params, const _FiLMParams& gating_activation_post_film_params,
-         const _FiLMParams& _1x1_post_film_params, const _FiLMParams& head1x1_post_film_params)
+         const _FiLMParams& activation_post_film_params, const _FiLMParams& _1x1_post_film_params,
+         const _FiLMParams& head1x1_post_film_params)
   : _conv(channels, (gating_mode != GatingMode::NONE) ? 2 * bottleneck : bottleneck, kernel_size, true, dilation)
   , _input_mixin(
       condition_size, (gating_mode != GatingMode::NONE) ? 2 * bottleneck : bottleneck, false, groups_input_mixin)
@@ -140,11 +140,6 @@ public:
     if (activation_post_film_params.active)
     {
       _activation_post_film = std::make_unique<FiLM>(condition_size, bottleneck, activation_post_film_params.shift);
-    }
-    if (gating_activation_post_film_params.active)
-    {
-      _gating_activation_post_film =
-        std::make_unique<FiLM>(condition_size, bottleneck, gating_activation_post_film_params.shift);
     }
     if (_1x1_post_film_params.active)
     {
@@ -220,7 +215,6 @@ private:
   std::unique_ptr<FiLM> _input_mixin_post_film;
   std::unique_ptr<FiLM> _activation_pre_film;
   std::unique_ptr<FiLM> _activation_post_film;
-  std::unique_ptr<FiLM> _gating_activation_post_film;
   std::unique_ptr<FiLM> _1x1_post_film;
   std::unique_ptr<FiLM> _head1x1_post_film;
 };
@@ -236,8 +230,7 @@ public:
                    const _FiLMParams& conv_pre_film_params_, const _FiLMParams& conv_post_film_params_,
                    const _FiLMParams& input_mixin_pre_film_params_, const _FiLMParams& input_mixin_post_film_params_,
                    const _FiLMParams& activation_pre_film_params_, const _FiLMParams& activation_post_film_params_,
-                   const _FiLMParams& gating_activation_post_film_params_, const _FiLMParams& _1x1_post_film_params_,
-                   const _FiLMParams& head1x1_post_film_params_)
+                   const _FiLMParams& _1x1_post_film_params_, const _FiLMParams& head1x1_post_film_params_)
   : input_size(input_size_)
   , condition_size(condition_size_)
   , head_size(head_size_)
@@ -259,7 +252,6 @@ public:
   , input_mixin_post_film_params(input_mixin_post_film_params_)
   , activation_pre_film_params(activation_pre_film_params_)
   , activation_post_film_params(activation_post_film_params_)
-  , gating_activation_post_film_params(gating_activation_post_film_params_)
   , _1x1_post_film_params(_1x1_post_film_params_)
   , head1x1_post_film_params(head1x1_post_film_params_)
   {
@@ -286,7 +278,6 @@ public:
   const _FiLMParams input_mixin_post_film_params;
   const _FiLMParams activation_pre_film_params;
   const _FiLMParams activation_post_film_params;
-  const _FiLMParams gating_activation_post_film_params;
   const _FiLMParams _1x1_post_film_params;
   const _FiLMParams head1x1_post_film_params;
 };
@@ -304,8 +295,7 @@ public:
               const _FiLMParams& conv_pre_film_params, const _FiLMParams& conv_post_film_params,
               const _FiLMParams& input_mixin_pre_film_params, const _FiLMParams& input_mixin_post_film_params,
               const _FiLMParams& activation_pre_film_params, const _FiLMParams& activation_post_film_params,
-              const _FiLMParams& gating_activation_post_film_params, const _FiLMParams& _1x1_post_film_params,
-              const _FiLMParams& head1x1_post_film_params);
+              const _FiLMParams& _1x1_post_film_params, const _FiLMParams& head1x1_post_film_params);
 
   void SetMaxBufferSize(const int maxBufferSize);
 

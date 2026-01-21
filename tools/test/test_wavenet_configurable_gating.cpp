@@ -28,7 +28,7 @@ static nam::wavenet::_Layer make_layer(const int condition_size, const int chann
   return nam::wavenet::_Layer(condition_size, channels, bottleneck, kernel_size, dilation, activation_config,
                               gating_mode, groups_input, groups_input_mixin, groups_1x1, head1x1_params,
                               secondary_activation, film_params, film_params, film_params, film_params, film_params,
-                              film_params, film_params, film_params, film_params);
+                              film_params, film_params, film_params);
 }
 
 // Helper function to create LayerArrayParams with default FiLM parameters
@@ -40,11 +40,10 @@ static nam::wavenet::LayerArrayParams make_layer_array_params(
   const std::string& secondary_activation)
 {
   auto film_params = make_default_film_params();
-  return nam::wavenet::LayerArrayParams(input_size, condition_size, head_size, channels, bottleneck, kernel_size,
-                                        std::move(dilations), activation_config, gating_mode, head_bias, groups_input,
-                                        groups_input_mixin, groups_1x1, head1x1_params, secondary_activation,
-                                        film_params, film_params, film_params, film_params, film_params, film_params,
-                                        film_params, film_params, film_params);
+  return nam::wavenet::LayerArrayParams(
+    input_size, condition_size, head_size, channels, bottleneck, kernel_size, std::move(dilations), activation_config,
+    gating_mode, head_bias, groups_input, groups_input_mixin, groups_1x1, head1x1_params, secondary_activation,
+    film_params, film_params, film_params, film_params, film_params, film_params, film_params, film_params);
 }
 
 // Helper function to create a LayerArray with default FiLM parameters
@@ -56,10 +55,10 @@ static nam::wavenet::_LayerArray make_layer_array(
   const std::string& secondary_activation)
 {
   auto film_params = make_default_film_params();
-  return nam::wavenet::_LayerArray(
-    input_size, condition_size, head_size, channels, bottleneck, kernel_size, dilations, activation_config, gating_mode,
-    head_bias, groups_input, groups_input_mixin, groups_1x1, head1x1_params, secondary_activation, film_params,
-    film_params, film_params, film_params, film_params, film_params, film_params, film_params, film_params);
+  return nam::wavenet::_LayerArray(input_size, condition_size, head_size, channels, bottleneck, kernel_size, dilations,
+                                   activation_config, gating_mode, head_bias, groups_input, groups_input_mixin,
+                                   groups_1x1, head1x1_params, secondary_activation, film_params, film_params,
+                                   film_params, film_params, film_params, film_params, film_params, film_params);
 }
 
 class TestConfigurableGating
