@@ -81,6 +81,14 @@ public:
     {
       _head1x1 = std::make_unique<Conv1x1>(bottleneck, head1x1_params.out_channels, true, head1x1_params.groups);
     }
+    else
+    {
+      // If there's a post-head 1x1 FiLM but no head 1x1, this is redundant--don't allow it
+      if (head1x1_post_film_params.active)
+      {
+        throw std::invalid_argument("Do not use post-head 1x1 FiLM if there is no head 1x1");
+      }
+    }
 
     // Validate & initialize gating/blending activation
     if (gating_mode == GatingMode::GATED)
