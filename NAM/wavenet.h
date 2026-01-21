@@ -333,8 +333,6 @@ private:
   // Rechannel for the head (_head_output_size -> head_size)
   Conv1x1 _head_rechannel;
 
-  // Bottleneck size (internal channel count)
-  const int _bottleneck;
   // Head output size from each layer (head1x1.out_channels if active, else bottleneck)
   const int _head_output_size;
 

@@ -224,7 +224,6 @@ nam::wavenet::_LayerArray::_LayerArray(
   const _FiLMParams& head1x1_post_film_params)
 : _rechannel(input_size, channels, false)
 , _head_rechannel(head1x1_params.active ? head1x1_params.out_channels : bottleneck, head_size, head_bias)
-, _bottleneck(bottleneck)
 , _head_output_size(head1x1_params.active ? head1x1_params.out_channels : bottleneck)
 {
   for (size_t i = 0; i < dilations.size(); i++)
