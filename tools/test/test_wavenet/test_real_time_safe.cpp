@@ -3,105 +3,19 @@
 #include <Eigen/Dense>
 #include <cassert>
 #include <cmath>
-#include <cstdlib>
-#include <cstring>
-#include <dlfcn.h>
 #include <functional>
 #include <iostream>
-#include <new>
 #include <string>
 #include <vector>
 
 #include "NAM/wavenet.h"
 #include "NAM/conv1d.h"
-
-// Allocation tracking
-namespace
-{
-volatile int g_allocation_count = 0;
-volatile int g_deallocation_count = 0;
-volatile bool g_tracking_enabled = false;
-
-// Original malloc/free functions
-void* (*original_malloc)(size_t) = nullptr;
-void (*original_free)(void*) = nullptr;
-void* (*original_realloc)(void*, size_t) = nullptr;
-} // namespace
-
-// Override malloc/free to track Eigen allocations (Eigen uses malloc directly)
-extern "C" {
-void* malloc(size_t size)
-{
-  if (!original_malloc)
-    original_malloc = reinterpret_cast<void* (*)(size_t)>(dlsym(RTLD_NEXT, "malloc"));
-  void* ptr = original_malloc(size);
-  if (g_tracking_enabled && ptr != nullptr)
-    ++g_allocation_count;
-  return ptr;
-}
-
-void free(void* ptr)
-{
-  if (!original_free)
-    original_free = reinterpret_cast<void (*)(void*)>(dlsym(RTLD_NEXT, "free"));
-  if (g_tracking_enabled && ptr != nullptr)
-    ++g_deallocation_count;
-  original_free(ptr);
-}
-
-void* realloc(void* ptr, size_t size)
-{
-  if (!original_realloc)
-    original_realloc = reinterpret_cast<void* (*)(void*, size_t)>(dlsym(RTLD_NEXT, "realloc"));
-  void* new_ptr = original_realloc(ptr, size);
-  if (g_tracking_enabled)
-  {
-    if (ptr != nullptr && new_ptr != ptr)
-      ++g_deallocation_count; // Old pointer was freed
-    if (new_ptr != nullptr && new_ptr != ptr)
-      ++g_allocation_count; // New allocation
-  }
-  return new_ptr;
-}
-}
-
-// Overload global new/delete operators to track allocations
-void* operator new(std::size_t size)
-{
-  void* ptr = std::malloc(size);
-  if (!ptr)
-    throw std::bad_alloc();
-  if (g_tracking_enabled)
-    ++g_allocation_count;
-  return ptr;
-}
-
-void* operator new[](std::size_t size)
-{
-  void* ptr = std::malloc(size);
-  if (!ptr)
-    throw std::bad_alloc();
-  if (g_tracking_enabled)
-    ++g_allocation_count;
-  return ptr;
-}
-
-void operator delete(void* ptr) noexcept
-{
-  if (g_tracking_enabled && ptr != nullptr)
-    ++g_deallocation_count;
-  std::free(ptr);
-}
-
-void operator delete[](void* ptr) noexcept
-{
-  if (g_tracking_enabled && ptr != nullptr)
-    ++g_deallocation_count;
-  std::free(ptr);
-}
+#include "../allocation_tracking.h"
 
 namespace test_wavenet
 {
+using namespace allocation_tracking;
+
 // Helper function to create default (inactive) FiLM parameters
 static nam::wavenet::_FiLMParams make_default_film_params()
 {
@@ -173,86 +87,6 @@ static nam::wavenet::_Layer make_layer_all_films(const int condition_size, const
                               secondary_activation_config, film_params, film_params, film_params, film_params,
                               film_params, film_params, film_params, head1x1_post_film_params);
 }
-// Helper function to run allocation tracking tests
-// setup: Function to run before tracking starts (can be nullptr)
-// test: Function to run while tracking allocations (required)
-// teardown: Function to run after tracking stops (can be nullptr)
-// expected_allocations: Expected number of allocations (default 0)
-// expected_deallocations: Expected number of deallocations (default 0)
-// test_name: Name of the test for error messages
-template <typename TestFunc>
-void run_allocation_test(std::function<void()> setup, TestFunc test, std::function<void()> teardown,
-                         int expected_allocations, int expected_deallocations, const char* test_name)
-{
-  // Run setup if provided
-  if (setup)
-    setup();
-
-  // Reset allocation counters and enable tracking
-  g_allocation_count = 0;
-  g_deallocation_count = 0;
-  g_tracking_enabled = true;
-
-  // Run the test code
-  test();
-
-  // Disable tracking before any cleanup
-  g_tracking_enabled = false;
-
-  // Run teardown if provided
-  if (teardown)
-    teardown();
-
-  // Assert expected allocations/deallocations
-  if (g_allocation_count != expected_allocations || g_deallocation_count != expected_deallocations)
-  {
-    std::cerr << "ERROR: " << test_name << " - Expected " << expected_allocations << " allocations, "
-              << expected_deallocations << " deallocations. Got " << g_allocation_count << " allocations, "
-              << g_deallocation_count << " deallocations.\n";
-    std::abort();
-  }
-}
-
-// Convenience wrapper for tests that expect zero allocations (most common case)
-template <typename TestFunc>
-void run_allocation_test_no_allocations(std::function<void()> setup, TestFunc test, std::function<void()> teardown,
-                                        const char* test_name)
-{
-  run_allocation_test(setup, test, teardown, 0, 0, test_name);
-}
-
-// Convenience wrapper for tests that expect allocations (for testing the tracking mechanism)
-template <typename TestFunc>
-void run_allocation_test_expect_allocations(std::function<void()> setup, TestFunc test, std::function<void()> teardown,
-                                            const char* test_name)
-{
-  // Run setup if provided
-  if (setup)
-    setup();
-
-  // Reset allocation counters and enable tracking
-  g_allocation_count = 0;
-  g_deallocation_count = 0;
-  g_tracking_enabled = true;
-
-  // Run the test code
-  test();
-
-  // Disable tracking before any cleanup
-  g_tracking_enabled = false;
-
-  // Run teardown if provided
-  if (teardown)
-    teardown();
-
-  // Assert that allocations occurred (this test verifies our tracking works)
-  if (g_allocation_count == 0 && g_deallocation_count == 0)
-  {
-    std::cerr << "ERROR: " << test_name
-              << " - Expected allocations/deallocations but none occurred (tracking may not be working)\n";
-    std::abort();
-  }
-}
 
 // Test that pre-allocated Eigen operations with noalias() don't allocate
 void test_allocation_tracking_pass()
@@ -286,21 +120,15 @@ void test_allocation_tracking_pass()
   assert(std::abs(c(0, 0) - 2.0f * cols) < 0.001f);
 }
 
-// Test that resizing a matrix causes allocations (should be caught)
+// Test that creating a new matrix causes allocations (should be caught)
 void test_allocation_tracking_fail()
 {
-  const int rows = 10;
-  const int cols = 20;
-
-  // Pre-allocate matrix
-  Eigen::MatrixXf a(rows, cols);
-  a.setConstant(1.0f);
-
   run_allocation_test_expect_allocations(
     nullptr, // No setup needed
     [&]() {
-      // This operation should allocate (resizing requires reallocation)
-      a.resize(rows * 2, cols * 2);
+      // This operation should allocate (creating new matrix)
+      Eigen::MatrixXf a(10, 20);
+      a.setConstant(1.0f);
     },
     nullptr, // No teardown needed
     "test_allocation_tracking_fail");

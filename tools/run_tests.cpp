@@ -8,6 +8,7 @@
 #include "test/test_convnet.cpp"
 #include "test/test_dsp.cpp"
 #include "test/test_film.cpp"
+#include "test/test_film_realtime_safe.cpp"
 #include "test/test_fast_lut.cpp"
 #include "test/test_get_dsp.cpp"
 #include "test/test_ring_buffer.cpp"
@@ -117,6 +118,17 @@ int main()
   test_film::test_process_inplace_with_shift();
   test_film::test_process_inplace_scale_only();
   test_film::test_process_inplace_partial_frames();
+
+  test_film_realtime_safe::test_allocation_tracking_pass();
+  test_film_realtime_safe::test_allocation_tracking_fail();
+  test_film_realtime_safe::test_film_process_with_shift_realtime_safe();
+  test_film_realtime_safe::test_film_process_without_shift_realtime_safe();
+  test_film_realtime_safe::test_film_process_inplace_with_shift_realtime_safe();
+  test_film_realtime_safe::test_film_process_inplace_without_shift_realtime_safe();
+  test_film_realtime_safe::test_film_process_large_dimensions_realtime_safe();
+  test_film_realtime_safe::test_film_process_partial_frames_realtime_safe();
+  test_film_realtime_safe::test_film_process_varying_dimensions_realtime_safe();
+  test_film_realtime_safe::test_film_process_consecutive_calls_realtime_safe();
 
   test_wavenet::test_layer::test_gated();
   test_wavenet::test_layer::test_layer_getters();
