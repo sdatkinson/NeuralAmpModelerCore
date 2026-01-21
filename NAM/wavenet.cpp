@@ -219,23 +219,24 @@ void nam::wavenet::_Layer::Process(const Eigen::MatrixXf& input, const Eigen::Ma
 nam::wavenet::_LayerArray::_LayerArray(
   const int input_size, const int condition_size, const int head_size, const int channels, const int bottleneck,
   const int kernel_size, const std::vector<int>& dilations, const activations::ActivationConfig& activation_config,
-  const GatingMode gating_mode, const bool head_bias, const int groups_input, const int groups_1x1,
-  const Head1x1Params& head1x1_params, const std::string& secondary_activation, const _FiLMParams& conv_pre_film_params,
-  const _FiLMParams& conv_post_film_params, const _FiLMParams& input_mixin_pre_film_params,
-  const _FiLMParams& input_mixin_post_film_params, const _FiLMParams& activation_pre_film_params,
-  const _FiLMParams& activation_post_film_params, const _FiLMParams& gating_activation_post_film_params,
-  const _FiLMParams& _1x1_post_film_params, const _FiLMParams& head1x1_post_film_params)
+  const GatingMode gating_mode, const bool head_bias, const int groups_input, const int groups_input_mixin,
+  const int groups_1x1, const Head1x1Params& head1x1_params, const std::string& secondary_activation,
+  const _FiLMParams& conv_pre_film_params, const _FiLMParams& conv_post_film_params,
+  const _FiLMParams& input_mixin_pre_film_params, const _FiLMParams& input_mixin_post_film_params,
+  const _FiLMParams& activation_pre_film_params, const _FiLMParams& activation_post_film_params,
+  const _FiLMParams& gating_activation_post_film_params, const _FiLMParams& _1x1_post_film_params,
+  const _FiLMParams& head1x1_post_film_params)
 : _rechannel(input_size, channels, false)
 , _head_rechannel(bottleneck, head_size, head_bias)
 , _bottleneck(bottleneck)
 {
   for (size_t i = 0; i < dilations.size(); i++)
-    this->_layers.push_back(_Layer(condition_size, channels, bottleneck, kernel_size, dilations[i], activation_config,
-                                   gating_mode, groups_input, groups_1x1, head1x1_params, secondary_activation,
-                                   conv_pre_film_params, conv_post_film_params, input_mixin_pre_film_params,
-                                   input_mixin_post_film_params, activation_pre_film_params,
-                                   activation_post_film_params, gating_activation_post_film_params,
-                                   _1x1_post_film_params, head1x1_post_film_params));
+    this->_layers.push_back(
+      _Layer(condition_size, channels, bottleneck, kernel_size, dilations[i], activation_config, gating_mode,
+             groups_input, groups_input_mixin, groups_1x1, head1x1_params, secondary_activation, conv_pre_film_params,
+             conv_post_film_params, input_mixin_pre_film_params, input_mixin_post_film_params,
+             activation_pre_film_params, activation_post_film_params, gating_activation_post_film_params,
+             _1x1_post_film_params, head1x1_post_film_params));
 }
 
 void nam::wavenet::_LayerArray::SetMaxBufferSize(const int maxBufferSize)
@@ -386,13 +387,13 @@ nam::wavenet::WaveNet::WaveNet(const int in_channels,
       layer_array_params[i].input_size, layer_array_params[i].condition_size, layer_array_params[i].head_size,
       layer_array_params[i].channels, layer_array_params[i].bottleneck, layer_array_params[i].kernel_size,
       layer_array_params[i].dilations, layer_array_params[i].activation_config, layer_array_params[i].gating_mode,
-      layer_array_params[i].head_bias, layer_array_params[i].groups_input, layer_array_params[i].groups_1x1,
-      layer_array_params[i].head1x1_params, layer_array_params[i].secondary_activation,
-      layer_array_params[i].conv_pre_film_params, layer_array_params[i].conv_post_film_params,
-      layer_array_params[i].input_mixin_pre_film_params, layer_array_params[i].input_mixin_post_film_params,
-      layer_array_params[i].activation_pre_film_params, layer_array_params[i].activation_post_film_params,
-      layer_array_params[i].gating_activation_post_film_params, layer_array_params[i]._1x1_post_film_params,
-      layer_array_params[i].head1x1_post_film_params));
+      layer_array_params[i].head_bias, layer_array_params[i].groups_input, layer_array_params[i].groups_input_mixin,
+      layer_array_params[i].groups_1x1, layer_array_params[i].head1x1_params,
+      layer_array_params[i].secondary_activation, layer_array_params[i].conv_pre_film_params,
+      layer_array_params[i].conv_post_film_params, layer_array_params[i].input_mixin_pre_film_params,
+      layer_array_params[i].input_mixin_post_film_params, layer_array_params[i].activation_pre_film_params,
+      layer_array_params[i].activation_post_film_params, layer_array_params[i].gating_activation_post_film_params,
+      layer_array_params[i]._1x1_post_film_params, layer_array_params[i].head1x1_post_film_params));
     if (i > 0)
       if (layer_array_params[i].channels != layer_array_params[i - 1].head_size)
       {
@@ -584,6 +585,7 @@ std::unique_ptr<nam::DSP> nam::wavenet::Factory(const nlohmann::json& config, st
     nlohmann::json layer_config = config["layers"][i];
 
     const int groups = layer_config.value("groups", 1); // defaults to 1
+    const int groups_input_mixin = layer_config.value("groups_input_mixin", 1); // defaults to 1
     const int groups_1x1 = layer_config.value("groups_1x1", 1); // defaults to 1
 
     const int channels = layer_config["channels"];
@@ -674,10 +676,10 @@ std::unique_ptr<nam::DSP> nam::wavenet::Factory(const nlohmann::json& config, st
 
     layer_array_params.push_back(nam::wavenet::LayerArrayParams(
       input_size, condition_size, head_size, channels, bottleneck, kernel_size, dilations, activation_config,
-      gating_mode, head_bias, groups, groups_1x1, head1x1_params, secondary_activation, conv_pre_film_params,
-      conv_post_film_params, input_mixin_pre_film_params, input_mixin_post_film_params, activation_pre_film_params,
-      activation_post_film_params, gating_activation_post_film_params, _1x1_post_film_params,
-      head1x1_post_film_params));
+      gating_mode, head_bias, groups, groups_input_mixin, groups_1x1, head1x1_params, secondary_activation,
+      conv_pre_film_params, conv_post_film_params, input_mixin_pre_film_params, input_mixin_post_film_params,
+      activation_pre_film_params, activation_post_film_params, gating_activation_post_film_params,
+      _1x1_post_film_params, head1x1_post_film_params));
   }
   const bool with_head = !config["head"].is_null();
   const float head_scale = config["head_scale"];

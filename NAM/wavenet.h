@@ -64,14 +64,15 @@ public:
   // Constructor with GatingMode enum and typed ActivationConfig
   _Layer(const int condition_size, const int channels, const int bottleneck, const int kernel_size, const int dilation,
          const activations::ActivationConfig& activation_config, const GatingMode gating_mode, const int groups_input,
-         const int groups_1x1, const Head1x1Params& head1x1_params, const std::string& secondary_activation,
-         const _FiLMParams& conv_pre_film_params, const _FiLMParams& conv_post_film_params,
-         const _FiLMParams& input_mixin_pre_film_params, const _FiLMParams& input_mixin_post_film_params,
-         const _FiLMParams& activation_pre_film_params, const _FiLMParams& activation_post_film_params,
-         const _FiLMParams& gating_activation_post_film_params, const _FiLMParams& _1x1_post_film_params,
-         const _FiLMParams& head1x1_post_film_params)
+         const int groups_input_mixin, const int groups_1x1, const Head1x1Params& head1x1_params,
+         const std::string& secondary_activation, const _FiLMParams& conv_pre_film_params,
+         const _FiLMParams& conv_post_film_params, const _FiLMParams& input_mixin_pre_film_params,
+         const _FiLMParams& input_mixin_post_film_params, const _FiLMParams& activation_pre_film_params,
+         const _FiLMParams& activation_post_film_params, const _FiLMParams& gating_activation_post_film_params,
+         const _FiLMParams& _1x1_post_film_params, const _FiLMParams& head1x1_post_film_params)
   : _conv(channels, (gating_mode != GatingMode::NONE) ? 2 * bottleneck : bottleneck, kernel_size, true, dilation)
-  , _input_mixin(condition_size, (gating_mode != GatingMode::NONE) ? 2 * bottleneck : bottleneck, false)
+  , _input_mixin(
+      condition_size, (gating_mode != GatingMode::NONE) ? 2 * bottleneck : bottleneck, false, groups_input_mixin)
   , _1x1(bottleneck, channels, groups_1x1)
   , _activation(activations::Activation::get_activation(activation_config))
   , _gating_mode(gating_mode)
@@ -230,7 +231,7 @@ public:
   LayerArrayParams(const int input_size_, const int condition_size_, const int head_size_, const int channels_,
                    const int bottleneck_, const int kernel_size_, const std::vector<int>&& dilations_,
                    const activations::ActivationConfig& activation_, const GatingMode gating_mode_,
-                   const bool head_bias_, const int groups_input, const int groups_1x1_,
+                   const bool head_bias_, const int groups_input, const int groups_input_mixin_, const int groups_1x1_,
                    const Head1x1Params& head1x1_params_, const std::string& secondary_activation_,
                    const _FiLMParams& conv_pre_film_params_, const _FiLMParams& conv_post_film_params_,
                    const _FiLMParams& input_mixin_pre_film_params_, const _FiLMParams& input_mixin_post_film_params_,
@@ -248,6 +249,7 @@ public:
   , gating_mode(gating_mode_)
   , head_bias(head_bias_)
   , groups_input(groups_input)
+  , groups_input_mixin(groups_input_mixin_)
   , groups_1x1(groups_1x1_)
   , head1x1_params(head1x1_params_)
   , secondary_activation(secondary_activation_)
@@ -274,6 +276,7 @@ public:
   const GatingMode gating_mode;
   const bool head_bias;
   const int groups_input;
+  const int groups_input_mixin;
   const int groups_1x1;
   const Head1x1Params head1x1_params;
   const std::string secondary_activation;
@@ -296,12 +299,13 @@ public:
   _LayerArray(const int input_size, const int condition_size, const int head_size, const int channels,
               const int bottleneck, const int kernel_size, const std::vector<int>& dilations,
               const activations::ActivationConfig& activation_config, const GatingMode gating_mode,
-              const bool head_bias, const int groups_input, const int groups_1x1, const Head1x1Params& head1x1_params,
-              const std::string& secondary_activation, const _FiLMParams& conv_pre_film_params,
-              const _FiLMParams& conv_post_film_params, const _FiLMParams& input_mixin_pre_film_params,
-              const _FiLMParams& input_mixin_post_film_params, const _FiLMParams& activation_pre_film_params,
-              const _FiLMParams& activation_post_film_params, const _FiLMParams& gating_activation_post_film_params,
-              const _FiLMParams& _1x1_post_film_params, const _FiLMParams& head1x1_post_film_params);
+              const bool head_bias, const int groups_input, const int groups_input_mixin, const int groups_1x1,
+              const Head1x1Params& head1x1_params, const std::string& secondary_activation,
+              const _FiLMParams& conv_pre_film_params, const _FiLMParams& conv_post_film_params,
+              const _FiLMParams& input_mixin_pre_film_params, const _FiLMParams& input_mixin_post_film_params,
+              const _FiLMParams& activation_pre_film_params, const _FiLMParams& activation_post_film_params,
+              const _FiLMParams& gating_activation_post_film_params, const _FiLMParams& _1x1_post_film_params,
+              const _FiLMParams& head1x1_post_film_params);
 
   void SetMaxBufferSize(const int maxBufferSize);
 
