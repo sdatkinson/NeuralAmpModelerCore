@@ -326,14 +326,17 @@ private:
   std::vector<_Layer> _layers;
   // Output from last layer (for next layer array)
   Eigen::MatrixXf _layer_outputs;
-  // Accumulated head inputs from all layers (bottleneck channels)
+  // Accumulated head inputs from all layers
+  // Size is _head_output_size (= head1x1.out_channels if head1x1 active, else bottleneck)
   Eigen::MatrixXf _head_inputs;
 
-  // Rechannel for the head (bottleneck -> head_size)
+  // Rechannel for the head (_head_output_size -> head_size)
   Conv1x1 _head_rechannel;
 
   // Bottleneck size (internal channel count)
   const int _bottleneck;
+  // Head output size from each layer (head1x1.out_channels if active, else bottleneck)
+  const int _head_output_size;
 
   long _get_channels() const;
   // Common processing logic after head inputs are set

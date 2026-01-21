@@ -223,8 +223,9 @@ nam::wavenet::_LayerArray::_LayerArray(
   const _FiLMParams& activation_post_film_params, const _FiLMParams& _1x1_post_film_params,
   const _FiLMParams& head1x1_post_film_params)
 : _rechannel(input_size, channels, false)
-, _head_rechannel(bottleneck, head_size, head_bias)
+, _head_rechannel(head1x1_params.active ? head1x1_params.out_channels : bottleneck, head_size, head_bias)
 , _bottleneck(bottleneck)
+, _head_output_size(head1x1_params.active ? head1x1_params.out_channels : bottleneck)
 {
   for (size_t i = 0; i < dilations.size(); i++)
     this->_layers.push_back(
@@ -245,7 +246,8 @@ void nam::wavenet::_LayerArray::SetMaxBufferSize(const int maxBufferSize)
   // Pre-allocate output buffers
   const long channels = this->_get_channels();
   this->_layer_outputs.resize(channels, maxBufferSize);
-  this->_head_inputs.resize(this->_bottleneck, maxBufferSize);
+  // _head_inputs size matches actual head output: head1x1.out_channels if active, else bottleneck
+  this->_head_inputs.resize(this->_head_output_size, maxBufferSize);
 }
 
 
