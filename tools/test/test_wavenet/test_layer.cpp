@@ -25,12 +25,12 @@ static nam::wavenet::_Layer make_layer(const int condition_size, const int chann
                                        const nam::wavenet::GatingMode gating_mode, const int groups_input,
                                        const int groups_input_mixin, const int groups_1x1,
                                        const nam::wavenet::Head1x1Params& head1x1_params,
-                                       const std::string& secondary_activation)
+                                       const nam::activations::ActivationConfig& secondary_activation_config)
 {
   auto film_params = make_default_film_params();
   return nam::wavenet::_Layer(condition_size, channels, bottleneck, kernel_size, dilation, activation_config,
                               gating_mode, groups_input, groups_input_mixin, groups_1x1, head1x1_params,
-                              secondary_activation, film_params, film_params, film_params, film_params, film_params,
+                              secondary_activation_config, film_params, film_params, film_params, film_params, film_params,
                               film_params, film_params, film_params);
 }
 void test_gated()
@@ -48,8 +48,9 @@ void test_gated()
   const int groups_input_mixin = 1;
   const int groups_1x1 = 1;
   nam::wavenet::Head1x1Params head1x1_params(false, channels, 1);
+  auto sigmoid_config = nam::activations::ActivationConfig::simple(nam::activations::ActivationType::Sigmoid);
   auto layer = make_layer(conditionSize, channels, bottleneck, kernelSize, dilation, activation, gating_mode,
-                          groups_input, groups_input_mixin, groups_1x1, head1x1_params, "Sigmoid");
+                          groups_input, groups_input_mixin, groups_1x1, head1x1_params, sigmoid_config);
 
   // Conv, input mixin, 1x1
   std::vector<float> weights{
@@ -126,8 +127,9 @@ void test_layer_getters()
   const int groups_1x1 = 1;
   nam::wavenet::Head1x1Params head1x1_params(false, channels, 1);
 
+  nam::activations::ActivationConfig empty_config{};
   auto layer = make_layer(conditionSize, channels, bottleneck, kernelSize, dilation, activation, gating_mode,
-                          groups_input, groups_input_mixin, groups_1x1, head1x1_params, "");
+                          groups_input, groups_input_mixin, groups_1x1, head1x1_params, empty_config);
 
   assert(layer.get_channels() == channels);
   assert(layer.get_kernel_size() == kernelSize);
@@ -149,8 +151,9 @@ void test_non_gated_layer()
   const int groups_1x1 = 1;
   nam::wavenet::Head1x1Params head1x1_params(false, channels, 1);
 
+  nam::activations::ActivationConfig empty_config{};
   auto layer = make_layer(conditionSize, channels, bottleneck, kernelSize, dilation, activation, gating_mode,
-                          groups_input, groups_input_mixin, groups_1x1, head1x1_params, "");
+                          groups_input, groups_input_mixin, groups_1x1, head1x1_params, empty_config);
 
   // For non-gated: conv outputs 1 channel, input_mixin outputs 1 channel, 1x1 outputs 1 channel
   // Conv: (1,1,1) weight + (1,) bias
@@ -219,8 +222,9 @@ void test_layer_activations()
     const int groups_1x1 = 1;
     nam::wavenet::Head1x1Params head1x1_params(false, channels, 1);
     auto tanh_config = nam::activations::ActivationConfig::simple(nam::activations::ActivationType::Tanh);
+    nam::activations::ActivationConfig empty_config{};
     auto layer = make_layer(conditionSize, channels, bottleneck, kernelSize, dilation, tanh_config, gating_mode,
-                            groups_input, groups_input_mixin, groups_1x1, head1x1_params, "");
+                            groups_input, groups_input_mixin, groups_1x1, head1x1_params, empty_config);
     std::vector<float> weights{1.0f, 0.0f, 1.0f, 1.0f, 0.0f};
     auto it = weights.begin();
     layer.set_weights_(it);
@@ -257,8 +261,9 @@ void test_layer_multichannel()
   const int groups_1x1 = 1;
   nam::wavenet::Head1x1Params head1x1_params(false, channels, 1);
 
+  nam::activations::ActivationConfig empty_config{};
   auto layer = make_layer(conditionSize, channels, bottleneck, kernelSize, dilation, activation, gating_mode,
-                          groups_input, groups_input_mixin, groups_1x1, head1x1_params, "");
+                          groups_input, groups_input_mixin, groups_1x1, head1x1_params, empty_config);
 
   assert(layer.get_channels() == channels);
 
@@ -328,8 +333,9 @@ void test_layer_bottleneck()
   const int groups_1x1 = 1;
   nam::wavenet::Head1x1Params head1x1_params(false, channels, 1);
 
+  nam::activations::ActivationConfig empty_config{};
   auto layer = make_layer(conditionSize, channels, bottleneck, kernelSize, dilation, activation, gating_mode,
-                          groups_input, groups_input_mixin, groups_1x1, head1x1_params, "");
+                          groups_input, groups_input_mixin, groups_1x1, head1x1_params, empty_config);
 
   // With bottleneck < channels, the internal conv and input_mixin should have bottleneck channels,
   // but the 1x1 should map from bottleneck back to channels
@@ -407,8 +413,9 @@ void test_layer_bottleneck_gated()
   const int groups_1x1 = 1;
   nam::wavenet::Head1x1Params head1x1_params(false, channels, 1);
 
+  auto sigmoid_config = nam::activations::ActivationConfig::simple(nam::activations::ActivationType::Sigmoid);
   auto layer = make_layer(conditionSize, channels, bottleneck, kernelSize, dilation, activation, gating_mode,
-                          groups_input, groups_input_mixin, groups_1x1, head1x1_params, "Sigmoid");
+                          groups_input, groups_input_mixin, groups_1x1, head1x1_params, sigmoid_config);
 
   // With gated=true and bottleneck=2, internal channels should be 2*bottleneck=4
   // Conv: (channels, 2*bottleneck, kernelSize=1) = (4, 4, 1) + bias

@@ -25,12 +25,12 @@ static nam::wavenet::LayerArrayParams make_layer_array_params(
   const int kernel_size, std::vector<int>&& dilations, const nam::activations::ActivationConfig& activation_config,
   const nam::wavenet::GatingMode gating_mode, const bool head_bias, const int groups_input,
   const int groups_input_mixin, const int groups_1x1, const nam::wavenet::Head1x1Params& head1x1_params,
-  const std::string& secondary_activation)
+  const nam::activations::ActivationConfig& secondary_activation_config)
 {
   auto film_params = make_default_film_params();
   return nam::wavenet::LayerArrayParams(
     input_size, condition_size, head_size, channels, bottleneck, kernel_size, std::move(dilations), activation_config,
-    gating_mode, head_bias, groups_input, groups_input_mixin, groups_1x1, head1x1_params, secondary_activation,
+    gating_mode, head_bias, groups_input, groups_input_mixin, groups_1x1, head1x1_params, secondary_activation_config,
     film_params, film_params, film_params, film_params, film_params, film_params, film_params, film_params);
 }
 
@@ -60,7 +60,7 @@ std::unique_ptr<nam::wavenet::WaveNet> create_simple_wavenet(
 
   nam::wavenet::LayerArrayParams params = make_layer_array_params(
     input_size, condition_size, head_size, channels, bottleneck, kernel_size, std::move(dilations), activation,
-    gating_mode, head_bias, groups, groups_input_mixin, groups_1x1, head1x1_params, "");
+    gating_mode, head_bias, groups, groups_input_mixin, groups_1x1, head1x1_params, nam::activations::ActivationConfig{});
   std::vector<nam::wavenet::LayerArrayParams> layer_array_params;
   layer_array_params.push_back(std::move(params));
 

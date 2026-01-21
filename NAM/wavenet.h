@@ -65,7 +65,7 @@ public:
   _Layer(const int condition_size, const int channels, const int bottleneck, const int kernel_size, const int dilation,
          const activations::ActivationConfig& activation_config, const GatingMode gating_mode, const int groups_input,
          const int groups_input_mixin, const int groups_1x1, const Head1x1Params& head1x1_params,
-         const std::string& secondary_activation, const _FiLMParams& conv_pre_film_params,
+         const activations::ActivationConfig& secondary_activation_config, const _FiLMParams& conv_pre_film_params,
          const _FiLMParams& conv_post_film_params, const _FiLMParams& input_mixin_pre_film_params,
          const _FiLMParams& input_mixin_post_film_params, const _FiLMParams& activation_pre_film_params,
          const _FiLMParams& activation_post_film_params, const _FiLMParams& _1x1_post_film_params,
@@ -94,22 +94,13 @@ public:
     // Validate & initialize gating/blending activation
     if (gating_mode == GatingMode::GATED)
     {
-      if (secondary_activation.empty())
-        throw std::invalid_argument("secondary_activation must be provided for gated mode");
       _gating_activation = std::make_unique<gating_activations::GatingActivation>(
-        _activation, activations::Activation::get_activation(secondary_activation), bottleneck);
+        _activation, activations::Activation::get_activation(secondary_activation_config), bottleneck);
     }
     else if (gating_mode == GatingMode::BLENDED)
     {
-      if (secondary_activation.empty())
-        throw std::invalid_argument("secondary_activation must be provided for blended mode");
       _blending_activation = std::make_unique<gating_activations::BlendingActivation>(
-        _activation, activations::Activation::get_activation(secondary_activation), bottleneck);
-    }
-    else
-    {
-      if (!secondary_activation.empty())
-        throw std::invalid_argument("secondary_activation provided for none mode");
+        _activation, activations::Activation::get_activation(secondary_activation_config), bottleneck);
     }
 
     // Initialize FiLM objects
@@ -226,7 +217,7 @@ public:
                    const int bottleneck_, const int kernel_size_, const std::vector<int>&& dilations_,
                    const activations::ActivationConfig& activation_, const GatingMode gating_mode_,
                    const bool head_bias_, const int groups_input, const int groups_input_mixin_, const int groups_1x1_,
-                   const Head1x1Params& head1x1_params_, const std::string& secondary_activation_,
+                   const Head1x1Params& head1x1_params_, const activations::ActivationConfig& secondary_activation_config_,
                    const _FiLMParams& conv_pre_film_params_, const _FiLMParams& conv_post_film_params_,
                    const _FiLMParams& input_mixin_pre_film_params_, const _FiLMParams& input_mixin_post_film_params_,
                    const _FiLMParams& activation_pre_film_params_, const _FiLMParams& activation_post_film_params_,
@@ -245,7 +236,7 @@ public:
   , groups_input_mixin(groups_input_mixin_)
   , groups_1x1(groups_1x1_)
   , head1x1_params(head1x1_params_)
-  , secondary_activation(secondary_activation_)
+  , secondary_activation_config(secondary_activation_config_)
   , conv_pre_film_params(conv_pre_film_params_)
   , conv_post_film_params(conv_post_film_params_)
   , input_mixin_pre_film_params(input_mixin_pre_film_params_)
@@ -271,7 +262,7 @@ public:
   const int groups_input_mixin;
   const int groups_1x1;
   const Head1x1Params head1x1_params;
-  const std::string secondary_activation;
+  const activations::ActivationConfig secondary_activation_config;
   const _FiLMParams conv_pre_film_params;
   const _FiLMParams conv_post_film_params;
   const _FiLMParams input_mixin_pre_film_params;
@@ -291,7 +282,7 @@ public:
               const int bottleneck, const int kernel_size, const std::vector<int>& dilations,
               const activations::ActivationConfig& activation_config, const GatingMode gating_mode,
               const bool head_bias, const int groups_input, const int groups_input_mixin, const int groups_1x1,
-              const Head1x1Params& head1x1_params, const std::string& secondary_activation,
+              const Head1x1Params& head1x1_params, const activations::ActivationConfig& secondary_activation_config,
               const _FiLMParams& conv_pre_film_params, const _FiLMParams& conv_post_film_params,
               const _FiLMParams& input_mixin_pre_film_params, const _FiLMParams& input_mixin_post_film_params,
               const _FiLMParams& activation_pre_film_params, const _FiLMParams& activation_post_film_params,
