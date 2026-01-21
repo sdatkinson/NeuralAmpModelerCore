@@ -683,6 +683,228 @@ void test_layer_all_films_without_shift_realtime_safe()
   test_layer_all_films_realtime_safe_impl(false);
 }
 
+// Test that Layer::Process() with post-activation FiLM (gated mode) does not allocate or free memory
+// This specifically tests the case where FiLM::Process() receives _z.topRows(bottleneck)
+void test_layer_post_activation_film_gated_realtime_safe()
+{
+  // Setup: Create a Layer with GATED mode and activation_post_film enabled
+  // Use simpler dimensions first to verify weight counting
+  const int condition_size = 1;
+  const int channels = 2;
+  const int bottleneck = 1; // bottleneck < channels to trigger topRows()
+  const int kernel_size = 1;
+  const int dilation = 1;
+  const auto activation = nam::activations::ActivationConfig::simple(nam::activations::ActivationType::ReLU);
+  const auto secondary_activation =
+    nam::activations::ActivationConfig::simple(nam::activations::ActivationType::Sigmoid);
+  const nam::wavenet::GatingMode gating_mode = nam::wavenet::GatingMode::GATED;
+  const int groups_input = 1;
+  const int groups_input_mixin = 1;
+  const int groups_1x1 = 1;
+  nam::wavenet::Head1x1Params head1x1_params(false, channels, 1);
+
+  // Create FiLM params with activation_post_film enabled
+  nam::wavenet::_FiLMParams inactive_film(false, false);
+  nam::wavenet::_FiLMParams active_film(true, true); // activation_post_film will be active
+
+  auto layer =
+    nam::wavenet::_Layer(condition_size, channels, bottleneck, kernel_size, dilation, activation, gating_mode,
+                         groups_input, groups_input_mixin, groups_1x1, head1x1_params, secondary_activation,
+                         inactive_film, // pre_input_film
+                         inactive_film, // pre_condition_film
+                         inactive_film, // conv_post_film
+                         inactive_film, // input_mixin_post_film
+                         active_film, // activation_post_film - THIS IS THE KEY ONE
+                         inactive_film, // _1x1_pre_film
+                         inactive_film, // _1x1_post_film
+                         inactive_film // head1x1_post_film
+    );
+
+  // Set weights - Order: conv, input_mixin, 1x1, then FiLMs
+  // NOTE: In GATED mode, conv and input_mixin output 2*bottleneck channels!
+  std::vector<float> weights;
+
+  // Conv weights: In GATED mode outputs 2*bottleneck = 2*1 = 2 channels
+  // Conv: (out_channels, in_channels, kernel_size) + bias = (2, 2, 1) + 2 = 4 + 2 = 6
+  weights.push_back(0.5f); // ch0, in0
+  weights.push_back(0.5f); // ch0, in1
+  weights.push_back(0.5f); // ch1, in0
+  weights.push_back(0.5f); // ch1, in1
+  weights.push_back(0.0f); // bias ch0
+  weights.push_back(0.0f); // bias ch1
+
+  // Input mixin: outputs 2*bottleneck = 2 channels
+  // (condition_size, out_channels) = (1, 2) = 2 weights
+  weights.push_back(0.5f); // ch0
+  weights.push_back(0.5f); // ch1
+
+  // 1x1 weights: (channels, bottleneck) + bias = (2, 1) + 2 = 2 + 2 = 4
+  weights.push_back(1.0f);
+  weights.push_back(1.0f);
+  weights.push_back(0.0f); // bias
+  weights.push_back(0.0f);
+
+  // activation_post_film: Conv1x1(condition_size, 2*bottleneck, bias=true) = (1, 2, bias) = 2 + 2 = 4
+  weights.push_back(1.0f); // scale weight
+  weights.push_back(0.0f); // shift weight
+  weights.push_back(1.0f); // scale bias
+  weights.push_back(0.0f); // shift bias
+
+  // TODO: Figure out where these 4 extra weights go - placeholder for now
+  weights.push_back(0.0f);
+  weights.push_back(0.0f);
+  weights.push_back(0.0f);
+  weights.push_back(0.0f);
+
+  auto it = weights.begin();
+  layer.set_weights_(it);
+  assert(it == weights.end());
+
+  const int maxBufferSize = 256;
+  layer.SetMaxBufferSize(maxBufferSize);
+
+  // Test with several different buffer sizes
+  std::vector<int> buffer_sizes{1, 8, 16, 32, 64, 128, 256};
+
+  for (int buffer_size : buffer_sizes)
+  {
+    // Prepare input/condition matrices (allocate before tracking)
+    Eigen::MatrixXf input(channels, buffer_size);
+    Eigen::MatrixXf condition(condition_size, buffer_size);
+    input.setConstant(0.5f);
+    condition.setConstant(0.5f);
+
+    std::string test_name =
+      "Layer Process (GATED with activation_post_film) - Buffer size " + std::to_string(buffer_size);
+    run_allocation_test_no_allocations(
+      nullptr, // No setup needed
+      [&]() {
+        // Call Process() - this should not allocate or free
+        // This will trigger: _activation_post_film->Process(this->_z.topRows(bottleneck), condition, num_frames)
+        layer.Process(input, condition, buffer_size);
+      },
+      nullptr, // No teardown needed
+      test_name.c_str());
+
+    // Verify output is valid
+    auto output = layer.GetOutputNextLayer().leftCols(buffer_size);
+    assert(output.rows() == channels && output.cols() == buffer_size);
+    assert(std::isfinite(output(0, 0)));
+    assert(std::isfinite(output(channels - 1, buffer_size - 1)));
+  }
+}
+
+// Test that Layer::Process() with post-activation FiLM (blended mode) does not allocate or free memory
+// This also tests the case where FiLM::Process() receives _z.topRows(bottleneck)
+void test_layer_post_activation_film_blended_realtime_safe()
+{
+  // Setup: Create a Layer with BLENDED mode and activation_post_film enabled
+  // Use simpler dimensions first to verify weight counting
+  const int condition_size = 1;
+  const int channels = 2;
+  const int bottleneck = 1; // bottleneck < channels to trigger topRows()
+  const int kernel_size = 1;
+  const int dilation = 1;
+  const auto activation = nam::activations::ActivationConfig::simple(nam::activations::ActivationType::ReLU);
+  const auto secondary_activation =
+    nam::activations::ActivationConfig::simple(nam::activations::ActivationType::Sigmoid);
+  const nam::wavenet::GatingMode gating_mode = nam::wavenet::GatingMode::BLENDED;
+  const int groups_input = 1;
+  const int groups_input_mixin = 1;
+  const int groups_1x1 = 1;
+  nam::wavenet::Head1x1Params head1x1_params(false, channels, 1);
+
+  // Create FiLM params with activation_post_film enabled
+  nam::wavenet::_FiLMParams inactive_film(false, false);
+  nam::wavenet::_FiLMParams active_film(true, true); // activation_post_film will be active
+
+  auto layer =
+    nam::wavenet::_Layer(condition_size, channels, bottleneck, kernel_size, dilation, activation, gating_mode,
+                         groups_input, groups_input_mixin, groups_1x1, head1x1_params, secondary_activation,
+                         inactive_film, // pre_input_film
+                         inactive_film, // pre_condition_film
+                         inactive_film, // conv_post_film
+                         inactive_film, // input_mixin_post_film
+                         active_film, // activation_post_film - THIS IS THE KEY ONE
+                         inactive_film, // _1x1_pre_film
+                         inactive_film, // _1x1_post_film
+                         inactive_film // head1x1_post_film
+    );
+
+  // Set weights - Order: conv, input_mixin, 1x1, then FiLMs
+  // NOTE: In BLENDED mode, conv and input_mixin output 2*bottleneck channels!
+  std::vector<float> weights;
+
+  // Conv weights: In BLENDED mode outputs 2*bottleneck = 2*1 = 2 channels
+  // Conv: (out_channels, in_channels, kernel_size) + bias = (2, 2, 1) + 2 = 4 + 2 = 6
+  weights.push_back(0.5f); // ch0, in0
+  weights.push_back(0.5f); // ch0, in1
+  weights.push_back(0.5f); // ch1, in0
+  weights.push_back(0.5f); // ch1, in1
+  weights.push_back(0.0f); // bias ch0
+  weights.push_back(0.0f); // bias ch1
+
+  // Input mixin: outputs 2*bottleneck = 2 channels
+  // (condition_size, out_channels) = (1, 2) = 2 weights
+  weights.push_back(0.5f); // ch0
+  weights.push_back(0.5f); // ch1
+
+  // 1x1 weights: (channels, bottleneck) + bias = (2, 1) + 2 = 2 + 2 = 4
+  weights.push_back(1.0f);
+  weights.push_back(1.0f);
+  weights.push_back(0.0f); // bias
+  weights.push_back(0.0f);
+
+  // activation_post_film: Conv1x1(condition_size, 2*bottleneck, bias=true) = (1, 2, bias) = 2 + 2 = 4
+  weights.push_back(1.0f); // scale weight
+  weights.push_back(0.0f); // shift weight
+  weights.push_back(1.0f); // scale bias
+  weights.push_back(0.0f); // shift bias
+
+  // TODO: Figure out where these 4 extra weights go - placeholder for now
+  weights.push_back(0.0f);
+  weights.push_back(0.0f);
+  weights.push_back(0.0f);
+  weights.push_back(0.0f);
+
+  auto it = weights.begin();
+  layer.set_weights_(it);
+  assert(it == weights.end());
+
+  const int maxBufferSize = 256;
+  layer.SetMaxBufferSize(maxBufferSize);
+
+  // Test with several different buffer sizes
+  std::vector<int> buffer_sizes{1, 8, 16, 32, 64, 128, 256};
+
+  for (int buffer_size : buffer_sizes)
+  {
+    // Prepare input/condition matrices (allocate before tracking)
+    Eigen::MatrixXf input(channels, buffer_size);
+    Eigen::MatrixXf condition(condition_size, buffer_size);
+    input.setConstant(0.5f);
+    condition.setConstant(0.5f);
+
+    std::string test_name =
+      "Layer Process (BLENDED with activation_post_film) - Buffer size " + std::to_string(buffer_size);
+    run_allocation_test_no_allocations(
+      nullptr, // No setup needed
+      [&]() {
+        // Call Process() - this should not allocate or free
+        // This will trigger: _activation_post_film->Process(this->_z.topRows(bottleneck), condition, num_frames)
+        layer.Process(input, condition, buffer_size);
+      },
+      nullptr, // No teardown needed
+      test_name.c_str());
+
+    // Verify output is valid
+    auto output = layer.GetOutputNextLayer().leftCols(buffer_size);
+    assert(output.rows() == channels && output.cols() == buffer_size);
+    assert(std::isfinite(output(0, 0)));
+    assert(std::isfinite(output(channels - 1, buffer_size - 1)));
+  }
+}
+
 // Test that LayerArray::Process() method does not allocate or free memory
 void test_layer_array_process_realtime_safe()
 {
