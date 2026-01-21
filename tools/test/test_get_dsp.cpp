@@ -139,8 +139,9 @@ void test_load_and_process_nam_files()
 {
   // Test loading and processing three different .nam files
   // Paths are relative to root directory where tests run (./build/tools/run_tests)
-  const std::vector<std::string> nam_files = {
-    "example_models/wavenet.nam", "example_models/lstm.nam", "example_models/wavenet_condition_dsp.nam"};
+  const std::vector<std::string> nam_files = {"example_models/wavenet.nam", "example_models/lstm.nam",
+                                              "example_models/wavenet_condition_dsp.nam",
+                                              "example_models/wavenet_a2_max.nam"};
 
   const int num_buffers = 3;
   const int buffer_size = 64;

@@ -209,14 +209,13 @@ int main()
   test_get_dsp::test_null_output_level();
 
   // Finally, some end-to-end tests.
-  std::cerr << "Running end-to-end tests" << std::endl;
   test_get_dsp::test_load_and_process_nam_files();
 
+  std::cout << "Success!" << std::endl;
 #ifdef ADDASSERT
+  std::cerr << "===============================================================" << std::endl;
   std::cerr << "Checking that we're successfully asserting. We should now fail." << std::endl;
   assert(false);
 #endif
-
-  std::cout << "Success!" << std::endl;
   return 0;
 }

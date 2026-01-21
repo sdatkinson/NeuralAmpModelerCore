@@ -50,9 +50,9 @@ void test_layer_array_basic()
   const int groups_1x1 = 1;
 
   nam::wavenet::Head1x1Params head1x1_params(false, channels, 1);
-  auto layer_array =
-    make_layer_array(input_size, condition_size, head_size, channels, bottleneck, kernel_size, dilations, activation,
-                     gating_mode, head_bias, groups, groups_input_mixin, groups_1x1, head1x1_params, nam::activations::ActivationConfig{});
+  auto layer_array = make_layer_array(input_size, condition_size, head_size, channels, bottleneck, kernel_size,
+                                      dilations, activation, gating_mode, head_bias, groups, groups_input_mixin,
+                                      groups_1x1, head1x1_params, nam::activations::ActivationConfig{});
 
   const int numFrames = 4;
   layer_array.SetMaxBufferSize(numFrames);
@@ -110,9 +110,9 @@ void test_layer_array_receptive_field()
   const int groups_1x1 = 1;
   nam::wavenet::Head1x1Params head1x1_params(false, channels, 1);
 
-  auto layer_array =
-    make_layer_array(input_size, condition_size, head_size, channels, bottleneck, kernel_size, dilations, activation,
-                     gating_mode, head_bias, groups, groups_input_mixin, groups_1x1, head1x1_params, nam::activations::ActivationConfig{});
+  auto layer_array = make_layer_array(input_size, condition_size, head_size, channels, bottleneck, kernel_size,
+                                      dilations, activation, gating_mode, head_bias, groups, groups_input_mixin,
+                                      groups_1x1, head1x1_params, nam::activations::ActivationConfig{});
 
   long rf = layer_array.get_receptive_field();
   // Expected: sum of dilation * (kernel_size - 1) for each layer
@@ -142,9 +142,9 @@ void test_layer_array_with_head_input()
   const int groups_1x1 = 1;
   nam::wavenet::Head1x1Params head1x1_params(false, channels, 1);
 
-  auto layer_array =
-    make_layer_array(input_size, condition_size, head_size, channels, bottleneck, kernel_size, dilations, activation,
-                     gating_mode, head_bias, groups, groups_input_mixin, groups_1x1, head1x1_params, nam::activations::ActivationConfig{});
+  auto layer_array = make_layer_array(input_size, condition_size, head_size, channels, bottleneck, kernel_size,
+                                      dilations, activation, gating_mode, head_bias, groups, groups_input_mixin,
+                                      groups_1x1, head1x1_params, nam::activations::ActivationConfig{});
 
   const int numFrames = 2;
   layer_array.SetMaxBufferSize(numFrames);

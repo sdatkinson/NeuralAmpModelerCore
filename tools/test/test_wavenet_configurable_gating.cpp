@@ -27,8 +27,8 @@ static nam::wavenet::_Layer make_layer(const int condition_size, const int chann
   auto film_params = make_default_film_params();
   return nam::wavenet::_Layer(condition_size, channels, bottleneck, kernel_size, dilation, activation_config,
                               gating_mode, groups_input, groups_input_mixin, groups_1x1, head1x1_params,
-                              secondary_activation_config, film_params, film_params, film_params, film_params, film_params,
-                              film_params, film_params, film_params);
+                              secondary_activation_config, film_params, film_params, film_params, film_params,
+                              film_params, film_params, film_params, film_params);
 }
 
 // Helper function to create LayerArrayParams with default FiLM parameters
@@ -82,8 +82,7 @@ public:
     std::vector<nam::activations::ActivationConfig> gating_activations = {
       nam::activations::ActivationConfig::simple(nam::activations::ActivationType::Sigmoid),
       nam::activations::ActivationConfig::simple(nam::activations::ActivationType::Tanh),
-      nam::activations::ActivationConfig::simple(nam::activations::ActivationType::ReLU)
-    };
+      nam::activations::ActivationConfig::simple(nam::activations::ActivationType::ReLU)};
 
     for (const auto& gating_act : gating_activations)
     {
@@ -114,8 +113,7 @@ public:
     std::vector<nam::activations::ActivationConfig> blending_activations = {
       nam::activations::ActivationConfig::simple(nam::activations::ActivationType::Sigmoid),
       nam::activations::ActivationConfig::simple(nam::activations::ActivationType::Tanh),
-      nam::activations::ActivationConfig::simple(nam::activations::ActivationType::ReLU)
-    };
+      nam::activations::ActivationConfig::simple(nam::activations::ActivationType::ReLU)};
 
     for (const auto& blending_act : blending_activations)
     {
@@ -184,9 +182,10 @@ public:
     const int groups_1x1 = 1;
     nam::wavenet::Head1x1Params head1x1_params(false, channels, 1);
 
-    auto layer_array = make_layer_array(input_size, condition_size, head_size, channels, bottleneck, kernel_size,
-                                        std::vector<int>{1}, activation, nam::wavenet::GatingMode::GATED, head_bias,
-                                        groups_input, groups_input_mixin, groups_1x1, head1x1_params, nam::activations::ActivationConfig::simple(nam::activations::ActivationType::ReLU));
+    auto layer_array = make_layer_array(
+      input_size, condition_size, head_size, channels, bottleneck, kernel_size, std::vector<int>{1}, activation,
+      nam::wavenet::GatingMode::GATED, head_bias, groups_input, groups_input_mixin, groups_1x1, head1x1_params,
+      nam::activations::ActivationConfig::simple(nam::activations::ActivationType::ReLU));
 
     // Verify that layers were created correctly by checking receptive field
     // This should be non-zero for a valid layer array
@@ -250,15 +249,18 @@ public:
     // Create layers with different gating activations
     auto layer_sigmoid =
       make_layer(conditionSize, channels, bottleneck, kernelSize, dilation, activation, nam::wavenet::GatingMode::GATED,
-                 groups_input, groups_input_mixin, groups_1x1, head1x1_params, nam::activations::ActivationConfig::simple(nam::activations::ActivationType::Sigmoid));
+                 groups_input, groups_input_mixin, groups_1x1, head1x1_params,
+                 nam::activations::ActivationConfig::simple(nam::activations::ActivationType::Sigmoid));
 
     auto layer_tanh =
       make_layer(conditionSize, channels, bottleneck, kernelSize, dilation, activation, nam::wavenet::GatingMode::GATED,
-                 groups_input, groups_input_mixin, groups_1x1, head1x1_params, nam::activations::ActivationConfig::simple(nam::activations::ActivationType::Tanh));
+                 groups_input, groups_input_mixin, groups_1x1, head1x1_params,
+                 nam::activations::ActivationConfig::simple(nam::activations::ActivationType::Tanh));
 
     auto layer_relu =
       make_layer(conditionSize, channels, bottleneck, kernelSize, dilation, activation, nam::wavenet::GatingMode::GATED,
-                 groups_input, groups_input_mixin, groups_1x1, head1x1_params, nam::activations::ActivationConfig::simple(nam::activations::ActivationType::ReLU));
+                 groups_input, groups_input_mixin, groups_1x1, head1x1_params,
+                 nam::activations::ActivationConfig::simple(nam::activations::ActivationType::ReLU));
 
     // Set max buffer size for all layers
     const int num_frames = 10;
