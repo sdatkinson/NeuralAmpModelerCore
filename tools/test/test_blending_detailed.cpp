@@ -14,10 +14,10 @@ namespace test_blending_detailed
 {
 
 // Helper to create a non-owning shared_ptr for stack-allocated activations in tests
-template<typename T>
+template <typename T>
 nam::activations::Activation::Ptr make_test_ptr(T& activation)
 {
-  return nam::activations::Activation::Ptr(&activation, [](nam::activations::Activation*){});
+  return nam::activations::Activation::Ptr(&activation, [](nam::activations::Activation*) {});
 }
 
 class TestBlendingDetailed
@@ -37,7 +37,8 @@ public:
     // Test with default (linear) activations
     nam::activations::ActivationIdentity identity_act;
     nam::activations::ActivationIdentity identity_blend_act;
-    nam::gating_activations::BlendingActivation blending_act(make_test_ptr(identity_act), make_test_ptr(identity_blend_act), 2);
+    nam::gating_activations::BlendingActivation blending_act(
+      make_test_ptr(identity_act), make_test_ptr(identity_blend_act), 2);
     blending_act.apply(input, output);
 
     // With linear activations:

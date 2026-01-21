@@ -14,10 +14,10 @@ namespace test_input_buffer_verification
 {
 
 // Helper to create a non-owning shared_ptr for stack-allocated activations in tests
-template<typename T>
+template <typename T>
 nam::activations::Activation::Ptr make_test_ptr(T& activation)
 {
-  return nam::activations::Activation::Ptr(&activation, [](nam::activations::Activation*){});
+  return nam::activations::Activation::Ptr(&activation, [](nam::activations::Activation*) {});
 }
 
 class TestInputBufferVerification

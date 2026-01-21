@@ -14,10 +14,10 @@ namespace test_gating_activations
 {
 
 // Helper to create a non-owning shared_ptr for stack-allocated activations in tests
-template<typename T>
+template <typename T>
 nam::activations::Activation::Ptr make_test_ptr(T& activation)
 {
-  return nam::activations::Activation::Ptr(&activation, [](nam::activations::Activation*){});
+  return nam::activations::Activation::Ptr(&activation, [](nam::activations::Activation*) {});
 }
 
 class TestGatingActivation
@@ -93,7 +93,8 @@ public:
     // Create blending activation (1 input channel)
     nam::activations::ActivationIdentity identity_act;
     nam::activations::ActivationIdentity identity_blend_act;
-    nam::gating_activations::BlendingActivation blending_act(make_test_ptr(identity_act), make_test_ptr(identity_blend_act), 1);
+    nam::gating_activations::BlendingActivation blending_act(
+      make_test_ptr(identity_act), make_test_ptr(identity_blend_act), 1);
 
     // Apply the activation
     blending_act.apply(input, output);
@@ -115,7 +116,8 @@ public:
     // Test with default (linear) activations
     nam::activations::ActivationIdentity identity_act;
     nam::activations::ActivationIdentity identity_blend_act;
-    nam::gating_activations::BlendingActivation blending_act(make_test_ptr(identity_act), make_test_ptr(identity_blend_act), 1);
+    nam::gating_activations::BlendingActivation blending_act(
+      make_test_ptr(identity_act), make_test_ptr(identity_blend_act), 1);
     blending_act.apply(input, output);
 
     // With linear activations, blending should be:
@@ -175,7 +177,8 @@ public:
 
     nam::activations::ActivationIdentity identity_act;
     nam::activations::ActivationIdentity identity_blend_act;
-    nam::gating_activations::BlendingActivation blending_act(make_test_ptr(identity_act), make_test_ptr(identity_blend_act), 1);
+    nam::gating_activations::BlendingActivation blending_act(
+      make_test_ptr(identity_act), make_test_ptr(identity_blend_act), 1);
 
     // This should trigger an assert and terminate the program
     // We can't easily test asserts in a unit test framework without special handling
@@ -196,7 +199,8 @@ public:
 
     nam::activations::ActivationIdentity identity_act;
     nam::activations::ActivationIdentity identity_blend_act;
-    nam::gating_activations::BlendingActivation blending_act(make_test_ptr(identity_act), make_test_ptr(identity_blend_act), 1);
+    nam::gating_activations::BlendingActivation blending_act(
+      make_test_ptr(identity_act), make_test_ptr(identity_blend_act), 1);
     blending_act.apply(input, output);
 
     assert(fabs(output(0, 0) - 0.0f) < 1e-6);

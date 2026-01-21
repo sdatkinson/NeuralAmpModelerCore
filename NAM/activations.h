@@ -42,12 +42,12 @@ struct ActivationConfig
   ActivationType type;
 
   // Optional parameters (used by specific activation types)
-  std::optional<float> negative_slope;               // LeakyReLU, PReLU (single)
+  std::optional<float> negative_slope; // LeakyReLU, PReLU (single)
   std::optional<std::vector<float>> negative_slopes; // PReLU (per-channel)
-  std::optional<float> min_val;                      // LeakyHardtanh
-  std::optional<float> max_val;                      // LeakyHardtanh
-  std::optional<float> min_slope;                    // LeakyHardtanh
-  std::optional<float> max_slope;                    // LeakyHardtanh
+  std::optional<float> min_val; // LeakyHardtanh
+  std::optional<float> max_val; // LeakyHardtanh
+  std::optional<float> min_slope; // LeakyHardtanh
+  std::optional<float> max_slope; // LeakyHardtanh
 
   // Convenience constructors
   static ActivationConfig simple(ActivationType t);
@@ -274,13 +274,13 @@ public:
   {
     // Matrix is organized as (channels, time_steps)
     unsigned long actual_channels = static_cast<unsigned long>(matrix.rows());
-    
+
     // Prepare the slopes for the current matrix size
     std::vector<float> slopes_for_channels = negative_slopes;
 
     // Fail loudly if input has more channels than activation
     assert(actual_channels == negative_slopes.size());
-    
+
     // Apply each negative slope to its corresponding channel
     for (unsigned long channel = 0; channel < actual_channels; channel++)
     {

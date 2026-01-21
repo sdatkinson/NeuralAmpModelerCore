@@ -102,6 +102,70 @@ void operator delete[](void* ptr) noexcept
 
 namespace test_wavenet
 {
+// Helper function to create default (inactive) FiLM parameters
+static nam::wavenet::_FiLMParams make_default_film_params()
+{
+  return nam::wavenet::_FiLMParams(false, false);
+}
+
+// Helper function to create a Layer with default FiLM parameters
+static nam::wavenet::_Layer make_layer(const int condition_size, const int channels, const int bottleneck,
+                                       const int kernel_size, const int dilation,
+                                       const nam::activations::ActivationConfig& activation_config,
+                                       const nam::wavenet::GatingMode gating_mode, const int groups_input,
+                                       const int groups_1x1, const nam::wavenet::Head1x1Params& head1x1_params,
+                                       const std::string& secondary_activation)
+{
+  auto film_params = make_default_film_params();
+  return nam::wavenet::_Layer(condition_size, channels, bottleneck, kernel_size, dilation, activation_config,
+                              gating_mode, groups_input, groups_1x1, head1x1_params, secondary_activation, film_params,
+                              film_params, film_params, film_params, film_params, film_params, film_params, film_params,
+                              film_params);
+}
+
+// Helper function to create a LayerArray with default FiLM parameters
+static nam::wavenet::_LayerArray make_layer_array(
+  const int input_size, const int condition_size, const int head_size, const int channels, const int bottleneck,
+  const int kernel_size, const std::vector<int>& dilations, const nam::activations::ActivationConfig& activation_config,
+  const nam::wavenet::GatingMode gating_mode, const bool head_bias, const int groups_input, const int groups_1x1,
+  const nam::wavenet::Head1x1Params& head1x1_params, const std::string& secondary_activation)
+{
+  auto film_params = make_default_film_params();
+  return nam::wavenet::_LayerArray(input_size, condition_size, head_size, channels, bottleneck, kernel_size, dilations,
+                                   activation_config, gating_mode, head_bias, groups_input, groups_1x1, head1x1_params,
+                                   secondary_activation, film_params, film_params, film_params, film_params,
+                                   film_params, film_params, film_params, film_params, film_params);
+}
+
+// Helper function to create LayerArrayParams with default FiLM parameters
+static nam::wavenet::LayerArrayParams make_layer_array_params(
+  const int input_size, const int condition_size, const int head_size, const int channels, const int bottleneck,
+  const int kernel_size, std::vector<int>&& dilations, const nam::activations::ActivationConfig& activation_config,
+  const nam::wavenet::GatingMode gating_mode, const bool head_bias, const int groups_input, const int groups_1x1,
+  const nam::wavenet::Head1x1Params& head1x1_params, const std::string& secondary_activation)
+{
+  auto film_params = make_default_film_params();
+  return nam::wavenet::LayerArrayParams(
+    input_size, condition_size, head_size, channels, bottleneck, kernel_size, std::move(dilations), activation_config,
+    gating_mode, head_bias, groups_input, groups_1x1, head1x1_params, secondary_activation, film_params, film_params,
+    film_params, film_params, film_params, film_params, film_params, film_params, film_params);
+}
+
+// Helper function to create a Layer with all FiLMs active
+static nam::wavenet::_Layer make_layer_all_films(const int condition_size, const int channels, const int bottleneck,
+                                                 const int kernel_size, const int dilation,
+                                                 const nam::activations::ActivationConfig& activation_config,
+                                                 const nam::wavenet::GatingMode gating_mode, const int groups_input,
+                                                 const int groups_1x1,
+                                                 const nam::wavenet::Head1x1Params& head1x1_params,
+                                                 const std::string& secondary_activation, const bool shift)
+{
+  nam::wavenet::_FiLMParams film_params(true, shift);
+  return nam::wavenet::_Layer(condition_size, channels, bottleneck, kernel_size, dilation, activation_config,
+                              gating_mode, groups_input, groups_1x1, head1x1_params, secondary_activation, film_params,
+                              film_params, film_params, film_params, film_params, film_params, film_params, film_params,
+                              film_params);
+}
 // Helper function to run allocation tracking tests
 // setup: Function to run before tracking starts (can be nullptr)
 // test: Function to run while tracking allocations (required)
@@ -438,8 +502,8 @@ void test_layer_process_realtime_safe()
   const int groups_1x1 = 1;
 
   nam::wavenet::Head1x1Params head1x1_params(false, channels, 1);
-  auto layer = nam::wavenet::_Layer(condition_size, channels, bottleneck, kernel_size, dilation, activation,
-                                    gating_mode, groups_input, groups_1x1, head1x1_params, "");
+  auto layer = make_layer(condition_size, channels, bottleneck, kernel_size, dilation, activation, gating_mode,
+                          groups_input, groups_1x1, head1x1_params, "");
 
   // Set weights
   std::vector<float> weights{1.0f, 0.0f, // Conv (weight, bias)
@@ -494,8 +558,8 @@ void test_layer_bottleneck_process_realtime_safe()
   const int groups_1x1 = 1;
   nam::wavenet::Head1x1Params head1x1_params(false, channels, 1);
 
-  auto layer = nam::wavenet::_Layer(condition_size, channels, bottleneck, kernel_size, dilation, activation,
-                                    gating_mode, groups_input, groups_1x1, head1x1_params, "");
+  auto layer = make_layer(condition_size, channels, bottleneck, kernel_size, dilation, activation, gating_mode,
+                          groups_input, groups_1x1, head1x1_params, "");
 
   // Set weights for bottleneck != channels
   // Conv: (channels, bottleneck, kernelSize=1) = (4, 2, 1) + bias
@@ -580,8 +644,8 @@ void test_layer_grouped_process_realtime_safe()
   const int groups_1x1 = 2; // 1x1 is also grouped
   nam::wavenet::Head1x1Params head1x1_params(false, channels, 1);
 
-  auto layer = nam::wavenet::_Layer(condition_size, channels, bottleneck, kernel_size, dilation, activation,
-                                    gating_mode, groups_input, groups_1x1, head1x1_params, "");
+  auto layer = make_layer(condition_size, channels, bottleneck, kernel_size, dilation, activation, gating_mode,
+                          groups_input, groups_1x1, head1x1_params, "");
 
   // Set weights for grouped convolution
   // With groups_input=2, channels=4: each group has 2 in_channels and 2 out_channels
@@ -674,6 +738,108 @@ void test_layer_grouped_process_realtime_safe()
   }
 }
 
+// Helper function to test Layer::Process() with all FiLMs active
+static void test_layer_all_films_realtime_safe_impl(const bool shift)
+{
+  // Setup: Create a Layer with all FiLMs active
+  const int condition_size = 1;
+  const int channels = 1;
+  const int bottleneck = channels;
+  const int kernel_size = 1;
+  const int dilation = 1;
+  const auto activation = nam::activations::ActivationConfig::simple(nam::activations::ActivationType::ReLU);
+  const nam::wavenet::GatingMode gating_mode = nam::wavenet::GatingMode::NONE;
+  const int groups_input = 1;
+  const int groups_1x1 = 1;
+
+  nam::wavenet::Head1x1Params head1x1_params(false, channels, 1);
+  auto layer = make_layer_all_films(condition_size, channels, bottleneck, kernel_size, dilation, activation,
+                                    gating_mode, groups_input, groups_1x1, head1x1_params, "", shift);
+
+  // Set weights
+  // Base layer weights:
+  // Conv: (channels, bottleneck, kernel_size) + bias = (1, 1, 1) + 1 = 2 weights
+  // Input mixin: (condition_size, bottleneck) = (1, 1) = 1 weight
+  // 1x1: (bottleneck, channels) + bias = (1, 1) + 1 = 2 weights
+  // Total base: 5 weights
+
+  std::vector<float> weights;
+  // Base layer weights
+  weights.insert(weights.end(), {1.0f, 0.0f}); // Conv (weight, bias)
+  weights.push_back(1.0f); // Input mixin
+  weights.insert(weights.end(), {1.0f, 0.0f}); // 1x1 (weight, bias)
+
+  // FiLM weights (each FiLM uses Conv1x1: condition_size -> (shift ? 2 : 1) * input_dim with bias)
+  // With shift=true: each FiLM needs (2 * input_dim) * condition_size weights + (2 * input_dim) biases = 4 weights
+  // With shift=false: each FiLM needs input_dim * condition_size weights + input_dim biases = 2 weights
+  // All 8 FiLMs are active (excluding head1x1_post_film since head1x1 is false)
+  for (int i = 0; i < 8; i++)
+  {
+    if (shift)
+    {
+      // With shift: weights are row-major (out_channels=2 x in_channels=1), then biases
+      weights.push_back(1.0f); // scale weight (out_channel 0, in_channel 0)
+      weights.push_back(0.0f); // shift weight (out_channel 1, in_channel 0)
+      weights.push_back(0.0f); // scale bias
+      weights.push_back(0.0f); // shift bias
+    }
+    else
+    {
+      // Without shift: weights are row-major (out_channels=1 x in_channels=1), then bias
+      weights.push_back(1.0f); // scale weight (out_channel 0, in_channel 0)
+      weights.push_back(0.0f); // scale bias
+    }
+  }
+
+  auto it = weights.begin();
+  layer.set_weights_(it);
+  assert(it == weights.end());
+
+  const int maxBufferSize = 256;
+  layer.SetMaxBufferSize(maxBufferSize);
+
+  // Test with several different buffer sizes
+  std::vector<int> buffer_sizes{1, 8, 16, 32, 64, 128, 256};
+
+  for (int buffer_size : buffer_sizes)
+  {
+    // Prepare input/condition matrices (allocate before tracking)
+    Eigen::MatrixXf input(channels, buffer_size);
+    Eigen::MatrixXf condition(condition_size, buffer_size);
+    input.setConstant(0.5f);
+    condition.setConstant(0.5f);
+
+    std::string shift_str = shift ? "true" : "false";
+    std::string test_name =
+      "Layer Process (all FiLMs active, shift=" + shift_str + ") - Buffer size " + std::to_string(buffer_size);
+    run_allocation_test_no_allocations(
+      nullptr, // No setup needed
+      [&]() {
+        // Call Process() - this should not allocate or free
+        layer.Process(input, condition, buffer_size);
+      },
+      nullptr, // No teardown needed
+      test_name.c_str());
+
+    // Verify output is valid
+    auto output = layer.GetOutputNextLayer().leftCols(buffer_size);
+    assert(output.rows() == channels && output.cols() == buffer_size);
+    assert(std::isfinite(output(0, 0)));
+  }
+}
+
+// Test that Layer::Process() method with all FiLMs active (with shift) does not allocate or free memory
+void test_layer_all_films_with_shift_realtime_safe()
+{
+  test_layer_all_films_realtime_safe_impl(true);
+}
+
+// Test that Layer::Process() method with all FiLMs active (without shift) does not allocate or free memory
+void test_layer_all_films_without_shift_realtime_safe()
+{
+  test_layer_all_films_realtime_safe_impl(false);
+}
+
 // Test that LayerArray::Process() method does not allocate or free memory
 void test_layer_array_process_realtime_safe()
 {
@@ -693,8 +859,8 @@ void test_layer_array_process_realtime_safe()
   nam::wavenet::Head1x1Params head1x1_params(false, channels, 1);
 
   auto layer_array =
-    nam::wavenet::_LayerArray(input_size, condition_size, head_size, channels, bottleneck, kernel_size, dilations,
-                              activation, gating_mode, head_bias, groups, groups_1x1, head1x1_params, "");
+    make_layer_array(input_size, condition_size, head_size, channels, bottleneck, kernel_size, dilations, activation,
+                     gating_mode, head_bias, groups, groups_1x1, head1x1_params, "");
 
   // Set weights: rechannel(1), layer(conv:1+1, input_mixin:1, 1x1:1+1), head_rechannel(1)
   std::vector<float> weights{1.0f, // Rechannel
@@ -762,14 +928,14 @@ void test_process_realtime_safe()
   const int bottleneck = channels;
   const int groups_1x1 = 1;
   nam::wavenet::Head1x1Params head1x1_params(false, channels, 1);
-  layer_array_params.push_back(nam::wavenet::LayerArrayParams(
-    input_size, condition_size, head_size, channels, bottleneck, kernel_size, std::move(dilations1), activation,
-    gating_mode, head_bias, groups, groups_1x1, head1x1_params, ""));
+  layer_array_params.push_back(make_layer_array_params(input_size, condition_size, head_size, channels, bottleneck,
+                                                       kernel_size, std::move(dilations1), activation, gating_mode,
+                                                       head_bias, groups, groups_1x1, head1x1_params, ""));
   // Second layer array (head_size of first must match channels of second)
   std::vector<int> dilations2{1};
-  layer_array_params.push_back(nam::wavenet::LayerArrayParams(
-    head_size, condition_size, head_size, channels, bottleneck, kernel_size, std::move(dilations2), activation,
-    gating_mode, head_bias, groups, groups_1x1, head1x1_params, ""));
+  layer_array_params.push_back(make_layer_array_params(head_size, condition_size, head_size, channels, bottleneck,
+                                                       kernel_size, std::move(dilations2), activation, gating_mode,
+                                                       head_bias, groups, groups_1x1, head1x1_params, ""));
 
   // Weights: Array 0: rechannel(1), layer(conv:1+1, input_mixin:1, 1x1:1+1), head_rechannel(1)
   //          Array 1: same structure
@@ -839,9 +1005,9 @@ void test_process_3in_2out_realtime_safe()
 
   std::vector<nam::wavenet::LayerArrayParams> layer_array_params;
   std::vector<int> dilations1{1};
-  layer_array_params.push_back(nam::wavenet::LayerArrayParams(
-    input_size, condition_size, head_size, channels, bottleneck, kernel_size, std::move(dilations1), activation,
-    gating_mode, head_bias, groups, groups_1x1, head1x1_params, ""));
+  layer_array_params.push_back(make_layer_array_params(input_size, condition_size, head_size, channels, bottleneck,
+                                                       kernel_size, std::move(dilations1), activation, gating_mode,
+                                                       head_bias, groups, groups_1x1, head1x1_params, ""));
 
   // Calculate weights:
   // _rechannel: Conv1x1(3, 4, bias=false) = 3*4 = 12 weights

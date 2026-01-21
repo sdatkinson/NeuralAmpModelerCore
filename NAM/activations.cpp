@@ -15,10 +15,10 @@ static nam::activations::ActivationLeakyHardTanh _LEAKY_HARD_TANH;
 bool nam::activations::Activation::using_fast_tanh = false;
 
 // Helper to create a non-owning shared_ptr (no-op deleter) for singletons
-template<typename T>
+template <typename T>
 nam::activations::Activation::Ptr make_singleton_ptr(T& singleton)
 {
-  return nam::activations::Activation::Ptr(&singleton, [](nam::activations::Activation*){});
+  return nam::activations::Activation::Ptr(&singleton, [](nam::activations::Activation*) {});
 }
 
 std::unordered_map<std::string, nam::activations::Activation::Ptr> nam::activations::Activation::_activations = {
@@ -31,8 +31,7 @@ std::unordered_map<std::string, nam::activations::Activation::Ptr> nam::activati
   {"SiLU", make_singleton_ptr(_SWISH)},
   {"Hardswish", make_singleton_ptr(_HARD_SWISH)},
   {"LeakyHardtanh", make_singleton_ptr(_LEAKY_HARD_TANH)},
-  {"PReLU", make_singleton_ptr(_PRELU)}
-};
+  {"PReLU", make_singleton_ptr(_PRELU)}};
 
 nam::activations::Activation::Ptr tanh_bak = nullptr;
 nam::activations::Activation::Ptr sigmoid_bak = nullptr;
@@ -130,20 +129,13 @@ nam::activations::Activation::Ptr nam::activations::Activation::get_activation(c
 {
   switch (config.type)
   {
-    case ActivationType::Tanh:
-      return _activations["Tanh"];
-    case ActivationType::Hardtanh:
-      return _activations["Hardtanh"];
-    case ActivationType::Fasttanh:
-      return _activations["Fasttanh"];
-    case ActivationType::ReLU:
-      return _activations["ReLU"];
-    case ActivationType::Sigmoid:
-      return _activations["Sigmoid"];
-    case ActivationType::SiLU:
-      return _activations["SiLU"];
-    case ActivationType::Hardswish:
-      return _activations["Hardswish"];
+    case ActivationType::Tanh: return _activations["Tanh"];
+    case ActivationType::Hardtanh: return _activations["Hardtanh"];
+    case ActivationType::Fasttanh: return _activations["Fasttanh"];
+    case ActivationType::ReLU: return _activations["ReLU"];
+    case ActivationType::Sigmoid: return _activations["Sigmoid"];
+    case ActivationType::SiLU: return _activations["SiLU"];
+    case ActivationType::Hardswish: return _activations["Hardswish"];
     case ActivationType::LeakyReLU:
       if (config.negative_slope.has_value())
       {
@@ -161,11 +153,10 @@ nam::activations::Activation::Ptr nam::activations::Activation::get_activation(c
       }
       return std::make_shared<ActivationPReLU>(0.01f);
     case ActivationType::LeakyHardtanh:
-      return std::make_shared<ActivationLeakyHardTanh>(
-        config.min_val.value_or(-1.0f), config.max_val.value_or(1.0f), config.min_slope.value_or(0.01f),
-        config.max_slope.value_or(0.01f));
-    default:
-      return nullptr;
+      return std::make_shared<ActivationLeakyHardTanh>(config.min_val.value_or(-1.0f), config.max_val.value_or(1.0f),
+                                                       config.min_slope.value_or(0.01f),
+                                                       config.max_slope.value_or(0.01f));
+    default: return nullptr;
   }
 }
 

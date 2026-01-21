@@ -7,6 +7,7 @@
 #include "test/test_conv_1x1.cpp"
 #include "test/test_convnet.cpp"
 #include "test/test_dsp.cpp"
+#include "test/test_film.cpp"
 #include "test/test_fast_lut.cpp"
 #include "test/test_get_dsp.cpp"
 #include "test/test_ring_buffer.cpp"
@@ -110,6 +111,13 @@ int main()
   test_conv_1x1::test_set_max_buffer_size();
   test_conv_1x1::test_process_multiple_calls();
 
+  test_film::test_set_max_buffer_size();
+  test_film::test_process_bias_only();
+  test_film::test_process_scale_only();
+  test_film::test_process_inplace_with_shift();
+  test_film::test_process_inplace_scale_only();
+  test_film::test_process_inplace_partial_frames();
+
   test_wavenet::test_layer::test_gated();
   test_wavenet::test_layer::test_layer_getters();
   test_wavenet::test_layer::test_non_gated_layer();
@@ -138,6 +146,8 @@ int main()
   test_wavenet::test_layer_process_realtime_safe();
   test_wavenet::test_layer_bottleneck_process_realtime_safe();
   test_wavenet::test_layer_grouped_process_realtime_safe();
+  test_wavenet::test_layer_all_films_with_shift_realtime_safe();
+  test_wavenet::test_layer_all_films_without_shift_realtime_safe();
   test_wavenet::test_layer_array_process_realtime_safe();
   test_wavenet::test_process_realtime_safe();
   test_wavenet::test_process_3in_2out_realtime_safe();

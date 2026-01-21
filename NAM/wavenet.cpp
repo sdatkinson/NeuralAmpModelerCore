@@ -34,6 +34,25 @@ void nam::wavenet::_Layer::SetMaxBufferSize(const int maxBufferSize)
     this->_output_head.resize(this->_bottleneck, maxBufferSize);
     this->_output_head.setZero(); // Ensure consistent initialization across platforms
   }
+  // Set max buffer size for FiLM objects
+  if (this->_conv_pre_film)
+    this->_conv_pre_film->SetMaxBufferSize(maxBufferSize);
+  if (this->_conv_post_film)
+    this->_conv_post_film->SetMaxBufferSize(maxBufferSize);
+  if (this->_input_mixin_pre_film)
+    this->_input_mixin_pre_film->SetMaxBufferSize(maxBufferSize);
+  if (this->_input_mixin_post_film)
+    this->_input_mixin_post_film->SetMaxBufferSize(maxBufferSize);
+  if (this->_activation_pre_film)
+    this->_activation_pre_film->SetMaxBufferSize(maxBufferSize);
+  if (this->_activation_post_film)
+    this->_activation_post_film->SetMaxBufferSize(maxBufferSize);
+  if (this->_gating_activation_post_film)
+    this->_gating_activation_post_film->SetMaxBufferSize(maxBufferSize);
+  if (this->_1x1_post_film)
+    this->_1x1_post_film->SetMaxBufferSize(maxBufferSize);
+  if (this->_head1x1_post_film)
+    this->_head1x1_post_film->SetMaxBufferSize(maxBufferSize);
 }
 
 void nam::wavenet::_Layer::set_weights_(std::vector<float>::iterator& weights)
@@ -45,6 +64,25 @@ void nam::wavenet::_Layer::set_weights_(std::vector<float>::iterator& weights)
   {
     this->_head1x1->set_weights_(weights);
   }
+  // Set weights for FiLM objects
+  if (this->_conv_pre_film)
+    this->_conv_pre_film->set_weights_(weights);
+  if (this->_conv_post_film)
+    this->_conv_post_film->set_weights_(weights);
+  if (this->_input_mixin_pre_film)
+    this->_input_mixin_pre_film->set_weights_(weights);
+  if (this->_input_mixin_post_film)
+    this->_input_mixin_post_film->set_weights_(weights);
+  if (this->_activation_pre_film)
+    this->_activation_pre_film->set_weights_(weights);
+  if (this->_activation_post_film)
+    this->_activation_post_film->set_weights_(weights);
+  if (this->_gating_activation_post_film)
+    this->_gating_activation_post_film->set_weights_(weights);
+  if (this->_1x1_post_film)
+    this->_1x1_post_film->set_weights_(weights);
+  if (this->_head1x1_post_film)
+    this->_head1x1_post_film->set_weights_(weights);
 }
 
 void nam::wavenet::_Layer::Process(const Eigen::MatrixXf& input, const Eigen::MatrixXf& condition, const int num_frames)
@@ -52,10 +90,43 @@ void nam::wavenet::_Layer::Process(const Eigen::MatrixXf& input, const Eigen::Ma
   const long bottleneck = this->_bottleneck; // Use the actual bottleneck value, not the doubled output channels
 
   // Step 1: input convolutions
-  this->_conv.Process(input, num_frames);
-  this->_input_mixin.process_(condition, num_frames);
+  if (this->_conv_pre_film)
+  {
+    // Use Process() instead of Process_() since input is const
+    this->_conv_pre_film->Process(input, condition, num_frames);
+    this->_conv.Process(this->_conv_pre_film->GetOutput(), num_frames);
+  }
+  else
+  {
+    this->_conv.Process(input, num_frames);
+  }
+  if (this->_conv_post_film)
+  {
+    Eigen::MatrixXf& conv_output = this->_conv.GetOutput();
+    this->_conv_post_film->Process_(conv_output, condition, num_frames);
+  }
+
+  if (this->_input_mixin_pre_film)
+  {
+    // Use Process() instead of Process_() since condition is const
+    this->_input_mixin_pre_film->Process(condition, condition, num_frames);
+    this->_input_mixin.process_(this->_input_mixin_pre_film->GetOutput(), num_frames);
+  }
+  else
+  {
+    this->_input_mixin.process_(condition, num_frames);
+  }
+  if (this->_input_mixin_post_film)
+  {
+    Eigen::MatrixXf& input_mixin_output = this->_input_mixin.GetOutput();
+    this->_input_mixin_post_film->Process_(input_mixin_output, condition, num_frames);
+  }
   this->_z.leftCols(num_frames).noalias() =
-    this->_conv.GetOutput().leftCols(num_frames) + _input_mixin.GetOutput().leftCols(num_frames);
+    _conv.GetOutput().leftCols(num_frames) + _input_mixin.GetOutput().leftCols(num_frames);
+  if (this->_activation_pre_film)
+  {
+    this->_activation_pre_film->Process_(this->_z, condition, num_frames);
+  }
 
   // Step 2 & 3: activation and 1x1
   //
@@ -66,6 +137,10 @@ void nam::wavenet::_Layer::Process(const Eigen::MatrixXf& input, const Eigen::Ma
   if (this->_gating_mode == GatingMode::NONE)
   {
     this->_activation->apply(this->_z.leftCols(num_frames));
+    if (this->_activation_post_film)
+    {
+      this->_activation_post_film->Process_(this->_z, condition, num_frames);
+    }
     _1x1.process_(_z, num_frames);
   }
   else if (this->_gating_mode == GatingMode::GATED)
@@ -75,6 +150,13 @@ void nam::wavenet::_Layer::Process(const Eigen::MatrixXf& input, const Eigen::Ma
     auto input_block = this->_z.leftCols(num_frames);
     auto output_block = this->_z.topRows(bottleneck).leftCols(num_frames);
     this->_gating_activation->apply(input_block, output_block);
+    if (this->_gating_activation_post_film)
+    {
+      // Use Process() for blocks and copy result back
+      this->_gating_activation_post_film->Process(this->_z.topRows(bottleneck), condition, num_frames);
+      this->_z.topRows(bottleneck).leftCols(num_frames).noalias() =
+        this->_gating_activation_post_film->GetOutput().leftCols(num_frames);
+    }
     _1x1.process_(this->_z.topRows(bottleneck), num_frames);
   }
   else if (this->_gating_mode == GatingMode::BLENDED)
@@ -84,19 +166,42 @@ void nam::wavenet::_Layer::Process(const Eigen::MatrixXf& input, const Eigen::Ma
     auto input_block = this->_z.leftCols(num_frames);
     auto output_block = this->_z.topRows(bottleneck).leftCols(num_frames);
     this->_blending_activation->apply(input_block, output_block);
+    if (this->_activation_post_film)
+    {
+      // Use Process() for blocks and copy result back
+      this->_activation_post_film->Process(this->_z.topRows(bottleneck), condition, num_frames);
+      this->_z.topRows(bottleneck).leftCols(num_frames).noalias() =
+        this->_activation_post_film->GetOutput().leftCols(num_frames);
+    }
     _1x1.process_(this->_z.topRows(bottleneck), num_frames);
+    if (this->_1x1_post_film)
+    {
+      Eigen::MatrixXf& _1x1_output = this->_1x1.GetOutput();
+      this->_1x1_post_film->Process_(_1x1_output, condition, num_frames);
+    }
   }
 
   if (this->_head1x1)
   {
     if (this->_gating_mode == GatingMode::NONE)
+    {
       this->_head1x1->process_(this->_z.leftCols(num_frames), num_frames);
+    }
     else
-      this->_head1x1->process(this->_z.topRows(bottleneck).leftCols(num_frames), num_frames);
+    {
+      this->_head1x1->process_(this->_z.topRows(bottleneck).leftCols(num_frames), num_frames);
+    }
+    this->_head1x1->process(this->_z.topRows(bottleneck).leftCols(num_frames), num_frames);
+    if (this->_head1x1_post_film)
+    {
+      Eigen::MatrixXf& head1x1_output = this->_head1x1->GetOutput();
+      this->_head1x1_post_film->Process_(head1x1_output, condition, num_frames);
+    }
     this->_output_head.leftCols(num_frames).noalias() = this->_head1x1->GetOutput().leftCols(num_frames);
   }
-  else
+  else // No head 1x1
   {
+    // (No FiLM)
     // Store output to head (skip connection: activated conv output)
     if (this->_gating_mode == GatingMode::NONE)
       this->_output_head.leftCols(num_frames).noalias() = this->_z.leftCols(num_frames);
@@ -111,20 +216,26 @@ void nam::wavenet::_Layer::Process(const Eigen::MatrixXf& input, const Eigen::Ma
 
 // LayerArray =================================================================
 
-nam::wavenet::_LayerArray::_LayerArray(const int input_size, const int condition_size, const int head_size,
-                                       const int channels, const int bottleneck, const int kernel_size,
-                                       const std::vector<int>& dilations,
-                                       const activations::ActivationConfig& activation_config,
-                                       const GatingMode gating_mode, const bool head_bias, const int groups_input,
-                                       const int groups_1x1, const Head1x1Params& head1x1_params,
-                                       const std::string& secondary_activation)
+nam::wavenet::_LayerArray::_LayerArray(
+  const int input_size, const int condition_size, const int head_size, const int channels, const int bottleneck,
+  const int kernel_size, const std::vector<int>& dilations, const activations::ActivationConfig& activation_config,
+  const GatingMode gating_mode, const bool head_bias, const int groups_input, const int groups_1x1,
+  const Head1x1Params& head1x1_params, const std::string& secondary_activation, const _FiLMParams& conv_pre_film_params,
+  const _FiLMParams& conv_post_film_params, const _FiLMParams& input_mixin_pre_film_params,
+  const _FiLMParams& input_mixin_post_film_params, const _FiLMParams& activation_pre_film_params,
+  const _FiLMParams& activation_post_film_params, const _FiLMParams& gating_activation_post_film_params,
+  const _FiLMParams& _1x1_post_film_params, const _FiLMParams& head1x1_post_film_params)
 : _rechannel(input_size, channels, false)
 , _head_rechannel(bottleneck, head_size, head_bias)
 , _bottleneck(bottleneck)
 {
   for (size_t i = 0; i < dilations.size(); i++)
     this->_layers.push_back(_Layer(condition_size, channels, bottleneck, kernel_size, dilations[i], activation_config,
-                                   gating_mode, groups_input, groups_1x1, head1x1_params, secondary_activation));
+                                   gating_mode, groups_input, groups_1x1, head1x1_params, secondary_activation,
+                                   conv_pre_film_params, conv_post_film_params, input_mixin_pre_film_params,
+                                   input_mixin_post_film_params, activation_pre_film_params,
+                                   activation_post_film_params, gating_activation_post_film_params,
+                                   _1x1_post_film_params, head1x1_post_film_params));
 }
 
 void nam::wavenet::_LayerArray::SetMaxBufferSize(const int maxBufferSize)
@@ -276,7 +387,12 @@ nam::wavenet::WaveNet::WaveNet(const int in_channels,
       layer_array_params[i].channels, layer_array_params[i].bottleneck, layer_array_params[i].kernel_size,
       layer_array_params[i].dilations, layer_array_params[i].activation_config, layer_array_params[i].gating_mode,
       layer_array_params[i].head_bias, layer_array_params[i].groups_input, layer_array_params[i].groups_1x1,
-      layer_array_params[i].head1x1_params, layer_array_params[i].secondary_activation));
+      layer_array_params[i].head1x1_params, layer_array_params[i].secondary_activation,
+      layer_array_params[i].conv_pre_film_params, layer_array_params[i].conv_post_film_params,
+      layer_array_params[i].input_mixin_pre_film_params, layer_array_params[i].input_mixin_post_film_params,
+      layer_array_params[i].activation_pre_film_params, layer_array_params[i].activation_post_film_params,
+      layer_array_params[i].gating_activation_post_film_params, layer_array_params[i]._1x1_post_film_params,
+      layer_array_params[i].head1x1_post_film_params));
     if (i > 0)
       if (layer_array_params[i].channels != layer_array_params[i - 1].head_size)
       {
@@ -533,9 +649,35 @@ std::unique_ptr<nam::DSP> nam::wavenet::Factory(const nlohmann::json& config, st
     int head1x1_groups = layer_config.value("head1x1_groups", 1);
     nam::wavenet::Head1x1Params head1x1_params(head1x1_active, head1x1_out_channels, head1x1_groups);
 
+    // Helper function to parse FiLM parameters
+    auto parse_film_params = [&layer_config](const std::string& key) -> nam::wavenet::_FiLMParams {
+      if (layer_config.find(key) == layer_config.end() || layer_config[key] == false)
+      {
+        return nam::wavenet::_FiLMParams(false, false);
+      }
+      const nlohmann::json& film_config = layer_config[key];
+      bool active = film_config.value("active", true);
+      bool shift = film_config.value("shift", true);
+      return nam::wavenet::_FiLMParams(active, shift);
+    };
+
+    // Parse FiLM parameters
+    nam::wavenet::_FiLMParams conv_pre_film_params = parse_film_params("conv_pre_film");
+    nam::wavenet::_FiLMParams conv_post_film_params = parse_film_params("conv_post_film");
+    nam::wavenet::_FiLMParams input_mixin_pre_film_params = parse_film_params("input_mixin_pre_film");
+    nam::wavenet::_FiLMParams input_mixin_post_film_params = parse_film_params("input_mixin_post_film");
+    nam::wavenet::_FiLMParams activation_pre_film_params = parse_film_params("activation_pre_film");
+    nam::wavenet::_FiLMParams activation_post_film_params = parse_film_params("activation_post_film");
+    nam::wavenet::_FiLMParams gating_activation_post_film_params = parse_film_params("gating_activation_post_film");
+    nam::wavenet::_FiLMParams _1x1_post_film_params = parse_film_params("1x1_post_film");
+    nam::wavenet::_FiLMParams head1x1_post_film_params = parse_film_params("head1x1_post_film");
+
     layer_array_params.push_back(nam::wavenet::LayerArrayParams(
-      input_size, condition_size, head_size, channels, bottleneck, kernel_size, dilations, activation_config, gating_mode,
-      head_bias, groups, groups_1x1, head1x1_params, secondary_activation));
+      input_size, condition_size, head_size, channels, bottleneck, kernel_size, dilations, activation_config,
+      gating_mode, head_bias, groups, groups_1x1, head1x1_params, secondary_activation, conv_pre_film_params,
+      conv_post_film_params, input_mixin_pre_film_params, input_mixin_post_film_params, activation_pre_film_params,
+      activation_post_film_params, gating_activation_post_film_params, _1x1_post_film_params,
+      head1x1_post_film_params));
   }
   const bool with_head = !config["head"].is_null();
   const float head_scale = config["head_scale"];

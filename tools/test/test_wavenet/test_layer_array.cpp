@@ -12,6 +12,25 @@ namespace test_wavenet
 {
 namespace test_layer_array
 {
+// Helper function to create default (inactive) FiLM parameters
+static nam::wavenet::_FiLMParams make_default_film_params()
+{
+  return nam::wavenet::_FiLMParams(false, false);
+}
+
+// Helper function to create a LayerArray with default FiLM parameters
+static nam::wavenet::_LayerArray make_layer_array(
+  const int input_size, const int condition_size, const int head_size, const int channels, const int bottleneck,
+  const int kernel_size, const std::vector<int>& dilations, const nam::activations::ActivationConfig& activation_config,
+  const nam::wavenet::GatingMode gating_mode, const bool head_bias, const int groups_input, const int groups_1x1,
+  const nam::wavenet::Head1x1Params& head1x1_params, const std::string& secondary_activation)
+{
+  auto film_params = make_default_film_params();
+  return nam::wavenet::_LayerArray(input_size, condition_size, head_size, channels, bottleneck, kernel_size, dilations,
+                                   activation_config, gating_mode, head_bias, groups_input, groups_1x1, head1x1_params,
+                                   secondary_activation, film_params, film_params, film_params, film_params,
+                                   film_params, film_params, film_params, film_params, film_params);
+}
 // Test layer array construction and basic processing
 void test_layer_array_basic()
 {
@@ -30,8 +49,8 @@ void test_layer_array_basic()
 
   nam::wavenet::Head1x1Params head1x1_params(false, channels, 1);
   auto layer_array =
-    nam::wavenet::_LayerArray(input_size, condition_size, head_size, channels, bottleneck, kernel_size, dilations,
-                              activation, gating_mode, head_bias, groups, groups_1x1, head1x1_params, "");
+    make_layer_array(input_size, condition_size, head_size, channels, bottleneck, kernel_size, dilations, activation,
+                     gating_mode, head_bias, groups, groups_1x1, head1x1_params, "");
 
   const int numFrames = 4;
   layer_array.SetMaxBufferSize(numFrames);
@@ -89,8 +108,8 @@ void test_layer_array_receptive_field()
   nam::wavenet::Head1x1Params head1x1_params(false, channels, 1);
 
   auto layer_array =
-    nam::wavenet::_LayerArray(input_size, condition_size, head_size, channels, bottleneck, kernel_size, dilations,
-                              activation, gating_mode, head_bias, groups, groups_1x1, head1x1_params, "");
+    make_layer_array(input_size, condition_size, head_size, channels, bottleneck, kernel_size, dilations, activation,
+                     gating_mode, head_bias, groups, groups_1x1, head1x1_params, "");
 
   long rf = layer_array.get_receptive_field();
   // Expected: sum of dilation * (kernel_size - 1) for each layer
@@ -120,8 +139,8 @@ void test_layer_array_with_head_input()
   nam::wavenet::Head1x1Params head1x1_params(false, channels, 1);
 
   auto layer_array =
-    nam::wavenet::_LayerArray(input_size, condition_size, head_size, channels, bottleneck, kernel_size, dilations,
-                              activation, gating_mode, head_bias, groups, groups_1x1, head1x1_params, "");
+    make_layer_array(input_size, condition_size, head_size, channels, bottleneck, kernel_size, dilations, activation,
+                     gating_mode, head_bias, groups, groups_1x1, head1x1_params, "");
 
   const int numFrames = 2;
   layer_array.SetMaxBufferSize(numFrames);
