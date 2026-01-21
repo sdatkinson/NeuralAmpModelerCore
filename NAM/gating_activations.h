@@ -42,9 +42,10 @@ public:
     {
       throw std::invalid_argument("GatingActivation: number of input channels must be positive");
     }
-    // Initialize input buffer with correct size
+    // Initialize buffers with correct size
     // Note: current code copies column-by-column so we only need (num_channels, 1)
     input_buffer.resize(num_channels, 1);
+    gating_buffer.resize(num_channels, 1);
   }
 
   ~GatingActivation() = default;
@@ -64,23 +65,20 @@ public:
     assert(output.cols() == input.cols());
 
     // Process column-by-column to ensure memory contiguity (important for column-major matrices)
+    // Uses pre-allocated buffers to avoid allocations in the loop (real-time safe)
     const int num_samples = input.cols();
     for (int i = 0; i < num_samples; i++)
     {
-      // Store pre-activation input values in buffer to avoid overwriting issues
+      // Copy to pre-allocated buffers and apply activations in-place
       input_buffer = input.block(0, i, num_channels, 1);
+      input_activation->apply(input_buffer);
 
-      // Apply activation to input channels
-      Eigen::MatrixXf input_block = input.block(0, i, num_channels, 1);
-      input_activation->apply(input_block);
-
-      // Apply activation to gating channels
-      Eigen::MatrixXf gating_block = input.block(num_channels, i, num_channels, 1);
-      gating_activation->apply(gating_block);
+      gating_buffer = input.block(num_channels, i, num_channels, 1);
+      gating_activation->apply(gating_buffer);
 
       // Element-wise multiplication and store result
       // For wavenet compatibility, we assume one-to-one mapping
-      output.block(0, i, num_channels, 1) = input_block.array() * gating_block.array();
+      output.block(0, i, num_channels, 1) = input_buffer.array() * gating_buffer.array();
     }
   }
 
@@ -99,6 +97,7 @@ private:
   activations::Activation::Ptr gating_activation;
   int num_channels;
   Eigen::MatrixXf input_buffer;
+  Eigen::MatrixXf gating_buffer;
 };
 
 class BlendingActivation
@@ -118,9 +117,11 @@ public:
   {
     assert(num_channels > 0);
 
-    // Initialize input buffer with correct size
+    // Initialize buffers with correct size
     // Note: current code copies column-by-column so we only need (num_channels, 1)
+    pre_activation_buffer.resize(num_channels, 1);
     input_buffer.resize(num_channels, 1);
+    blend_buffer.resize(num_channels, 1);
   }
 
   ~BlendingActivation() = default;
@@ -140,23 +141,24 @@ public:
     assert(output.cols() == input.cols());
 
     // Process column-by-column to ensure memory contiguity
+    // Uses pre-allocated buffers to avoid allocations in the loop (real-time safe)
     const int num_samples = input.cols();
     for (int i = 0; i < num_samples; i++)
     {
       // Store pre-activation input values in buffer
+      pre_activation_buffer = input.block(0, i, num_channels, 1);
+
+      // Copy to pre-allocated buffer and apply activation to input channels
       input_buffer = input.block(0, i, num_channels, 1);
+      input_activation->apply(input_buffer);
 
-      // Apply activation to input channels
-      Eigen::MatrixXf input_block = input.block(0, i, num_channels, 1);
-      input_activation->apply(input_block);
-
-      // Apply activation to blend channels to compute alpha
-      Eigen::MatrixXf blend_block = input.block(num_channels, i, num_channels, 1);
-      blending_activation->apply(blend_block);
+      // Copy to pre-allocated buffer and apply activation to blend channels to compute alpha
+      blend_buffer = input.block(num_channels, i, num_channels, 1);
+      blending_activation->apply(blend_buffer);
 
       // Weighted blending: alpha * activated_input + (1 - alpha) * pre_activation_input
       output.block(0, i, num_channels, 1) =
-        blend_block.array() * input_block.array() + (1.0f - blend_block.array()) * input_buffer.array();
+        blend_buffer.array() * input_buffer.array() + (1.0f - blend_buffer.array()) * pre_activation_buffer.array();
     }
   }
 
@@ -174,7 +176,9 @@ private:
   activations::Activation::Ptr input_activation;
   activations::Activation::Ptr blending_activation;
   int num_channels;
+  Eigen::MatrixXf pre_activation_buffer;
   Eigen::MatrixXf input_buffer;
+  Eigen::MatrixXf blend_buffer;
 };
 
 
