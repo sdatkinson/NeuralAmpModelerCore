@@ -5,12 +5,20 @@
 #include <vector>
 #include <cmath>
 #include <iostream>
+#include <memory>
 
 #include "NAM/gating_activations.h"
 #include "NAM/activations.h"
 
 namespace test_wavenet_gating_compatibility
 {
+
+// Helper to create a non-owning shared_ptr for stack-allocated activations in tests
+template<typename T>
+nam::activations::Activation::Ptr make_test_ptr(T& activation)
+{
+  return nam::activations::Activation::Ptr(&activation, [](nam::activations::Activation*){});
+}
 
 class TestWavenetGatingCompatibility
 {
@@ -35,7 +43,7 @@ public:
     // Wavenet uses: input activation (default/linear) and sigmoid for gating
     nam::activations::ActivationIdentity identity_act;
     nam::activations::ActivationSigmoid sigmoid_act;
-    nam::gating_activations::GatingActivation gating_act(&identity_act, &sigmoid_act, channels);
+    nam::gating_activations::GatingActivation gating_act(make_test_ptr(identity_act), make_test_ptr(sigmoid_act), channels);
 
     // Apply the activation
     gating_act.apply(input, output);
@@ -84,7 +92,7 @@ public:
 
     nam::activations::ActivationIdentity identity_act;
     nam::activations::ActivationSigmoid sigmoid_act;
-    nam::gating_activations::GatingActivation gating_act(&identity_act, &sigmoid_act, channels);
+    nam::gating_activations::GatingActivation gating_act(make_test_ptr(identity_act), make_test_ptr(sigmoid_act), channels);
     gating_act.apply(input, output);
 
     // Verify each column was processed independently
@@ -120,7 +128,7 @@ public:
 
     nam::activations::ActivationIdentity identity_act;
     nam::activations::ActivationSigmoid sigmoid_act;
-    nam::gating_activations::GatingActivation gating_act(&identity_act, &sigmoid_act, channels);
+    nam::gating_activations::GatingActivation gating_act(make_test_ptr(identity_act), make_test_ptr(sigmoid_act), channels);
 
     // This should not crash or produce incorrect results due to memory contiguity issues
     gating_act.apply(input, output);
@@ -155,7 +163,7 @@ public:
 
     nam::activations::ActivationIdentity identity_act;
     nam::activations::ActivationSigmoid sigmoid_act;
-    nam::gating_activations::GatingActivation gating_act(&identity_act, &sigmoid_act, channels);
+    nam::gating_activations::GatingActivation gating_act(make_test_ptr(identity_act), make_test_ptr(sigmoid_act), channels);
     gating_act.apply(input, output);
 
     // Verify dimensions

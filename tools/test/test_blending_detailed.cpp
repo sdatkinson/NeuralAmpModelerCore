@@ -5,12 +5,20 @@
 #include <vector>
 #include <cmath>
 #include <iostream>
+#include <memory>
 
 #include "NAM/gating_activations.h"
 #include "NAM/activations.h"
 
 namespace test_blending_detailed
 {
+
+// Helper to create a non-owning shared_ptr for stack-allocated activations in tests
+template<typename T>
+nam::activations::Activation::Ptr make_test_ptr(T& activation)
+{
+  return nam::activations::Activation::Ptr(&activation, [](nam::activations::Activation*){});
+}
 
 class TestBlendingDetailed
 {
@@ -29,7 +37,7 @@ public:
     // Test with default (linear) activations
     nam::activations::ActivationIdentity identity_act;
     nam::activations::ActivationIdentity identity_blend_act;
-    nam::gating_activations::BlendingActivation blending_act(&identity_act, &identity_blend_act, 2);
+    nam::gating_activations::BlendingActivation blending_act(make_test_ptr(identity_act), make_test_ptr(identity_blend_act), 2);
     blending_act.apply(input, output);
 
     // With linear activations:
@@ -42,8 +50,8 @@ public:
     assert(fabs(output(1, 1) - 4.0f) < 1e-6);
 
     // Test with sigmoid blending activation
-    nam::activations::Activation* sigmoid_act = nam::activations::Activation::get_activation("Sigmoid");
-    nam::gating_activations::BlendingActivation blending_act_sigmoid(&identity_act, sigmoid_act, 2);
+    auto sigmoid_act = nam::activations::Activation::get_activation(std::string("Sigmoid"));
+    nam::gating_activations::BlendingActivation blending_act_sigmoid(make_test_ptr(identity_act), sigmoid_act, 2);
 
     Eigen::MatrixXf output_sigmoid(2, 2);
     blending_act_sigmoid.apply(input, output_sigmoid);
@@ -80,7 +88,7 @@ public:
     // Test with ReLU activation on input (which will change values < 0 to 0)
     nam::activations::ActivationReLU relu_act;
     nam::activations::ActivationIdentity identity_act;
-    nam::gating_activations::BlendingActivation blending_act(&relu_act, &identity_act, 1);
+    nam::gating_activations::BlendingActivation blending_act(make_test_ptr(relu_act), make_test_ptr(identity_act), 1);
 
     blending_act.apply(input, output);
 

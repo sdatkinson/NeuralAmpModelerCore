@@ -48,7 +48,8 @@ void nam::convnet::BatchNorm::process_(Eigen::MatrixXf& x, const long i_start, c
 }
 
 void nam::convnet::ConvNetBlock::set_weights_(const int in_channels, const int out_channels, const int _dilation,
-                                              const bool batchnorm, const std::string activation, const int groups,
+                                              const bool batchnorm,
+                                              const activations::ActivationConfig& activation_config, const int groups,
                                               std::vector<float>::iterator& weights)
 {
   this->_batchnorm = batchnorm;
@@ -56,7 +57,7 @@ void nam::convnet::ConvNetBlock::set_weights_(const int in_channels, const int o
   this->conv.set_size_and_weights_(in_channels, out_channels, 2, _dilation, !batchnorm, groups, weights);
   if (this->_batchnorm)
     this->batchnorm = BatchNorm(out_channels, weights);
-  this->activation = activations::Activation::get_activation(activation);
+  this->activation = activations::Activation::get_activation(activation_config);
 }
 
 void nam::convnet::ConvNetBlock::SetMaxBufferSize(const int maxBufferSize)
@@ -173,8 +174,9 @@ void nam::convnet::_Head::process_(const Eigen::MatrixXf& input, Eigen::MatrixXf
 }
 
 nam::convnet::ConvNet::ConvNet(const int in_channels, const int out_channels, const int channels,
-                               const std::vector<int>& dilations, const bool batchnorm, const std::string activation,
-                               std::vector<float>& weights, const double expected_sample_rate, const int groups)
+                               const std::vector<int>& dilations, const bool batchnorm,
+                               const activations::ActivationConfig& activation_config, std::vector<float>& weights,
+                               const double expected_sample_rate, const int groups)
 : Buffer(in_channels, out_channels, *std::max_element(dilations.begin(), dilations.end()), expected_sample_rate)
 {
   this->_verify_weights(channels, dilations, batchnorm, weights.size());
@@ -183,7 +185,7 @@ nam::convnet::ConvNet::ConvNet(const int in_channels, const int out_channels, co
   // First block takes in_channels input, subsequent blocks take channels input
   for (size_t i = 0; i < dilations.size(); i++)
     this->_blocks[i].set_weights_(
-      i == 0 ? in_channels : channels, channels, dilations[i], batchnorm, activation, groups, it);
+      i == 0 ? in_channels : channels, channels, dilations[i], batchnorm, activation_config, groups, it);
   // Only need _block_vals for the head (one entry)
   // Conv1D layers manage their own buffers now
   this->_block_vals.resize(1);
@@ -327,13 +329,15 @@ std::unique_ptr<nam::DSP> nam::convnet::Factory(const nlohmann::json& config, st
   const int channels = config["channels"];
   const std::vector<int> dilations = config["dilations"];
   const bool batchnorm = config["batchnorm"];
-  const std::string activation = config["activation"];
+  // Parse JSON into typed ActivationConfig at model loading boundary
+  const activations::ActivationConfig activation_config =
+    activations::ActivationConfig::from_json(config["activation"]);
   const int groups = config.value("groups", 1); // defaults to 1
   // Default to 1 channel in/out for backward compatibility
   const int in_channels = config.value("in_channels", 1);
   const int out_channels = config.value("out_channels", 1);
   return std::make_unique<nam::convnet::ConvNet>(
-    in_channels, out_channels, channels, dilations, batchnorm, activation, weights, expectedSampleRate, groups);
+    in_channels, out_channels, channels, dilations, batchnorm, activation_config, weights, expectedSampleRate, groups);
 }
 
 namespace

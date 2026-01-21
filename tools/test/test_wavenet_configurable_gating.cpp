@@ -21,7 +21,7 @@ public:
     const int bottleneck = 2;
     const int kernelSize = 3;
     const int dilation = 1;
-    const std::string activation = "Tanh";
+    const auto activation = nam::activations::ActivationConfig::simple(nam::activations::ActivationType::Tanh);
     const int groups_input = 1;
     const int groups_1x1 = 1;
     nam::wavenet::Head1x1Params head1x1_params(false, channels, 1);
@@ -48,7 +48,7 @@ public:
     const int bottleneck = 2;
     const int kernelSize = 3;
     const int dilation = 1;
-    const std::string activation = "Tanh";
+    const auto activation = nam::activations::ActivationConfig::simple(nam::activations::ActivationType::Tanh);
     const int groups_input = 1;
     const int groups_1x1 = 1;
     nam::wavenet::Head1x1Params head1x1_params(false, channels, 1);
@@ -78,7 +78,7 @@ public:
     const int bottleneck = 2;
     const int kernel_size = 3;
     const std::vector<int> dilations = {1, 2};
-    const std::string activation = "Tanh";
+    const auto activation = nam::activations::ActivationConfig::simple(nam::activations::ActivationType::Tanh);
     const bool head_bias = false;
     const int groups_input = 1;
     const int groups_1x1 = 1;
@@ -111,7 +111,7 @@ public:
     const int bottleneck = 2;
     const int kernel_size = 3;
     const std::vector<int> dilations = {1};
-    const std::string activation = "Tanh";
+    const auto activation = nam::activations::ActivationConfig::simple(nam::activations::ActivationType::Tanh);
     const bool head_bias = false;
     const int groups_input = 1;
     const int groups_1x1 = 1;
@@ -174,7 +174,7 @@ public:
     const int bottleneck = 2;
     const int kernelSize = 3;
     const int dilation = 1;
-    const std::string activation = "Tanh";
+    const auto activation = nam::activations::ActivationConfig::simple(nam::activations::ActivationType::Tanh);
     const int groups_input = 1;
     const int groups_1x1 = 1;
     nam::wavenet::Head1x1Params head1x1_params(false, channels, 1);

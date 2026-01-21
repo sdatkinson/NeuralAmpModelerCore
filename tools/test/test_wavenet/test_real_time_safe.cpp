@@ -432,7 +432,7 @@ void test_layer_process_realtime_safe()
   const int bottleneck = channels;
   const int kernel_size = 1;
   const int dilation = 1;
-  const std::string activation = "ReLU";
+  const auto activation = nam::activations::ActivationConfig::simple(nam::activations::ActivationType::ReLU);
   const nam::wavenet::GatingMode gating_mode = nam::wavenet::GatingMode::NONE;
   const int groups_input = 1;
   const int groups_1x1 = 1;
@@ -488,7 +488,7 @@ void test_layer_bottleneck_process_realtime_safe()
   const int bottleneck = 2; // bottleneck < channels
   const int kernel_size = 1;
   const int dilation = 1;
-  const std::string activation = "ReLU";
+  const auto activation = nam::activations::ActivationConfig::simple(nam::activations::ActivationType::ReLU);
   const nam::wavenet::GatingMode gating_mode = nam::wavenet::GatingMode::NONE;
   const int groups_input = 1;
   const int groups_1x1 = 1;
@@ -574,7 +574,7 @@ void test_layer_grouped_process_realtime_safe()
   const int bottleneck = channels;
   const int kernel_size = 2;
   const int dilation = 1;
-  const std::string activation = "ReLU";
+  const auto activation = nam::activations::ActivationConfig::simple(nam::activations::ActivationType::ReLU);
   const nam::wavenet::GatingMode gating_mode = nam::wavenet::GatingMode::NONE;
   const int groups_input = 2; // groups_input > 1
   const int groups_1x1 = 2; // 1x1 is also grouped
@@ -685,7 +685,7 @@ void test_layer_array_process_realtime_safe()
   const int bottleneck = channels;
   const int kernel_size = 1;
   std::vector<int> dilations{1};
-  const std::string activation = "ReLU";
+  const auto activation = nam::activations::ActivationConfig::simple(nam::activations::ActivationType::ReLU);
   const nam::wavenet::GatingMode gating_mode = nam::wavenet::GatingMode::NONE;
   const bool head_bias = false;
   const int groups = 1;
@@ -749,7 +749,7 @@ void test_process_realtime_safe()
   const int channels = 1;
   const int kernel_size = 1;
   std::vector<int> dilations{1};
-  const std::string activation = "ReLU";
+  const auto activation = nam::activations::ActivationConfig::simple(nam::activations::ActivationType::ReLU);
   const nam::wavenet::GatingMode gating_mode = nam::wavenet::GatingMode::NONE;
   const bool head_bias = false;
   const float head_scale = 1.0f;
@@ -827,7 +827,7 @@ void test_process_3in_2out_realtime_safe()
   const int channels = 4; // internal channels
   const int bottleneck = 2; // bottleneck (will be used for head)
   const int kernel_size = 1;
-  const std::string activation = "ReLU";
+  const auto activation = nam::activations::ActivationConfig::simple(nam::activations::ActivationType::ReLU);
   const nam::wavenet::GatingMode gating_mode = nam::wavenet::GatingMode::NONE;
   const bool head_bias = false;
   const float head_scale = 1.0f;

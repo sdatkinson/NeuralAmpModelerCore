@@ -5,12 +5,20 @@
 #include <vector>
 #include <cmath>
 #include <iostream>
+#include <memory>
 
 #include "NAM/gating_activations.h"
 #include "NAM/activations.h"
 
 namespace test_input_buffer_verification
 {
+
+// Helper to create a non-owning shared_ptr for stack-allocated activations in tests
+template<typename T>
+nam::activations::Activation::Ptr make_test_ptr(T& activation)
+{
+  return nam::activations::Activation::Ptr(&activation, [](nam::activations::Activation*){});
+}
 
 class TestInputBufferVerification
 {
@@ -26,7 +34,7 @@ public:
     // Use ReLU activation which will set negative values to 0
     nam::activations::ActivationReLU relu_act;
     nam::activations::ActivationIdentity identity_act;
-    nam::gating_activations::BlendingActivation blending_act(&relu_act, &identity_act, 1);
+    nam::gating_activations::BlendingActivation blending_act(make_test_ptr(relu_act), make_test_ptr(identity_act), 1);
 
     // Apply the activation
     blending_act.apply(input, output);
@@ -53,7 +61,7 @@ public:
     // Use LeakyReLU with slope 0.1
     nam::activations::ActivationLeakyReLU leaky_relu(0.1f);
     nam::activations::ActivationIdentity identity_act;
-    nam::gating_activations::BlendingActivation blending_act(&leaky_relu, &identity_act, 1);
+    nam::gating_activations::BlendingActivation blending_act(make_test_ptr(leaky_relu), make_test_ptr(identity_act), 1);
 
     blending_act.apply(input, output);
 

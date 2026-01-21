@@ -1,16 +1,58 @@
 #pragma once
 
 #include <cassert>
-#include <string>
 #include <cmath> // expf
-#include <unordered_map>
-#include <Eigen/Dense>
 #include <functional>
+#include <memory>
+#include <optional>
+#include <string>
+#include <unordered_map>
+#include <vector>
+
+#include <Eigen/Dense>
+
+#include "json.hpp"
 
 namespace nam
 {
 namespace activations
 {
+
+// Forward declaration
+class Activation;
+
+// Strongly-typed activation type enum
+enum class ActivationType
+{
+  Tanh,
+  Hardtanh,
+  Fasttanh,
+  ReLU,
+  LeakyReLU,
+  PReLU,
+  Sigmoid,
+  SiLU, // aka Swish
+  Hardswish,
+  LeakyHardtanh
+};
+
+// Strongly-typed activation configuration
+struct ActivationConfig
+{
+  ActivationType type;
+
+  // Optional parameters (used by specific activation types)
+  std::optional<float> negative_slope;               // LeakyReLU, PReLU (single)
+  std::optional<std::vector<float>> negative_slopes; // PReLU (per-channel)
+  std::optional<float> min_val;                      // LeakyHardtanh
+  std::optional<float> max_val;                      // LeakyHardtanh
+  std::optional<float> min_slope;                    // LeakyHardtanh
+  std::optional<float> max_slope;                    // LeakyHardtanh
+
+  // Convenience constructors
+  static ActivationConfig simple(ActivationType t);
+  static ActivationConfig from_json(const nlohmann::json& j);
+};
 inline float relu(float x)
 {
   return x > 0.0f ? x : 0.0f;
@@ -91,6 +133,9 @@ inline float hardswish(float x)
 class Activation
 {
 public:
+  // Type alias for shared pointer to Activation
+  using Ptr = std::shared_ptr<Activation>;
+
   Activation() = default;
   virtual ~Activation() = default;
   virtual void apply(Eigen::MatrixXf& matrix) { apply(matrix.data(), matrix.rows() * matrix.cols()); }
@@ -101,7 +146,9 @@ public:
   }
   virtual void apply(float* data, long size) {}
 
-  static Activation* get_activation(const std::string name);
+  static Ptr get_activation(const std::string name);
+  static Ptr get_activation(const ActivationConfig& config);
+  static Ptr get_activation(const nlohmann::json& activation_config);
   static void enable_fast_tanh();
   static void disable_fast_tanh();
   static bool using_fast_tanh;
@@ -109,7 +156,7 @@ public:
   static void disable_lut(std::string function_name);
 
 protected:
-  static std::unordered_map<std::string, Activation*> _activations;
+  static std::unordered_map<std::string, Ptr> _activations;
 };
 
 // identity function activation
@@ -226,20 +273,21 @@ public:
   void apply(Eigen::MatrixXf& matrix) override
   {
     // Matrix is organized as (channels, time_steps)
-    int n_channels = negative_slopes.size();
-    int actual_channels = matrix.rows();
+    unsigned long actual_channels = static_cast<unsigned long>(matrix.rows());
+    
+    // Prepare the slopes for the current matrix size
+    std::vector<float> slopes_for_channels = negative_slopes;
 
-    // NOTE: check not done during runtime on release builds
-    // model loader should make sure dimensions match
-    assert(actual_channels == n_channels);
-
+    // Fail loudly if input has more channels than activation
+    assert(actual_channels == negative_slopes.size());
+    
     // Apply each negative slope to its corresponding channel
-    for (int channel = 0; channel < std::min(n_channels, actual_channels); channel++)
+    for (unsigned long channel = 0; channel < actual_channels; channel++)
     {
       // Apply the negative slope to all time steps in this channel
-      for (int time_step = 0; time_step < matrix.rows(); time_step++)
+      for (int time_step = 0; time_step < matrix.cols(); time_step++)
       {
-        matrix(channel, time_step) = leaky_relu(matrix(channel, time_step), negative_slopes[channel]);
+        matrix(channel, time_step) = leaky_relu(matrix(channel, time_step), slopes_for_channels[channel]);
       }
     }
   }
