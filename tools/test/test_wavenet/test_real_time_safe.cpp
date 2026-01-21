@@ -739,10 +739,10 @@ void test_layer_grouped_process_realtime_safe()
   }
 }
 
-// Test that Layer::Process() method with all FiLMs active (with shift) does not allocate or free memory
-void test_layer_all_films_with_shift_realtime_safe()
+// Helper function to test Layer::Process() with all FiLMs active
+static void test_layer_all_films_realtime_safe_impl(const bool shift)
 {
-  // Setup: Create a Layer with all FiLMs active and shift=true
+  // Setup: Create a Layer with all FiLMs active
   const int condition_size = 1;
   const int channels = 1;
   const int bottleneck = channels;
@@ -755,7 +755,7 @@ void test_layer_all_films_with_shift_realtime_safe()
 
   nam::wavenet::Head1x1Params head1x1_params(false, channels, 1);
   auto layer = make_layer_all_films(condition_size, channels, bottleneck, kernel_size, dilation, activation,
-                                    gating_mode, groups_input, groups_1x1, head1x1_params, "", true);
+                                    gating_mode, groups_input, groups_1x1, head1x1_params, "", shift);
 
   // Set weights
   // Base layer weights:
@@ -764,34 +764,32 @@ void test_layer_all_films_with_shift_realtime_safe()
   // 1x1: (bottleneck, channels) + bias = (1, 1) + 1 = 2 weights
   // Total base: 5 weights
 
-  // FiLM weights (each FiLM uses Conv1x1: condition_size -> (shift ? 2 : 1) * input_dim with bias)
-  // With shift=true, each FiLM needs: (2 * input_dim) * condition_size weights + (2 * input_dim) biases
-  // conv_pre_film: condition_size=1, input_dim=channels=1 -> (2*1)*1 + (2*1) = 2 + 2 = 4 weights
-  // conv_post_film: condition_size=1, input_dim=bottleneck=1 -> (2*1)*1 + (2*1) = 2 + 2 = 4 weights
-  // input_mixin_pre_film: condition_size=1, input_dim=condition_size=1 -> (2*1)*1 + (2*1) = 2 + 2 = 4 weights
-  // input_mixin_post_film: condition_size=1, input_dim=bottleneck=1 -> (2*1)*1 + (2*1) = 2 + 2 = 4 weights
-  // activation_pre_film: condition_size=1, input_dim=bottleneck=1 -> (2*1)*1 + (2*1) = 2 + 2 = 4 weights
-  // activation_post_film: condition_size=1, input_dim=bottleneck=1 -> (2*1)*1 + (2*1) = 2 + 2 = 4 weights
-  // gating_activation_post_film: condition_size=1, input_dim=bottleneck=1 -> (2*1)*1 + (2*1) = 2 + 2 = 4 weights
-  // _1x1_post_film: condition_size=1, input_dim=channels=1 -> (2*1)*1 + (2*1) = 2 + 2 = 4 weights
-  // head1x1_post_film: not active (head1x1 is false)
-  // Total FiLM: 8 * 4 = 32 weights
-
   std::vector<float> weights;
   // Base layer weights
   weights.insert(weights.end(), {1.0f, 0.0f}); // Conv (weight, bias)
   weights.push_back(1.0f); // Input mixin
   weights.insert(weights.end(), {1.0f, 0.0f}); // 1x1 (weight, bias)
 
-  // FiLM weights (identity-like: scale=1, shift=0)
-  // For each FiLM: weights are row-major (out_channels x in_channels), then biases
-  // With shift=true: out_channels=2 (scale, shift), in_channels=condition_size=1
+  // FiLM weights (each FiLM uses Conv1x1: condition_size -> (shift ? 2 : 1) * input_dim with bias)
+  // With shift=true: each FiLM needs (2 * input_dim) * condition_size weights + (2 * input_dim) biases = 4 weights
+  // With shift=false: each FiLM needs input_dim * condition_size weights + input_dim biases = 2 weights
+  // All 8 FiLMs are active (excluding head1x1_post_film since head1x1 is false)
   for (int i = 0; i < 8; i++)
   {
-    weights.push_back(1.0f); // scale weight (out_channel 0, in_channel 0)
-    weights.push_back(0.0f); // shift weight (out_channel 1, in_channel 0)
-    weights.push_back(0.0f); // scale bias
-    weights.push_back(0.0f); // shift bias
+    if (shift)
+    {
+      // With shift: weights are row-major (out_channels=2 x in_channels=1), then biases
+      weights.push_back(1.0f); // scale weight (out_channel 0, in_channel 0)
+      weights.push_back(0.0f); // shift weight (out_channel 1, in_channel 0)
+      weights.push_back(0.0f); // scale bias
+      weights.push_back(0.0f); // shift bias
+    }
+    else
+    {
+      // Without shift: weights are row-major (out_channels=1 x in_channels=1), then bias
+      weights.push_back(1.0f); // scale weight (out_channel 0, in_channel 0)
+      weights.push_back(0.0f); // scale bias
+    }
   }
 
   auto it = weights.begin();
@@ -812,7 +810,9 @@ void test_layer_all_films_with_shift_realtime_safe()
     input.setConstant(0.5f);
     condition.setConstant(0.5f);
 
-    std::string test_name = "Layer Process (all FiLMs active, shift=true) - Buffer size " + std::to_string(buffer_size);
+    std::string shift_str = shift ? "true" : "false";
+    std::string test_name =
+      "Layer Process (all FiLMs active, shift=" + shift_str + ") - Buffer size " + std::to_string(buffer_size);
     run_allocation_test_no_allocations(
       nullptr, // No setup needed
       [&]() {
@@ -829,93 +829,16 @@ void test_layer_all_films_with_shift_realtime_safe()
   }
 }
 
+// Test that Layer::Process() method with all FiLMs active (with shift) does not allocate or free memory
+void test_layer_all_films_with_shift_realtime_safe()
+{
+  test_layer_all_films_realtime_safe_impl(true);
+}
+
 // Test that Layer::Process() method with all FiLMs active (without shift) does not allocate or free memory
 void test_layer_all_films_without_shift_realtime_safe()
 {
-  // Setup: Create a Layer with all FiLMs active and shift=false
-  const int condition_size = 1;
-  const int channels = 1;
-  const int bottleneck = channels;
-  const int kernel_size = 1;
-  const int dilation = 1;
-  const std::string activation = "ReLU";
-  const nam::wavenet::GatingMode gating_mode = nam::wavenet::GatingMode::NONE;
-  const int groups_input = 1;
-  const int groups_1x1 = 1;
-
-  nam::wavenet::Head1x1Params head1x1_params(false, channels, 1);
-  auto layer = make_layer_all_films(condition_size, channels, bottleneck, kernel_size, dilation, activation,
-                                    gating_mode, groups_input, groups_1x1, head1x1_params, "", false);
-
-  // Set weights
-  // Base layer weights:
-  // Conv: (channels, bottleneck, kernel_size) + bias = (1, 1, 1) + 1 = 2 weights
-  // Input mixin: (condition_size, bottleneck) = (1, 1) = 1 weight
-  // 1x1: (bottleneck, channels) + bias = (1, 1) + 1 = 2 weights
-  // Total base: 5 weights
-
-  // FiLM weights (each FiLM uses Conv1x1: condition_size -> input_dim with bias)
-  // With shift=false, each FiLM needs: input_dim * condition_size weights + input_dim biases
-  // conv_pre_film: condition_size=1, input_dim=channels=1 -> 1*1 + 1 = 2 weights
-  // conv_post_film: condition_size=1, input_dim=bottleneck=1 -> 1*1 + 1 = 2 weights
-  // input_mixin_pre_film: condition_size=1, input_dim=condition_size=1 -> 1*1 + 1 = 2 weights
-  // input_mixin_post_film: condition_size=1, input_dim=bottleneck=1 -> 1*1 + 1 = 2 weights
-  // activation_pre_film: condition_size=1, input_dim=bottleneck=1 -> 1*1 + 1 = 2 weights
-  // activation_post_film: condition_size=1, input_dim=bottleneck=1 -> 1*1 + 1 = 2 weights
-  // gating_activation_post_film: condition_size=1, input_dim=bottleneck=1 -> 1*1 + 1 = 2 weights
-  // _1x1_post_film: condition_size=1, input_dim=channels=1 -> 1*1 + 1 = 2 weights
-  // head1x1_post_film: not active (head1x1 is false)
-  // Total FiLM: 8 * 2 = 16 weights
-
-  std::vector<float> weights;
-  // Base layer weights
-  weights.insert(weights.end(), {1.0f, 0.0f}); // Conv (weight, bias)
-  weights.push_back(1.0f); // Input mixin
-  weights.insert(weights.end(), {1.0f, 0.0f}); // 1x1 (weight, bias)
-
-  // FiLM weights (identity-like: scale=1)
-  // For each FiLM: weights are row-major (out_channels x in_channels), then biases
-  // With shift=false: out_channels=input_dim=1, in_channels=condition_size=1
-  for (int i = 0; i < 8; i++)
-  {
-    weights.push_back(1.0f); // scale weight (out_channel 0, in_channel 0)
-    weights.push_back(0.0f); // scale bias
-  }
-
-  auto it = weights.begin();
-  layer.set_weights_(it);
-  assert(it == weights.end());
-
-  const int maxBufferSize = 256;
-  layer.SetMaxBufferSize(maxBufferSize);
-
-  // Test with several different buffer sizes
-  std::vector<int> buffer_sizes{1, 8, 16, 32, 64, 128, 256};
-
-  for (int buffer_size : buffer_sizes)
-  {
-    // Prepare input/condition matrices (allocate before tracking)
-    Eigen::MatrixXf input(channels, buffer_size);
-    Eigen::MatrixXf condition(condition_size, buffer_size);
-    input.setConstant(0.5f);
-    condition.setConstant(0.5f);
-
-    std::string test_name =
-      "Layer Process (all FiLMs active, shift=false) - Buffer size " + std::to_string(buffer_size);
-    run_allocation_test_no_allocations(
-      nullptr, // No setup needed
-      [&]() {
-        // Call Process() - this should not allocate or free
-        layer.Process(input, condition, buffer_size);
-      },
-      nullptr, // No teardown needed
-      test_name.c_str());
-
-    // Verify output is valid
-    auto output = layer.GetOutputNextLayer().leftCols(buffer_size);
-    assert(output.rows() == channels && output.cols() == buffer_size);
-    assert(std::isfinite(output(0, 0)));
-  }
+  test_layer_all_films_realtime_safe_impl(false);
 }
 
 // Test that LayerArray::Process() method does not allocate or free memory
