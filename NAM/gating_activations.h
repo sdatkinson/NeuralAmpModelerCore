@@ -32,7 +32,8 @@ public:
    * @param input_channels Number of input channels (default: 1)
    * @param gating_channels Number of gating channels (default: 1)
    */
-  GatingActivation(activations::Activation* input_act, activations::Activation* gating_act, int input_channels = 1)
+  GatingActivation(activations::Activation::Ptr input_act, activations::Activation::Ptr gating_act,
+                   int input_channels = 1)
   : input_activation(input_act)
   , gating_activation(gating_act)
   , num_channels(input_channels)
@@ -94,8 +95,8 @@ public:
   int get_output_channels() const { return num_channels; }
 
 private:
-  activations::Activation* input_activation;
-  activations::Activation* gating_activation;
+  activations::Activation::Ptr input_activation;
+  activations::Activation::Ptr gating_activation;
   int num_channels;
   Eigen::MatrixXf input_buffer;
 };
@@ -109,7 +110,8 @@ public:
    * @param blend_act Activation function for blending channels
    * @param input_channels Number of input channels
    */
-  BlendingActivation(activations::Activation* input_act, activations::Activation* blend_act, int input_channels = 1)
+  BlendingActivation(activations::Activation::Ptr input_act, activations::Activation::Ptr blend_act,
+                     int input_channels = 1)
   : input_activation(input_act)
   , blending_activation(blend_act)
   , num_channels(input_channels)
@@ -169,8 +171,8 @@ public:
   int get_output_channels() const { return num_channels; }
 
 private:
-  activations::Activation* input_activation;
-  activations::Activation* blending_activation;
+  activations::Activation::Ptr input_activation;
+  activations::Activation::Ptr blending_activation;
   int num_channels;
   Eigen::MatrixXf input_buffer;
 };

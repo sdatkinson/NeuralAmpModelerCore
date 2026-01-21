@@ -20,15 +20,16 @@ static nam::wavenet::_FiLMParams make_default_film_params()
 
 // Helper function to create a Layer with default FiLM parameters
 static nam::wavenet::_Layer make_layer(const int condition_size, const int channels, const int bottleneck,
-                                       const int kernel_size, const int dilation, const std::string activation,
+                                       const int kernel_size, const int dilation,
+                                       const nam::activations::ActivationConfig& activation_config,
                                        const nam::wavenet::GatingMode gating_mode, const int groups_input,
                                        const int groups_1x1, const nam::wavenet::Head1x1Params& head1x1_params,
                                        const std::string& secondary_activation)
 {
   auto film_params = make_default_film_params();
-  return nam::wavenet::_Layer(condition_size, channels, bottleneck, kernel_size, dilation, activation, gating_mode,
-                              groups_input, groups_1x1, head1x1_params, secondary_activation, film_params, film_params,
-                              film_params, film_params, film_params, film_params, film_params, film_params,
+  return nam::wavenet::_Layer(condition_size, channels, bottleneck, kernel_size, dilation, activation_config,
+                              gating_mode, groups_input, groups_1x1, head1x1_params, secondary_activation, film_params,
+                              film_params, film_params, film_params, film_params, film_params, film_params, film_params,
                               film_params);
 }
 void test_gated()
@@ -40,7 +41,7 @@ void test_gated()
   const int bottleneck = channels;
   const int kernelSize = 1;
   const int dilation = 1;
-  const std::string activation = "ReLU";
+  const auto activation = nam::activations::ActivationConfig::simple(nam::activations::ActivationType::ReLU);
   const nam::wavenet::GatingMode gating_mode = nam::wavenet::GatingMode::GATED;
   const int groups_input = 1;
   const int groups_1x1 = 1;
@@ -116,7 +117,7 @@ void test_layer_getters()
   const int bottleneck = channels;
   const int kernelSize = 3;
   const int dilation = 2;
-  const std::string activation = "Tanh";
+  const auto activation = nam::activations::ActivationConfig::simple(nam::activations::ActivationType::Tanh);
   const nam::wavenet::GatingMode gating_mode = nam::wavenet::GatingMode::NONE;
   const int groups_input = 1;
   const int groups_1x1 = 1;
@@ -138,7 +139,7 @@ void test_non_gated_layer()
   const int bottleneck = channels;
   const int kernelSize = 1;
   const int dilation = 1;
-  const std::string activation = "ReLU";
+  const auto activation = nam::activations::ActivationConfig::simple(nam::activations::ActivationType::ReLU);
   const nam::wavenet::GatingMode gating_mode = nam::wavenet::GatingMode::NONE;
   const int groups_input = 1;
   const int groups_1x1 = 1;
@@ -212,7 +213,8 @@ void test_layer_activations()
     const int groups_input = 1;
     const int groups_1x1 = 1;
     nam::wavenet::Head1x1Params head1x1_params(false, channels, 1);
-    auto layer = make_layer(conditionSize, channels, bottleneck, kernelSize, dilation, "Tanh", gating_mode,
+    auto tanh_config = nam::activations::ActivationConfig::simple(nam::activations::ActivationType::Tanh);
+    auto layer = make_layer(conditionSize, channels, bottleneck, kernelSize, dilation, tanh_config, gating_mode,
                             groups_input, groups_1x1, head1x1_params, "");
     std::vector<float> weights{1.0f, 0.0f, 1.0f, 1.0f, 0.0f};
     auto it = weights.begin();
@@ -243,7 +245,7 @@ void test_layer_multichannel()
   const int bottleneck = channels;
   const int kernelSize = 1;
   const int dilation = 1;
-  const std::string activation = "ReLU";
+  const auto activation = nam::activations::ActivationConfig::simple(nam::activations::ActivationType::ReLU);
   const nam::wavenet::GatingMode gating_mode = nam::wavenet::GatingMode::NONE;
   const int groups_input = 1;
   const int groups_1x1 = 1;
@@ -313,7 +315,7 @@ void test_layer_bottleneck()
   const int bottleneck = 2; // bottleneck < channels
   const int kernelSize = 1;
   const int dilation = 1;
-  const std::string activation = "ReLU";
+  const auto activation = nam::activations::ActivationConfig::simple(nam::activations::ActivationType::ReLU);
   const nam::wavenet::GatingMode gating_mode = nam::wavenet::GatingMode::NONE;
   const int groups_input = 1;
   const int groups_1x1 = 1;
@@ -390,7 +392,7 @@ void test_layer_bottleneck_gated()
   const int bottleneck = 2; // bottleneck < channels
   const int kernelSize = 1;
   const int dilation = 1;
-  const std::string activation = "ReLU";
+  const auto activation = nam::activations::ActivationConfig::simple(nam::activations::ActivationType::ReLU);
   const nam::wavenet::GatingMode gating_mode =
     nam::wavenet::GatingMode::GATED; // gated doubles the internal bottleneck channels
   const int groups_input = 1;

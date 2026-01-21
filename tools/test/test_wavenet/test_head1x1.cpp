@@ -20,15 +20,16 @@ static nam::wavenet::_FiLMParams make_default_film_params()
 
 // Helper function to create a Layer with default FiLM parameters
 static nam::wavenet::_Layer make_layer(const int condition_size, const int channels, const int bottleneck,
-                                       const int kernel_size, const int dilation, const std::string activation,
+                                       const int kernel_size, const int dilation,
+                                       const nam::activations::ActivationConfig& activation_config,
                                        const nam::wavenet::GatingMode gating_mode, const int groups_input,
                                        const int groups_1x1, const nam::wavenet::Head1x1Params& head1x1_params,
                                        const std::string& secondary_activation)
 {
   auto film_params = make_default_film_params();
-  return nam::wavenet::_Layer(condition_size, channels, bottleneck, kernel_size, dilation, activation, gating_mode,
-                              groups_input, groups_1x1, head1x1_params, secondary_activation, film_params, film_params,
-                              film_params, film_params, film_params, film_params, film_params, film_params,
+  return nam::wavenet::_Layer(condition_size, channels, bottleneck, kernel_size, dilation, activation_config,
+                              gating_mode, groups_input, groups_1x1, head1x1_params, secondary_activation, film_params,
+                              film_params, film_params, film_params, film_params, film_params, film_params, film_params,
                               film_params);
 }
 
@@ -40,7 +41,7 @@ void test_head1x1_inactive()
   const int bottleneck = channels;
   const int kernelSize = 1;
   const int dilation = 1;
-  const std::string activation = "ReLU";
+  const auto activation = nam::activations::ActivationConfig::simple(nam::activations::ActivationType::ReLU);
   const nam::wavenet::GatingMode gating_mode = nam::wavenet::GatingMode::NONE;
   const int groups_input = 1;
   const int groups_1x1 = 1;
@@ -106,7 +107,7 @@ void test_head1x1_active()
   const int bottleneck = channels;
   const int kernelSize = 1;
   const int dilation = 1;
-  const std::string activation = "ReLU";
+  const auto activation = nam::activations::ActivationConfig::simple(nam::activations::ActivationType::ReLU);
   const nam::wavenet::GatingMode gating_mode = nam::wavenet::GatingMode::NONE;
   const int groups_input = 1;
   const int groups_1x1 = 1;
@@ -179,7 +180,7 @@ void test_head1x1_gated()
   const int bottleneck = channels;
   const int kernelSize = 1;
   const int dilation = 1;
-  const std::string activation = "ReLU";
+  const auto activation = nam::activations::ActivationConfig::simple(nam::activations::ActivationType::ReLU);
   const nam::wavenet::GatingMode gating_mode = nam::wavenet::GatingMode::GATED;
   const int groups_input = 1;
   const int groups_1x1 = 1;
@@ -197,28 +198,27 @@ void test_head1x1_gated()
   // Input mixin: (conditionSize, 2*bottleneck) = (1, 4) = 4 weights
   // 1x1: (bottleneck, channels) + bias = (2, 2) + 2 = 4 + 2 = 6 weights
   // head1x1: (bottleneck, head1x1_out_channels) + bias = (2, 2) + 2 = 4 + 2 = 6 weights
-  std::vector<float> weights{
-    // Conv: (channels, 2*bottleneck, kernelSize=1) weights + (2*bottleneck,) bias
-    // Weight layout: for each kernel position, for each output channel, for each input channel
-    // For kernel position 0:
-    // Output channel 0: connects to input channels 0 and 1
-    1.0f, 0.0f, // output channel 0
-                // Output channel 1: connects to input channels 0 and 1
-    0.0f, 1.0f, // output channel 1
-                // Output channel 2: connects to input channels 0 and 1
-    1.0f, 0.0f, // output channel 2
-                // Output channel 3: connects to input channels 0 and 1
-    0.0f, 1.0f, // output channel 3
-                // Bias: 2*bottleneck values
-    0.0f, 0.0f, 0.0f, 0.0f,
-    // Input mixin: (conditionSize, 2*bottleneck) weights (all 1.0 for simplicity)
-    1.0f, 1.0f, 1.0f, 1.0f,
-    // 1x1: (bottleneck, channels) weights + (channels,) bias (identity)
-    1.0f, 0.0f, 0.0f, 1.0f, // weights (identity)
-    0.0f, 0.0f, // bias
-                // head1x1: (bottleneck, head1x1_out_channels) weights + (head1x1_out_channels,) bias
-    0.5f, 0.0f, 0.0f, 0.5f, // weights
-    0.1f, 0.1f};
+  std::vector<float> weights{// Conv: (channels, 2*bottleneck, kernelSize=1) weights + (2*bottleneck,) bias
+                             // Weight layout: for each kernel position, for each output channel, for each input channel
+                             // For kernel position 0:
+                             // Output channel 0: connects to input channels 0 and 1
+                             1.0f, 0.0f, // output channel 0
+                             // Output channel 1: connects to input channels 0 and 1
+                             0.0f, 1.0f, // output channel 1
+                             // Output channel 2: connects to input channels 0 and 1
+                             1.0f, 0.0f, // output channel 2
+                             // Output channel 3: connects to input channels 0 and 1
+                             0.0f, 1.0f, // output channel 3
+                             // Bias: 2*bottleneck values
+                             0.0f, 0.0f, 0.0f, 0.0f,
+                             // Input mixin: (conditionSize, 2*bottleneck) weights (all 1.0 for simplicity)
+                             1.0f, 1.0f, 1.0f, 1.0f,
+                             // 1x1: (bottleneck, channels) weights + (channels,) bias (identity)
+                             1.0f, 0.0f, 0.0f, 1.0f, // weights (identity)
+                             0.0f, 0.0f, // bias
+                             // head1x1: (bottleneck, head1x1_out_channels) weights + (head1x1_out_channels,) bias
+                             0.5f, 0.0f, 0.0f, 0.5f, // weights
+                             0.1f, 0.1f};
 
   auto it = weights.begin();
   layer.set_weights_(it);
@@ -270,7 +270,7 @@ void test_head1x1_groups()
   const int bottleneck = channels;
   const int kernelSize = 1;
   const int dilation = 1;
-  const std::string activation = "ReLU";
+  const auto activation = nam::activations::ActivationConfig::simple(nam::activations::ActivationType::ReLU);
   const nam::wavenet::GatingMode gating_mode = nam::wavenet::GatingMode::NONE;
   const int groups_input = 1;
   const int groups_1x1 = 1;
@@ -350,7 +350,7 @@ void test_head1x1_different_out_channels()
   const int bottleneck = channels;
   const int kernelSize = 1;
   const int dilation = 1;
-  const std::string activation = "ReLU";
+  const auto activation = nam::activations::ActivationConfig::simple(nam::activations::ActivationType::ReLU);
   const nam::wavenet::GatingMode gating_mode = nam::wavenet::GatingMode::NONE;
   const int groups_input = 1;
   const int groups_1x1 = 1;

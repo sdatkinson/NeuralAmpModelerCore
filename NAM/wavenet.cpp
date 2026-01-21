@@ -218,9 +218,9 @@ void nam::wavenet::_Layer::Process(const Eigen::MatrixXf& input, const Eigen::Ma
 
 nam::wavenet::_LayerArray::_LayerArray(
   const int input_size, const int condition_size, const int head_size, const int channels, const int bottleneck,
-  const int kernel_size, const std::vector<int>& dilations, const std::string activation, const GatingMode gating_mode,
-  const bool head_bias, const int groups_input, const int groups_1x1, const Head1x1Params& head1x1_params,
-  const std::string& secondary_activation, const _FiLMParams& conv_pre_film_params,
+  const int kernel_size, const std::vector<int>& dilations, const activations::ActivationConfig& activation_config,
+  const GatingMode gating_mode, const bool head_bias, const int groups_input, const int groups_1x1,
+  const Head1x1Params& head1x1_params, const std::string& secondary_activation, const _FiLMParams& conv_pre_film_params,
   const _FiLMParams& conv_post_film_params, const _FiLMParams& input_mixin_pre_film_params,
   const _FiLMParams& input_mixin_post_film_params, const _FiLMParams& activation_pre_film_params,
   const _FiLMParams& activation_post_film_params, const _FiLMParams& gating_activation_post_film_params,
@@ -230,7 +230,7 @@ nam::wavenet::_LayerArray::_LayerArray(
 , _bottleneck(bottleneck)
 {
   for (size_t i = 0; i < dilations.size(); i++)
-    this->_layers.push_back(_Layer(condition_size, channels, bottleneck, kernel_size, dilations[i], activation,
+    this->_layers.push_back(_Layer(condition_size, channels, bottleneck, kernel_size, dilations[i], activation_config,
                                    gating_mode, groups_input, groups_1x1, head1x1_params, secondary_activation,
                                    conv_pre_film_params, conv_post_film_params, input_mixin_pre_film_params,
                                    input_mixin_post_film_params, activation_pre_film_params,
@@ -385,7 +385,7 @@ nam::wavenet::WaveNet::WaveNet(const int in_channels,
     this->_layer_arrays.push_back(nam::wavenet::_LayerArray(
       layer_array_params[i].input_size, layer_array_params[i].condition_size, layer_array_params[i].head_size,
       layer_array_params[i].channels, layer_array_params[i].bottleneck, layer_array_params[i].kernel_size,
-      layer_array_params[i].dilations, layer_array_params[i].activation, layer_array_params[i].gating_mode,
+      layer_array_params[i].dilations, layer_array_params[i].activation_config, layer_array_params[i].gating_mode,
       layer_array_params[i].head_bias, layer_array_params[i].groups_input, layer_array_params[i].groups_1x1,
       layer_array_params[i].head1x1_params, layer_array_params[i].secondary_activation,
       layer_array_params[i].conv_pre_film_params, layer_array_params[i].conv_post_film_params,
@@ -594,7 +594,9 @@ std::unique_ptr<nam::DSP> nam::wavenet::Factory(const nlohmann::json& config, st
     const int head_size = layer_config["head_size"];
     const int kernel_size = layer_config["kernel_size"];
     const auto dilations = layer_config["dilations"];
-    const std::string activation = layer_config["activation"].get<std::string>();
+    // Parse JSON into typed ActivationConfig at model loading boundary
+    const activations::ActivationConfig activation_config =
+      activations::ActivationConfig::from_json(layer_config["activation"]);
     // Parse gating mode - support both old "gated" boolean and new "gating_mode" string
     GatingMode gating_mode = GatingMode::NONE;
     std::string secondary_activation;
@@ -671,9 +673,9 @@ std::unique_ptr<nam::DSP> nam::wavenet::Factory(const nlohmann::json& config, st
     nam::wavenet::_FiLMParams head1x1_post_film_params = parse_film_params("head1x1_post_film");
 
     layer_array_params.push_back(nam::wavenet::LayerArrayParams(
-      input_size, condition_size, head_size, channels, bottleneck, kernel_size, dilations, activation, gating_mode,
-      head_bias, groups, groups_1x1, head1x1_params, secondary_activation, conv_pre_film_params, conv_post_film_params,
-      input_mixin_pre_film_params, input_mixin_post_film_params, activation_pre_film_params,
+      input_size, condition_size, head_size, channels, bottleneck, kernel_size, dilations, activation_config,
+      gating_mode, head_bias, groups, groups_1x1, head1x1_params, secondary_activation, conv_pre_film_params,
+      conv_post_film_params, input_mixin_pre_film_params, input_mixin_post_film_params, activation_pre_film_params,
       activation_post_film_params, gating_activation_post_film_params, _1x1_post_film_params,
       head1x1_post_film_params));
   }

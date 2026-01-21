@@ -19,17 +19,15 @@ static nam::wavenet::_FiLMParams make_default_film_params()
 }
 
 // Helper function to create a LayerArray with default FiLM parameters
-static nam::wavenet::_LayerArray make_layer_array(const int input_size, const int condition_size, const int head_size,
-                                                  const int channels, const int bottleneck, const int kernel_size,
-                                                  const std::vector<int>& dilations, const std::string activation,
-                                                  const nam::wavenet::GatingMode gating_mode, const bool head_bias,
-                                                  const int groups_input, const int groups_1x1,
-                                                  const nam::wavenet::Head1x1Params& head1x1_params,
-                                                  const std::string& secondary_activation)
+static nam::wavenet::_LayerArray make_layer_array(
+  const int input_size, const int condition_size, const int head_size, const int channels, const int bottleneck,
+  const int kernel_size, const std::vector<int>& dilations, const nam::activations::ActivationConfig& activation_config,
+  const nam::wavenet::GatingMode gating_mode, const bool head_bias, const int groups_input, const int groups_1x1,
+  const nam::wavenet::Head1x1Params& head1x1_params, const std::string& secondary_activation)
 {
   auto film_params = make_default_film_params();
   return nam::wavenet::_LayerArray(input_size, condition_size, head_size, channels, bottleneck, kernel_size, dilations,
-                                   activation, gating_mode, head_bias, groups_input, groups_1x1, head1x1_params,
+                                   activation_config, gating_mode, head_bias, groups_input, groups_1x1, head1x1_params,
                                    secondary_activation, film_params, film_params, film_params, film_params,
                                    film_params, film_params, film_params, film_params, film_params);
 }
@@ -43,7 +41,7 @@ void test_layer_array_basic()
   const int bottleneck = channels;
   const int kernel_size = 1;
   std::vector<int> dilations{1, 2};
-  const std::string activation = "ReLU";
+  const auto activation = nam::activations::ActivationConfig::simple(nam::activations::ActivationType::ReLU);
   const nam::wavenet::GatingMode gating_mode = nam::wavenet::GatingMode::NONE;
   const bool head_bias = false;
   const int groups = 1;
@@ -102,7 +100,7 @@ void test_layer_array_receptive_field()
   const int bottleneck = channels;
   const int kernel_size = 3;
   std::vector<int> dilations{1, 2, 4};
-  const std::string activation = "ReLU";
+  const auto activation = nam::activations::ActivationConfig::simple(nam::activations::ActivationType::ReLU);
   const nam::wavenet::GatingMode gating_mode = nam::wavenet::GatingMode::NONE;
   const bool head_bias = false;
   const int groups = 1;
@@ -133,7 +131,7 @@ void test_layer_array_with_head_input()
   const int bottleneck = channels;
   const int kernel_size = 1;
   std::vector<int> dilations{1};
-  const std::string activation = "ReLU";
+  const auto activation = nam::activations::ActivationConfig::simple(nam::activations::ActivationType::ReLU);
   const nam::wavenet::GatingMode gating_mode = nam::wavenet::GatingMode::NONE;
   const bool head_bias = false;
   const int groups = 1;
