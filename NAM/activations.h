@@ -1,18 +1,58 @@
 #pragma once
 
 #include <cassert>
-#include <string>
 #include <cmath> // expf
-#include <memory>
-#include <unordered_map>
-#include <Eigen/Dense>
 #include <functional>
+#include <memory>
+#include <optional>
+#include <string>
+#include <unordered_map>
+#include <vector>
+
+#include <Eigen/Dense>
+
 #include "json.hpp"
 
 namespace nam
 {
 namespace activations
 {
+
+// Forward declaration
+class Activation;
+
+// Strongly-typed activation type enum
+enum class ActivationType
+{
+  Tanh,
+  Hardtanh,
+  Fasttanh,
+  ReLU,
+  LeakyReLU,
+  PReLU,
+  Sigmoid,
+  SiLU, // aka Swish
+  Hardswish,
+  LeakyHardtanh
+};
+
+// Strongly-typed activation configuration
+struct ActivationConfig
+{
+  ActivationType type;
+
+  // Optional parameters (used by specific activation types)
+  std::optional<float> negative_slope;               // LeakyReLU, PReLU (single)
+  std::optional<std::vector<float>> negative_slopes; // PReLU (per-channel)
+  std::optional<float> min_val;                      // LeakyHardtanh
+  std::optional<float> max_val;                      // LeakyHardtanh
+  std::optional<float> min_slope;                    // LeakyHardtanh
+  std::optional<float> max_slope;                    // LeakyHardtanh
+
+  // Convenience constructors
+  static ActivationConfig simple(ActivationType t);
+  static ActivationConfig from_json(const nlohmann::json& j);
+};
 inline float relu(float x)
 {
   return x > 0.0f ? x : 0.0f;
@@ -107,6 +147,7 @@ public:
   virtual void apply(float* data, long size) {}
 
   static Ptr get_activation(const std::string name);
+  static Ptr get_activation(const ActivationConfig& config);
   static Ptr get_activation(const nlohmann::json& activation_config);
   static void enable_fast_tanh();
   static void disable_fast_tanh();

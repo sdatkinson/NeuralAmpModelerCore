@@ -18,7 +18,7 @@ void test_convnet_basic()
   const int channels = 2;
   const std::vector<int> dilations{1, 2};
   const bool batchnorm = false;
-  const std::string activation = "ReLU";
+  const auto activation = nam::activations::ActivationConfig::simple(nam::activations::ActivationType::ReLU);
   const double expected_sample_rate = 48000.0;
 
   // Calculate weights needed:
@@ -65,7 +65,7 @@ void test_convnet_batchnorm()
   const int channels = 1;
   const std::vector<int> dilations{1};
   const bool batchnorm = true;
-  const std::string activation = "ReLU";
+  const auto activation = nam::activations::ActivationConfig::simple(nam::activations::ActivationType::ReLU);
   const double expected_sample_rate = 48000.0;
 
   // Calculate weights needed:
@@ -110,7 +110,7 @@ void test_convnet_multiple_blocks()
   const int channels = 2;
   const std::vector<int> dilations{1, 2, 4};
   const bool batchnorm = false;
-  const std::string activation = "Tanh";
+  const auto activation = nam::activations::ActivationConfig::simple(nam::activations::ActivationType::Tanh);
   const double expected_sample_rate = 48000.0;
 
   // Calculate weights needed:
@@ -158,7 +158,7 @@ void test_convnet_zero_input()
   const int channels = 1;
   const std::vector<int> dilations{1};
   const bool batchnorm = false;
-  const std::string activation = "ReLU";
+  const auto activation = nam::activations::ActivationConfig::simple(nam::activations::ActivationType::ReLU);
   const double expected_sample_rate = 48000.0;
 
   std::vector<float> weights;
@@ -195,7 +195,7 @@ void test_convnet_different_buffer_sizes()
   const int channels = 1;
   const std::vector<int> dilations{1};
   const bool batchnorm = false;
-  const std::string activation = "ReLU";
+  const auto activation = nam::activations::ActivationConfig::simple(nam::activations::ActivationType::ReLU);
   const double expected_sample_rate = 48000.0;
 
   std::vector<float> weights;
@@ -235,7 +235,7 @@ void test_convnet_prewarm()
   const int channels = 2;
   const std::vector<int> dilations{1, 2, 4};
   const bool batchnorm = false;
-  const std::string activation = "ReLU";
+  const auto activation = nam::activations::ActivationConfig::simple(nam::activations::ActivationType::ReLU);
   const double expected_sample_rate = 48000.0;
 
   std::vector<float> weights;
@@ -278,7 +278,7 @@ void test_convnet_multiple_calls()
   const int channels = 1;
   const std::vector<int> dilations{1};
   const bool batchnorm = false;
-  const std::string activation = "ReLU";
+  const auto activation = nam::activations::ActivationConfig::simple(nam::activations::ActivationType::ReLU);
   const double expected_sample_rate = 48000.0;
 
   std::vector<float> weights;

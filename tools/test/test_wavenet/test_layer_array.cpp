@@ -22,7 +22,7 @@ void test_layer_array_basic()
   const int bottleneck = channels;
   const int kernel_size = 1;
   std::vector<int> dilations{1, 2};
-  const std::string activation = "ReLU";
+  const auto activation = nam::activations::ActivationConfig::simple(nam::activations::ActivationType::ReLU);
   const nam::wavenet::GatingMode gating_mode = nam::wavenet::GatingMode::NONE;
   const bool head_bias = false;
   const int groups = 1;
@@ -81,7 +81,7 @@ void test_layer_array_receptive_field()
   const int bottleneck = channels;
   const int kernel_size = 3;
   std::vector<int> dilations{1, 2, 4};
-  const std::string activation = "ReLU";
+  const auto activation = nam::activations::ActivationConfig::simple(nam::activations::ActivationType::ReLU);
   const nam::wavenet::GatingMode gating_mode = nam::wavenet::GatingMode::NONE;
   const bool head_bias = false;
   const int groups = 1;
@@ -112,7 +112,7 @@ void test_layer_array_with_head_input()
   const int bottleneck = channels;
   const int kernel_size = 1;
   std::vector<int> dilations{1};
-  const std::string activation = "ReLU";
+  const auto activation = nam::activations::ActivationConfig::simple(nam::activations::ActivationType::ReLU);
   const nam::wavenet::GatingMode gating_mode = nam::wavenet::GatingMode::NONE;
   const bool head_bias = false;
   const int groups = 1;

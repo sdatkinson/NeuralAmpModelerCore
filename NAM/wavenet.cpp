@@ -113,7 +113,8 @@ void nam::wavenet::_Layer::Process(const Eigen::MatrixXf& input, const Eigen::Ma
 
 nam::wavenet::_LayerArray::_LayerArray(const int input_size, const int condition_size, const int head_size,
                                        const int channels, const int bottleneck, const int kernel_size,
-                                       const std::vector<int>& dilations, const nlohmann::json activation_config,
+                                       const std::vector<int>& dilations,
+                                       const activations::ActivationConfig& activation_config,
                                        const GatingMode gating_mode, const bool head_bias, const int groups_input,
                                        const int groups_1x1, const Head1x1Params& head1x1_params,
                                        const std::string& secondary_activation)
@@ -477,7 +478,9 @@ std::unique_ptr<nam::DSP> nam::wavenet::Factory(const nlohmann::json& config, st
     const int head_size = layer_config["head_size"];
     const int kernel_size = layer_config["kernel_size"];
     const auto dilations = layer_config["dilations"];
-    const nlohmann::json activation_config = layer_config["activation"];
+    // Parse JSON into typed ActivationConfig at model loading boundary
+    const activations::ActivationConfig activation_config =
+      activations::ActivationConfig::from_json(layer_config["activation"]);
     // Parse gating mode - support both old "gated" boolean and new "gating_mode" string
     GatingMode gating_mode = GatingMode::NONE;
     std::string secondary_activation;

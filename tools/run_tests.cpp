@@ -53,6 +53,18 @@ int main()
   test_activations::TestJSONActivationParsing::test_json_unknown_activation();
   test_activations::TestJSONActivationParsing::test_functional_verification();
 
+  // Typed ActivationConfig tests
+  test_activations::TestTypedActivationConfig::test_simple_config();
+  test_activations::TestTypedActivationConfig::test_all_simple_types();
+  test_activations::TestTypedActivationConfig::test_leaky_relu_config();
+  test_activations::TestTypedActivationConfig::test_prelu_single_slope_config();
+  test_activations::TestTypedActivationConfig::test_prelu_multi_slope_config();
+  test_activations::TestTypedActivationConfig::test_leaky_hardtanh_config();
+  test_activations::TestTypedActivationConfig::test_from_json_string();
+  test_activations::TestTypedActivationConfig::test_from_json_object();
+  test_activations::TestTypedActivationConfig::test_from_json_prelu_multi();
+  test_activations::TestTypedActivationConfig::test_unknown_activation_throws();
+
   test_dsp::test_construct();
   test_dsp::test_get_input_level();
   test_dsp::test_get_output_level();

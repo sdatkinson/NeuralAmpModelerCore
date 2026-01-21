@@ -27,7 +27,7 @@ std::unique_ptr<nam::wavenet::WaveNet> create_simple_wavenet(
   const int bottleneck = channels;
   const int kernel_size = 1;
   std::vector<int> dilations{1};
-  const std::string activation = "ReLU";
+  const auto activation = nam::activations::ActivationConfig::simple(nam::activations::ActivationType::ReLU);
   const nam::wavenet::GatingMode gating_mode = nam::wavenet::GatingMode::NONE;
   const bool head_bias = false;
   const bool with_head = false;

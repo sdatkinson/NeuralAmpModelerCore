@@ -45,58 +45,128 @@ nam::activations::Activation::Ptr nam::activations::Activation::get_activation(c
   return _activations[name];
 }
 
-nam::activations::Activation::Ptr nam::activations::Activation::get_activation(const nlohmann::json& activation_config)
+// ActivationConfig implementation
+nam::activations::ActivationConfig nam::activations::ActivationConfig::simple(ActivationType t)
 {
-  // If it's a string, use the existing string-based lookup
-  if (activation_config.is_string())
+  ActivationConfig config;
+  config.type = t;
+  return config;
+}
+
+nam::activations::ActivationConfig nam::activations::ActivationConfig::from_json(const nlohmann::json& j)
+{
+  ActivationConfig config;
+
+  // Map from string to ActivationType
+  static const std::unordered_map<std::string, ActivationType> type_map = {
+    {"Tanh", ActivationType::Tanh},
+    {"Hardtanh", ActivationType::Hardtanh},
+    {"Fasttanh", ActivationType::Fasttanh},
+    {"ReLU", ActivationType::ReLU},
+    {"LeakyReLU", ActivationType::LeakyReLU},
+    {"PReLU", ActivationType::PReLU},
+    {"Sigmoid", ActivationType::Sigmoid},
+    {"SiLU", ActivationType::SiLU},
+    {"Hardswish", ActivationType::Hardswish},
+    {"LeakyHardtanh", ActivationType::LeakyHardtanh},
+    {"LeakyHardTanh", ActivationType::LeakyHardtanh} // Support both casings
+  };
+
+  // If it's a string, simple lookup
+  if (j.is_string())
   {
-    std::string name = activation_config.get<std::string>();
-    return get_activation(name);
+    std::string name = j.get<std::string>();
+    auto it = type_map.find(name);
+    if (it == type_map.end())
+    {
+      throw std::runtime_error("Unknown activation type: " + name);
+    }
+    config.type = it->second;
+    return config;
   }
 
-  // If it's an object, parse the activation type and parameters
-  if (activation_config.is_object())
+  // If it's an object, parse type and parameters
+  if (j.is_object())
   {
-    std::string type = activation_config["type"].get<std::string>();
-
-    // Handle different activation types with parameters
-    // These return owning shared_ptr (will be deleted when last reference goes out of scope)
-    if (type == "PReLU")
+    std::string type_str = j["type"].get<std::string>();
+    auto it = type_map.find(type_str);
+    if (it == type_map.end())
     {
-      if (activation_config.find("negative_slope") != activation_config.end())
+      throw std::runtime_error("Unknown activation type: " + type_str);
+    }
+    config.type = it->second;
+
+    // Parse optional parameters based on activation type
+    if (config.type == ActivationType::PReLU)
+    {
+      if (j.find("negative_slope") != j.end())
       {
-        float negative_slope = activation_config["negative_slope"].get<float>();
-        return std::make_shared<ActivationPReLU>(negative_slope);
+        config.negative_slope = j["negative_slope"].get<float>();
       }
-      else if (activation_config.find("negative_slopes") != activation_config.end())
+      else if (j.find("negative_slopes") != j.end())
       {
-        std::vector<float> negative_slopes = activation_config["negative_slopes"].get<std::vector<float>>();
-        return std::make_shared<ActivationPReLU>(negative_slopes);
+        config.negative_slopes = j["negative_slopes"].get<std::vector<float>>();
       }
-      // If no parameters provided, use default
+    }
+    else if (config.type == ActivationType::LeakyReLU)
+    {
+      config.negative_slope = j.value("negative_slope", 0.01f);
+    }
+    else if (config.type == ActivationType::LeakyHardtanh)
+    {
+      config.min_val = j.value("min_val", -1.0f);
+      config.max_val = j.value("max_val", 1.0f);
+      config.min_slope = j.value("min_slope", 0.01f);
+      config.max_slope = j.value("max_slope", 0.01f);
+    }
+
+    return config;
+  }
+
+  throw std::runtime_error("Invalid activation config: expected string or object");
+}
+
+nam::activations::Activation::Ptr nam::activations::Activation::get_activation(const ActivationConfig& config)
+{
+  switch (config.type)
+  {
+    case ActivationType::Tanh:
+      return _activations["Tanh"];
+    case ActivationType::Hardtanh:
+      return _activations["Hardtanh"];
+    case ActivationType::Fasttanh:
+      return _activations["Fasttanh"];
+    case ActivationType::ReLU:
+      return _activations["ReLU"];
+    case ActivationType::Sigmoid:
+      return _activations["Sigmoid"];
+    case ActivationType::SiLU:
+      return _activations["SiLU"];
+    case ActivationType::Hardswish:
+      return _activations["Hardswish"];
+    case ActivationType::LeakyReLU:
+      if (config.negative_slope.has_value())
+      {
+        return std::make_shared<ActivationLeakyReLU>(config.negative_slope.value());
+      }
+      return _activations["LeakyReLU"];
+    case ActivationType::PReLU:
+      if (config.negative_slopes.has_value())
+      {
+        return std::make_shared<ActivationPReLU>(config.negative_slopes.value());
+      }
+      else if (config.negative_slope.has_value())
+      {
+        return std::make_shared<ActivationPReLU>(config.negative_slope.value());
+      }
       return std::make_shared<ActivationPReLU>(0.01f);
-    }
-    else if (type == "LeakyReLU")
-    {
-      float negative_slope = activation_config.value("negative_slope", 0.01f);
-      return std::make_shared<ActivationLeakyReLU>(negative_slope);
-    }
-    else if (type == "LeakyHardTanh")
-    {
-      float min_val = activation_config.value("min_val", -1.0f);
-      float max_val = activation_config.value("max_val", 1.0f);
-      float min_slope = activation_config.value("min_slope", 0.01f);
-      float max_slope = activation_config.value("max_slope", 0.01f);
-      return std::make_shared<ActivationLeakyHardTanh>(min_val, max_val, min_slope, max_slope);
-    }
-    else
-    {
-      // For other activation types without parameters, use the default string-based lookup
-      return get_activation(type);
-    }
+    case ActivationType::LeakyHardtanh:
+      return std::make_shared<ActivationLeakyHardTanh>(
+        config.min_val.value_or(-1.0f), config.max_val.value_or(1.0f), config.min_slope.value_or(0.01f),
+        config.max_slope.value_or(0.01f));
+    default:
+      return nullptr;
   }
-
-  return nullptr;
 }
 
 void nam::activations::Activation::enable_fast_tanh()

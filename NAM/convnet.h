@@ -9,8 +9,10 @@
 
 #include <Eigen/Dense>
 
+#include "activations.h"
 #include "conv1d.h"
 #include "dsp.h"
+#include "json.hpp"
 
 namespace nam
 {
@@ -44,7 +46,8 @@ class ConvNetBlock
 public:
   ConvNetBlock() {};
   void set_weights_(const int in_channels, const int out_channels, const int _dilation, const bool batchnorm,
-                    const nlohmann::json activation_config, const int groups, std::vector<float>::iterator& weights);
+                    const activations::ActivationConfig& activation_config, const int groups,
+                    std::vector<float>::iterator& weights);
   void SetMaxBufferSize(const int maxBufferSize);
   // Process input matrix directly (new API, similar to WaveNet)
   void Process(const Eigen::MatrixXf& input, const int num_frames);
@@ -78,7 +81,7 @@ class ConvNet : public Buffer
 {
 public:
   ConvNet(const int in_channels, const int out_channels, const int channels, const std::vector<int>& dilations,
-          const bool batchnorm, const nlohmann::json activation_config, std::vector<float>& weights,
+          const bool batchnorm, const activations::ActivationConfig& activation_config, std::vector<float>& weights,
           const double expected_sample_rate = -1.0, const int groups = 1);
   ~ConvNet() = default;
 

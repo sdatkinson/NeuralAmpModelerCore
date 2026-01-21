@@ -1,16 +1,17 @@
 #pragma once
 
-#include <string>
-#include <vector>
 #include <memory>
 #include <stdexcept>
+#include <string>
+#include <vector>
 
-#include "json.hpp"
 #include <Eigen/Dense>
 
-#include "dsp.h"
+#include "activations.h"
 #include "conv1d.h"
+#include "dsp.h"
 #include "gating_activations.h"
+#include "json.hpp"
 
 namespace nam
 {
@@ -48,14 +49,14 @@ struct Head1x1Params
 class _Layer
 {
 public:
-  // New constructor with GatingMode enum and configurable activations
+  // Constructor with GatingMode enum and typed ActivationConfig
   _Layer(const int condition_size, const int channels, const int bottleneck, const int kernel_size, const int dilation,
-         const nlohmann::json activation_config, const GatingMode gating_mode, const int groups_input, const int groups_1x1,
-         const Head1x1Params& head1x1_params, const std::string& secondary_activation)
+         const activations::ActivationConfig& activation_config, const GatingMode gating_mode, const int groups_input,
+         const int groups_1x1, const Head1x1Params& head1x1_params, const std::string& secondary_activation)
   : _conv(channels, (gating_mode != GatingMode::NONE) ? 2 * bottleneck : bottleneck, kernel_size, true, dilation)
   , _input_mixin(condition_size, (gating_mode != GatingMode::NONE) ? 2 * bottleneck : bottleneck, false)
   , _1x1(bottleneck, channels, groups_1x1)
-  , _activation(activations::Activation::get_activation(activation_config)) // now supports activations with parameters
+  , _activation(activations::Activation::get_activation(activation_config))
   , _gating_mode(gating_mode)
   , _bottleneck(bottleneck)
   {
@@ -148,7 +149,7 @@ class LayerArrayParams
 public:
   LayerArrayParams(const int input_size_, const int condition_size_, const int head_size_, const int channels_,
                    const int bottleneck_, const int kernel_size_, const std::vector<int>&& dilations_,
-                   const nlohmann::json activation_, const GatingMode gating_mode_, const bool head_bias_,
+                   const activations::ActivationConfig& activation_, const GatingMode gating_mode_, const bool head_bias_,
                    const int groups_input, const int groups_1x1_, const Head1x1Params& head1x1_params_,
                    const std::string& secondary_activation_)
   : input_size(input_size_)
@@ -175,7 +176,7 @@ public:
   const int bottleneck;
   const int kernel_size;
   std::vector<int> dilations;
-  const nlohmann::json activation_config;
+  const activations::ActivationConfig activation_config;
   const GatingMode gating_mode;
   const bool head_bias;
   const int groups_input;
@@ -188,11 +189,12 @@ public:
 class _LayerArray
 {
 public:
-  // New constructor with GatingMode enum and configurable activations
+  // Constructor with GatingMode enum and typed ActivationConfig
   _LayerArray(const int input_size, const int condition_size, const int head_size, const int channels,
               const int bottleneck, const int kernel_size, const std::vector<int>& dilations,
-              const nlohmann::json activation_config, const GatingMode gating_mode, const bool head_bias, const int groups_input,
-              const int groups_1x1, const Head1x1Params& head1x1_params, const std::string& secondary_activation);
+              const activations::ActivationConfig& activation_config, const GatingMode gating_mode, const bool head_bias,
+              const int groups_input, const int groups_1x1, const Head1x1Params& head1x1_params,
+              const std::string& secondary_activation);
 
   void SetMaxBufferSize(const int maxBufferSize);
 

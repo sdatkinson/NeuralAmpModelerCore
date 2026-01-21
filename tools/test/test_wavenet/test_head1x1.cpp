@@ -21,7 +21,7 @@ void test_head1x1_inactive()
   const int bottleneck = channels;
   const int kernelSize = 1;
   const int dilation = 1;
-  const std::string activation = "ReLU";
+  const auto activation = nam::activations::ActivationConfig::simple(nam::activations::ActivationType::ReLU);
   const nam::wavenet::GatingMode gating_mode = nam::wavenet::GatingMode::NONE;
   const int groups_input = 1;
   const int groups_1x1 = 1;
@@ -87,7 +87,7 @@ void test_head1x1_active()
   const int bottleneck = channels;
   const int kernelSize = 1;
   const int dilation = 1;
-  const std::string activation = "ReLU";
+  const auto activation = nam::activations::ActivationConfig::simple(nam::activations::ActivationType::ReLU);
   const nam::wavenet::GatingMode gating_mode = nam::wavenet::GatingMode::NONE;
   const int groups_input = 1;
   const int groups_1x1 = 1;
@@ -160,7 +160,7 @@ void test_head1x1_gated()
   const int bottleneck = channels;
   const int kernelSize = 1;
   const int dilation = 1;
-  const std::string activation = "ReLU";
+  const auto activation = nam::activations::ActivationConfig::simple(nam::activations::ActivationType::ReLU);
   const nam::wavenet::GatingMode gating_mode = nam::wavenet::GatingMode::GATED;
   const int groups_input = 1;
   const int groups_1x1 = 1;
@@ -250,7 +250,7 @@ void test_head1x1_groups()
   const int bottleneck = channels;
   const int kernelSize = 1;
   const int dilation = 1;
-  const std::string activation = "ReLU";
+  const auto activation = nam::activations::ActivationConfig::simple(nam::activations::ActivationType::ReLU);
   const nam::wavenet::GatingMode gating_mode = nam::wavenet::GatingMode::NONE;
   const int groups_input = 1;
   const int groups_1x1 = 1;
@@ -330,7 +330,7 @@ void test_head1x1_different_out_channels()
   const int bottleneck = channels;
   const int kernelSize = 1;
   const int dilation = 1;
-  const std::string activation = "ReLU";
+  const auto activation = nam::activations::ActivationConfig::simple(nam::activations::ActivationType::ReLU);
   const nam::wavenet::GatingMode gating_mode = nam::wavenet::GatingMode::NONE;
   const int groups_input = 1;
   const int groups_1x1 = 1;

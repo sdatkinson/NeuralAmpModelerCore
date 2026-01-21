@@ -48,7 +48,8 @@ void nam::convnet::BatchNorm::process_(Eigen::MatrixXf& x, const long i_start, c
 }
 
 void nam::convnet::ConvNetBlock::set_weights_(const int in_channels, const int out_channels, const int _dilation,
-                                              const bool batchnorm, const nlohmann::json activation_config, const int groups,
+                                              const bool batchnorm,
+                                              const activations::ActivationConfig& activation_config, const int groups,
                                               std::vector<float>::iterator& weights)
 {
   this->_batchnorm = batchnorm;
@@ -173,8 +174,9 @@ void nam::convnet::_Head::process_(const Eigen::MatrixXf& input, Eigen::MatrixXf
 }
 
 nam::convnet::ConvNet::ConvNet(const int in_channels, const int out_channels, const int channels,
-                               const std::vector<int>& dilations, const bool batchnorm, const nlohmann::json activation_config,
-                               std::vector<float>& weights, const double expected_sample_rate, const int groups)
+                               const std::vector<int>& dilations, const bool batchnorm,
+                               const activations::ActivationConfig& activation_config, std::vector<float>& weights,
+                               const double expected_sample_rate, const int groups)
 : Buffer(in_channels, out_channels, *std::max_element(dilations.begin(), dilations.end()), expected_sample_rate)
 {
   this->_verify_weights(channels, dilations, batchnorm, weights.size());
@@ -327,7 +329,9 @@ std::unique_ptr<nam::DSP> nam::convnet::Factory(const nlohmann::json& config, st
   const int channels = config["channels"];
   const std::vector<int> dilations = config["dilations"];
   const bool batchnorm = config["batchnorm"];
-  const nlohmann::json activation_config = config["activation"];
+  // Parse JSON into typed ActivationConfig at model loading boundary
+  const activations::ActivationConfig activation_config =
+    activations::ActivationConfig::from_json(config["activation"]);
   const int groups = config.value("groups", 1); // defaults to 1
   // Default to 1 channel in/out for backward compatibility
   const int in_channels = config.value("in_channels", 1);
