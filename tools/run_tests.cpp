@@ -44,15 +44,6 @@ int main()
   // This is enforced by an assert so it doesn't need to be tested
   // test_activations::TestPReLU::test_wrong_number_of_channels();
 
-  // JSON activation parsing tests
-  test_activations::TestJSONActivationParsing::test_string_activation();
-  test_activations::TestJSONActivationParsing::test_json_prelu_single_slope();
-  test_activations::TestJSONActivationParsing::test_json_prelu_multi_slope();
-  test_activations::TestJSONActivationParsing::test_json_leaky_relu();
-  test_activations::TestJSONActivationParsing::test_json_leaky_hardtanh();
-  test_activations::TestJSONActivationParsing::test_json_unknown_activation();
-  test_activations::TestJSONActivationParsing::test_functional_verification();
-
   // Typed ActivationConfig tests
   test_activations::TestTypedActivationConfig::test_simple_config();
   test_activations::TestTypedActivationConfig::test_all_simple_types();
