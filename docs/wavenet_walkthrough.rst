@@ -399,7 +399,7 @@ Complete WaveNet Flow
        LayerArray2 -->|LayerN Output| LayerArrayN[LayerArray N]
        LayerArray2 -->|Head Output| LayerArrayN
        Condition --> LayerArrayN
-       LayerArrayN -->|LayerN Output| Unused[(Unused)]
+       LayerArrayN -->|LayerN Output| Unused(Unused)
        LayerArrayN -->|Head Output| HeadAccum[Head Accumulator]
        HeadAccum --> HeadScale[Head Scale]
        HeadScale --> AudioOut[Audio Output]
