@@ -414,16 +414,6 @@ All processing uses pre-allocated buffers to ensure real-time safety:
 * **Column Slicing**: Only the first `num_frames` columns are valid; use `.leftCols(num_frames)` to access
 * **Eigen::Ref**: Used to avoid temporary allocations when passing block expressions
 
-Key Design Principles
----------------------
-
-1. **Residual Connections**: Allow gradients to flow directly through layers, enabling deeper networks
-2. **Skip Connections**: Preserve information at multiple scales for the final output
-3. **Dilated Convolutions**: Increase receptive field without increasing parameters
-4. **Conditioning**: Allow the model to adapt based on input characteristics
-5. **FiLM**: Fine-grained control over feature modulation at multiple points
-6. **Gating/Blending**: Enable more expressive activations and better gradient flow
-
 See Also
 --------
 
