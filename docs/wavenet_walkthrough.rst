@@ -222,7 +222,7 @@ Notes:
 * ``g=2`` if a gating or blending activation is used, and ``1`` otherwise.
 
 * The head output dimension ``dh`` is the bottleneck dimension ``b`` when no head 1x1 is
-used; otherwise, it is determined by the head 1x1's number of output channels.
+  used; otherwise, it is determined by the head 1x1's number of output channels.
 
 
 .. mermaid::
