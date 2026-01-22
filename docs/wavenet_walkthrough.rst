@@ -7,7 +7,8 @@ This document provides a detailed step-by-step explanation of how the NAM WaveNe
 -----------------------------
 
 The name "WaveNet" is a bit of a misnomer. 
-There are similarities to the architecture from van den Oord et al. (2016)--this is a
+There are similarities to the architecture from 
+`van den Oord et al. (2016) <https://arxiv.org/abs/1609.03499>`_--this is a
 convolutional neural network that repeats a "Layer" motif withskip connections that
 give good accuracy typical of convnets along with good training stability, but there are
 a lot of differences.
@@ -15,26 +16,22 @@ a lot of differences.
 Here's a rundown of what's not exactly the same at an informal level:
 
 * The model in NAM is feedforward and used in a "regression" setting;
-the model from the original paper is autoregressive and used for generative tasks.
-
+  the model from the original paper is autoregressive and used for generative tasks.
 * The class in NAM actually composes several "Layer array" objects. 
-Each one of these individually is actually far closer to a "WaveNet" in architecture.
-In other words, this is more like a "stacked WaveNet".
-
+  Each one of these individually is actually far closer to a "WaveNet" in architecture.
+  In other words, this is more like a "stacked WaveNet".
 * There are additional skip connections (e.g. input mixin) that aren't really part of 
-the original WaveNet architecture.
-
+  the original WaveNet architecture.
 * And finally, the actual recipe within the layer has a lot of modifications.
-The original layer has, roughly, a "convolution-activation-convolution" sequence with a 
-gated activation.
-Here, the gated activation is optional (and is frequently not used, like in the popular 
-A1 standard/lite/feather/nano configurations).
-
+  The original layer has, roughly, a "convolution-activation-convolution" sequence with a 
+  gated activation.
+  Here, the gated activation is optional (and is frequently not used, like in the popular 
+  A1 standard/lite/feather/nano configurations).
 * In v0.4.0, even more modifications have been added in--FiLMs, a bottlneck, and an
-arbitrary "conditioning DSP" module that can be used to embed the input signal in a more
-effective way to modulate the layers in the main model.
-It doesn't need to be a WaveNet, but if it were then this feels more like a "cascading 
-(stacked)WaveNet".
+  arbitrary "conditioning DSP" module that can be used to embed the input signal in a more
+  effective way to modulate the layers in the main model.
+  It doesn't need to be a WaveNet, but if it were then this feels more like a "cascading 
+  (stacked) WaveNet".
 
 WaveNet Overview
 ----------------
