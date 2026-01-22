@@ -192,9 +192,11 @@ Data Flow Diagram
 
 Data arrays are marked with their dimensions as (channels, frames).
 Notes:
+
 * ``g=2`` if a gating or blending activation is used, and ``1`` otherwise.
-* The head output dimension ``dh`` is ``b`` when no head 1x1 is used;
-  otherwise, it is determined by the head 1x1's number of output channels.
+
+* The head output dimension ``dh`` is ``b`` when no head 1x1 is used; otherwise, it is determined by the head 1x1's number of output channels.
+
 
 .. mermaid::
    :caption: Layer Computation Flow
