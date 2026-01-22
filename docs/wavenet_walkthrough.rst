@@ -218,22 +218,27 @@ Data Flow Diagram
        PreAct --> Act
        
        Act --> PostActFiLM{Post-Act FiLM?}
-       PostActFiLM -->|Yes| PostAct[Post-Activation FiLM]
-       PostActFiLM -->|No| Conv1x1[1x1 Conv]
-       PostAct --> Conv1x1
+       PostActFiLM -->|Yes| PostActFilm[Post-Activation FiLM]
+       PostActFiLM -->|No| PostAct[Post-Activation Output]
+       PostActFilm --> PostAct
        
+       PostAct --> Conv1x1[1x1 Conv]
        Conv1x1 --> Post1x1FiLM{Post-1x1 FiLM?}
        Post1x1FiLM -->|Yes| Post1x1[Post-1x1 FiLM]
-       Post1x1FiLM -->|No| Residual[Residual: Input + 1x1]
+       Post1x1FiLM -->|No| Residual[Residual]
        Post1x1 --> Residual
+
+       Input --> ResidualSum[Residual Sum]
+       Residual --> ResidualSum
+       ResidualSum --> LayerOutput[Layer Output]
        
-       Act --> Head1x1{Head 1x1?}
+       PostAct --> Head1x1{Head 1x1?}
        Head1x1 -->|Yes| HeadConv[Head 1x1 Conv]
-       Head1x1 -->|No| Skip[Skip Output]
+       Head1x1 -->|No| HeadOutput[Head Output]
        HeadConv --> HeadFiLM{Head FiLM?}
        HeadFiLM -->|Yes| HeadPost[Head Post-FiLM]
-       HeadFiLM -->|No| Skip
-       HeadPost --> Skip
+       HeadFiLM -->|No| HeadOutput
+       HeadPost --> HeadOutput
 
 LayerArray Computation
 ----------------------
