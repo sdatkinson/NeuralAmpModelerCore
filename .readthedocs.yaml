@@ -9,9 +9,9 @@ build:
   os: ubuntu-24.04
   tools:
     python: "3.13"
+  apt_packages:
+    - doxygen
   commands:
-    # Install Doxygen
-    - apt-get update && apt-get install -y doxygen
     # Generate Doxygen XML output for Breathe
     - doxygen Doxyfile
 
