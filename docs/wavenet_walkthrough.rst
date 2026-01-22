@@ -1,10 +1,40 @@
 WaveNet Computation Walkthrough
 ==================================
 
-This document provides a detailed step-by-step explanation of how the WaveNet architecture performs its computations, including the LayerArray and Layer objects that make up a WaveNet model.
+This document provides a detailed step-by-step explanation of how the NAM WaveNet architecture performs its computations, including the LayerArray and Layer objects that make up a the model.
 
-.. note::
-   This walkthrough is specific to the WaveNet architecture. Walkthroughs for other architectures (ConvNet, LSTM, etc.) will be added in future documentation updates.
+"It's not _really_ a Wavenet"
+-----------------------------
+
+The name "WaveNet" is a bit of a misnomer. 
+There are similarities to the architecture from van den Oord et al. (2016)--this is a
+convolutional neural network that repeats a "Layer" motif withskip connections that
+give good accuracy typical of convnets along with good training stability, but there are
+a lot of differences.
+
+Here's a rundown of what's not exactly the same at an informal level:
+
+* The model in NAM is feedforward and used in a "regression" setting;
+the model from the original paper is autoregressive and used for generative tasks.
+
+* The class in NAM actually composes several "Layer array" objects. 
+Each one of these individually is actually far closer to a "WaveNet" in architecture.
+In other words, this is more like a "stacked WaveNet".
+
+* There are additional skip connections (e.g. input mixin) that aren't really part of 
+the original WaveNet architecture.
+
+* And finally, the actual recipe within the layer has a lot of modifications.
+The original layer has, roughly, a "convolution-activation-convolution" sequence with a 
+gated activation.
+Here, the gated activation is optional (and is frequently not used, like in the popular 
+A1 standard/lite/feather/nano configurations).
+
+* In v0.4.0, even more modifications have been added in--FiLMs, a bottlneck, and an
+arbitrary "conditioning DSP" module that can be used to embed the input signal in a more
+effective way to modulate the layers in the main model.
+It doesn't need to be a WaveNet, but if it were then this feels more like a "cascading 
+(stacked)WaveNet".
 
 WaveNet Overview
 ----------------
@@ -12,31 +42,16 @@ WaveNet Overview
 WaveNet is a dilated convolutional neural network architecture designed for audio processing. The model consists of:
 
 * **Multiple LayerArrays**: Each LayerArray contains multiple layers with the same channel configuration
-* **Conditioning**: Optional DSP processing of the input to generate conditioning signals
+* **Conditioning**: Optional DSP processing of the input to generate conditioning signals and "skip in" this signal to the layers.
 * **Residual and Skip Connections**: Information flows through both residual (layer-to-layer) and skip (to head) paths
 
-.. mermaid::
-   :caption: High-level WaveNet Architecture
-
-   graph TD
-       Input[Audio Input] --> ConditionDSP{Condition DSP<br/>Optional}
-       ConditionDSP --> Condition[Condition Signal]
-       Input --> LayerArray1[LayerArray 1]
-       Condition --> LayerArray1
-       LayerArray1 --> LayerArray2[LayerArray 2]
-       Condition --> LayerArray2
-       LayerArray2 --> LayerArrayN[LayerArray N]
-       Condition --> LayerArrayN
-       LayerArray1 --> Head[Head Output]
-       LayerArray2 --> Head
-       LayerArrayN --> Head
-       Head --> Scale[Head Scale]
-       Scale --> Output[Audio Output]
+Computation graphs of the layer, layer array, and full model are below on this page.
 
 Layer Computation
 -----------------
 
-A single Layer performs the core computation of a WaveNet block. The computation proceeds through several stages:
+A single Layer performs the core computation of a WaveNet block. 
+The computation proceeds through several stages:
 
 Step 1: Input Convolution
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -44,8 +59,12 @@ Step 1: Input Convolution
 The input first goes through a dilated 1D convolution:
 
 1. **Optional Pre-FiLM**: If `conv_pre_film` is active, the input is modulated by the condition signal before convolution
-2. **Dilated Convolution**: The input is convolved with a dilated kernel (dilation factor increases with layer depth)
+2. **Dilated Convolution**: The input is convolved with a dilated kernel
 3. **Optional Post-FiLM**: If `conv_post_film` is active, the convolution output is modulated by the condition signal
+
+.. note::
+    Having two FiLM layers bookending the convolution layer is mathematically equivalent
+    to a sort of "rank 1 adaptive LoRA" on the convolution weights.
 
 .. code-block:: cpp
    :caption: Input convolution processing
@@ -117,6 +136,11 @@ The activation stage depends on the gating mode:
 
 After activation, an optional post-activation FiLM may be applied.
 
+.. note::
+    Even though the secondary activation is calssically chosen to be a sigmoid, it doesn't
+    need to be. It doesn't even need to output a value between 0 and 1.
+    The operation is still well-defined.
+
 .. code-block:: cpp
    :caption: Activation processing (gated mode example)
 
@@ -163,6 +187,11 @@ If a head1x1 convolution is configured, it processes the activated output for th
            this->_head1x1->GetOutput().leftCols(num_frames);
    }
 
+.. note::
+    If there is no head 1x1, then the output dimension is the same as the activation 
+    output dimension (the "bottleneck" dimension).
+    If there is, then the head can project to an arbitrary dimension.
+
 Step 7: Residual and Skip Connections
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -195,7 +224,8 @@ Notes:
 
 * ``g=2`` if a gating or blending activation is used, and ``1`` otherwise.
 
-* The head output dimension ``dh`` is ``b`` when no head 1x1 is used; otherwise, it is determined by the head 1x1's number of output channels.
+* The head output dimension ``dh`` is the bottleneck dimension ``b`` when no head 1x1 is
+used; otherwise, it is determined by the head 1x1's number of output channels.
 
 
 .. mermaid::
@@ -331,7 +361,8 @@ The complete WaveNet processing pipeline:
 Step 1: Condition Processing
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-If a condition DSP is provided, the input is processed through it to generate the conditioning signal:
+If a condition DSP is provided, the input is processed through it to generate the 
+conditioning signal:
 
 .. code-block:: cpp
    :caption: Condition processing
@@ -346,6 +377,9 @@ If a condition DSP is provided, the input is processed through it to generate th
            this->_condition_output = this->_condition_input;
        }
    }
+
+The condition module can be a WaveNet, but it can also be something else--a convolution,
+an RNN, etc.
 
 Step 2: LayerArray Processing
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
