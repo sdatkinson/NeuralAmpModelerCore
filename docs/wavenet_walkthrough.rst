@@ -3,7 +3,7 @@ WaveNet Computation Walkthrough
 
 This document provides a detailed step-by-step explanation of how the NAM WaveNet architecture performs its computations, including the LayerArray and Layer objects that make up a the model.
 
-"It's not _really_ a Wavenet"
+"It's not *really* a Wavenet"
 -----------------------------
 
 The name "WaveNet" is a bit of a misnomer. 
