@@ -1,5 +1,7 @@
 #include <stdlib.h>
+#include <filesystem>
 #include "NAM/dsp.h"
+#include "NAM/get_dsp.h"
 
 int main(int argc, char* argv[])
 {
@@ -9,7 +11,7 @@ int main(int argc, char* argv[])
 
     fprintf(stderr, "Loading model [%s]\n", modelPath);
 
-    auto model = nam::get_dsp(modelPath);
+    auto model = nam::get_dsp(std::filesystem::path(modelPath));
 
     if (model != nullptr)
     {

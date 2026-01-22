@@ -1,7 +1,9 @@
 #include <iostream>
 #include <chrono>
+#include <filesystem>
 
 #include "NAM/dsp.h"
+#include "NAM/get_dsp.h"
 
 using std::chrono::duration;
 using std::chrono::duration_cast;
@@ -27,7 +29,7 @@ int main(int argc, char* argv[])
     std::unique_ptr<nam::DSP> model;
 
     model.reset();
-    model = nam::get_dsp(modelPath);
+    model = nam::get_dsp(std::filesystem::path(modelPath));
 
     if (model == nullptr)
     {
