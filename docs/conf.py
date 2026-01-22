@@ -30,6 +30,7 @@ extensions = [
     'sphinx.ext.viewcode',
     'sphinx.ext.intersphinx',
     'breathe',
+    'sphinxcontrib.mermaid',
 ]
 
 templates_path = ['_templates']
