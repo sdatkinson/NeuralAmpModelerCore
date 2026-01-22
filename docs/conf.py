@@ -40,13 +40,13 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
 html_theme = 'sphinx_rtd_theme'
-html_static_path = ['_static']
+# html_static_path = ['_static']  # Commented out until _static directory is created
 
 # -- Breathe configuration ----------------------------------------------------
 # https://breathe.readthedocs.io/
 
 breathe_projects = {
-    'NeuralAmpModelerCore': '../doxygen/xml',
+    'NeuralAmpModelerCore': 'doxygen/xml',
 }
 breathe_default_project = 'NeuralAmpModelerCore'
 breathe_default_members = ('members', 'undoc-members')
@@ -55,7 +55,7 @@ breathe_default_members = ('members', 'undoc-members')
 # https://www.sphinx-doc.org/en/master/usage/extensions/intersphinx.html
 
 intersphinx_mapping = {
-    'cpp': ('https://en.cppreference.com/w/', None),
+    'cpp': ('https://en.cppreference.com/mwiki/', None),
 }
 
 # -- Extension configuration --------------------------------------------------
