@@ -201,7 +201,7 @@ Notes:
 .. mermaid::
    :caption: Layer Computation Flow
 
-   graph LR
+   graph TD
        Input["Input (dx,n)"] --> PreFiLM1{Pre-FiLM?}
        PreFiLM1 -->|Yes| ConvPre[Conv Pre-FiLM]
        PreFiLM1 -->|No| Conv["Dilated Conv (g*b,n)"]
@@ -251,12 +251,13 @@ Notes:
 LayerArray Computation
 ----------------------
 
-A LayerArray chains multiple Layer objects together, processing them sequentially with residual connections.
+A LayerArray chains multiple Layer objects together, processing them sequentially while 
+accumulating their "head outputs" via skip-out connections.
 
 Step 1: Rechanneling
 ~~~~~~~~~~~~~~~~~~~~~
 
-The input is first rechanneled to match the layer channel count:
+The input is first proejcted (rechanneled) to match the layer channel count:
 
 .. code-block:: cpp
    :caption: Input rechanneling
@@ -271,7 +272,7 @@ Each layer processes the output of the previous layer:
 
 1. **First Layer**: Processes the rechanneled input
 2. **Subsequent Layers**: Process the residual output from the previous layer
-3. **Head Accumulation**: Each layer's skip output is accumulated into the head buffer
+3. **Head Accumulation**: Each "head output" is accumulated into the head buffer
 
 .. code-block:: cpp
    :caption: Layer processing loop
@@ -294,7 +295,8 @@ Each layer processes the output of the previous layer:
 Step 3: Head Rechanneling
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The accumulated head outputs are rechanneled to the final head size:
+The accumulated head outputs are proejcted (rechanneled) to the final output dimension 
+for the layer array:
 
 .. code-block:: cpp
    :caption: Head rechanneling
@@ -310,9 +312,9 @@ LayerArray Structure
    graph TD
        Input[Layer Input] --> Rechannel[Rechannel]
        Rechannel --> Layer1[Layer 1]
-       Layer1 -->|Residual| Layer2[Layer 2]
-       Layer2 -->|Residual| Layer3[Layer 3]
-       Layer3 -->|Residual| LayerN[Layer N]
+       Layer1 --> Layer2[Layer 2]
+       Layer2 --> Layer3[Layer 3]
+       Layer3 --> LayerN[Layer N]
        Layer1 -->|Skip| HeadAccum[Head Accumulator]
        Layer2 -->|Skip| HeadAccum
        Layer3 -->|Skip| HeadAccum
@@ -391,13 +393,14 @@ Complete WaveNet Flow
        CondDSP --> Condition
        AudioIn --> LayerArray1[LayerArray 1]
        Condition --> LayerArray1
-       LayerArray1 --> LayerArray2[LayerArray 2]
+       LayerArray1 -->|LayerN Output| LayerArray2[LayerArray 2]
+       LayerArray1 -->|Head Output| LayerArray2
        Condition --> LayerArray2
-       LayerArray2 --> LayerArrayN[LayerArray N]
+       LayerArray2 -->|LayerN Output| LayerArrayN[LayerArray N]
+       LayerArray2 -->|Head Output| LayerArrayN
        Condition --> LayerArrayN
-       LayerArray1 -->|Head| HeadAccum[Head Accumulator]
-       LayerArray2 -->|Head| HeadAccum
-       LayerArrayN -->|Head| HeadAccum
+       LayerArrayN -->|LayerN Output| Unused[(Unused)]
+       LayerArrayN -->|Head Output| HeadAccum[Head Accumulator]
        HeadAccum --> HeadScale[Head Scale]
        HeadScale --> AudioOut[Audio Output]
 
