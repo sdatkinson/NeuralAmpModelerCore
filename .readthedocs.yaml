@@ -11,9 +11,9 @@ build:
     python: "3.13"
   apt_packages:
     - doxygen
-  commands:
-    # Generate Doxygen XML output for Breathe
-    - doxygen Doxyfile
+  jobs:
+    pre_build:
+      - doxygen Doxyfile
 
 # Build documentation in the "docs/" directory with Sphinx
 sphinx:
