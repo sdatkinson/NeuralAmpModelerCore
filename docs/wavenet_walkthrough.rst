@@ -202,18 +202,18 @@ Notes:
    :caption: Layer Computation Flow
 
    graph LR
-       Input[Input (dx,n)] --> PreFiLM1{Pre-FiLM?}
+       Input["Input (dx,n)"] --> PreFiLM1{Pre-FiLM?}
        PreFiLM1 -->|Yes| ConvPre[Conv Pre-FiLM]
-       PreFiLM1 -->|No| Conv[Dilated Conv (g*b,n)]
+       PreFiLM1 -->|No| Conv["Dilated Conv (g*b,n)"]
        ConvPre --> Conv
        Conv --> PostFiLM1{Post-FiLM?}
        PostFiLM1 -->|Yes| ConvPost[Conv Post-FiLM]
-       PostFiLM1 -->|No| Sum[Sum (g*b,n)]
+       PostFiLM1 -->|No| Sum["Sum (g*b,n)"]
        ConvPost --> Sum
        
-       Condition[Condition (dc,n)] --> PreFiLM2{Pre-FiLM?}
+       Condition["Condition (dc,n)"] --> PreFiLM2{Pre-FiLM?}
        PreFiLM2 -->|Yes| MixinPre[Input Mixin Pre-FiLM]
-       PreFiLM2 -->|No| Mixin[Input Mixin (g*b,n)]
+       PreFiLM2 -->|No| Mixin["Input Mixin (g*b,n)"]
        MixinPre --> Mixin
        Mixin --> PostFiLM2{Post-FiLM?}
        PostFiLM2 -->|Yes| MixinPost[Input Mixin Post-FiLM]
@@ -222,27 +222,27 @@ Notes:
        
        Sum --> PreActFiLM{Pre-Act FiLM?}
        PreActFiLM -->|Yes| PreAct[Pre-Activation FiLM]
-       PreActFiLM -->|No| Act[Activation (b,n)]
+       PreActFiLM -->|No| Act["Activation (b,n)"]
        PreAct --> Act
        
        Act --> PostActFiLM{Post-Act FiLM?}
        PostActFiLM -->|Yes| PostActFilm[Post-Activation FiLM]
-       PostActFiLM -->|No| PostAct[Post-Activation Output (b,n)]
+       PostActFiLM -->|No| PostAct["Post-Activation Output (b,n)"]
        PostActFilm --> PostAct
        
-       PostAct --> Conv1x1[1x1 Conv (dx,n)]
+       PostAct --> Conv1x1["1x1 Conv (dx,n)"]
        Conv1x1 --> Post1x1FiLM{Post-1x1 FiLM?}
        Post1x1FiLM -->|Yes| Post1x1[Post-1x1 FiLM]
-       Post1x1FiLM -->|No| Residual[Residual (dx,n)]
+       Post1x1FiLM -->|No| Residual["Residual (dx,n)"]
        Post1x1 --> Residual
 
-       Input --> ResidualSum[Residual Sum (dx,n)]
+       Input --> ResidualSum["Residual Sum (dx,n)"]
        Residual --> ResidualSum
-       ResidualSum --> LayerOutput[Layer Output (dx,n)]
+       ResidualSum --> LayerOutput["Layer Output (dx,n)"]
        
        PostAct --> Head1x1{Head 1x1?}
-       Head1x1 -->|Yes| HeadConv[Head 1x1 Conv (dh,n)]
-       Head1x1 -->|No| HeadOutput[Head Output (dh,n)]
+       Head1x1 -->|Yes| HeadConv["Head 1x1 Conv (dh,n)"]
+       Head1x1 -->|No| HeadOutput["Head Output (dh,n)"]
        HeadConv --> HeadFiLM{Head FiLM?}
        HeadFiLM -->|Yes| HeadPost[Head Post-FiLM]
        HeadFiLM -->|No| HeadOutput
