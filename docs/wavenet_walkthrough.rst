@@ -404,16 +404,6 @@ Complete WaveNet Flow
        HeadAccum --> HeadScale[Head Scale]
        HeadScale --> AudioOut[Audio Output]
 
-Buffer Management and Real-Time Safety
----------------------------------------
-
-All processing uses pre-allocated buffers to ensure real-time safety:
-
-* **No Dynamic Allocations**: All buffers are allocated during `SetMaxBufferSize()`
-* **Buffer Reuse**: The same buffers are reused across processing calls
-* **Column Slicing**: Only the first `num_frames` columns are valid; use `.leftCols(num_frames)` to access
-* **Eigen::Ref**: Used to avoid temporary allocations when passing block expressions
-
 See Also
 --------
 
