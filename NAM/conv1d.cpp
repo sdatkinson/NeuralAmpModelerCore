@@ -21,11 +21,11 @@ void Conv1D::set_weights_(std::vector<float>::iterator& weights)
     // Crazy ordering because that's how it gets flattened.
     for (int g = 0; g < numGroups; g++)
     {
-      for (auto i = 0; i < out_per_group; i++)
+      for (long i = 0; i < out_per_group; ++i)
       {
-        for (auto j = 0; j < in_per_group; j++)
+        for (long j = 0; j < in_per_group; ++j)
         {
-          for (size_t k = 0; k < this->_weight.size(); k++)
+          for (size_t k = 0; k < this->_weight.size(); ++k)
           {
             this->_weight[k](g * out_per_group + i, g * in_per_group + j) = *(weights++);
           }
@@ -96,10 +96,10 @@ void Conv1D::SetMaxBufferSize(const int maxBufferSize)
 }
 
 
-void Conv1D::Process(const Eigen::MatrixXf& input, const int num_frames)
+void Conv1D::Process(const Eigen::MatrixXf& input, const nam::Index num_frames)
 {
   // Write input to ring buffer
-  _input_buffer.Write(input, num_frames);
+  _input_buffer.Write(input, (int)num_frames);
 
   // Zero output before processing
   _output.leftCols(num_frames).setZero();
@@ -124,7 +124,7 @@ void Conv1D::Process(const Eigen::MatrixXf& input, const int num_frames)
     {
       const long offset = this->_dilation * (k + 1 - (long)this->_weight.size());
       const long lookback = -offset;
-      auto input_block = _input_buffer.Read(num_frames, lookback);
+      auto input_block = _input_buffer.Read((int)num_frames, lookback);
       _output.leftCols(num_frames).noalias() += this->_weight[k] * input_block;
     }
   }
@@ -137,7 +137,7 @@ void Conv1D::Process(const Eigen::MatrixXf& input, const int num_frames)
       {
         const long offset = this->_dilation * (k + 1 - (long)this->_weight.size());
         const long lookback = -offset;
-        auto input_block = _input_buffer.Read(num_frames, lookback);
+        auto input_block = _input_buffer.Read((int)num_frames, lookback);
 
         // Extract input slice for this group
         auto input_group = input_block.middleRows(g * in_per_group, in_per_group);
@@ -161,7 +161,7 @@ void Conv1D::Process(const Eigen::MatrixXf& input, const int num_frames)
   }
 
   // Advance ring buffer write pointer after processing
-  _input_buffer.Advance(num_frames);
+  _input_buffer.Advance((int)num_frames);
 }
 
 void Conv1D::process_(const Eigen::MatrixXf& input, Eigen::MatrixXf& output, const long i_start, const long ncols,

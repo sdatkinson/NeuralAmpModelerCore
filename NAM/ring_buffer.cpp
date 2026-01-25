@@ -4,7 +4,7 @@
 namespace nam
 {
 
-void RingBuffer::Reset(const int channels, const int max_buffer_size)
+void RingBuffer::Reset(const long channels, const int max_buffer_size)
 {
   // Store the max buffer size for external queries
   _max_buffer_size = max_buffer_size;
@@ -15,13 +15,13 @@ void RingBuffer::Reset(const int channels, const int max_buffer_size)
   // - max_buffer_size in the middle (for writes/reads)
   // - no aliasing when rewinding
   const long storage_size = 2 * _max_lookback + max_buffer_size;
-  _storage.resize(channels, storage_size);
+  _storage.resize((nam::Index)channels, (nam::Index)storage_size);
   _storage.setZero();
   // Initialize write position to max_lookback to leave room for history
   // Zero the storage behind the starting write position (for lookback)
   if (_max_lookback > 0)
   {
-    _storage.leftCols(_max_lookback).setZero();
+    _storage.leftCols((nam::Index)_max_lookback).setZero();
   }
   _write_pos = _max_lookback;
 }
@@ -41,12 +41,12 @@ void RingBuffer::Write(const Eigen::MatrixXf& input, const int num_frames)
   //       expressions across the API boundary; instead, pass the full buffer and
   //       slice inside the callee. This avoids Eigen evaluating Blocks into
   //       temporaries (which would allocate) when binding to MatrixXf.
-  const int channels = _storage.rows();
+  const long channels = _storage.rows();
   const int copy_cols = num_frames;
 
   for (int col = 0; col < copy_cols; ++col)
   {
-    for (int row = 0; row < channels; ++row)
+    for (long row = 0; row < channels; ++row)
     {
       _storage(row, _write_pos + col) = input(row, col);
     }

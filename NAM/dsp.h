@@ -8,6 +8,7 @@
 #include <vector>
 
 #include <Eigen/Dense>
+#include "index.h"
 
 #include "activations.h"
 #include "json.hpp"
@@ -307,13 +308,13 @@ public:
   ///
   /// \param input Input matrix (channels x num_frames) or (channels,)
   /// \return Output matrix (channels x num_frames) or (channels,), respectively
-  Eigen::MatrixXf process(const Eigen::MatrixXf& input) const { return process(input, (int)input.cols()); };
+  Eigen::MatrixXf process(const Eigen::MatrixXf& input) const { return process(input, (nam::Index)input.cols()); };
 
   /// \brief Process input and return output matrix
   /// \param input Input matrix (channels x num_frames)
   /// \param num_frames Number of frames to process
   /// \return Output matrix (channels x num_frames)
-  Eigen::MatrixXf process(const Eigen::MatrixXf& input, const int num_frames) const;
+  Eigen::MatrixXf process(const Eigen::MatrixXf& input, const nam::Index num_frames) const;
 
   /// \brief Process input and store output to pre-allocated buffer
   ///

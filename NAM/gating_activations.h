@@ -4,6 +4,7 @@
 #include <cmath> // expf
 #include <unordered_map>
 #include <Eigen/Dense>
+#include "index.h"
 #include <functional>
 #include <stdexcept>
 #include "activations.h"
@@ -66,8 +67,8 @@ public:
 
     // Process column-by-column to ensure memory contiguity (important for column-major matrices)
     // Uses pre-allocated buffers to avoid allocations in the loop (real-time safe)
-    const int num_samples = input.cols();
-    for (int i = 0; i < num_samples; i++)
+    const nam::Index num_samples = input.cols();
+    for (nam::Index i = 0; i < num_samples; ++i)
     {
       // Copy to pre-allocated buffers and apply activations in-place
       input_buffer = input.block(0, i, num_channels, 1);
@@ -142,8 +143,8 @@ public:
 
     // Process column-by-column to ensure memory contiguity
     // Uses pre-allocated buffers to avoid allocations in the loop (real-time safe)
-    const int num_samples = input.cols();
-    for (int i = 0; i < num_samples; i++)
+    const nam::Index num_samples = input.cols();
+    for (nam::Index i = 0; i < num_samples; ++i)
     {
       // Store pre-activation input values in buffer
       pre_activation_buffer = input.block(0, i, num_channels, 1);

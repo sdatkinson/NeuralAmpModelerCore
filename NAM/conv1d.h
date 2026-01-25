@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Eigen/Dense>
+#include "index.h"
 #include <vector>
 #include "ring_buffer.h"
 
@@ -80,7 +81,7 @@ public:
   /// \brief Process input and write to internal output buffer
   /// \param input Input matrix (channels x num_frames)
   /// \param num_frames Number of frames to process
-  void Process(const Eigen::MatrixXf& input, const int num_frames);
+  void Process(const Eigen::MatrixXf& input, const nam::Index num_frames);
 
   /// \brief Process from input to output (legacy method, kept for compatibility)
   ///

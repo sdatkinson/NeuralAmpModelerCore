@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Eigen/Dense>
+#include "index.h"
 
 namespace nam
 {
@@ -17,7 +18,7 @@ public:
   /// \brief Initialize/resize storage
   /// \param channels Number of channels (rows in the storage matrix)
   /// \param max_buffer_size Maximum amount that will be written or read at once
-  void Reset(const int channels, const int max_buffer_size);
+  void Reset(const long channels, const int max_buffer_size);
 
   /// \brief Write new data at write pointer
   ///
@@ -46,7 +47,7 @@ public:
 
   /// \brief Get number of channels (rows)
   /// \return Number of channels
-  int GetChannels() const { return _storage.rows(); }
+  long GetChannels() const { return (long)_storage.rows(); }
 
   /// \brief Set the max lookback (maximum history needed when rewinding)
   /// \param max_lookback Maximum lookback distance

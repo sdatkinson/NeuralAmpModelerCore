@@ -68,7 +68,7 @@ void nam::convnet::ConvNetBlock::SetMaxBufferSize(const int maxBufferSize)
   this->_output.setZero();
 }
 
-void nam::convnet::ConvNetBlock::Process(const Eigen::MatrixXf& input, const int num_frames)
+void nam::convnet::ConvNetBlock::Process(const Eigen::MatrixXf& input, const nam::Index num_frames)
 {
   // Process input with Conv1D
   this->conv.Process(input, num_frames);
@@ -83,14 +83,14 @@ void nam::convnet::ConvNetBlock::Process(const Eigen::MatrixXf& input, const int
   if (this->_batchnorm)
   {
     // Batchnorm expects indices, so we use 0 to num_frames for our output matrix
-    this->batchnorm.process_(this->_output, 0, num_frames);
+    this->batchnorm.process_(this->_output, 0, (long)num_frames);
   }
 
   // Apply activation
   this->activation->apply(this->_output.leftCols(num_frames));
 }
 
-Eigen::Block<Eigen::MatrixXf> nam::convnet::ConvNetBlock::GetOutput(const int num_frames)
+Eigen::Block<Eigen::MatrixXf> nam::convnet::ConvNetBlock::GetOutput(const nam::Index num_frames)
 {
   return this->_output.block(0, 0, this->_output.rows(), num_frames);
 }

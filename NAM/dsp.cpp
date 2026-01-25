@@ -36,7 +36,7 @@ void nam::DSP::prewarm()
   if (prewarmSamples == 0)
     return;
 
-  const size_t bufferSize = std::max(mMaxBufferSize, 1);
+  const int bufferSize = std::max(mMaxBufferSize, 1);
   // Allocate buffers for all channels
   std::vector<std::vector<NAM_SAMPLE>> inputBuffers(mInChannels);
   std::vector<std::vector<NAM_SAMPLE>> outputBuffers(mOutChannels);
@@ -45,12 +45,12 @@ void nam::DSP::prewarm()
 
   for (int ch = 0; ch < mInChannels; ch++)
   {
-    inputBuffers[ch].resize(bufferSize, (NAM_SAMPLE)0.0);
+    inputBuffers[ch].resize((size_t)bufferSize, (NAM_SAMPLE)0.0);
     inputPtrs[ch] = inputBuffers[ch].data();
   }
   for (int ch = 0; ch < mOutChannels; ch++)
   {
-    outputBuffers[ch].resize(bufferSize, (NAM_SAMPLE)0.0);
+    outputBuffers[ch].resize((size_t)bufferSize, (NAM_SAMPLE)0.0);
     outputPtrs[ch] = outputBuffers[ch].data();
   }
 
@@ -368,17 +368,17 @@ void nam::Conv1x1::set_weights_(std::vector<float>::iterator& weights)
     }
   }
   if (this->_do_bias)
-    for (int i = 0; i < this->_bias.size(); i++)
+    for (nam::Index i = 0; i < (nam::Index)this->_bias.size(); ++i)
       this->_bias(i) = *(weights++);
 }
 
-Eigen::MatrixXf nam::Conv1x1::process(const Eigen::MatrixXf& input, const int num_frames) const
+Eigen::MatrixXf nam::Conv1x1::process(const Eigen::MatrixXf& input, const nam::Index num_frames) const
 {
   const int numGroups = this->_num_groups;
-  const long in_channels = get_in_channels();
-  const long out_channels = get_out_channels();
-  const long in_per_group = in_channels / numGroups;
-  const long out_per_group = out_channels / numGroups;
+  const nam::Index in_channels = get_in_channels();
+  const nam::Index out_channels = get_out_channels();
+  const nam::Index in_per_group = in_channels / numGroups;
+  const nam::Index out_per_group = out_channels / numGroups;
 
   Eigen::MatrixXf result(out_channels, num_frames);
 
@@ -394,7 +394,7 @@ Eigen::MatrixXf nam::Conv1x1::process(const Eigen::MatrixXf& input, const int nu
   {
     // Grouped convolution: process each group separately
     result.setZero();
-    for (int g = 0; g < numGroups; g++)
+    for (int g = 0; g < numGroups; ++g)
     {
       // Extract input slice for this group
       auto input_group = input.leftCols(num_frames).middleRows(g * in_per_group, in_per_group);

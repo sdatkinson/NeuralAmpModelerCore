@@ -10,6 +10,7 @@
 #include <vector>
 
 #include <Eigen/Dense>
+#include "index.h"
 
 #include "json.hpp"
 
@@ -273,21 +274,22 @@ public:
   void apply(Eigen::MatrixXf& matrix) override
   {
     // Matrix is organized as (channels, time_steps)
-    unsigned long actual_channels = static_cast<unsigned long>(matrix.rows());
+    const nam::Index actual_channels = matrix.rows();
 
     // Prepare the slopes for the current matrix size
     std::vector<float> slopes_for_channels = negative_slopes;
 
     // Fail loudly if input has more channels than activation
-    assert(actual_channels == negative_slopes.size());
+    assert((nam::Index)negative_slopes.size() == actual_channels);
 
     // Apply each negative slope to its corresponding channel
-    for (unsigned long channel = 0; channel < actual_channels; channel++)
+    for (nam::Index channel = 0; channel < actual_channels; ++channel)
     {
       // Apply the negative slope to all time steps in this channel
-      for (int time_step = 0; time_step < matrix.cols(); time_step++)
+      const nam::Index cols = matrix.cols();
+      for (nam::Index time_step = 0; time_step < cols; ++time_step)
       {
-        matrix(channel, time_step) = leaky_relu(matrix(channel, time_step), slopes_for_channels[channel]);
+        matrix(channel, time_step) = leaky_relu(matrix(channel, time_step), slopes_for_channels[(size_t)channel]);
       }
     }
   }

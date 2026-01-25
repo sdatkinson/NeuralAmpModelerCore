@@ -8,6 +8,7 @@
 #include <vector>
 
 #include <Eigen/Dense>
+#include "index.h"
 
 #include "activations.h"
 #include "conv1d.h"
@@ -78,7 +79,7 @@ public:
   /// \brief Process input matrix directly (new API, similar to WaveNet)
   /// \param input Input matrix (channels x num_frames)
   /// \param num_frames Number of frames to process
-  void Process(const Eigen::MatrixXf& input, const int num_frames);
+  void Process(const Eigen::MatrixXf& input, const nam::Index num_frames);
 
   /// \brief Process input (legacy method for compatibility, uses indices)
   /// \param input Input matrix
@@ -90,7 +91,7 @@ public:
   /// \brief Get output from last Process() call
   /// \param num_frames Number of frames to return
   /// \return Block reference to the output
-  Eigen::Block<Eigen::MatrixXf> GetOutput(const int num_frames);
+  Eigen::Block<Eigen::MatrixXf> GetOutput(const nam::Index num_frames);
 
   /// \brief Get the number of output channels
   /// \return Number of output channels

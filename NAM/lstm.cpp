@@ -16,15 +16,15 @@ nam::lstm::LSTMCell::LSTMCell(const int input_size, const int hidden_size, std::
   this->_c.resize(hidden_size);
 
   // Assign in row-major because that's how PyTorch goes.
-  for (int i = 0; i < this->_w.rows(); i++)
-    for (int j = 0; j < this->_w.cols(); j++)
+  for (nam::Index i = 0; i < this->_w.rows(); ++i)
+    for (nam::Index j = 0; j < this->_w.cols(); ++j)
       this->_w(i, j) = *(weights++);
-  for (int i = 0; i < this->_b.size(); i++)
+  for (nam::Index i = 0; i < (nam::Index)this->_b.size(); ++i)
     this->_b[i] = *(weights++);
-  const int h_offset = input_size;
-  for (int i = 0; i < hidden_size; i++)
+  const nam::Index h_offset = input_size;
+  for (nam::Index i = 0; i < hidden_size; ++i)
     this->_xh[i + h_offset] = *(weights++);
-  for (int i = 0; i < hidden_size; i++)
+  for (nam::Index i = 0; i < hidden_size; ++i)
     this->_c[i] = *(weights++);
 }
 
@@ -45,22 +45,22 @@ void nam::lstm::LSTMCell::process_(const Eigen::VectorXf& x)
 
   if (activations::Activation::using_fast_tanh)
   {
-    for (auto i = 0; i < hidden_size; i++)
+    for (nam::Index i = 0; i < hidden_size; ++i)
       this->_c[i] =
         activations::fast_sigmoid(this->_ifgo[i + f_offset]) * this->_c[i]
         + activations::fast_sigmoid(this->_ifgo[i + i_offset]) * activations::fast_tanh(this->_ifgo[i + g_offset]);
 
-    for (int i = 0; i < hidden_size; i++)
+    for (nam::Index i = 0; i < hidden_size; ++i)
       this->_xh[i + h_offset] =
         activations::fast_sigmoid(this->_ifgo[i + o_offset]) * activations::fast_tanh(this->_c[i]);
   }
   else
   {
-    for (auto i = 0; i < hidden_size; i++)
+    for (nam::Index i = 0; i < hidden_size; ++i)
       this->_c[i] = activations::sigmoid(this->_ifgo[i + f_offset]) * this->_c[i]
                     + activations::sigmoid(this->_ifgo[i + i_offset]) * tanhf(this->_ifgo[i + g_offset]);
 
-    for (int i = 0; i < hidden_size; i++)
+    for (nam::Index i = 0; i < hidden_size; ++i)
       this->_xh[i + h_offset] = activations::sigmoid(this->_ifgo[i + o_offset]) * tanhf(this->_c[i]);
   }
 }
