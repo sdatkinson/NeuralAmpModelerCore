@@ -49,7 +49,6 @@ struct ActivationConfig
   std::optional<float> max_val; // LeakyHardtanh
   std::optional<float> min_slope; // LeakyHardtanh
   std::optional<float> max_slope; // LeakyHardtanh
-  std::optional<float> alpha; // Softsign
 
   // Convenience constructors
   static ActivationConfig simple(ActivationType t);
@@ -132,9 +131,9 @@ inline float hardswish(float x)
   }
 }
 
-inline float softsign(float x, float alpha = 1.0f)
+inline float softsign(float x)
 {
-  return x / (alpha + fabsf(x));
+  return x / (1.0f + fabsf(x));
 }
 
 class Activation
@@ -343,18 +342,13 @@ public:
 class ActivationSoftsign : public Activation
 {
 public:
-  ActivationSoftsign() = default;
-  ActivationSoftsign(float a) { alpha = a; }
   void apply(float* data, long size) override
   {
     for (long pos = 0; pos < size; pos++)
     {
-      data[pos] = softsign(data[pos], alpha);
+      data[pos] = softsign(data[pos]);
     }
   }
-
-private:
-  float alpha = 1.0f;
 };
 
 class FastLUTActivation : public Activation

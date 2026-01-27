@@ -120,10 +120,6 @@ nam::activations::ActivationConfig nam::activations::ActivationConfig::from_json
       config.min_slope = j.value("min_slope", 0.01f);
       config.max_slope = j.value("max_slope", 0.01f);
     }
-    else if (config.type == ActivationType::Softsign)
-    {
-      config.alpha = j.value("alpha", 1.0f);
-    }
 
     return config;
   }
@@ -162,12 +158,7 @@ nam::activations::Activation::Ptr nam::activations::Activation::get_activation(c
       return std::make_shared<ActivationLeakyHardTanh>(config.min_val.value_or(-1.0f), config.max_val.value_or(1.0f),
                                                        config.min_slope.value_or(0.01f),
                                                        config.max_slope.value_or(0.01f));
-    case ActivationType::Softsign:
-      if (config.alpha.has_value())
-      {
-        return std::make_shared<ActivationSoftsign>(config.alpha.value());
-      }
-      return _activations["Softsign"];
+    case ActivationType::Softsign: return _activations["Softsign"];
     default: return nullptr;
   }
 }
