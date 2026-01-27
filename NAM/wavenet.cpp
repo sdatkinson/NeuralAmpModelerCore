@@ -760,7 +760,8 @@ std::unique_ptr<nam::DSP> nam::wavenet::Factory(const nlohmann::json& config, st
       const nlohmann::json& film_config = layer_config[key];
       bool active = film_config.value("active", true);
       bool shift = film_config.value("shift", true);
-      return nam::wavenet::_FiLMParams(active, shift);
+      int groups = film_config.value("groups", 1);
+      return nam::wavenet::_FiLMParams(active, shift, groups);
     };
 
     // Parse FiLM parameters

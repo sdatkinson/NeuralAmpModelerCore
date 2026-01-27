@@ -33,23 +33,44 @@ def count_conv1x1_weights(in_channels: int, out_channels: int,
     return weight_count
 
 
-def count_film_weights(condition_dim: int, input_dim: int, has_shift: bool) -> int:
+def count_film_weights(condition_dim: int, input_dim: int, has_shift: bool, groups: int = 1) -> int:
     """
     Count weights for a FiLM (Feature-wise Linear Modulation) module.
-    FiLM uses a Conv1x1: condition_dim -> (2*input_dim if shift else input_dim), with bias
+    FiLM uses a Conv1x1: condition_dim -> (2*input_dim if shift else input_dim), with bias.
+    
+    Args:
+        condition_dim: Size of the conditioning input
+        input_dim: Size of the input to be modulated
+        has_shift: Whether to apply both scale and shift (true) or only scale (false)
+        groups: Number of groups for grouped convolution (default: 1)
     """
     out_channels = (2 * input_dim) if has_shift else input_dim
-    return count_conv1x1_weights(condition_dim, out_channels, has_bias=True, groups=1)
+    return count_conv1x1_weights(condition_dim, out_channels, has_bias=True, groups=groups)
 
 
-def parse_gating_mode(layer_config: Dict[str, Any]) -> str:
-    """Parse gating mode from layer config (handles both old and new formats)."""
+def parse_gating_mode(layer_config: Dict[str, Any], layer_index: int = 0) -> str:
+    """
+    Parse gating mode from layer config (handles both old and new formats).
+    
+    Args:
+        layer_config: Layer configuration dictionary
+        layer_index: Index of the layer (for array-valued gating_mode)
+    """
     if "gating_mode" in layer_config:
-        gating_mode_str = layer_config["gating_mode"]
-        if gating_mode_str in ["GATED", "BLENDED", "NONE"]:
-            return gating_mode_str
-        # Handle lowercase versions
-        return gating_mode_str.upper()
+        gating_mode_value = layer_config["gating_mode"]
+        if isinstance(gating_mode_value, list):
+            # Array of gating modes - use the one at layer_index
+            gating_mode_str = gating_mode_value[layer_index]
+        else:
+            # Single gating mode - use for all layers
+            gating_mode_str = gating_mode_value
+        
+        if isinstance(gating_mode_str, str):
+            if gating_mode_str in ["GATED", "BLENDED", "NONE"]:
+                return gating_mode_str
+            # Handle lowercase versions
+            return gating_mode_str.upper()
+        return "NONE"
     elif "gated" in layer_config:
         # Backward compatibility
         return "GATED" if layer_config["gated"] else "NONE"
@@ -57,7 +78,7 @@ def parse_gating_mode(layer_config: Dict[str, Any]) -> str:
         return "NONE"
 
 
-def count_layer_weights(layer_config: Dict[str, Any], condition_size: int) -> int:
+def count_layer_weights(layer_config: Dict[str, Any], condition_size: int, layer_index: int = 0) -> int:
     """
     Count weights for a single layer (one dilation).
     
@@ -67,6 +88,11 @@ def count_layer_weights(layer_config: Dict[str, Any], condition_size: int) -> in
     3. 1x1 Conv1x1: (bottleneck, channels, bias=True, groups_1x1)
     4. Optional head1x1 Conv1x1: (bottleneck, head1x1_out_channels, bias=True, head1x1_groups)
     5. FiLM modules (optional, various configurations)
+    
+    Args:
+        layer_config: Layer configuration dictionary
+        condition_size: Size of the conditioning input
+        layer_index: Index of the layer within the layer array (for array-valued configs)
     """
     channels = layer_config["channels"]
     bottleneck = layer_config.get("bottleneck", channels)
@@ -75,7 +101,7 @@ def count_layer_weights(layer_config: Dict[str, Any], condition_size: int) -> in
     groups_input_mixin = layer_config.get("groups_input_mixin", 1)
     groups_1x1 = layer_config.get("groups_1x1", 1)
     
-    gating_mode = parse_gating_mode(layer_config)
+    gating_mode = parse_gating_mode(layer_config, layer_index)
     
     # Output channels are doubled for GATED and BLENDED modes
     conv_out_channels = 2 * bottleneck if gating_mode in ["GATED", "BLENDED"] else bottleneck
@@ -128,8 +154,9 @@ def count_layer_weights(layer_config: Dict[str, Any], condition_size: int) -> in
             film_params = layer_config[film_key]
             if isinstance(film_params, dict) and film_params.get("active", True):
                 has_shift = film_params.get("shift", True)
+                groups = film_params.get("groups", 1)
                 if input_dim > 0:  # Only count if input_dim is valid
-                    weight_count += count_film_weights(condition_size, input_dim, has_shift)
+                    weight_count += count_film_weights(condition_size, input_dim, has_shift, groups)
     
     return weight_count
 
@@ -161,14 +188,27 @@ def count_layer_array_weights(layer_config: Dict[str, Any]) -> int:
     
     num_layers = len(dilations)
     
+    # Validate array-valued configs match number of layers
+    if "activation" in layer_config and isinstance(layer_config["activation"], list):
+        if len(layer_config["activation"]) != num_layers:
+            raise ValueError(f"activation array size ({len(layer_config['activation'])}) must match dilations size ({num_layers})")
+    
+    if "gating_mode" in layer_config and isinstance(layer_config["gating_mode"], list):
+        if len(layer_config["gating_mode"]) != num_layers:
+            raise ValueError(f"gating_mode array size ({len(layer_config['gating_mode'])}) must match dilations size ({num_layers})")
+    
+    if "secondary_activation" in layer_config and isinstance(layer_config["secondary_activation"], list):
+        if len(layer_config["secondary_activation"]) != num_layers:
+            raise ValueError(f"secondary_activation array size ({len(layer_config['secondary_activation'])}) must match dilations size ({num_layers})")
+    
     weight_count = 0
     
     # 1. Rechannel weights
     weight_count += count_conv1x1_weights(input_size, channels, has_bias=False, groups=1)
     
     # 2. For each layer in the array
-    for _ in range(num_layers):
-        weight_count += count_layer_weights(layer_config, condition_size)
+    for layer_idx in range(num_layers):
+        weight_count += count_layer_weights(layer_config, condition_size, layer_idx)
     
     # 3. Head rechannel weights (input is head_output_size, not bottleneck)
     weight_count += count_conv1x1_weights(
