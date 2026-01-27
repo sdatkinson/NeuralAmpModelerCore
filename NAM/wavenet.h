@@ -427,40 +427,9 @@ public:
 class _LayerArray
 {
 public:
-  /// \brief Constructor with GatingMode enum and typed ActivationConfig
-  /// \param input_size Input size (number of channels) to the layer array
-  /// \param condition_size Size of the conditioning input
-  /// \param head_size Size of the head output (after head rechannel)
-  /// \param channels Number of channels in each layer
-  /// \param bottleneck Bottleneck size (internal channel count)
-  /// \param kernel_size Kernel size for dilated convolutions
-  /// \param dilations Vector of dilation factors, one per layer
-  /// \param activation_configs Vector of primary activation configurations, one per layer
-  /// \param gating_modes Vector of gating modes, one per layer
-  /// \param head_bias Whether to use bias in the head rechannel
-  /// \param groups_input Number of groups for input convolutions
-  /// \param groups_input_mixin Number of groups for input mixin
-  /// \param groups_1x1 Number of groups for 1x1 convolutions
-  /// \param head1x1_params Parameters for optional head1x1 convolutions
-  /// \param secondary_activation_configs Vector of secondary activation configs for gating/blending, one per layer
-  /// \param conv_pre_film_params FiLM parameters before input convolutions
-  /// \param conv_post_film_params FiLM parameters after input convolutions
-  /// \param input_mixin_pre_film_params FiLM parameters before input mixin
-  /// \param input_mixin_post_film_params FiLM parameters after input mixin
-  /// \param activation_pre_film_params FiLM parameters before activation
-  /// \param activation_post_film_params FiLM parameters after activation
-  /// \param _1x1_post_film_params FiLM parameters after 1x1 convolutions
-  /// \param head1x1_post_film_params FiLM parameters after head1x1 convolutions
-  _LayerArray(const int input_size, const int condition_size, const int head_size, const int channels,
-              const int bottleneck, const int kernel_size, const std::vector<int>& dilations,
-              const std::vector<activations::ActivationConfig>& activation_configs,
-              const std::vector<GatingMode>& gating_modes, const bool head_bias, const int groups_input,
-              const int groups_input_mixin, const int groups_1x1, const Head1x1Params& head1x1_params,
-              const std::vector<activations::ActivationConfig>& secondary_activation_configs,
-              const _FiLMParams& conv_pre_film_params, const _FiLMParams& conv_post_film_params,
-              const _FiLMParams& input_mixin_pre_film_params, const _FiLMParams& input_mixin_post_film_params,
-              const _FiLMParams& activation_pre_film_params, const _FiLMParams& activation_post_film_params,
-              const _FiLMParams& _1x1_post_film_params, const _FiLMParams& head1x1_post_film_params);
+  /// \brief Constructor with LayerArrayParams
+  /// \param params Parameters for constructing the layer array
+  _LayerArray(const LayerArrayParams& params);
 
   /// \brief Resize all arrays to be able to process maxBufferSize frames
   /// \param maxBufferSize Maximum number of frames to process in a single call

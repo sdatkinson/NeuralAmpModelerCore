@@ -212,44 +212,21 @@ void nam::wavenet::_Layer::Process(const Eigen::MatrixXf& input, const Eigen::Ma
 
 // LayerArray =================================================================
 
-nam::wavenet::_LayerArray::_LayerArray(
-  const int input_size, const int condition_size, const int head_size, const int channels, const int bottleneck,
-  const int kernel_size, const std::vector<int>& dilations,
-  const std::vector<activations::ActivationConfig>& activation_configs, const std::vector<GatingMode>& gating_modes,
-  const bool head_bias, const int groups_input, const int groups_input_mixin, const int groups_1x1,
-  const Head1x1Params& head1x1_params, const std::vector<activations::ActivationConfig>& secondary_activation_configs,
-  const _FiLMParams& conv_pre_film_params, const _FiLMParams& conv_post_film_params,
-  const _FiLMParams& input_mixin_pre_film_params, const _FiLMParams& input_mixin_post_film_params,
-  const _FiLMParams& activation_pre_film_params, const _FiLMParams& activation_post_film_params,
-  const _FiLMParams& _1x1_post_film_params, const _FiLMParams& head1x1_post_film_params)
-: _rechannel(input_size, channels, false)
-, _head_rechannel(head1x1_params.active ? head1x1_params.out_channels : bottleneck, head_size, head_bias)
-, _head_output_size(head1x1_params.active ? head1x1_params.out_channels : bottleneck)
+nam::wavenet::_LayerArray::_LayerArray(const LayerArrayParams& params)
+: _rechannel(params.input_size, params.channels, false)
+, _head_rechannel(params.head1x1_params.active ? params.head1x1_params.out_channels : params.bottleneck,
+                  params.head_size, params.head_bias)
+, _head_output_size(params.head1x1_params.active ? params.head1x1_params.out_channels : params.bottleneck)
 {
-  const size_t num_layers = dilations.size();
-  if (activation_configs.size() != num_layers)
-  {
-    throw std::invalid_argument("_LayerArray: dilations size (" + std::to_string(num_layers)
-                                + ") must match activation_configs size (" + std::to_string(activation_configs.size())
-                                + ")");
-  }
-  if (gating_modes.size() != num_layers)
-  {
-    throw std::invalid_argument("_LayerArray: dilations size (" + std::to_string(num_layers)
-                                + ") must match gating_modes size (" + std::to_string(gating_modes.size()) + ")");
-  }
-  if (secondary_activation_configs.size() != num_layers)
-  {
-    throw std::invalid_argument("_LayerArray: dilations size (" + std::to_string(num_layers)
-                                + ") must match secondary_activation_configs size ("
-                                + std::to_string(secondary_activation_configs.size()) + ")");
-  }
-  for (size_t i = 0; i < dilations.size(); i++)
+  const size_t num_layers = params.dilations.size();
+  for (size_t i = 0; i < num_layers; i++)
     this->_layers.push_back(
-      _Layer(condition_size, channels, bottleneck, kernel_size, dilations[i], activation_configs[i], gating_modes[i],
-             groups_input, groups_input_mixin, groups_1x1, head1x1_params, secondary_activation_configs[i],
-             conv_pre_film_params, conv_post_film_params, input_mixin_pre_film_params, input_mixin_post_film_params,
-             activation_pre_film_params, activation_post_film_params, _1x1_post_film_params, head1x1_post_film_params));
+      _Layer(params.condition_size, params.channels, params.bottleneck, params.kernel_size, params.dilations[i],
+             params.activation_configs[i], params.gating_modes[i], params.groups_input, params.groups_input_mixin,
+             params.groups_1x1, params.head1x1_params, params.secondary_activation_configs[i],
+             params.conv_pre_film_params, params.conv_post_film_params, params.input_mixin_pre_film_params,
+             params.input_mixin_post_film_params, params.activation_pre_film_params, params.activation_post_film_params,
+             params._1x1_post_film_params, params.head1x1_post_film_params));
 }
 
 void nam::wavenet::_LayerArray::SetMaxBufferSize(const int maxBufferSize)
@@ -397,17 +374,7 @@ nam::wavenet::WaveNet::WaveNet(const int in_channels,
         throw std::runtime_error(ss.str().c_str());
       }
     }
-    this->_layer_arrays.push_back(nam::wavenet::_LayerArray(
-      layer_array_params[i].input_size, layer_array_params[i].condition_size, layer_array_params[i].head_size,
-      layer_array_params[i].channels, layer_array_params[i].bottleneck, layer_array_params[i].kernel_size,
-      layer_array_params[i].dilations, layer_array_params[i].activation_configs, layer_array_params[i].gating_modes,
-      layer_array_params[i].head_bias, layer_array_params[i].groups_input, layer_array_params[i].groups_input_mixin,
-      layer_array_params[i].groups_1x1, layer_array_params[i].head1x1_params,
-      layer_array_params[i].secondary_activation_configs, layer_array_params[i].conv_pre_film_params,
-      layer_array_params[i].conv_post_film_params, layer_array_params[i].input_mixin_pre_film_params,
-      layer_array_params[i].input_mixin_post_film_params, layer_array_params[i].activation_pre_film_params,
-      layer_array_params[i].activation_post_film_params, layer_array_params[i]._1x1_post_film_params,
-      layer_array_params[i].head1x1_post_film_params));
+    this->_layer_arrays.push_back(nam::wavenet::_LayerArray(layer_array_params[i]));
     if (i > 0)
       if (layer_array_params[i].channels != layer_array_params[i - 1].head_size)
       {

@@ -66,10 +66,13 @@ static nam::wavenet::_LayerArray make_layer_array(
   std::vector<nam::wavenet::GatingMode> gating_modes(dilations.size(), gating_mode);
   std::vector<nam::activations::ActivationConfig> secondary_activation_configs(
     dilations.size(), secondary_activation_config);
-  return nam::wavenet::_LayerArray(input_size, condition_size, head_size, channels, bottleneck, kernel_size, dilations,
-                                   activation_configs, gating_modes, head_bias, groups_input, groups_input_mixin,
-                                   groups_1x1, head1x1_params, secondary_activation_configs, film_params, film_params,
-                                   film_params, film_params, film_params, film_params, film_params, film_params);
+  std::vector<int> dilations_copy = dilations; // Make a copy since we need to move it
+  nam::wavenet::LayerArrayParams params(
+    input_size, condition_size, head_size, channels, bottleneck, kernel_size, std::move(dilations_copy),
+    std::move(activation_configs), std::move(gating_modes), head_bias, groups_input, groups_input_mixin, groups_1x1,
+    head1x1_params, std::move(secondary_activation_configs), film_params, film_params, film_params, film_params,
+    film_params, film_params, film_params, film_params);
+  return nam::wavenet::_LayerArray(params);
 }
 
 class TestConfigurableGating
