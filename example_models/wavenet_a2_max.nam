@@ -21,7 +21,7 @@
     "architecture": "WaveNet",
     "config": {
         "condition_dsp": {
-            "version": "0.5.4",
+            "version": "0.6.0",
             "metadata": {
                 "date": {
                     "year": 2026,
