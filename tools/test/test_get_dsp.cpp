@@ -1,6 +1,7 @@
 #include <cassert>
 #include <cmath>
 #include <filesystem>
+#include <iostream>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -177,9 +178,17 @@ void test_version_patch_one_beyond_supported()
   const std::string configStr = createConfigWithVersion(latestVersion.toString());
   nam::dspData config = _GetConfig(configStr);
 
-  // Should succeed (with a warning, but we can't easily test for that)
+  // Suppress the warning message that gets printed to std::cerr
+  std::streambuf* originalCerr = std::cerr.rdbuf();
+  std::ostringstream nullStream;
+  std::cerr.rdbuf(nullStream.rdbuf());
+
+  // Should succeed (with a warning, but we suppress it)
   std::unique_ptr<nam::DSP> dsp = get_dsp(config);
   assert(dsp != nullptr);
+
+  // Restore original cerr
+  std::cerr.rdbuf(originalCerr);
 }
 
 void test_version_minor_one_beyond_supported()
