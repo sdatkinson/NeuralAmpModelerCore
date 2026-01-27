@@ -38,6 +38,10 @@ int main()
   test_activations::TestLeakyReLU::test_get_by_init();
   test_activations::TestLeakyReLU::test_get_by_str();
 
+  test_activations::TestSoftsign::test_core_function();
+  test_activations::TestSoftsign::test_get_by_init();
+  test_activations::TestSoftsign::test_get_by_str();
+
   test_lut::TestFastLUT::test_sigmoid();
   test_lut::TestFastLUT::test_tanh();
 
@@ -53,9 +57,12 @@ int main()
   test_activations::TestTypedActivationConfig::test_prelu_single_slope_config();
   test_activations::TestTypedActivationConfig::test_prelu_multi_slope_config();
   test_activations::TestTypedActivationConfig::test_leaky_hardtanh_config();
+  test_activations::TestTypedActivationConfig::test_softsign_config();
   test_activations::TestTypedActivationConfig::test_from_json_string();
   test_activations::TestTypedActivationConfig::test_from_json_object();
   test_activations::TestTypedActivationConfig::test_from_json_prelu_multi();
+  test_activations::TestTypedActivationConfig::test_from_json_softsign_string();
+  test_activations::TestTypedActivationConfig::test_from_json_softsign_object();
   test_activations::TestTypedActivationConfig::test_unknown_activation_throws();
 
   test_dsp::test_construct();

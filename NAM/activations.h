@@ -33,7 +33,8 @@ enum class ActivationType
   Sigmoid,
   SiLU, // aka Swish
   Hardswish,
-  LeakyHardtanh
+  LeakyHardtanh,
+  Softsign
 };
 
 // Strongly-typed activation configuration
@@ -128,6 +129,11 @@ inline float hardswish(float x)
   {
     return x * (x + 3.0) / 6.0;
   }
+}
+
+inline float softsign(float x)
+{
+  return x / (1.0f + fabsf(x));
 }
 
 class Activation
@@ -329,6 +335,18 @@ public:
     for (long pos = 0; pos < size; pos++)
     {
       data[pos] = hardswish(data[pos]);
+    }
+  }
+};
+
+class ActivationSoftsign : public Activation
+{
+public:
+  void apply(float* data, long size) override
+  {
+    for (long pos = 0; pos < size; pos++)
+    {
+      data[pos] = softsign(data[pos]);
     }
   }
 };

@@ -11,6 +11,7 @@ static nam::activations::ActivationSigmoid _SIGMOID;
 static nam::activations::ActivationSwish _SWISH;
 static nam::activations::ActivationHardSwish _HARD_SWISH;
 static nam::activations::ActivationLeakyHardTanh _LEAKY_HARD_TANH;
+static nam::activations::ActivationSoftsign _SOFTSIGN;
 
 bool nam::activations::Activation::using_fast_tanh = false;
 
@@ -31,7 +32,8 @@ std::unordered_map<std::string, nam::activations::Activation::Ptr> nam::activati
   {"SiLU", make_singleton_ptr(_SWISH)},
   {"Hardswish", make_singleton_ptr(_HARD_SWISH)},
   {"LeakyHardtanh", make_singleton_ptr(_LEAKY_HARD_TANH)},
-  {"PReLU", make_singleton_ptr(_PRELU)}};
+  {"PReLU", make_singleton_ptr(_PRELU)},
+  {"Softsign", make_singleton_ptr(_SOFTSIGN)}};
 
 nam::activations::Activation::Ptr tanh_bak = nullptr;
 nam::activations::Activation::Ptr sigmoid_bak = nullptr;
@@ -68,8 +70,8 @@ nam::activations::ActivationConfig nam::activations::ActivationConfig::from_json
     {"SiLU", ActivationType::SiLU},
     {"Hardswish", ActivationType::Hardswish},
     {"LeakyHardtanh", ActivationType::LeakyHardtanh},
-    {"LeakyHardTanh", ActivationType::LeakyHardtanh} // Support both casings
-  };
+    {"LeakyHardTanh", ActivationType::LeakyHardtanh}, // Support both casings
+    {"Softsign", ActivationType::Softsign}};
 
   // If it's a string, simple lookup
   if (j.is_string())
@@ -156,6 +158,7 @@ nam::activations::Activation::Ptr nam::activations::Activation::get_activation(c
       return std::make_shared<ActivationLeakyHardTanh>(config.min_val.value_or(-1.0f), config.max_val.value_or(1.0f),
                                                        config.min_slope.value_or(0.01f),
                                                        config.max_slope.value_or(0.01f));
+    case ActivationType::Softsign: return _activations["Softsign"];
     default: return nullptr;
   }
 }
