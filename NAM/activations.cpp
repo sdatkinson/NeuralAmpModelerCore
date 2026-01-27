@@ -71,8 +71,7 @@ nam::activations::ActivationConfig nam::activations::ActivationConfig::from_json
     {"Hardswish", ActivationType::Hardswish},
     {"LeakyHardtanh", ActivationType::LeakyHardtanh},
     {"LeakyHardTanh", ActivationType::LeakyHardtanh}, // Support both casings
-    {"Softsign", ActivationType::Softsign}
-  };
+    {"Softsign", ActivationType::Softsign}};
 
   // If it's a string, simple lookup
   if (j.is_string())

@@ -131,12 +131,12 @@ public:
     };
     // Test cases for softsign: x / (alpha + |x|)
     // With alpha = 1.0 (default):
-    TestCase(0.0f, 1.0f, 0.0f);        // 0 / (1 + 0) = 0
-    TestCase(1.0f, 1.0f, 0.5f);       // 1 / (1 + 1) = 0.5
-    TestCase(-1.0f, 1.0f, -0.5f);     // -1 / (1 + 1) = -0.5
+    TestCase(0.0f, 1.0f, 0.0f); // 0 / (1 + 0) = 0
+    TestCase(1.0f, 1.0f, 0.5f); // 1 / (1 + 1) = 0.5
+    TestCase(-1.0f, 1.0f, -0.5f); // -1 / (1 + 1) = -0.5
     TestCase(2.0f, 1.0f, 2.0f / 3.0f); // 2 / (1 + 2) = 2/3
     TestCase(-2.0f, 1.0f, -2.0f / 3.0f); // -2 / (1 + 2) = -2/3
-    
+
     // With alpha = 0.5:
     TestCase(1.0f, 0.5f, 1.0f / 1.5f); // 1 / (0.5 + 1) = 1/1.5
     TestCase(-1.0f, 0.5f, -1.0f / 1.5f); // -1 / (0.5 + 1) = -1/1.5
@@ -274,9 +274,9 @@ public:
   {
     // Test that all simple activation types work
     std::vector<nam::activations::ActivationType> types = {
-      nam::activations::ActivationType::Tanh,     nam::activations::ActivationType::Hardtanh,
-      nam::activations::ActivationType::Fasttanh, nam::activations::ActivationType::ReLU,
-      nam::activations::ActivationType::Sigmoid,  nam::activations::ActivationType::SiLU,
+      nam::activations::ActivationType::Tanh,      nam::activations::ActivationType::Hardtanh,
+      nam::activations::ActivationType::Fasttanh,  nam::activations::ActivationType::ReLU,
+      nam::activations::ActivationType::Sigmoid,   nam::activations::ActivationType::SiLU,
       nam::activations::ActivationType::Hardswish, nam::activations::ActivationType::Softsign};
 
     for (auto type : types)
