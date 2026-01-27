@@ -220,13 +220,16 @@ nam::wavenet::_LayerArray::_LayerArray(const LayerArrayParams& params)
 {
   const size_t num_layers = params.dilations.size();
   for (size_t i = 0; i < num_layers; i++)
-    this->_layers.push_back(
-      _Layer(params.condition_size, params.channels, params.bottleneck, params.kernel_size, params.dilations[i],
-             params.activation_configs[i], params.gating_modes[i], params.groups_input, params.groups_input_mixin,
-             params.groups_1x1, params.head1x1_params, params.secondary_activation_configs[i],
-             params.conv_pre_film_params, params.conv_post_film_params, params.input_mixin_pre_film_params,
-             params.input_mixin_post_film_params, params.activation_pre_film_params, params.activation_post_film_params,
-             params._1x1_post_film_params, params.head1x1_post_film_params));
+  {
+    LayerParams layer_params(
+      params.condition_size, params.channels, params.bottleneck, params.kernel_size, params.dilations[i],
+      params.activation_configs[i], params.gating_modes[i], params.groups_input, params.groups_input_mixin,
+      params.groups_1x1, params.head1x1_params, params.secondary_activation_configs[i], params.conv_pre_film_params,
+      params.conv_post_film_params, params.input_mixin_pre_film_params, params.input_mixin_post_film_params,
+      params.activation_pre_film_params, params.activation_post_film_params, params._1x1_post_film_params,
+      params.head1x1_post_film_params);
+    this->_layers.push_back(_Layer(layer_params));
+  }
 }
 
 void nam::wavenet::_LayerArray::SetMaxBufferSize(const int maxBufferSize)

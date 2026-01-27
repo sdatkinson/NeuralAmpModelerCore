@@ -32,10 +32,11 @@ static nam::wavenet::_Layer make_layer(const int condition_size, const int chann
                                        const nam::activations::ActivationConfig& secondary_activation_config)
 {
   auto film_params = make_default_film_params();
-  return nam::wavenet::_Layer(condition_size, channels, bottleneck, kernel_size, dilation, activation_config,
-                              gating_mode, groups_input, groups_input_mixin, groups_1x1, head1x1_params,
-                              secondary_activation_config, film_params, film_params, film_params, film_params,
-                              film_params, film_params, film_params, film_params);
+  nam::wavenet::LayerParams layer_params(condition_size, channels, bottleneck, kernel_size, dilation, activation_config,
+                                         gating_mode, groups_input, groups_input_mixin, groups_1x1, head1x1_params,
+                                         secondary_activation_config, film_params, film_params, film_params,
+                                         film_params, film_params, film_params, film_params, film_params);
+  return nam::wavenet::_Layer(layer_params);
 }
 
 // Helper function to create a LayerArray with default FiLM parameters
@@ -96,10 +97,11 @@ static nam::wavenet::_Layer make_layer_all_films(const int condition_size, const
   // Don't activate head1x1_post_film if head1x1 is not active (validation will fail)
   nam::wavenet::_FiLMParams head1x1_post_film_params =
     head1x1_params.active ? film_params : nam::wavenet::_FiLMParams(false, false);
-  return nam::wavenet::_Layer(condition_size, channels, bottleneck, kernel_size, dilation, activation_config,
-                              gating_mode, groups_input, groups_input_mixin, groups_1x1, head1x1_params,
-                              secondary_activation_config, film_params, film_params, film_params, film_params,
-                              film_params, film_params, film_params, head1x1_post_film_params);
+  nam::wavenet::LayerParams layer_params(condition_size, channels, bottleneck, kernel_size, dilation, activation_config,
+                                         gating_mode, groups_input, groups_input_mixin, groups_1x1, head1x1_params,
+                                         secondary_activation_config, film_params, film_params, film_params,
+                                         film_params, film_params, film_params, film_params, head1x1_post_film_params);
+  return nam::wavenet::_Layer(layer_params);
 }
 
 // Test that pre-allocated Eigen operations with noalias() don't allocate
@@ -721,18 +723,18 @@ void test_layer_post_activation_film_gated_realtime_safe()
   nam::wavenet::_FiLMParams inactive_film(false, false);
   nam::wavenet::_FiLMParams active_film(true, true); // activation_post_film will be active
 
-  auto layer =
-    nam::wavenet::_Layer(condition_size, channels, bottleneck, kernel_size, dilation, activation, gating_mode,
-                         groups_input, groups_input_mixin, groups_1x1, head1x1_params, secondary_activation,
-                         inactive_film, // conv_pre_film
-                         inactive_film, // conv_post_film
-                         inactive_film, // input_mixin_pre_film
-                         inactive_film, // input_mixin_post_film
-                         inactive_film, // activation_pre_film
-                         active_film, // activation_post_film - THIS IS THE KEY ONE
-                         inactive_film, // _1x1_post_film
-                         inactive_film // head1x1_post_film
-    );
+  nam::wavenet::LayerParams layer_params(
+    condition_size, channels, bottleneck, kernel_size, dilation, activation, gating_mode, groups_input,
+    groups_input_mixin, groups_1x1, head1x1_params, secondary_activation, inactive_film, // conv_pre_film
+    inactive_film, // conv_post_film
+    inactive_film, // input_mixin_pre_film
+    inactive_film, // input_mixin_post_film
+    inactive_film, // activation_pre_film
+    active_film, // activation_post_film - THIS IS THE KEY ONE
+    inactive_film, // _1x1_post_film
+    inactive_film // head1x1_post_film
+  );
+  auto layer = nam::wavenet::_Layer(layer_params);
 
   // Set weights - Order: conv, input_mixin, 1x1, then FiLMs
   // NOTE: In GATED mode, conv and input_mixin output 2*bottleneck channels!
@@ -828,18 +830,18 @@ void test_layer_post_activation_film_blended_realtime_safe()
   nam::wavenet::_FiLMParams inactive_film(false, false);
   nam::wavenet::_FiLMParams active_film(true, true); // activation_post_film will be active
 
-  auto layer =
-    nam::wavenet::_Layer(condition_size, channels, bottleneck, kernel_size, dilation, activation, gating_mode,
-                         groups_input, groups_input_mixin, groups_1x1, head1x1_params, secondary_activation,
-                         inactive_film, // conv_pre_film
-                         inactive_film, // conv_post_film
-                         inactive_film, // input_mixin_pre_film
-                         inactive_film, // input_mixin_post_film
-                         inactive_film, // activation_pre_film
-                         active_film, // activation_post_film - THIS IS THE KEY ONE
-                         inactive_film, // _1x1_post_film
-                         inactive_film // head1x1_post_film
-    );
+  nam::wavenet::LayerParams layer_params(
+    condition_size, channels, bottleneck, kernel_size, dilation, activation, gating_mode, groups_input,
+    groups_input_mixin, groups_1x1, head1x1_params, secondary_activation, inactive_film, // conv_pre_film
+    inactive_film, // conv_post_film
+    inactive_film, // input_mixin_pre_film
+    inactive_film, // input_mixin_post_film
+    inactive_film, // activation_pre_film
+    active_film, // activation_post_film - THIS IS THE KEY ONE
+    inactive_film, // _1x1_post_film
+    inactive_film // head1x1_post_film
+  );
+  auto layer = nam::wavenet::_Layer(layer_params);
 
   // Set weights - Order: conv, input_mixin, 1x1, then FiLMs
   // NOTE: In BLENDED mode, conv and input_mixin output 2*bottleneck channels!

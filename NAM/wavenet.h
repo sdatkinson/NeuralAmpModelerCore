@@ -76,6 +76,86 @@ struct _FiLMParams
   const bool shift; ///< Whether to apply shift in addition to scale
 };
 
+/// \brief Parameters for constructing a single Layer
+///
+/// Contains all configuration needed to construct a _Layer
+struct LayerParams
+{
+  /// \brief Constructor
+  /// \param condition_size_ Size of the conditioning input
+  /// \param channels_ Number of input/output channels from layer to layer
+  /// \param bottleneck_ Internal channel count
+  /// \param kernel_size_ Kernel size for the dilated convolution
+  /// \param dilation_ Dilation factor for the convolution
+  /// \param activation_config_ Primary activation function configuration
+  /// \param gating_mode_ Gating mode (NONE, GATED, or BLENDED)
+  /// \param groups_input_ Number of groups for the input convolution
+  /// \param groups_input_mixin_ Number of groups for the input mixin convolution
+  /// \param groups_1x1_ Number of groups for the 1x1 convolution
+  /// \param head1x1_params_ Configuration of the optional head1x1 convolution
+  /// \param secondary_activation_config_ Secondary activation (for gating/blending)
+  /// \param conv_pre_film_params_ FiLM parameters before the input convolution
+  /// \param conv_post_film_params_ FiLM parameters after the input convolution
+  /// \param input_mixin_pre_film_params_ FiLM parameters before the input mixin
+  /// \param input_mixin_post_film_params_ FiLM parameters after the input mixin
+  /// \param activation_pre_film_params_ FiLM parameters after the input/mixin summed output before activation
+  /// \param activation_post_film_params_ FiLM parameters after the activation output before the 1x1 convolution
+  /// \param _1x1_post_film_params_ FiLM parameters after the 1x1 convolution
+  /// \param head1x1_post_film_params_ FiLM parameters after the head1x1 convolution
+  LayerParams(const int condition_size_, const int channels_, const int bottleneck_, const int kernel_size_,
+              const int dilation_, const activations::ActivationConfig& activation_config_,
+              const GatingMode gating_mode_, const int groups_input_, const int groups_input_mixin_,
+              const int groups_1x1_, const Head1x1Params& head1x1_params_,
+              const activations::ActivationConfig& secondary_activation_config_,
+              const _FiLMParams& conv_pre_film_params_, const _FiLMParams& conv_post_film_params_,
+              const _FiLMParams& input_mixin_pre_film_params_, const _FiLMParams& input_mixin_post_film_params_,
+              const _FiLMParams& activation_pre_film_params_, const _FiLMParams& activation_post_film_params_,
+              const _FiLMParams& _1x1_post_film_params_, const _FiLMParams& head1x1_post_film_params_)
+  : condition_size(condition_size_)
+  , channels(channels_)
+  , bottleneck(bottleneck_)
+  , kernel_size(kernel_size_)
+  , dilation(dilation_)
+  , activation_config(activation_config_)
+  , gating_mode(gating_mode_)
+  , groups_input(groups_input_)
+  , groups_input_mixin(groups_input_mixin_)
+  , groups_1x1(groups_1x1_)
+  , head1x1_params(head1x1_params_)
+  , secondary_activation_config(secondary_activation_config_)
+  , conv_pre_film_params(conv_pre_film_params_)
+  , conv_post_film_params(conv_post_film_params_)
+  , input_mixin_pre_film_params(input_mixin_pre_film_params_)
+  , input_mixin_post_film_params(input_mixin_post_film_params_)
+  , activation_pre_film_params(activation_pre_film_params_)
+  , activation_post_film_params(activation_post_film_params_)
+  , _1x1_post_film_params(_1x1_post_film_params_)
+  , head1x1_post_film_params(head1x1_post_film_params_)
+  {
+  }
+
+  const int condition_size; ///< Size of the conditioning input
+  const int channels; ///< Number of input/output channels from layer to layer
+  const int bottleneck; ///< Internal channel count
+  const int kernel_size; ///< Kernel size for the dilated convolution
+  const int dilation; ///< Dilation factor for the convolution
+  const activations::ActivationConfig activation_config; ///< Primary activation function configuration
+  const GatingMode gating_mode; ///< Gating mode (NONE, GATED, or BLENDED)
+  const int groups_input; ///< Number of groups for the input convolution
+  const int groups_input_mixin; ///< Number of groups for the input mixin convolution
+  const int groups_1x1; ///< Number of groups for the 1x1 convolution
+  const Head1x1Params head1x1_params; ///< Configuration of the optional head1x1 convolution
+  const activations::ActivationConfig secondary_activation_config; ///< Secondary activation (for gating/blending)
+  const _FiLMParams conv_pre_film_params; ///< FiLM parameters before the input convolution
+  const _FiLMParams conv_post_film_params; ///< FiLM parameters after the input convolution
+  const _FiLMParams input_mixin_pre_film_params; ///< FiLM parameters before the input mixin
+  const _FiLMParams input_mixin_post_film_params; ///< FiLM parameters after the input mixin
+  const _FiLMParams activation_pre_film_params; ///< FiLM parameters before activation
+  const _FiLMParams activation_post_film_params; ///< FiLM parameters after activation
+  const _FiLMParams _1x1_post_film_params; ///< FiLM parameters after the 1x1 convolution
+  const _FiLMParams head1x1_post_film_params; ///< FiLM parameters after the head1x1 convolution
+};
+
 /// \brief A single WaveNet layer block
 ///
 /// A WaveNet layer performs the following operations:
@@ -92,107 +172,91 @@ struct _FiLMParams
 class _Layer
 {
 public:
-  /// \brief Constructor with GatingMode enum and typed ActivationConfig
-  /// \param condition_size Size of the conditioning input
-  /// \param channels Number of input/output channels from layer to layer
-  /// \param bottleneck Internal channel count
-  /// \param kernel_size Kernel size for the dilated convolution
-  /// \param dilation Dilation factor for the convolution
-  /// \param activation_config Primary activation function configuration
-  /// \param gating_mode Gating mode (NONE, GATED, or BLENDED)
-  /// \param groups_input Number of groups for the input convolution
-  /// \param groups_input_mixin Number of groups for the input mixin convolution
-  /// \param groups_1x1 Number of groups for the 1x1 convolution
-  /// \param head1x1_params Configuration of the optional head1x1 convolution
-  /// \param secondary_activation_config Secondary activation (for gating/blending)
-  /// \param conv_pre_film_params FiLM parameters before the input convolution
-  /// \param conv_post_film_params FiLM parameters after the input convolution
-  /// \param input_mixin_pre_film_params FiLM parameters before the input mixin
-  /// \param input_mixin_post_film_params FiLM parameters after the input mixin
-  /// \param activation_pre_film_params FiLM parameters after the input/mixin summed output before activation
-  /// \param activation_post_film_params FiLM parameters after the activation output before the 1x1 convolution
-  /// \param _1x1_post_film_params FiLM parameters after the 1x1 convolution
-  /// \param head1x1_post_film_params FiLM parameters after the head1x1 convolution
+  /// \brief Constructor with LayerParams
+  /// \param params Parameters for constructing the layer
   /// \throws std::invalid_argument If head1x1_post_film_params is active but head1x1 is not
-  _Layer(const int condition_size, const int channels, const int bottleneck, const int kernel_size, const int dilation,
-         const activations::ActivationConfig& activation_config, const GatingMode gating_mode, const int groups_input,
-         const int groups_input_mixin, const int groups_1x1, const Head1x1Params& head1x1_params,
-         const activations::ActivationConfig& secondary_activation_config, const _FiLMParams& conv_pre_film_params,
-         const _FiLMParams& conv_post_film_params, const _FiLMParams& input_mixin_pre_film_params,
-         const _FiLMParams& input_mixin_post_film_params, const _FiLMParams& activation_pre_film_params,
-         const _FiLMParams& activation_post_film_params, const _FiLMParams& _1x1_post_film_params,
-         const _FiLMParams& head1x1_post_film_params)
-  : _conv(channels, (gating_mode != GatingMode::NONE) ? 2 * bottleneck : bottleneck, kernel_size, true, dilation,
-          groups_input)
-  , _input_mixin(
-      condition_size, (gating_mode != GatingMode::NONE) ? 2 * bottleneck : bottleneck, false, groups_input_mixin)
-  , _1x1(bottleneck, channels, true, groups_1x1)
-  , _activation(activations::Activation::get_activation(activation_config))
-  , _gating_mode(gating_mode)
-  , _bottleneck(bottleneck)
+  _Layer(const LayerParams& params)
+  : _conv(params.channels, (params.gating_mode != GatingMode::NONE) ? 2 * params.bottleneck : params.bottleneck,
+          params.kernel_size, true, params.dilation, params.groups_input)
+  , _input_mixin(params.condition_size,
+                 (params.gating_mode != GatingMode::NONE) ? 2 * params.bottleneck : params.bottleneck, false,
+                 params.groups_input_mixin)
+  , _1x1(params.bottleneck, params.channels, true, params.groups_1x1)
+  , _activation(activations::Activation::get_activation(params.activation_config))
+  , _gating_mode(params.gating_mode)
+  , _bottleneck(params.bottleneck)
   {
-    if (head1x1_params.active)
+    if (params.head1x1_params.active)
     {
-      _head1x1 = std::make_unique<Conv1x1>(bottleneck, head1x1_params.out_channels, true, head1x1_params.groups);
+      _head1x1 = std::make_unique<Conv1x1>(
+        params.bottleneck, params.head1x1_params.out_channels, true, params.head1x1_params.groups);
     }
     else
     {
       // If there's a post-head 1x1 FiLM but no head 1x1, this is redundant--don't allow it
-      if (head1x1_post_film_params.active)
+      if (params.head1x1_post_film_params.active)
       {
         throw std::invalid_argument("Do not use post-head 1x1 FiLM if there is no head 1x1");
       }
     }
 
     // Validate & initialize gating/blending activation
-    if (gating_mode == GatingMode::GATED)
+    if (params.gating_mode == GatingMode::GATED)
     {
       _gating_activation = std::make_unique<gating_activations::GatingActivation>(
-        _activation, activations::Activation::get_activation(secondary_activation_config), bottleneck);
+        _activation, activations::Activation::get_activation(params.secondary_activation_config), params.bottleneck);
     }
-    else if (gating_mode == GatingMode::BLENDED)
+    else if (params.gating_mode == GatingMode::BLENDED)
     {
       _blending_activation = std::make_unique<gating_activations::BlendingActivation>(
-        _activation, activations::Activation::get_activation(secondary_activation_config), bottleneck);
+        _activation, activations::Activation::get_activation(params.secondary_activation_config), params.bottleneck);
     }
 
     // Initialize FiLM objects
-    if (conv_pre_film_params.active)
+    if (params.conv_pre_film_params.active)
     {
-      _conv_pre_film = std::make_unique<FiLM>(condition_size, channels, conv_pre_film_params.shift);
+      _conv_pre_film =
+        std::make_unique<FiLM>(params.condition_size, params.channels, params.conv_pre_film_params.shift);
     }
-    if (conv_post_film_params.active)
+    if (params.conv_post_film_params.active)
     {
-      const int conv_out_channels = (gating_mode != GatingMode::NONE) ? 2 * bottleneck : bottleneck;
-      _conv_post_film = std::make_unique<FiLM>(condition_size, conv_out_channels, conv_post_film_params.shift);
+      const int conv_out_channels =
+        (params.gating_mode != GatingMode::NONE) ? 2 * params.bottleneck : params.bottleneck;
+      _conv_post_film =
+        std::make_unique<FiLM>(params.condition_size, conv_out_channels, params.conv_post_film_params.shift);
     }
-    if (input_mixin_pre_film_params.active)
+    if (params.input_mixin_pre_film_params.active)
     {
-      _input_mixin_pre_film = std::make_unique<FiLM>(condition_size, condition_size, input_mixin_pre_film_params.shift);
+      _input_mixin_pre_film =
+        std::make_unique<FiLM>(params.condition_size, params.condition_size, params.input_mixin_pre_film_params.shift);
     }
-    if (input_mixin_post_film_params.active)
+    if (params.input_mixin_post_film_params.active)
     {
-      const int input_mixin_out_channels = (gating_mode != GatingMode::NONE) ? 2 * bottleneck : bottleneck;
-      _input_mixin_post_film =
-        std::make_unique<FiLM>(condition_size, input_mixin_out_channels, input_mixin_post_film_params.shift);
+      const int input_mixin_out_channels =
+        (params.gating_mode != GatingMode::NONE) ? 2 * params.bottleneck : params.bottleneck;
+      _input_mixin_post_film = std::make_unique<FiLM>(
+        params.condition_size, input_mixin_out_channels, params.input_mixin_post_film_params.shift);
     }
-    if (activation_pre_film_params.active)
+    if (params.activation_pre_film_params.active)
     {
-      const int z_channels = (gating_mode != GatingMode::NONE) ? 2 * bottleneck : bottleneck;
-      _activation_pre_film = std::make_unique<FiLM>(condition_size, z_channels, activation_pre_film_params.shift);
+      const int z_channels = (params.gating_mode != GatingMode::NONE) ? 2 * params.bottleneck : params.bottleneck;
+      _activation_pre_film =
+        std::make_unique<FiLM>(params.condition_size, z_channels, params.activation_pre_film_params.shift);
     }
-    if (activation_post_film_params.active)
+    if (params.activation_post_film_params.active)
     {
-      _activation_post_film = std::make_unique<FiLM>(condition_size, bottleneck, activation_post_film_params.shift);
+      _activation_post_film =
+        std::make_unique<FiLM>(params.condition_size, params.bottleneck, params.activation_post_film_params.shift);
     }
-    if (_1x1_post_film_params.active)
+    if (params._1x1_post_film_params.active)
     {
-      _1x1_post_film = std::make_unique<FiLM>(condition_size, channels, _1x1_post_film_params.shift);
+      _1x1_post_film =
+        std::make_unique<FiLM>(params.condition_size, params.channels, params._1x1_post_film_params.shift);
     }
-    if (head1x1_post_film_params.active && head1x1_params.active)
+    if (params.head1x1_post_film_params.active && params.head1x1_params.active)
     {
-      _head1x1_post_film =
-        std::make_unique<FiLM>(condition_size, head1x1_params.out_channels, head1x1_post_film_params.shift);
+      _head1x1_post_film = std::make_unique<FiLM>(
+        params.condition_size, params.head1x1_params.out_channels, params.head1x1_post_film_params.shift);
     }
   };
 
