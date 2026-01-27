@@ -2,6 +2,7 @@
 #include <cmath>
 #include <filesystem>
 #include <memory>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -157,5 +158,69 @@ void test_load_and_process_nam_files()
     // Process buffers through the model
     process_buffers(dsp.get(), num_buffers, buffer_size);
   }
+}
+
+// Helper function to create a config string with a specific version
+std::string createConfigWithVersion(const std::string& version)
+{
+  nlohmann::json j = nlohmann::json::parse(basicConfigStr);
+  j["version"] = version;
+  return j.dump();
+}
+
+void test_version_patch_one_beyond_supported()
+{
+  // Test that a .nam file with version one patch beyond the latest fully supported
+  // can still be loaded
+  nam::Version latestVersion = nam::ParseVersion(nam::LATEST_FULLY_SUPPORTED_NAM_FILE_VERSION);
+  latestVersion.patch++;
+  const std::string configStr = createConfigWithVersion(latestVersion.toString());
+  nam::dspData config = _GetConfig(configStr);
+
+  // Should succeed (with a warning, but we can't easily test for that)
+  std::unique_ptr<nam::DSP> dsp = get_dsp(config);
+  assert(dsp != nullptr);
+}
+
+void test_version_minor_one_beyond_supported()
+{
+  // Test that a .nam file with version one minor beyond the latest fully supported
+  // cannot be loaded
+  nam::Version latestVersion = nam::ParseVersion(nam::LATEST_FULLY_SUPPORTED_NAM_FILE_VERSION);
+  latestVersion.minor++;
+  latestVersion.patch = 0; // Reset patch when incrementing minor
+  const std::string configStr = createConfigWithVersion(latestVersion.toString());
+  nam::dspData config = _GetConfig(configStr);
+
+  bool threw = false;
+  try
+  {
+    std::unique_ptr<nam::DSP> dsp = get_dsp(config);
+  }
+  catch (const std::runtime_error&)
+  {
+    threw = true;
+  }
+  assert(threw);
+}
+
+void test_version_too_early()
+{
+  // Test that a .nam file with version too early (before earliest supported) cannot be loaded
+  nam::Version earliestVersion = nam::ParseVersion(nam::EARLIEST_SUPPORTED_NAM_FILE_VERSION);
+  earliestVersion.minor--; // Decrement minor to get a version before earliest supported
+  const std::string configStr = createConfigWithVersion(earliestVersion.toString());
+  nam::dspData config = _GetConfig(configStr);
+
+  bool threw = false;
+  try
+  {
+    std::unique_ptr<nam::DSP> dsp = get_dsp(config);
+  }
+  catch (const std::runtime_error&)
+  {
+    threw = true;
+  }
+  assert(threw);
 }
 }; // namespace test_get_dsp
