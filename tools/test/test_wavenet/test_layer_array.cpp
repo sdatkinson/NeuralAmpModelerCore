@@ -27,11 +27,14 @@ static nam::wavenet::_LayerArray make_layer_array(
   const nam::activations::ActivationConfig& secondary_activation_config)
 {
   auto film_params = make_default_film_params();
-  // Duplicate activation_config for each layer (based on dilations size)
+  // Duplicate activation_config, gating_mode, and secondary_activation_config for each layer (based on dilations size)
   std::vector<nam::activations::ActivationConfig> activation_configs(dilations.size(), activation_config);
+  std::vector<nam::wavenet::GatingMode> gating_modes(dilations.size(), gating_mode);
+  std::vector<nam::activations::ActivationConfig> secondary_activation_configs(
+    dilations.size(), secondary_activation_config);
   return nam::wavenet::_LayerArray(input_size, condition_size, head_size, channels, bottleneck, kernel_size, dilations,
-                                   activation_configs, gating_mode, head_bias, groups_input, groups_input_mixin,
-                                   groups_1x1, head1x1_params, secondary_activation_config, film_params, film_params,
+                                   activation_configs, gating_modes, head_bias, groups_input, groups_input_mixin,
+                                   groups_1x1, head1x1_params, secondary_activation_configs, film_params, film_params,
                                    film_params, film_params, film_params, film_params, film_params, film_params);
 }
 // Test layer array construction and basic processing
@@ -196,11 +199,14 @@ void test_layer_array_different_activations()
   assert(activation_configs.size() == dilations.size());
 
   auto film_params = make_default_film_params();
-  nam::wavenet::_LayerArray layer_array(input_size, condition_size, head_size, channels, bottleneck, kernel_size,
-                                        dilations, activation_configs, gating_mode, head_bias, groups,
-                                        groups_input_mixin, groups_1x1, head1x1_params,
-                                        nam::activations::ActivationConfig{}, film_params, film_params, film_params,
-                                        film_params, film_params, film_params, film_params, film_params);
+  // Create vectors for gating_modes and secondary_activation_configs (all NONE/empty for this test)
+  std::vector<nam::wavenet::GatingMode> gating_modes(dilations.size(), gating_mode);
+  std::vector<nam::activations::ActivationConfig> secondary_activation_configs(
+    dilations.size(), nam::activations::ActivationConfig{});
+  nam::wavenet::_LayerArray layer_array(
+    input_size, condition_size, head_size, channels, bottleneck, kernel_size, dilations, activation_configs,
+    gating_modes, head_bias, groups, groups_input_mixin, groups_1x1, head1x1_params, secondary_activation_configs,
+    film_params, film_params, film_params, film_params, film_params, film_params, film_params, film_params);
 
   const int numFrames = 4;
   layer_array.SetMaxBufferSize(numFrames);
@@ -254,10 +260,14 @@ void test_layer_array_different_activations()
   // This should produce different (larger) outputs since ReLU doesn't saturate
   std::vector<nam::activations::ActivationConfig> all_relu_configs(
     dilations.size(), nam::activations::ActivationConfig::simple(nam::activations::ActivationType::ReLU));
-  nam::wavenet::_LayerArray layer_array_all_relu(
-    input_size, condition_size, head_size, channels, bottleneck, kernel_size, dilations, all_relu_configs, gating_mode,
-    head_bias, groups, groups_input_mixin, groups_1x1, head1x1_params, nam::activations::ActivationConfig{},
-    film_params, film_params, film_params, film_params, film_params, film_params, film_params, film_params);
+  std::vector<nam::wavenet::GatingMode> all_none_gating_modes(dilations.size(), gating_mode);
+  std::vector<nam::activations::ActivationConfig> all_empty_secondary_configs(
+    dilations.size(), nam::activations::ActivationConfig{});
+  nam::wavenet::_LayerArray layer_array_all_relu(input_size, condition_size, head_size, channels, bottleneck,
+                                                 kernel_size, dilations, all_relu_configs, all_none_gating_modes,
+                                                 head_bias, groups, groups_input_mixin, groups_1x1, head1x1_params,
+                                                 all_empty_secondary_configs, film_params, film_params, film_params,
+                                                 film_params, film_params, film_params, film_params, film_params);
   layer_array_all_relu.SetMaxBufferSize(numFrames);
 
   // Copy weights to the all-ReLU array

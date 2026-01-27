@@ -40,13 +40,16 @@ static nam::wavenet::LayerArrayParams make_layer_array_params(
   const nam::activations::ActivationConfig& secondary_activation_config)
 {
   auto film_params = make_default_film_params();
-  // Duplicate activation_config for each layer (based on dilations size)
+  // Duplicate activation_config, gating_mode, and secondary_activation_config for each layer (based on dilations size)
   std::vector<nam::activations::ActivationConfig> activation_configs(dilations.size(), activation_config);
+  std::vector<nam::wavenet::GatingMode> gating_modes(dilations.size(), gating_mode);
+  std::vector<nam::activations::ActivationConfig> secondary_activation_configs(
+    dilations.size(), secondary_activation_config);
   return nam::wavenet::LayerArrayParams(input_size, condition_size, head_size, channels, bottleneck, kernel_size,
-                                        std::move(dilations), std::move(activation_configs), gating_mode, head_bias,
-                                        groups_input, groups_input_mixin, groups_1x1, head1x1_params,
-                                        secondary_activation_config, film_params, film_params, film_params, film_params,
-                                        film_params, film_params, film_params, film_params);
+                                        std::move(dilations), std::move(activation_configs), std::move(gating_modes),
+                                        head_bias, groups_input, groups_input_mixin, groups_1x1, head1x1_params,
+                                        std::move(secondary_activation_configs), film_params, film_params, film_params,
+                                        film_params, film_params, film_params, film_params, film_params);
 }
 
 // Helper function to create a LayerArray with default FiLM parameters
@@ -58,11 +61,14 @@ static nam::wavenet::_LayerArray make_layer_array(
   const nam::activations::ActivationConfig& secondary_activation_config)
 {
   auto film_params = make_default_film_params();
-  // Duplicate activation_config for each layer (based on dilations size)
+  // Duplicate activation_config, gating_mode, and secondary_activation_config for each layer (based on dilations size)
   std::vector<nam::activations::ActivationConfig> activation_configs(dilations.size(), activation_config);
+  std::vector<nam::wavenet::GatingMode> gating_modes(dilations.size(), gating_mode);
+  std::vector<nam::activations::ActivationConfig> secondary_activation_configs(
+    dilations.size(), secondary_activation_config);
   return nam::wavenet::_LayerArray(input_size, condition_size, head_size, channels, bottleneck, kernel_size, dilations,
-                                   activation_configs, gating_mode, head_bias, groups_input, groups_input_mixin,
-                                   groups_1x1, head1x1_params, secondary_activation_config, film_params, film_params,
+                                   activation_configs, gating_modes, head_bias, groups_input, groups_input_mixin,
+                                   groups_1x1, head1x1_params, secondary_activation_configs, film_params, film_params,
                                    film_params, film_params, film_params, film_params, film_params, film_params);
 }
 
@@ -156,8 +162,12 @@ public:
                               std::vector<int>{1, 2}, activation, nam::wavenet::GatingMode::GATED, head_bias,
                               groups_input, groups_input_mixin, groups_1x1, head1x1_params, tanh_config);
 
-    assert(params_gated.gating_mode == nam::wavenet::GatingMode::GATED);
-    assert(params_gated.secondary_activation_config.type == nam::activations::ActivationType::Tanh);
+    assert(params_gated.gating_modes.size() == 2); // Two layers (dilations = {1, 2})
+    assert(params_gated.gating_modes[0] == nam::wavenet::GatingMode::GATED);
+    assert(params_gated.gating_modes[1] == nam::wavenet::GatingMode::GATED);
+    assert(params_gated.secondary_activation_configs.size() == 2);
+    assert(params_gated.secondary_activation_configs[0].type == nam::activations::ActivationType::Tanh);
+    assert(params_gated.secondary_activation_configs[1].type == nam::activations::ActivationType::Tanh);
 
     // Test with different blending activations
     auto relu_config = nam::activations::ActivationConfig::simple(nam::activations::ActivationType::ReLU);
@@ -166,8 +176,12 @@ public:
                               std::vector<int>{1, 2}, activation, nam::wavenet::GatingMode::BLENDED, head_bias,
                               groups_input, groups_input_mixin, groups_1x1, head1x1_params, relu_config);
 
-    assert(params_blended.gating_mode == nam::wavenet::GatingMode::BLENDED);
-    assert(params_blended.secondary_activation_config.type == nam::activations::ActivationType::ReLU);
+    assert(params_blended.gating_modes.size() == 2); // Two layers (dilations = {1, 2})
+    assert(params_blended.gating_modes[0] == nam::wavenet::GatingMode::BLENDED);
+    assert(params_blended.gating_modes[1] == nam::wavenet::GatingMode::BLENDED);
+    assert(params_blended.secondary_activation_configs.size() == 2);
+    assert(params_blended.secondary_activation_configs[0].type == nam::activations::ActivationType::ReLU);
+    assert(params_blended.secondary_activation_configs[1].type == nam::activations::ActivationType::ReLU);
   }
 
   static void test_layer_array_construction()
