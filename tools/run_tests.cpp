@@ -147,6 +147,7 @@ int main()
   test_wavenet::test_layer_array::test_layer_array_basic();
   test_wavenet::test_layer_array::test_layer_array_receptive_field();
   test_wavenet::test_layer_array::test_layer_array_with_head_input();
+  test_wavenet::test_layer_array::test_layer_array_different_activations();
   test_wavenet::test_full::test_wavenet_model();
   test_wavenet::test_full::test_wavenet_multiple_arrays();
   test_wavenet::test_full::test_wavenet_zero_input();
