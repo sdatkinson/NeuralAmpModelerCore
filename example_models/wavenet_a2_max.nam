@@ -1239,8 +1239,8 @@
                     2
                 ],
                 "activation": {
-                    "type": "PReLU",
-                    "negative_slope": 0.015
+                    "type": "Softsign",
+                    "alpha": 4.0
                 },
                 "gating_mode": "none",
                 "head_bias": true,
