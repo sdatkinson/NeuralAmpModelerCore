@@ -59,7 +59,7 @@ Version ParseVersion(const std::string& versionStr)
 void verify_config_version(const std::string versionStr)
 {
   Version version = ParseVersion(versionStr);
-  if (version.major != 0 || version.minor != 5)
+  if (version.major > 0 || version.minor > 6)
   {
     std::stringstream ss;
     ss << "Model config is an unsupported version " << versionStr
