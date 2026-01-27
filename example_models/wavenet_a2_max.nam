@@ -3,7 +3,7 @@
         "This model is meant as a 'test case' to contain all of the new features that are being considered for A2.",
         "It doesn't have slimmability."
     ],
-    "version": "0.5.4",
+    "version": "0.6.0",
     "metadata": {
         "date": {
             "year": 2026,

@@ -154,7 +154,7 @@ def generate_weights(weight_count: int, seed: int = None) -> List[float]:
 
 def create_wavenet_nam(config: Dict[str, Any], output_path: Path, 
                        seed: int = None, sample_rate: int = 48000,
-                       version: str = "0.5.4") -> None:
+                       version: str = "0.6.0") -> None:
     """
     Create a WaveNet .nam file with the given configuration and random weights.
     

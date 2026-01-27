@@ -8,6 +8,7 @@ Welcome to the NeuralAmpModelerCore documentation. This library provides a core 
    :caption: Contents:
 
    wavenet_walkthrough
+   nam_file_version
    api/index
 
 Overview
