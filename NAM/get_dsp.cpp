@@ -14,38 +14,6 @@
 
 namespace nam
 {
-class Version
-{
-public:
-  Version(int major, int minor, int patch)
-  : major(major)
-  , minor(minor)
-  , patch(patch)
-  {
-  }
-
-  std::string toString() const
-  {
-    return std::to_string(major) + "." + std::to_string(minor) + "." + std::to_string(patch);
-  }
-
-  bool operator>(const Version& other) const
-  {
-    return major > other.major
-           || (major == other.major && (minor > other.minor || (minor == other.minor && patch > other.patch)));
-  }
-
-  bool operator<(const Version& other) const
-  {
-    return major < other.major
-           || (major == other.major && (minor < other.minor || (minor == other.minor && patch < other.patch)));
-  }
-
-  int major;
-  int minor;
-  int patch;
-};
-
 Version ParseVersion(const std::string& versionStr)
 {
   // Split the version string into major, minor, and patch components
@@ -85,8 +53,8 @@ Version ParseVersion(const std::string& versionStr)
 void verify_config_version(const std::string versionStr)
 {
   Version version = ParseVersion(versionStr);
-  Version currentVersion = Version(0, 6, 0);
-  Version earliestSupportedVersion = Version(0, 5, 0);
+  Version currentVersion = ParseVersion(LATEST_FULLY_SUPPORTED_NAM_FILE_VERSION);
+  Version earliestSupportedVersion = ParseVersion(EARLIEST_SUPPORTED_NAM_FILE_VERSION);
 
   if (version < earliestSupportedVersion)
   {
