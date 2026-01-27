@@ -120,6 +120,66 @@ private:
     }
   };
 };
+class TestSoftsign
+{
+public:
+  static void test_core_function()
+  {
+    auto TestCase = [](float input, float alpha, float expectedOutput) {
+      float actualOutput = nam::activations::softsign(input, alpha);
+      assert(fabs(actualOutput - expectedOutput) < 1e-6);
+    };
+    // Test cases for softsign: x / (alpha + |x|)
+    // With alpha = 1.0 (default):
+    TestCase(0.0f, 1.0f, 0.0f);        // 0 / (1 + 0) = 0
+    TestCase(1.0f, 1.0f, 0.5f);       // 1 / (1 + 1) = 0.5
+    TestCase(-1.0f, 1.0f, -0.5f);     // -1 / (1 + 1) = -0.5
+    TestCase(2.0f, 1.0f, 2.0f / 3.0f); // 2 / (1 + 2) = 2/3
+    TestCase(-2.0f, 1.0f, -2.0f / 3.0f); // -2 / (1 + 2) = -2/3
+    
+    // With alpha = 0.5:
+    TestCase(1.0f, 0.5f, 1.0f / 1.5f); // 1 / (0.5 + 1) = 1/1.5
+    TestCase(-1.0f, 0.5f, -1.0f / 1.5f); // -1 / (0.5 + 1) = -1/1.5
+  };
+
+  static void test_get_by_init()
+  {
+    auto a = nam::activations::ActivationSoftsign(1.0f);
+    _test_class(&a);
+  }
+
+  // Get the singleton and test it
+  static void test_get_by_str()
+  {
+    const std::string name = "Softsign";
+    auto a = nam::activations::Activation::get_activation(name);
+    _test_class(a.get());
+  }
+
+private:
+  // Put the class through its paces
+  static void _test_class(nam::activations::Activation* a)
+  {
+    std::vector<float> inputs, expectedOutputs;
+
+    inputs.push_back(0.0f);
+    expectedOutputs.push_back(0.0f);
+
+    inputs.push_back(1.0f);
+    expectedOutputs.push_back(0.5f); // 1 / (1 + 1) = 0.5
+
+    inputs.push_back(-1.0f);
+    expectedOutputs.push_back(-0.5f); // -1 / (1 + 1) = -0.5
+
+    a->apply(inputs.data(), (long)inputs.size());
+    for (auto itActual = inputs.begin(), itExpected = expectedOutputs.begin(); itActual != inputs.end();
+         ++itActual, ++itExpected)
+    {
+      assert(fabs(*itActual - *itExpected) < 1e-6);
+    }
+  };
+};
+
 class TestPReLU
 {
 public:
@@ -217,7 +277,7 @@ public:
       nam::activations::ActivationType::Tanh,     nam::activations::ActivationType::Hardtanh,
       nam::activations::ActivationType::Fasttanh, nam::activations::ActivationType::ReLU,
       nam::activations::ActivationType::Sigmoid,  nam::activations::ActivationType::SiLU,
-      nam::activations::ActivationType::Hardswish};
+      nam::activations::ActivationType::Hardswish, nam::activations::ActivationType::Softsign};
 
     for (auto type : types)
     {
@@ -296,6 +356,24 @@ public:
     assert(act != nullptr);
   }
 
+  static void test_softsign_config()
+  {
+    // Test Softsign with custom alpha
+    nam::activations::ActivationConfig config;
+    config.type = nam::activations::ActivationType::Softsign;
+    config.alpha = 0.5f;
+
+    auto act = nam::activations::Activation::get_activation(config);
+    assert(act != nullptr);
+
+    // Verify the behavior
+    std::vector<float> data = {-1.0f, 0.0f, 1.0f};
+    act->apply(data.data(), (long)data.size());
+    assert(fabs(data[0] - (-1.0f / 1.5f)) < 1e-6); // -1 / (0.5 + 1) = -1/1.5
+    assert(fabs(data[1] - 0.0f) < 1e-6);
+    assert(fabs(data[2] - (1.0f / 1.5f)) < 1e-6); // 1 / (0.5 + 1) = 1/1.5
+  }
+
   static void test_from_json_string()
   {
     // Test from_json with string input
@@ -322,6 +400,26 @@ public:
     assert(config.type == nam::activations::ActivationType::PReLU);
     assert(config.negative_slopes.has_value());
     assert(config.negative_slopes.value().size() == 4);
+  }
+
+  static void test_from_json_softsign_string()
+  {
+    // Test from_json with Softsign as string (default alpha)
+    nlohmann::json j = "Softsign";
+    auto config = nam::activations::ActivationConfig::from_json(j);
+    assert(config.type == nam::activations::ActivationType::Softsign);
+    // When parsing from string, alpha is not set, but get_activation will use default
+    assert(!config.alpha.has_value());
+  }
+
+  static void test_from_json_softsign_object()
+  {
+    // Test from_json with Softsign as object with custom alpha
+    nlohmann::json j = {{"type", "Softsign"}, {"alpha", 0.5f}};
+    auto config = nam::activations::ActivationConfig::from_json(j);
+    assert(config.type == nam::activations::ActivationType::Softsign);
+    assert(config.alpha.has_value());
+    assert(fabs(config.alpha.value() - 0.5f) < 1e-6);
   }
 
   static void test_unknown_activation_throws()

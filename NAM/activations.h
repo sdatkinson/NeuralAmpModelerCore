@@ -33,7 +33,8 @@ enum class ActivationType
   Sigmoid,
   SiLU, // aka Swish
   Hardswish,
-  LeakyHardtanh
+  LeakyHardtanh,
+  Softsign
 };
 
 // Strongly-typed activation configuration
@@ -48,6 +49,7 @@ struct ActivationConfig
   std::optional<float> max_val; // LeakyHardtanh
   std::optional<float> min_slope; // LeakyHardtanh
   std::optional<float> max_slope; // LeakyHardtanh
+  std::optional<float> alpha; // Softsign
 
   // Convenience constructors
   static ActivationConfig simple(ActivationType t);
@@ -128,6 +130,11 @@ inline float hardswish(float x)
   {
     return x * (x + 3.0) / 6.0;
   }
+}
+
+inline float softsign(float x, float alpha = 1.0f)
+{
+  return x / (alpha + fabsf(x));
 }
 
 class Activation
@@ -331,6 +338,23 @@ public:
       data[pos] = hardswish(data[pos]);
     }
   }
+};
+
+class ActivationSoftsign : public Activation
+{
+public:
+  ActivationSoftsign() = default;
+  ActivationSoftsign(float a) { alpha = a; }
+  void apply(float* data, long size) override
+  {
+    for (long pos = 0; pos < size; pos++)
+    {
+      data[pos] = softsign(data[pos], alpha);
+    }
+  }
+
+private:
+  float alpha = 1.0f;
 };
 
 class FastLUTActivation : public Activation
