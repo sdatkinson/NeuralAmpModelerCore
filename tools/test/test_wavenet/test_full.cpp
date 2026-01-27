@@ -27,10 +27,16 @@ static nam::wavenet::LayerArrayParams make_layer_array_params(
   const nam::activations::ActivationConfig& secondary_activation_config)
 {
   auto film_params = make_default_film_params();
-  return nam::wavenet::LayerArrayParams(
-    input_size, condition_size, head_size, channels, bottleneck, kernel_size, std::move(dilations), activation_config,
-    gating_mode, head_bias, groups_input, groups_input_mixin, groups_1x1, head1x1_params, secondary_activation_config,
-    film_params, film_params, film_params, film_params, film_params, film_params, film_params, film_params);
+  // Duplicate activation_config, gating_mode, and secondary_activation_config for each layer (based on dilations size)
+  std::vector<nam::activations::ActivationConfig> activation_configs(dilations.size(), activation_config);
+  std::vector<nam::wavenet::GatingMode> gating_modes(dilations.size(), gating_mode);
+  std::vector<nam::activations::ActivationConfig> secondary_activation_configs(
+    dilations.size(), secondary_activation_config);
+  return nam::wavenet::LayerArrayParams(input_size, condition_size, head_size, channels, bottleneck, kernel_size,
+                                        std::move(dilations), std::move(activation_configs), std::move(gating_modes),
+                                        head_bias, groups_input, groups_input_mixin, groups_1x1, head1x1_params,
+                                        std::move(secondary_activation_configs), film_params, film_params, film_params,
+                                        film_params, film_params, film_params, film_params, film_params);
 }
 // Test full WaveNet model
 void test_wavenet_model()

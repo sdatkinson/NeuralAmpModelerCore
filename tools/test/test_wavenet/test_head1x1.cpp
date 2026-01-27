@@ -205,27 +205,46 @@ void test_head1x1_gated()
   // Input mixin: (conditionSize, 2*bottleneck) = (1, 4) = 4 weights
   // 1x1: (bottleneck, channels) + bias = (2, 2) + 2 = 4 + 2 = 6 weights
   // head1x1: (bottleneck, head1x1_out_channels) + bias = (2, 2) + 2 = 4 + 2 = 6 weights
-  std::vector<float> weights{// Conv: (channels, 2*bottleneck, kernelSize=1) weights + (2*bottleneck,) bias
-                             // Weight layout: for each kernel position, for each output channel, for each input channel
-                             // For kernel position 0:
-                             // Output channel 0: connects to input channels 0 and 1
-                             1.0f, 0.0f, // output channel 0
-                             // Output channel 1: connects to input channels 0 and 1
-                             0.0f, 1.0f, // output channel 1
-                             // Output channel 2: connects to input channels 0 and 1
-                             1.0f, 0.0f, // output channel 2
-                             // Output channel 3: connects to input channels 0 and 1
-                             0.0f, 1.0f, // output channel 3
-                             // Bias: 2*bottleneck values
-                             0.0f, 0.0f, 0.0f, 0.0f,
-                             // Input mixin: (conditionSize, 2*bottleneck) weights (all 1.0 for simplicity)
-                             1.0f, 1.0f, 1.0f, 1.0f,
-                             // 1x1: (bottleneck, channels) weights + (channels,) bias (identity)
-                             1.0f, 0.0f, 0.0f, 1.0f, // weights (identity)
-                             0.0f, 0.0f, // bias
-                             // head1x1: (bottleneck, head1x1_out_channels) weights + (head1x1_out_channels,) bias
-                             0.5f, 0.0f, 0.0f, 0.5f, // weights
-                             0.1f, 0.1f};
+  std::vector<float> weights;
+  // Conv: (channels, 2*bottleneck, kernelSize=1) weights + (2*bottleneck,) bias
+  // Weight layout: for each kernel position, for each output channel, for each input channel
+  // For kernel position 0:
+  // Output channel 0: connects to input channels 0 and 1
+  weights.push_back(1.0f); // output channel 0
+  weights.push_back(0.0f);
+  // Output channel 1: connects to input channels 0 and 1
+  weights.push_back(0.0f); // output channel 1
+  weights.push_back(1.0f);
+  // Output channel 2: connects to input channels 0 and 1
+  weights.push_back(1.0f); // output channel 2
+  weights.push_back(0.0f);
+  // Output channel 3: connects to input channels 0 and 1
+  weights.push_back(0.0f); // output channel 3
+  weights.push_back(1.0f);
+  // Bias: 2*bottleneck values
+  weights.push_back(0.0f);
+  weights.push_back(0.0f);
+  weights.push_back(0.0f);
+  weights.push_back(0.0f);
+  // Input mixin: (conditionSize, 2*bottleneck) weights (all 1.0 for simplicity)
+  weights.push_back(1.0f);
+  weights.push_back(1.0f);
+  weights.push_back(1.0f);
+  weights.push_back(1.0f);
+  // 1x1: (bottleneck, channels) weights + (channels,) bias (identity)
+  weights.push_back(1.0f); // weights (identity)
+  weights.push_back(0.0f);
+  weights.push_back(0.0f);
+  weights.push_back(1.0f);
+  weights.push_back(0.0f); // bias
+  weights.push_back(0.0f);
+  // head1x1: (bottleneck, head1x1_out_channels) weights + (head1x1_out_channels,) bias
+  weights.push_back(0.5f); // weights
+  weights.push_back(0.0f);
+  weights.push_back(0.0f);
+  weights.push_back(0.5f);
+  weights.push_back(0.1f);
+  weights.push_back(0.1f);
 
   auto it = weights.begin();
   layer.set_weights_(it);

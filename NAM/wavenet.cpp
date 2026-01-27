@@ -214,22 +214,40 @@ void nam::wavenet::_Layer::Process(const Eigen::MatrixXf& input, const Eigen::Ma
 
 nam::wavenet::_LayerArray::_LayerArray(
   const int input_size, const int condition_size, const int head_size, const int channels, const int bottleneck,
-  const int kernel_size, const std::vector<int>& dilations, const activations::ActivationConfig& activation_config,
-  const GatingMode gating_mode, const bool head_bias, const int groups_input, const int groups_input_mixin,
-  const int groups_1x1, const Head1x1Params& head1x1_params,
-  const activations::ActivationConfig& secondary_activation_config, const _FiLMParams& conv_pre_film_params,
-  const _FiLMParams& conv_post_film_params, const _FiLMParams& input_mixin_pre_film_params,
-  const _FiLMParams& input_mixin_post_film_params, const _FiLMParams& activation_pre_film_params,
-  const _FiLMParams& activation_post_film_params, const _FiLMParams& _1x1_post_film_params,
-  const _FiLMParams& head1x1_post_film_params)
+  const int kernel_size, const std::vector<int>& dilations,
+  const std::vector<activations::ActivationConfig>& activation_configs, const std::vector<GatingMode>& gating_modes,
+  const bool head_bias, const int groups_input, const int groups_input_mixin, const int groups_1x1,
+  const Head1x1Params& head1x1_params, const std::vector<activations::ActivationConfig>& secondary_activation_configs,
+  const _FiLMParams& conv_pre_film_params, const _FiLMParams& conv_post_film_params,
+  const _FiLMParams& input_mixin_pre_film_params, const _FiLMParams& input_mixin_post_film_params,
+  const _FiLMParams& activation_pre_film_params, const _FiLMParams& activation_post_film_params,
+  const _FiLMParams& _1x1_post_film_params, const _FiLMParams& head1x1_post_film_params)
 : _rechannel(input_size, channels, false)
 , _head_rechannel(head1x1_params.active ? head1x1_params.out_channels : bottleneck, head_size, head_bias)
 , _head_output_size(head1x1_params.active ? head1x1_params.out_channels : bottleneck)
 {
+  const size_t num_layers = dilations.size();
+  if (activation_configs.size() != num_layers)
+  {
+    throw std::invalid_argument("_LayerArray: dilations size (" + std::to_string(num_layers)
+                                + ") must match activation_configs size (" + std::to_string(activation_configs.size())
+                                + ")");
+  }
+  if (gating_modes.size() != num_layers)
+  {
+    throw std::invalid_argument("_LayerArray: dilations size (" + std::to_string(num_layers)
+                                + ") must match gating_modes size (" + std::to_string(gating_modes.size()) + ")");
+  }
+  if (secondary_activation_configs.size() != num_layers)
+  {
+    throw std::invalid_argument("_LayerArray: dilations size (" + std::to_string(num_layers)
+                                + ") must match secondary_activation_configs size ("
+                                + std::to_string(secondary_activation_configs.size()) + ")");
+  }
   for (size_t i = 0; i < dilations.size(); i++)
     this->_layers.push_back(
-      _Layer(condition_size, channels, bottleneck, kernel_size, dilations[i], activation_config, gating_mode,
-             groups_input, groups_input_mixin, groups_1x1, head1x1_params, secondary_activation_config,
+      _Layer(condition_size, channels, bottleneck, kernel_size, dilations[i], activation_configs[i], gating_modes[i],
+             groups_input, groups_input_mixin, groups_1x1, head1x1_params, secondary_activation_configs[i],
              conv_pre_film_params, conv_post_film_params, input_mixin_pre_film_params, input_mixin_post_film_params,
              activation_pre_film_params, activation_post_film_params, _1x1_post_film_params, head1x1_post_film_params));
 }
@@ -382,10 +400,10 @@ nam::wavenet::WaveNet::WaveNet(const int in_channels,
     this->_layer_arrays.push_back(nam::wavenet::_LayerArray(
       layer_array_params[i].input_size, layer_array_params[i].condition_size, layer_array_params[i].head_size,
       layer_array_params[i].channels, layer_array_params[i].bottleneck, layer_array_params[i].kernel_size,
-      layer_array_params[i].dilations, layer_array_params[i].activation_config, layer_array_params[i].gating_mode,
+      layer_array_params[i].dilations, layer_array_params[i].activation_configs, layer_array_params[i].gating_modes,
       layer_array_params[i].head_bias, layer_array_params[i].groups_input, layer_array_params[i].groups_input_mixin,
       layer_array_params[i].groups_1x1, layer_array_params[i].head1x1_params,
-      layer_array_params[i].secondary_activation_config, layer_array_params[i].conv_pre_film_params,
+      layer_array_params[i].secondary_activation_configs, layer_array_params[i].conv_pre_film_params,
       layer_array_params[i].conv_post_film_params, layer_array_params[i].input_mixin_pre_film_params,
       layer_array_params[i].input_mixin_post_film_params, layer_array_params[i].activation_pre_film_params,
       layer_array_params[i].activation_post_film_params, layer_array_params[i]._1x1_post_film_params,
@@ -592,48 +610,160 @@ std::unique_ptr<nam::DSP> nam::wavenet::Factory(const nlohmann::json& config, st
     const int head_size = layer_config["head_size"];
     const int kernel_size = layer_config["kernel_size"];
     const auto dilations = layer_config["dilations"];
-    // Parse JSON into typed ActivationConfig at model loading boundary
-    const activations::ActivationConfig activation_config =
-      activations::ActivationConfig::from_json(layer_config["activation"]);
-    // Parse gating mode - support both old "gated" boolean and new "gating_mode" string
-    GatingMode gating_mode = GatingMode::NONE;
-    activations::ActivationConfig secondary_activation_config;
+    const size_t num_layers = dilations.size();
+
+    // Parse activation config(s) - support both single config and array
+    std::vector<activations::ActivationConfig> activation_configs;
+    if (layer_config["activation"].is_array())
+    {
+      // Array of activation configs
+      for (const auto& activation_json : layer_config["activation"])
+      {
+        activation_configs.push_back(activations::ActivationConfig::from_json(activation_json));
+      }
+      if (activation_configs.size() != num_layers)
+      {
+        throw std::runtime_error("Layer array " + std::to_string(i) + ": activation array size ("
+                                 + std::to_string(activation_configs.size()) + ") must match dilations size ("
+                                 + std::to_string(num_layers) + ")");
+      }
+    }
+    else
+    {
+      // Single activation config - duplicate it for all layers
+      const activations::ActivationConfig activation_config =
+        activations::ActivationConfig::from_json(layer_config["activation"]);
+      activation_configs.resize(num_layers, activation_config);
+    }
+    // Parse gating mode(s) - support both single value and array, and old "gated" boolean
+    std::vector<GatingMode> gating_modes;
+    std::vector<activations::ActivationConfig> secondary_activation_configs;
+
+    auto parse_gating_mode_str = [](const std::string& gating_mode_str) -> GatingMode {
+      if (gating_mode_str == "gated")
+        return GatingMode::GATED;
+      else if (gating_mode_str == "blended")
+        return GatingMode::BLENDED;
+      else if (gating_mode_str == "none")
+        return GatingMode::NONE;
+      else
+        throw std::runtime_error("Invalid gating_mode: " + gating_mode_str);
+    };
 
     if (layer_config.find("gating_mode") != layer_config.end())
     {
-      std::string gating_mode_str = layer_config["gating_mode"].get<std::string>();
-      if (gating_mode_str == "gated")
+      if (layer_config["gating_mode"].is_array())
       {
-        gating_mode = GatingMode::GATED;
-        secondary_activation_config = activations::ActivationConfig::from_json(layer_config["secondary_activation"]);
-      }
-      else if (gating_mode_str == "blended")
-      {
-        gating_mode = GatingMode::BLENDED;
-        secondary_activation_config = activations::ActivationConfig::from_json(layer_config["secondary_activation"]);
-      }
-      else if (gating_mode_str == "none")
-      {
-        gating_mode = GatingMode::NONE;
-        // Leave secondary_activation_config with empty type
+        // Array of gating modes
+        for (const auto& gating_mode_json : layer_config["gating_mode"])
+        {
+          std::string gating_mode_str = gating_mode_json.get<std::string>();
+          GatingMode mode = parse_gating_mode_str(gating_mode_str);
+          gating_modes.push_back(mode);
+
+          // Parse corresponding secondary activation if gating is enabled
+          if (mode != GatingMode::NONE)
+          {
+            if (layer_config.find("secondary_activation") != layer_config.end())
+            {
+              if (layer_config["secondary_activation"].is_array())
+              {
+                // Array of secondary activations - use corresponding index
+                if (gating_modes.size() > layer_config["secondary_activation"].size())
+                {
+                  throw std::runtime_error("Layer array " + std::to_string(i)
+                                           + ": secondary_activation array size must be at least "
+                                           + std::to_string(gating_modes.size()));
+                }
+                secondary_activation_configs.push_back(activations::ActivationConfig::from_json(
+                  layer_config["secondary_activation"][gating_modes.size() - 1]));
+              }
+              else
+              {
+                // Single secondary activation - use for all gated layers
+                secondary_activation_configs.push_back(
+                  activations::ActivationConfig::from_json(layer_config["secondary_activation"]));
+              }
+            }
+            else
+            {
+              // Default to Sigmoid for backward compatibility
+              secondary_activation_configs.push_back(
+                activations::ActivationConfig::simple(activations::ActivationType::Sigmoid));
+            }
+          }
+          else
+          {
+            // NONE mode - use empty config
+            secondary_activation_configs.push_back(activations::ActivationConfig{});
+          }
+        }
+        if (gating_modes.size() != num_layers)
+        {
+          throw std::runtime_error("Layer array " + std::to_string(i) + ": gating_mode array size ("
+                                   + std::to_string(gating_modes.size()) + ") must match dilations size ("
+                                   + std::to_string(num_layers) + ")");
+        }
+        // Validate secondary_activation array size if it's an array
+        if (layer_config.find("secondary_activation") != layer_config.end()
+            && layer_config["secondary_activation"].is_array())
+        {
+          if (layer_config["secondary_activation"].size() != num_layers)
+          {
+            throw std::runtime_error("Layer array " + std::to_string(i) + ": secondary_activation array size ("
+                                     + std::to_string(layer_config["secondary_activation"].size())
+                                     + ") must match dilations size (" + std::to_string(num_layers) + ")");
+          }
+        }
       }
       else
-        throw std::runtime_error("Invalid gating_mode: " + gating_mode_str);
+      {
+        // Single gating mode - duplicate for all layers
+        std::string gating_mode_str = layer_config["gating_mode"].get<std::string>();
+        GatingMode gating_mode = parse_gating_mode_str(gating_mode_str);
+        gating_modes.resize(num_layers, gating_mode);
+
+        // Parse secondary activation
+        activations::ActivationConfig secondary_activation_config;
+        if (gating_mode != GatingMode::NONE)
+        {
+          if (layer_config.find("secondary_activation") != layer_config.end())
+          {
+            secondary_activation_config =
+              activations::ActivationConfig::from_json(layer_config["secondary_activation"]);
+          }
+          else
+          {
+            // Default to Sigmoid for backward compatibility
+            secondary_activation_config = activations::ActivationConfig::simple(activations::ActivationType::Sigmoid);
+          }
+        }
+        secondary_activation_configs.resize(num_layers, secondary_activation_config);
+      }
     }
     else if (layer_config.find("gated") != layer_config.end())
     {
       // Backward compatibility: convert old "gated" boolean to new enum
       bool gated = layer_config["gated"];
-      gating_mode = gated ? GatingMode::GATED : GatingMode::NONE;
+      GatingMode gating_mode = gated ? GatingMode::GATED : GatingMode::NONE;
+      gating_modes.resize(num_layers, gating_mode);
+
       if (gated)
       {
-        secondary_activation_config = activations::ActivationConfig::simple(activations::ActivationType::Sigmoid);
+        activations::ActivationConfig secondary_config =
+          activations::ActivationConfig::simple(activations::ActivationType::Sigmoid);
+        secondary_activation_configs.resize(num_layers, secondary_config);
       }
-      // else: leave secondary_activation_config uninitialized
+      else
+      {
+        secondary_activation_configs.resize(num_layers, activations::ActivationConfig{});
+      }
     }
     else
     {
-      throw std::invalid_argument("No information on gating mode found for layer array " + std::to_string(i));
+      // Default to NONE for all layers
+      gating_modes.resize(num_layers, GatingMode::NONE);
+      secondary_activation_configs.resize(num_layers, activations::ActivationConfig{});
     }
 
     const bool head_bias = layer_config["head_bias"];
@@ -674,10 +804,11 @@ std::unique_ptr<nam::DSP> nam::wavenet::Factory(const nlohmann::json& config, st
     nam::wavenet::_FiLMParams head1x1_post_film_params = parse_film_params("head1x1_post_film");
 
     layer_array_params.push_back(nam::wavenet::LayerArrayParams(
-      input_size, condition_size, head_size, channels, bottleneck, kernel_size, dilations, activation_config,
-      gating_mode, head_bias, groups, groups_input_mixin, groups_1x1, head1x1_params, secondary_activation_config,
-      conv_pre_film_params, conv_post_film_params, input_mixin_pre_film_params, input_mixin_post_film_params,
-      activation_pre_film_params, activation_post_film_params, _1x1_post_film_params, head1x1_post_film_params));
+      input_size, condition_size, head_size, channels, bottleneck, kernel_size, dilations,
+      std::move(activation_configs), std::move(gating_modes), head_bias, groups, groups_input_mixin, groups_1x1,
+      head1x1_params, std::move(secondary_activation_configs), conv_pre_film_params, conv_post_film_params,
+      input_mixin_pre_film_params, input_mixin_post_film_params, activation_pre_film_params,
+      activation_post_film_params, _1x1_post_film_params, head1x1_post_film_params));
   }
   const bool with_head = !config["head"].is_null();
   const float head_scale = config["head_scale"];

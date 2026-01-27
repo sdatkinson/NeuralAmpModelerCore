@@ -302,7 +302,7 @@ private:
 /// \brief Parameters for constructing a LayerArray
 ///
 /// Contains all configuration needed to construct a _LayerArray with multiple layers
-/// sharing the same channel count, kernel size, and activation configuration.
+/// sharing the same channel count and kernel size. Each layer can have its own activation configuration.
 class LayerArrayParams
 {
 public:
@@ -314,14 +314,14 @@ public:
   /// \param bottleneck_ Bottleneck size (internal channel count)
   /// \param kernel_size_ Kernel size for dilated convolutions
   /// \param dilations_ Vector of dilation factors, one per layer
-  /// \param activation_ Primary activation configuration
-  /// \param gating_mode_ Gating mode for all layers
+  /// \param activation_configs_ Vector of primary activation configurations, one per layer
+  /// \param gating_modes_ Vector of gating modes, one per layer
   /// \param head_bias_ Whether to use bias in the head rechannel
   /// \param groups_input Number of groups for input convolutions
   /// \param groups_input_mixin_ Number of groups for input mixin convolutions
   /// \param groups_1x1_ Number of groups for 1x1 convolutions
   /// \param head1x1_params_ Parameters for optional head1x1 convolutions
-  /// \param secondary_activation_config_ Secondary activation for gating/blending
+  /// \param secondary_activation_configs_ Vector of secondary activation configs for gating/blending, one per layer
   /// \param conv_pre_film_params_ FiLM parameters before input convolutions
   /// \param conv_post_film_params_ FiLM parameters after input convolutions
   /// \param input_mixin_pre_film_params_ FiLM parameters before input mixin
@@ -330,12 +330,14 @@ public:
   /// \param activation_post_film_params_ FiLM parameters after activation
   /// \param _1x1_post_film_params_ FiLM parameters after 1x1 convolutions
   /// \param head1x1_post_film_params_ FiLM parameters after head1x1 convolutions
+  /// \throws std::invalid_argument If dilations, activation_configs, gating_modes, or secondary_activation_configs
+  /// sizes don't match
   LayerArrayParams(const int input_size_, const int condition_size_, const int head_size_, const int channels_,
                    const int bottleneck_, const int kernel_size_, const std::vector<int>&& dilations_,
-                   const activations::ActivationConfig& activation_, const GatingMode gating_mode_,
-                   const bool head_bias_, const int groups_input, const int groups_input_mixin_, const int groups_1x1_,
-                   const Head1x1Params& head1x1_params_,
-                   const activations::ActivationConfig& secondary_activation_config_,
+                   const std::vector<activations::ActivationConfig>&& activation_configs_,
+                   const std::vector<GatingMode>&& gating_modes_, const bool head_bias_, const int groups_input,
+                   const int groups_input_mixin_, const int groups_1x1_, const Head1x1Params& head1x1_params_,
+                   const std::vector<activations::ActivationConfig>&& secondary_activation_configs_,
                    const _FiLMParams& conv_pre_film_params_, const _FiLMParams& conv_post_film_params_,
                    const _FiLMParams& input_mixin_pre_film_params_, const _FiLMParams& input_mixin_post_film_params_,
                    const _FiLMParams& activation_pre_film_params_, const _FiLMParams& activation_post_film_params_,
@@ -347,14 +349,14 @@ public:
   , bottleneck(bottleneck_)
   , kernel_size(kernel_size_)
   , dilations(std::move(dilations_))
-  , activation_config(activation_)
-  , gating_mode(gating_mode_)
+  , activation_configs(std::move(activation_configs_))
+  , gating_modes(std::move(gating_modes_))
   , head_bias(head_bias_)
   , groups_input(groups_input)
   , groups_input_mixin(groups_input_mixin_)
   , groups_1x1(groups_1x1_)
   , head1x1_params(head1x1_params_)
-  , secondary_activation_config(secondary_activation_config_)
+  , secondary_activation_configs(std::move(secondary_activation_configs_))
   , conv_pre_film_params(conv_pre_film_params_)
   , conv_post_film_params(conv_post_film_params_)
   , input_mixin_pre_film_params(input_mixin_pre_film_params_)
@@ -364,6 +366,24 @@ public:
   , _1x1_post_film_params(_1x1_post_film_params_)
   , head1x1_post_film_params(head1x1_post_film_params_)
   {
+    const size_t num_layers = dilations.size();
+    if (activation_configs.size() != num_layers)
+    {
+      throw std::invalid_argument("LayerArrayParams: dilations size (" + std::to_string(num_layers)
+                                  + ") must match activation_configs size (" + std::to_string(activation_configs.size())
+                                  + ")");
+    }
+    if (gating_modes.size() != num_layers)
+    {
+      throw std::invalid_argument("LayerArrayParams: dilations size (" + std::to_string(num_layers)
+                                  + ") must match gating_modes size (" + std::to_string(gating_modes.size()) + ")");
+    }
+    if (secondary_activation_configs.size() != num_layers)
+    {
+      throw std::invalid_argument("LayerArrayParams: dilations size (" + std::to_string(num_layers)
+                                  + ") must match secondary_activation_configs size ("
+                                  + std::to_string(secondary_activation_configs.size()) + ")");
+    }
   }
 
   const int input_size; ///< Input size (number of channels)
@@ -373,14 +393,15 @@ public:
   const int bottleneck; ///< Bottleneck size (internal channel count)
   const int kernel_size; ///< Kernel size for dilated convolutions
   std::vector<int> dilations; ///< Dilation factors, one per layer
-  const activations::ActivationConfig activation_config; ///< Primary activation configuration
-  const GatingMode gating_mode; ///< Gating mode for all layers
+  std::vector<activations::ActivationConfig> activation_configs; ///< Primary activation configurations, one per layer
+  std::vector<GatingMode> gating_modes; ///< Gating modes, one per layer
   const bool head_bias; ///< Whether to use bias in head rechannel
   const int groups_input; ///< Number of groups for input convolutions
   const int groups_input_mixin; ///< Number of groups for input mixin
   const int groups_1x1; ///< Number of groups for 1x1 convolutions
   const Head1x1Params head1x1_params; ///< Parameters for optional head1x1
-  const activations::ActivationConfig secondary_activation_config; ///< Secondary activation for gating/blending
+  std::vector<activations::ActivationConfig>
+    secondary_activation_configs; ///< Secondary activation configs for gating/blending, one per layer
   const _FiLMParams conv_pre_film_params; ///< FiLM params before input conv
   const _FiLMParams conv_post_film_params; ///< FiLM params after input conv
   const _FiLMParams input_mixin_pre_film_params; ///< FiLM params before input mixin
@@ -414,14 +435,14 @@ public:
   /// \param bottleneck Bottleneck size (internal channel count)
   /// \param kernel_size Kernel size for dilated convolutions
   /// \param dilations Vector of dilation factors, one per layer
-  /// \param activation_config Primary activation configuration
-  /// \param gating_mode Gating mode for all layers
+  /// \param activation_configs Vector of primary activation configurations, one per layer
+  /// \param gating_modes Vector of gating modes, one per layer
   /// \param head_bias Whether to use bias in the head rechannel
   /// \param groups_input Number of groups for input convolutions
   /// \param groups_input_mixin Number of groups for input mixin
   /// \param groups_1x1 Number of groups for 1x1 convolutions
   /// \param head1x1_params Parameters for optional head1x1 convolutions
-  /// \param secondary_activation_config Secondary activation for gating/blending
+  /// \param secondary_activation_configs Vector of secondary activation configs for gating/blending, one per layer
   /// \param conv_pre_film_params FiLM parameters before input convolutions
   /// \param conv_post_film_params FiLM parameters after input convolutions
   /// \param input_mixin_pre_film_params FiLM parameters before input mixin
@@ -432,9 +453,10 @@ public:
   /// \param head1x1_post_film_params FiLM parameters after head1x1 convolutions
   _LayerArray(const int input_size, const int condition_size, const int head_size, const int channels,
               const int bottleneck, const int kernel_size, const std::vector<int>& dilations,
-              const activations::ActivationConfig& activation_config, const GatingMode gating_mode,
-              const bool head_bias, const int groups_input, const int groups_input_mixin, const int groups_1x1,
-              const Head1x1Params& head1x1_params, const activations::ActivationConfig& secondary_activation_config,
+              const std::vector<activations::ActivationConfig>& activation_configs,
+              const std::vector<GatingMode>& gating_modes, const bool head_bias, const int groups_input,
+              const int groups_input_mixin, const int groups_1x1, const Head1x1Params& head1x1_params,
+              const std::vector<activations::ActivationConfig>& secondary_activation_configs,
               const _FiLMParams& conv_pre_film_params, const _FiLMParams& conv_post_film_params,
               const _FiLMParams& input_mixin_pre_film_params, const _FiLMParams& input_mixin_post_film_params,
               const _FiLMParams& activation_pre_film_params, const _FiLMParams& activation_post_film_params,
