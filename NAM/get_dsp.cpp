@@ -133,7 +133,7 @@ std::unique_ptr<DSP> get_dsp(const nlohmann::json& config, dspData& returnedConf
   returnedConfig.version = config["version"].get<std::string>();
   returnedConfig.architecture = config["architecture"].get<std::string>();
   returnedConfig.config = config_json;
-  returnedConfig.metadata = config["metadata"];
+  returnedConfig.metadata = config.value("metadata", nlohmann::json());
   returnedConfig.weights = weights;
   returnedConfig.expected_sample_rate = nam::get_sample_rate_from_nam_file(config);
 
