@@ -109,14 +109,30 @@
                             3,
                             5
                         ],
-                        "activation": {
-                            "type": "PReLU",
-                            "negative_slopes": [
-                                0.04,
-                                0.05
-                            ]
-                        },
-                        "gating_mode": "blended",
+                        "activation": [
+                            {
+                                "type": "PReLU",
+                                "negative_slopes": [
+                                    0.04,
+                                    0.05
+                                ]
+                            },
+                            {
+                                "type": "PReLU",
+                                "negative_slopes": [
+                                    0.03,
+                                    0.01
+                                ]
+                            },
+                            {
+                                "type": "Softsign"
+                            }
+                        ],
+                        "gating_mode": [
+                            "blended",
+                            "gated",
+                            "gated"
+                        ],
                         "head_bias": false,
                         "groups_input": 1,
                         "groups_input_mixin": 1,
@@ -126,13 +142,17 @@
                             "out_channels": 4,
                             "groups": 2
                         },
-                        "secondary_activation": {
-                            "type": "LeakyHardtanh",
-                            "min_val": 0.0,
-                            "max_val": 0.9,
-                            "min_slope": 0.0,
-                            "max_slope": 0.02
-                        },
+                        "secondary_activation": [
+                            {
+                                "type": "LeakyHardtanh",
+                                "min_val": 0.0,
+                                "max_val": 0.9,
+                                "min_slope": 0.0,
+                                "max_slope": 0.02
+                            },
+                            "ReLU",
+                            "Sigmoid"
+                        ],
                         "conv_pre_film": {
                             "active": true,
                             "shift": false
@@ -1222,7 +1242,7 @@
                 0.8908312859402125,
                 -0.9132699262016566,
                 0.5664539919607592,
-                0.7339618155196765
+                0.01
             ],
             "sample_rate": 48000
         },
