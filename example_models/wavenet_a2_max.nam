@@ -1239,8 +1239,7 @@
                     2
                 ],
                 "activation": {
-                    "type": "Softsign",
-                    "alpha": 4.0
+                    "type": "Softsign"
                 },
                 "gating_mode": "none",
                 "head_bias": true,
