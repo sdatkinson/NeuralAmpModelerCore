@@ -610,7 +610,7 @@ std::unique_ptr<nam::DSP> nam::wavenet::Factory(const nlohmann::json& config, st
     const int head_size = layer_config["head_size"];
     const int kernel_size = layer_config["kernel_size"];
     const auto dilations = layer_config["dilations"];
-    const int num_layers = dilations.size();
+    const size_t num_layers = dilations.size();
 
     // Parse activation config(s) - support both single config and array
     std::vector<activations::ActivationConfig> activation_configs;
