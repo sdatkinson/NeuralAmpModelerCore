@@ -14,8 +14,33 @@
 
 namespace nam
 {
-struct Version
+class Version
 {
+public:
+  Version(int major, int minor, int patch)
+  : major(major)
+  , minor(minor)
+  , patch(patch)
+  {
+  }
+
+  std::string toString() const
+  {
+    return std::to_string(major) + "." + std::to_string(minor) + "." + std::to_string(patch);
+  }
+
+  bool operator>(const Version& other) const
+  {
+    return major > other.major
+           || (major == other.major && (minor > other.minor || (minor == other.minor && patch > other.patch)));
+  }
+
+  bool operator<(const Version& other) const
+  {
+    return major < other.major
+           || (major == other.major && (minor < other.minor || (minor == other.minor && patch < other.patch)));
+  }
+
   int major;
   int minor;
   int patch;
@@ -23,8 +48,6 @@ struct Version
 
 Version ParseVersion(const std::string& versionStr)
 {
-  Version version;
-
   // Split the version string into major, minor, and patch components
   std::stringstream ss(versionStr);
   std::string majorStr, minorStr, patchStr;
@@ -33,11 +56,14 @@ Version ParseVersion(const std::string& versionStr)
   std::getline(ss, patchStr);
 
   // Parse the components as integers and assign them to the version struct
+  int major;
+  int minor;
+  int patch;
   try
   {
-    version.major = std::stoi(majorStr);
-    version.minor = std::stoi(minorStr);
-    version.patch = std::stoi(patchStr);
+    major = std::stoi(majorStr);
+    minor = std::stoi(minorStr);
+    patch = std::stoi(patchStr);
   }
   catch (const std::invalid_argument&)
   {
@@ -49,23 +75,40 @@ Version ParseVersion(const std::string& versionStr)
   }
 
   // Validate the semver components
-  if (version.major < 0 || version.minor < 0 || version.patch < 0)
+  if (major < 0 || minor < 0 || patch < 0)
   {
     throw std::invalid_argument("Negative version component: " + versionStr);
   }
-  return version;
+  return Version(major, minor, patch);
 }
 
 void verify_config_version(const std::string versionStr)
 {
   Version version = ParseVersion(versionStr);
-  if (version.major > 0 || version.minor > 6)
+  Version currentVersion = Version(0, 6, 0);
+  Version earliestSupportedVersion = Version(0, 5, 0);
+
+  if (version < earliestSupportedVersion)
   {
     std::stringstream ss;
-    ss << "Model config is an unsupported version " << versionStr
+    ss << "Model config is an unsupported version " << versionStr << ". The earliest supported version is "
+       << earliestSupportedVersion.toString()
        << ". Try either converting the model to a more recent version, or "
           "update your version of the NAM plugin.";
     throw std::runtime_error(ss.str());
+  }
+  if (version.major > currentVersion.major || version.minor > currentVersion.minor)
+  {
+    std::stringstream ss;
+    ss << "Model config is an unsupported version " << versionStr << ". The latest fully-supported version is "
+       << currentVersion.toString();
+    throw std::runtime_error(ss.str());
+  }
+  else if (version.major == 0 && version.minor == 6 && version.patch > 0)
+  {
+    std::cerr << "Model config is a partially-supported version " << versionStr
+              << ". The latest fully-supported version is " << currentVersion.toString()
+              << ". Continuing with partial support." << std::endl;
   }
 }
 
