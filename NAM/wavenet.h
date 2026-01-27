@@ -67,13 +67,16 @@ struct _FiLMParams
   /// \brief Constructor
   /// \param active_ Whether FiLM is active at this location
   /// \param shift_ Whether to apply both scale and shift (true) or only scale (false)
-  _FiLMParams(bool active_, bool shift_)
+  /// \param groups_ Number of groups for grouped convolution in the condition-to-scale-shift submodule (default: 1)
+  _FiLMParams(bool active_, bool shift_, int groups_ = 1)
   : active(active_)
   , shift(shift_)
+  , groups(groups_)
   {
   }
   const bool active; ///< Whether FiLM is active
   const bool shift; ///< Whether to apply shift in addition to scale
+  const int groups; ///< Number of groups for grouped convolution in the condition-to-scale-shift submodule
 };
 
 /// \brief Parameters for constructing a single Layer
@@ -215,48 +218,53 @@ public:
     // Initialize FiLM objects
     if (params.conv_pre_film_params.active)
     {
-      _conv_pre_film =
-        std::make_unique<FiLM>(params.condition_size, params.channels, params.conv_pre_film_params.shift);
+      _conv_pre_film = std::make_unique<FiLM>(
+        params.condition_size, params.channels, params.conv_pre_film_params.shift, params.conv_pre_film_params.groups);
     }
     if (params.conv_post_film_params.active)
     {
       const int conv_out_channels =
         (params.gating_mode != GatingMode::NONE) ? 2 * params.bottleneck : params.bottleneck;
-      _conv_post_film =
-        std::make_unique<FiLM>(params.condition_size, conv_out_channels, params.conv_post_film_params.shift);
+      _conv_post_film = std::make_unique<FiLM>(params.condition_size, conv_out_channels,
+                                               params.conv_post_film_params.shift, params.conv_post_film_params.groups);
     }
     if (params.input_mixin_pre_film_params.active)
     {
       _input_mixin_pre_film =
-        std::make_unique<FiLM>(params.condition_size, params.condition_size, params.input_mixin_pre_film_params.shift);
+        std::make_unique<FiLM>(params.condition_size, params.condition_size, params.input_mixin_pre_film_params.shift,
+                               params.input_mixin_pre_film_params.groups);
     }
     if (params.input_mixin_post_film_params.active)
     {
       const int input_mixin_out_channels =
         (params.gating_mode != GatingMode::NONE) ? 2 * params.bottleneck : params.bottleneck;
-      _input_mixin_post_film = std::make_unique<FiLM>(
-        params.condition_size, input_mixin_out_channels, params.input_mixin_post_film_params.shift);
+      _input_mixin_post_film =
+        std::make_unique<FiLM>(params.condition_size, input_mixin_out_channels,
+                               params.input_mixin_post_film_params.shift, params.input_mixin_post_film_params.groups);
     }
     if (params.activation_pre_film_params.active)
     {
       const int z_channels = (params.gating_mode != GatingMode::NONE) ? 2 * params.bottleneck : params.bottleneck;
       _activation_pre_film =
-        std::make_unique<FiLM>(params.condition_size, z_channels, params.activation_pre_film_params.shift);
+        std::make_unique<FiLM>(params.condition_size, z_channels, params.activation_pre_film_params.shift,
+                               params.activation_pre_film_params.groups);
     }
     if (params.activation_post_film_params.active)
     {
       _activation_post_film =
-        std::make_unique<FiLM>(params.condition_size, params.bottleneck, params.activation_post_film_params.shift);
+        std::make_unique<FiLM>(params.condition_size, params.bottleneck, params.activation_post_film_params.shift,
+                               params.activation_post_film_params.groups);
     }
     if (params._1x1_post_film_params.active)
     {
-      _1x1_post_film =
-        std::make_unique<FiLM>(params.condition_size, params.channels, params._1x1_post_film_params.shift);
+      _1x1_post_film = std::make_unique<FiLM>(params.condition_size, params.channels,
+                                              params._1x1_post_film_params.shift, params._1x1_post_film_params.groups);
     }
     if (params.head1x1_post_film_params.active && params.head1x1_params.active)
     {
-      _head1x1_post_film = std::make_unique<FiLM>(
-        params.condition_size, params.head1x1_params.out_channels, params.head1x1_post_film_params.shift);
+      _head1x1_post_film =
+        std::make_unique<FiLM>(params.condition_size, params.head1x1_params.out_channels,
+                               params.head1x1_post_film_params.shift, params.head1x1_post_film_params.groups);
     }
   };
 

@@ -23,8 +23,9 @@ public:
   /// \param condition_dim Size of the conditioning input
   /// \param input_dim Size of the input to be modulated
   /// \param shift Whether to apply both scale and shift (true) or only scale (false)
-  FiLM(const int condition_dim, const int input_dim, const bool shift)
-  : _cond_to_scale_shift(condition_dim, (shift ? 2 : 1) * input_dim, /*bias=*/true)
+  /// \param groups Number of groups for grouped convolution in the condition-to-scale-shift submodule (default: 1)
+  FiLM(const int condition_dim, const int input_dim, const bool shift, const int groups = 1)
+  : _cond_to_scale_shift(condition_dim, (shift ? 2 : 1) * input_dim, /*bias=*/true, groups)
   , _do_shift(shift)
   {
   }
