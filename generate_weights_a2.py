@@ -85,7 +85,7 @@ def count_layer_weights(layer_config: Dict[str, Any], condition_size: int, layer
     A layer consists of:
     1. Conv1D: (channels, bottleneck*(2 if gated/blended else 1), kernel_size, bias=True, groups_input)
     2. Input mixin Conv1x1: (condition_size, bottleneck*(2 if gated/blended else 1), bias=False, groups_input_mixin)
-    3. 1x1 Conv1x1: (bottleneck, channels, bias=True, groups_1x1)
+    3. Optional layer1x1 Conv1x1: (bottleneck, channels, bias=True, layer1x1_groups)
     4. Optional head1x1 Conv1x1: (bottleneck, head1x1_out_channels, bias=True, head1x1_groups)
     5. FiLM modules (optional, various configurations)
     
@@ -99,7 +99,14 @@ def count_layer_weights(layer_config: Dict[str, Any], condition_size: int, layer
     kernel_size = layer_config["kernel_size"]
     groups_input = layer_config.get("groups_input", 1)
     groups_input_mixin = layer_config.get("groups_input_mixin", 1)
-    groups_1x1 = layer_config.get("groups_1x1", 1)
+    
+    # Parse layer1x1 parameters
+    layer1x1_active = True  # default to active if not present
+    layer1x1_groups = 1
+    if "layer1x1" in layer_config:
+        layer1x1_config = layer_config["layer1x1"]
+        layer1x1_active = layer1x1_config.get("active", True)  # default to active
+        layer1x1_groups = layer1x1_config.get("groups", 1)
     
     gating_mode = parse_gating_mode(layer_config, layer_index)
     
@@ -120,11 +127,12 @@ def count_layer_weights(layer_config: Dict[str, Any], condition_size: int, layer
         has_bias=False, groups=groups_input_mixin
     )
     
-    # 3. 1x1 Conv1x1 weights
-    weight_count += count_conv1x1_weights(
-        bottleneck, channels,
-        has_bias=True, groups=groups_1x1
-    )
+    # 3. layer1x1 Conv1x1 weights (only if active)
+    if layer1x1_active:
+        weight_count += count_conv1x1_weights(
+            bottleneck, channels,
+            has_bias=True, groups=layer1x1_groups
+        )
     
     # 4. Optional head1x1 weights
     head1x1_config = layer_config.get("head_1x1") or layer_config.get("head1x1")
@@ -145,7 +153,7 @@ def count_layer_weights(layer_config: Dict[str, Any], condition_size: int, layer
         ("input_mixin_post_film", conv_out_channels),
         ("activation_pre_film", conv_out_channels),
         ("activation_post_film", bottleneck),
-        ("1x1_post_film", channels),
+        ("layer1x1_post_film", channels if layer1x1_active else 0),  # Only count if layer1x1 is active
         ("head1x1_post_film", head1x1_config.get("out_channels", channels) if head1x1_config and head1x1_config.get("active") else 0)
     ]
     
@@ -243,15 +251,7 @@ def generate_weights(weight_count: int, seed: int = None,
     return [random.uniform(*weight_range) for _ in range(weight_count)]
 
 
-def process_model(input_path: Path, output_path: Path, seed: int = None) -> None:
-    """
-    Load a .nam file with empty weights and generate random weights for it.
-    """
-    # Load the input file
-    with open(input_path, 'r') as f:
-        model_data = json.load(f)
-    
-    print(f"Processing: {input_path}")
+def add_weights_to_model(model_data: Dict[str, Any], seed: int = None) -> None:
     print(f"Architecture: {model_data.get('architecture', 'Unknown')}")
     
     # Process condition_dsp if present
@@ -299,6 +299,18 @@ def process_model(input_path: Path, output_path: Path, seed: int = None) -> None
     total_weights += 1  # head_scale
     
     print(f"\nTotal weights generated: {total_weights}")
+
+
+def process_model(input_path: Path, output_path: Path, seed: int = None) -> None:
+    """
+    Load a .nam file with empty weights and generate random weights for it.
+    """
+    # Load the input file
+    with open(input_path, 'r') as f:
+        model_data = json.load(f)
+    
+    print(f"Processing: {input_path}")
+    add_weights_to_model(model_data, seed)
     
     # Write output file
     output_path.parent.mkdir(parents=True, exist_ok=True)
