@@ -331,7 +331,9 @@ nam::Conv1x1::Conv1x1(const int in_channels, const int out_channels, const bool 
   }
 
   this->_num_groups = groups;
-  this->_weight.resize(out_channels, in_channels);
+  // Initialize weight matrix to zero - critical for block-diagonal structure
+  // Off-diagonal blocks must be zero for single-matmul grouped convolution
+  this->_weight.setZero(out_channels, in_channels);
   this->_do_bias = _bias;
   if (_bias)
     this->_bias.resize(out_channels);
@@ -353,17 +355,9 @@ void nam::Conv1x1::set_weights_(std::vector<float>::iterator& weights)
     const long out_per_group = out_channels / numGroups;
     const long in_per_group = in_channels / numGroups;
 
-    // Pre-compute group block indices for efficient runtime access
-    this->_group_blocks.resize(numGroups);
-    for (int g = 0; g < numGroups; g++)
-    {
-      this->_group_blocks[g].out_start = g * out_per_group;
-      this->_group_blocks[g].in_start = g * in_per_group;
-      this->_group_blocks[g].out_size = out_per_group;
-      this->_group_blocks[g].in_size = in_per_group;
-    }
-
-    // For grouped convolutions, weights are organized per group
+    // For grouped convolutions, weights form a block-diagonal matrix.
+    // Off-diagonal blocks are already zero (from constructor).
+    // We only set the diagonal blocks here.
     // Weight layout: weights are [group0, group1, ..., groupN-1]
     // Each group's weight matrix is (out_channels/numGroups, in_channels/numGroups)
     for (int g = 0; g < numGroups; g++)
@@ -384,78 +378,62 @@ void nam::Conv1x1::set_weights_(std::vector<float>::iterator& weights)
 
 Eigen::MatrixXf nam::Conv1x1::process(const Eigen::MatrixXf& input, const int num_frames) const
 {
-  const int numGroups = this->_num_groups;
-  const long out_channels = get_out_channels();
+  const long out_channels = this->_weight.rows();
+  const long in_channels = this->_weight.cols();
 
-  Eigen::MatrixXf result(out_channels, num_frames);
-
-  if (numGroups == 1)
+  // For groups=1, use simple matrix multiply (most common case)
+  if (this->_num_groups == 1)
   {
-    // Standard convolution (no grouping)
     if (this->_do_bias)
-      result = (this->_weight * input.leftCols(num_frames)).colwise() + this->_bias;
+      return (this->_weight * input.leftCols(num_frames)).colwise() + this->_bias;
     else
-      result = this->_weight * input.leftCols(num_frames);
+      return this->_weight * input.leftCols(num_frames);
   }
-  else
+
+  // For grouped convolutions with small channel counts, explicit loop is faster
+  // than block-diagonal single matmul due to BLAS overhead on small matrices
+  const long out_per_group = out_channels / this->_num_groups;
+  const long in_per_group = in_channels / this->_num_groups;
+
+  Eigen::MatrixXf output(out_channels, num_frames);
+  for (int g = 0; g < this->_num_groups; g++)
   {
-    // Grouped convolution: process each group separately using pre-computed block indices
-    result.setZero();
-    for (int g = 0; g < numGroups; g++)
-    {
-      const auto& block = this->_group_blocks[g];
-
-      // Extract input slice for this group
-      auto input_group = input.leftCols(num_frames).middleRows(block.in_start, block.in_size);
-
-      // Extract weight slice for this group
-      auto weight_group = this->_weight.block(block.out_start, block.in_start, block.out_size, block.in_size);
-
-      // Extract output slice for this group
-      auto output_group = result.middleRows(block.out_start, block.out_size);
-
-      // Perform grouped convolution: output_group = weight_group * input_group
-      output_group.noalias() = weight_group * input_group;
-    }
-
-    // Add bias if present
-    if (this->_do_bias)
-      result.colwise() += this->_bias;
+    auto input_group = input.middleRows(g * in_per_group, in_per_group).leftCols(num_frames);
+    auto weight_group = this->_weight.block(g * out_per_group, g * in_per_group, out_per_group, in_per_group);
+    output.middleRows(g * out_per_group, out_per_group).noalias() = weight_group * input_group;
   }
 
-  return result;
+  if (this->_do_bias)
+    output.colwise() += this->_bias;
+
+  return output;
 }
 
 void nam::Conv1x1::process_(const Eigen::Ref<const Eigen::MatrixXf>& input, const int num_frames)
 {
   assert(num_frames <= _output.cols());
 
-  const int numGroups = this->_num_groups;
+  const long out_channels = this->_weight.rows();
+  const long in_channels = this->_weight.cols();
 
-  if (numGroups == 1)
+  // For groups=1, use simple matrix multiply (most common case)
+  if (this->_num_groups == 1)
   {
-    // Standard convolution (no grouping)
     _output.leftCols(num_frames).noalias() = this->_weight * input.leftCols(num_frames);
   }
   else
   {
-    // Grouped convolution: process each group separately using pre-computed block indices
-    _output.leftCols(num_frames).setZero();
-    for (int g = 0; g < numGroups; g++)
+    // For grouped convolutions with small channel counts, explicit loop is faster
+    // than block-diagonal single matmul due to BLAS overhead on small matrices
+    const long out_per_group = out_channels / this->_num_groups;
+    const long in_per_group = in_channels / this->_num_groups;
+
+    for (int g = 0; g < this->_num_groups; g++)
     {
-      const auto& block = this->_group_blocks[g];
-
-      // Extract input slice for this group
-      auto input_group = input.leftCols(num_frames).middleRows(block.in_start, block.in_size);
-
-      // Extract weight slice for this group
-      auto weight_group = this->_weight.block(block.out_start, block.in_start, block.out_size, block.in_size);
-
-      // Extract output slice for this group
-      auto output_group = _output.leftCols(num_frames).middleRows(block.out_start, block.out_size);
-
-      // Perform grouped convolution: output_group = weight_group * input_group
-      output_group.noalias() = weight_group * input_group;
+      auto input_group = input.middleRows(g * in_per_group, in_per_group).leftCols(num_frames);
+      auto weight_group = this->_weight.block(g * out_per_group, g * in_per_group, out_per_group, in_per_group);
+      _output.middleRows(g * out_per_group, out_per_group).leftCols(num_frames).noalias() =
+        weight_group * input_group;
     }
   }
 

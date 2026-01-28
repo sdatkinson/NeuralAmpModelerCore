@@ -22,8 +22,8 @@ constexpr int NUM_WARMUP_ITERATIONS = 10;
 constexpr int NUM_BENCHMARK_ITERATIONS = 100;
 
 // Benchmark configurations
-constexpr int CHANNELS[] = {8, 16, 32, 64, 128};
-constexpr int GROUPS[] = {1, 2, 4, 8, 16};
+constexpr int CHANNELS[] = {2, 3, 4, 5, 6, 7, 8};
+constexpr int GROUPS[] = {1, 2, 3, 4, 5, 6, 7, 8};
 constexpr int FRAMES[] = {64, 256, 1024};
 constexpr int KERNEL_SIZES[] = {1, 3}; // For Conv1D
 

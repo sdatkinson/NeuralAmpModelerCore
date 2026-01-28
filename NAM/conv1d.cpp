@@ -54,26 +54,15 @@ void Conv1D::set_size_(const int in_channels, const int out_channels, const int 
 
   this->_num_groups = groups;
   this->_weight.resize(kernel_size);
+  // Initialize weight matrices to zero - critical for block-diagonal structure
+  // Off-diagonal blocks must be zero for single-matmul grouped convolution
   for (size_t i = 0; i < this->_weight.size(); i++)
-    this->_weight[i].resize(out_channels,
-                            in_channels); // y = Ax, input array (C,L)
+    this->_weight[i].setZero(out_channels, in_channels);
   if (do_bias)
     this->_bias.resize(out_channels);
   else
     this->_bias.resize(0);
   this->_dilation = _dilation;
-
-  // Pre-compute group block indices for efficient runtime access
-  const long out_per_group = out_channels / groups;
-  const long in_per_group = in_channels / groups;
-  this->_group_blocks.resize(groups);
-  for (int g = 0; g < groups; g++)
-  {
-    this->_group_blocks[g].out_start = g * out_per_group;
-    this->_group_blocks[g].in_start = g * in_per_group;
-    this->_group_blocks[g].out_size = out_per_group;
-    this->_group_blocks[g].in_size = in_per_group;
-  }
 }
 
 void Conv1D::set_size_and_weights_(const int in_channels, const int out_channels, const int kernel_size,
@@ -116,52 +105,15 @@ void Conv1D::Process(const Eigen::MatrixXf& input, const int num_frames)
   // Zero output before processing
   _output.leftCols(num_frames).setZero();
 
-  const int numGroups = this->_num_groups;
-
-  // Process from ring buffer with dilation lookback
-  // After Write(), data is at positions [_write_pos, _write_pos+num_frames-1]
-  // For kernel tap k with offset, we need to read from _write_pos + offset
-  // The offset is negative (looking back), so _write_pos + offset reads from earlier positions
-  // The original process_() reads: input.middleCols(i_start + offset, ncols)
-  // where i_start is the current position and offset is negative for lookback
-
-  if (numGroups == 1)
+  // Block-diagonal optimization: each weight matrix has block-diagonal structure for grouped convs.
+  // Off-diagonal blocks are zeros, so a single matmul per kernel position gives the same result
+  // as G separate matmuls. This is more efficient because BLAS can optimize larger operations.
+  for (size_t k = 0; k < this->_weight.size(); k++)
   {
-    // Standard convolution (no grouping)
-    for (size_t k = 0; k < this->_weight.size(); k++)
-    {
-      const long offset = this->_dilation * (k + 1 - (long)this->_weight.size());
-      const long lookback = -offset;
-      auto input_block = _input_buffer.Read(num_frames, lookback);
-      _output.leftCols(num_frames).noalias() += this->_weight[k] * input_block;
-    }
-  }
-  else
-  {
-    // Grouped convolution: process each group separately using pre-computed block indices
-    for (int g = 0; g < numGroups; g++)
-    {
-      const auto& block = this->_group_blocks[g];
-
-      for (size_t k = 0; k < this->_weight.size(); k++)
-      {
-        const long offset = this->_dilation * (k + 1 - (long)this->_weight.size());
-        const long lookback = -offset;
-        auto input_block = _input_buffer.Read(num_frames, lookback);
-
-        // Extract input slice for this group
-        auto input_group = input_block.middleRows(block.in_start, block.in_size);
-
-        // Extract weight slice for this group
-        auto weight_group = this->_weight[k].block(block.out_start, block.in_start, block.out_size, block.in_size);
-
-        // Extract output slice for this group
-        auto output_group = _output.leftCols(num_frames).middleRows(block.out_start, block.out_size);
-
-        // Perform grouped convolution: output_group += weight_group * input_group
-        output_group.noalias() += weight_group * input_group;
-      }
-    }
+    const long offset = this->_dilation * (k + 1 - (long)this->_weight.size());
+    const long lookback = -offset;
+    auto input_block = _input_buffer.Read(num_frames, lookback);
+    _output.leftCols(num_frames).noalias() += this->_weight[k] * input_block;
   }
 
   // Add bias if present
@@ -177,47 +129,15 @@ void Conv1D::Process(const Eigen::MatrixXf& input, const int num_frames)
 void Conv1D::process_(const Eigen::MatrixXf& input, Eigen::MatrixXf& output, const long i_start, const long ncols,
                       const long j_start) const
 {
-  const int numGroups = this->_num_groups;
-
-  if (numGroups == 1)
+  // Block-diagonal optimization: each weight matrix has block-diagonal structure for grouped convs.
+  // Off-diagonal blocks are zeros, so a single matmul per kernel position gives the same result.
+  for (size_t k = 0; k < this->_weight.size(); k++)
   {
-    // Standard convolution (no grouping)
-    for (size_t k = 0; k < this->_weight.size(); k++)
-    {
-      const long offset = this->_dilation * (k + 1 - this->_weight.size());
-      if (k == 0)
-        output.middleCols(j_start, ncols).noalias() = this->_weight[k] * input.middleCols(i_start + offset, ncols);
-      else
-        output.middleCols(j_start, ncols).noalias() += this->_weight[k] * input.middleCols(i_start + offset, ncols);
-    }
-  }
-  else
-  {
-    // Grouped convolution: process each group separately using pre-computed block indices
-    for (int g = 0; g < numGroups; g++)
-    {
-      const auto& block = this->_group_blocks[g];
-
-      for (size_t k = 0; k < this->_weight.size(); k++)
-      {
-        const long offset = this->_dilation * (k + 1 - this->_weight.size());
-
-        // Extract input slice for this group
-        auto input_group = input.middleCols(i_start + offset, ncols).middleRows(block.in_start, block.in_size);
-
-        // Extract weight slice for this group
-        auto weight_group = this->_weight[k].block(block.out_start, block.in_start, block.out_size, block.in_size);
-
-        // Extract output slice for this group
-        auto output_group = output.middleCols(j_start, ncols).middleRows(block.out_start, block.out_size);
-
-        // Perform grouped convolution
-        if (k == 0)
-          output_group.noalias() = weight_group * input_group;
-        else
-          output_group.noalias() += weight_group * input_group;
-      }
-    }
+    const long offset = this->_dilation * (k + 1 - this->_weight.size());
+    if (k == 0)
+      output.middleCols(j_start, ncols).noalias() = this->_weight[k] * input.middleCols(i_start + offset, ncols);
+    else
+      output.middleCols(j_start, ncols).noalias() += this->_weight[k] * input.middleCols(i_start + offset, ncols);
   }
   if (this->_bias.size() > 0)
   {
