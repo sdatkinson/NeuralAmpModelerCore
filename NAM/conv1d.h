@@ -6,6 +6,19 @@
 
 namespace nam
 {
+
+/// \brief Pre-computed group block indices for grouped convolutions
+///
+/// Stores the indices for extracting input/output slices for each group,
+/// avoiding repeated computation during real-time processing.
+struct Conv1DGroupBlock
+{
+  long out_start; ///< Starting row index in output
+  long in_start; ///< Starting row index in input
+  long out_size; ///< Number of output channels per group
+  long in_size; ///< Number of input channels per group
+};
+
 /// \brief 1D dilated convolution layer
 ///
 /// Implements a 1D convolution with support for dilation and grouped convolution.
@@ -123,6 +136,7 @@ protected:
   Eigen::VectorXf _bias;
   int _dilation;
   int _num_groups;
+  std::vector<Conv1DGroupBlock> _group_blocks; ///< Pre-computed group block indices
 
 private:
   RingBuffer _input_buffer; // Ring buffer for input (channels x buffer_size)

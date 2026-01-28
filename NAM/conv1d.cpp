@@ -62,6 +62,18 @@ void Conv1D::set_size_(const int in_channels, const int out_channels, const int 
   else
     this->_bias.resize(0);
   this->_dilation = _dilation;
+
+  // Pre-compute group block indices for efficient runtime access
+  const long out_per_group = out_channels / groups;
+  const long in_per_group = in_channels / groups;
+  this->_group_blocks.resize(groups);
+  for (int g = 0; g < groups; g++)
+  {
+    this->_group_blocks[g].out_start = g * out_per_group;
+    this->_group_blocks[g].in_start = g * in_per_group;
+    this->_group_blocks[g].out_size = out_per_group;
+    this->_group_blocks[g].in_size = in_per_group;
+  }
 }
 
 void Conv1D::set_size_and_weights_(const int in_channels, const int out_channels, const int kernel_size,
@@ -105,10 +117,6 @@ void Conv1D::Process(const Eigen::MatrixXf& input, const int num_frames)
   _output.leftCols(num_frames).setZero();
 
   const int numGroups = this->_num_groups;
-  const long in_channels = get_in_channels();
-  const long out_channels = get_out_channels();
-  const long in_per_group = in_channels / numGroups;
-  const long out_per_group = out_channels / numGroups;
 
   // Process from ring buffer with dilation lookback
   // After Write(), data is at positions [_write_pos, _write_pos+num_frames-1]
@@ -130,9 +138,11 @@ void Conv1D::Process(const Eigen::MatrixXf& input, const int num_frames)
   }
   else
   {
-    // Grouped convolution: process each group separately
+    // Grouped convolution: process each group separately using pre-computed block indices
     for (int g = 0; g < numGroups; g++)
     {
+      const auto& block = this->_group_blocks[g];
+
       for (size_t k = 0; k < this->_weight.size(); k++)
       {
         const long offset = this->_dilation * (k + 1 - (long)this->_weight.size());
@@ -140,13 +150,13 @@ void Conv1D::Process(const Eigen::MatrixXf& input, const int num_frames)
         auto input_block = _input_buffer.Read(num_frames, lookback);
 
         // Extract input slice for this group
-        auto input_group = input_block.middleRows(g * in_per_group, in_per_group);
+        auto input_group = input_block.middleRows(block.in_start, block.in_size);
 
         // Extract weight slice for this group
-        auto weight_group = this->_weight[k].block(g * out_per_group, g * in_per_group, out_per_group, in_per_group);
+        auto weight_group = this->_weight[k].block(block.out_start, block.in_start, block.out_size, block.in_size);
 
         // Extract output slice for this group
-        auto output_group = _output.leftCols(num_frames).middleRows(g * out_per_group, out_per_group);
+        auto output_group = _output.leftCols(num_frames).middleRows(block.out_start, block.out_size);
 
         // Perform grouped convolution: output_group += weight_group * input_group
         output_group.noalias() += weight_group * input_group;
@@ -168,10 +178,6 @@ void Conv1D::process_(const Eigen::MatrixXf& input, Eigen::MatrixXf& output, con
                       const long j_start) const
 {
   const int numGroups = this->_num_groups;
-  const long in_channels = get_in_channels();
-  const long out_channels = get_out_channels();
-  const long in_per_group = in_channels / numGroups;
-  const long out_per_group = out_channels / numGroups;
 
   if (numGroups == 1)
   {
@@ -187,21 +193,23 @@ void Conv1D::process_(const Eigen::MatrixXf& input, Eigen::MatrixXf& output, con
   }
   else
   {
-    // Grouped convolution: process each group separately
+    // Grouped convolution: process each group separately using pre-computed block indices
     for (int g = 0; g < numGroups; g++)
     {
+      const auto& block = this->_group_blocks[g];
+
       for (size_t k = 0; k < this->_weight.size(); k++)
       {
         const long offset = this->_dilation * (k + 1 - this->_weight.size());
 
         // Extract input slice for this group
-        auto input_group = input.middleCols(i_start + offset, ncols).middleRows(g * in_per_group, in_per_group);
+        auto input_group = input.middleCols(i_start + offset, ncols).middleRows(block.in_start, block.in_size);
 
         // Extract weight slice for this group
-        auto weight_group = this->_weight[k].block(g * out_per_group, g * in_per_group, out_per_group, in_per_group);
+        auto weight_group = this->_weight[k].block(block.out_start, block.in_start, block.out_size, block.in_size);
 
         // Extract output slice for this group
-        auto output_group = output.middleCols(j_start, ncols).middleRows(g * out_per_group, out_per_group);
+        auto output_group = output.middleCols(j_start, ncols).middleRows(block.out_start, block.out_size);
 
         // Perform grouped convolution
         if (k == 0)

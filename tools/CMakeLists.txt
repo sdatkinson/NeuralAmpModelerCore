@@ -1,7 +1,7 @@
 file(GLOB_RECURSE NAM_SOURCES ../NAM/*.cpp ../NAM/*.c ../NAM*.h)
 
 # TODO: add loadmodel and run_tests to TOOLS?
-set(TOOLS benchmodel)
+set(TOOLS benchmodel benchmark_convolution)
 
 add_custom_target(tools ALL
 	DEPENDS ${TOOLS})
@@ -12,6 +12,7 @@ include_directories(tools ${NAM_DEPS_PATH}/nlohmann)
 
 add_executable(loadmodel loadmodel.cpp ${NAM_SOURCES})
 add_executable(benchmodel benchmodel.cpp ${NAM_SOURCES})
+add_executable(benchmark_convolution benchmark_convolution.cpp ${NAM_SOURCES})
 add_executable(run_tests run_tests.cpp test/allocation_tracking.cpp ${NAM_SOURCES})
 # Compile run_tests without optimizations to ensure allocation tracking works correctly
 # Also ensure assertions are enabled (NDEBUG is not defined) so tests actually run
@@ -31,31 +32,33 @@ endif()
 
 source_group(NAM ${CMAKE_CURRENT_SOURCE_DIR} FILES ${NAM_SOURCES})
 
-target_compile_features(${TOOLS} PUBLIC cxx_std_20)
+foreach(TOOL ${TOOLS})
+	target_compile_features(${TOOL} PUBLIC cxx_std_20)
 
-set_target_properties(${TOOLS}
-	PROPERTIES
-	CXX_VISIBILITY_PRESET hidden
-	INTERPROCEDURAL_OPTIMIZATION TRUE
-	PREFIX ""
-)
-
-if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
-	target_compile_definitions(${TOOLS} PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
-endif()
-
-if (MSVC)
-	target_compile_options(${TOOLS} PRIVATE
-		"$<$<CONFIG:DEBUG>:/W4>"
-		"$<$<CONFIG:RELEASE>:/O2>"
+	set_target_properties(${TOOL}
+		PROPERTIES
+		CXX_VISIBILITY_PRESET hidden
+		INTERPROCEDURAL_OPTIMIZATION TRUE
+		PREFIX ""
 	)
-else()
-	target_compile_options(${TOOLS} PRIVATE
-		-Wall -Wextra -Wpedantic -Wstrict-aliasing -Wunreachable-code -Weffc++ -Wno-unused-parameter
-		"$<$<CONFIG:DEBUG>:-Og;-ggdb;-Werror>"
-		"$<$<CONFIG:RELEASE>:-Ofast>"
-	)
-endif()
+
+	if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
+		target_compile_definitions(${TOOL} PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
+	endif()
+
+	if (MSVC)
+		target_compile_options(${TOOL} PRIVATE
+			"$<$<CONFIG:DEBUG>:/W4>"
+			"$<$<CONFIG:RELEASE>:/O2>"
+		)
+	else()
+		target_compile_options(${TOOL} PRIVATE
+			-Wall -Wextra -Wpedantic -Wstrict-aliasing -Wunreachable-code -Weffc++ -Wno-unused-parameter
+			"$<$<CONFIG:DEBUG>:-Og;-ggdb;-Werror>"
+			"$<$<CONFIG:RELEASE>:-Ofast>"
+		)
+	endif()
+endforeach()
 
 # There's an error in eigen's
 # /Users/steve/src/NeuralAmpModelerCore/Dependencies/eigen/Eigen/src/Core/products/GeneralBlockPanelKernel.h

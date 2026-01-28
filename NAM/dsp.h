@@ -269,6 +269,18 @@ std::unique_ptr<DSP> Factory(const nlohmann::json& config, std::vector<float>& w
 
 // NN modules =================================================================
 
+/// \brief Pre-computed group block indices for grouped convolutions
+///
+/// Stores the indices for extracting input/output slices for each group,
+/// avoiding repeated computation during real-time processing.
+struct GroupBlock
+{
+  long out_start; ///< Starting row index in output
+  long in_start; ///< Starting row index in input
+  long out_size; ///< Number of output channels per group
+  long in_size; ///< Number of input channels per group
+};
+
 /// \brief 1x1 convolution (really just a fully-connected linear layer operating per-sample)
 ///
 /// Performs a pointwise convolution, which is equivalent to a fully connected layer
@@ -330,6 +342,7 @@ protected:
   Eigen::MatrixXf _weight;
   Eigen::VectorXf _bias;
   int _num_groups;
+  std::vector<GroupBlock> _group_blocks; ///< Pre-computed group block indices
 
 private:
   Eigen::MatrixXf _output;

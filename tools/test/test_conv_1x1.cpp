@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "NAM/dsp.h"
+#include "allocation_tracking.h"
 
 namespace test_conv_1x1
 {
@@ -491,5 +492,99 @@ void test_process_multiple_calls()
   Eigen::MatrixXf output2 = conv.process(input2, 1);
   assert(std::abs(output2(0, 0) - 3.0f) < 0.01f);
   assert(std::abs(output2(1, 0) - 4.0f) < 0.01f);
+}
+
+// Test that grouped convolution process_() is real-time safe (no allocations)
+void test_process_grouped_realtime_safe()
+{
+  const int in_channels = 8;
+  const int out_channels = 8;
+  const bool do_bias = true;
+  const int groups = 4;
+  const int num_frames = 64;
+
+  nam::Conv1x1 conv(in_channels, out_channels, do_bias, groups);
+
+  // Initialize weights (identity-like for each group)
+  std::vector<float> weights;
+  const int in_per_group = in_channels / groups;
+  const int out_per_group = out_channels / groups;
+  for (int g = 0; g < groups; g++)
+  {
+    for (int i = 0; i < out_per_group; i++)
+    {
+      for (int j = 0; j < in_per_group; j++)
+      {
+        weights.push_back(i == j ? 1.0f : 0.0f);
+      }
+    }
+  }
+  // Add bias
+  for (int i = 0; i < out_channels; i++)
+  {
+    weights.push_back(0.0f);
+  }
+
+  auto it = weights.begin();
+  conv.set_weights_(it);
+  conv.SetMaxBufferSize(num_frames);
+
+  // Create input buffer
+  Eigen::MatrixXf input(in_channels, num_frames);
+  for (int i = 0; i < in_channels; i++)
+    for (int j = 0; j < num_frames; j++)
+      input(i, j) = static_cast<float>(i + j);
+
+  // Run allocation test
+  allocation_tracking::run_allocation_test_no_allocations(
+    nullptr,
+    [&]() {
+      conv.process_(input, num_frames);
+    },
+    nullptr, "test_process_grouped_realtime_safe");
+}
+
+// Test that non-grouped convolution process_() is also real-time safe
+void test_process_realtime_safe()
+{
+  const int in_channels = 16;
+  const int out_channels = 16;
+  const bool do_bias = true;
+  const int num_frames = 64;
+
+  nam::Conv1x1 conv(in_channels, out_channels, do_bias);
+
+  // Initialize weights (identity)
+  std::vector<float> weights;
+  for (int i = 0; i < out_channels; i++)
+  {
+    for (int j = 0; j < in_channels; j++)
+    {
+      weights.push_back(i == j ? 1.0f : 0.0f);
+    }
+  }
+  // Add bias
+  for (int i = 0; i < out_channels; i++)
+  {
+    weights.push_back(0.0f);
+  }
+
+  auto it = weights.begin();
+  conv.set_weights_(it);
+  conv.SetMaxBufferSize(num_frames);
+
+  // Create input buffer
+  Eigen::MatrixXf input(in_channels, num_frames);
+  for (int i = 0; i < in_channels; i++)
+    for (int j = 0; j < num_frames; j++)
+      input(i, j) = static_cast<float>(i + j);
+
+  // Run allocation test
+  allocation_tracking::run_allocation_test_no_allocations(
+    nullptr,
+    [&]() {
+      conv.process_(input, num_frames);
+    },
+    nullptr, "test_process_realtime_safe");
 }
 } // namespace test_conv_1x1
