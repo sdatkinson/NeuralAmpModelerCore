@@ -1,7 +1,7 @@
 file(GLOB_RECURSE NAM_SOURCES ../NAM/*.cpp ../NAM/*.c ../NAM*.h)
 
 # TODO: add loadmodel and run_tests to TOOLS?
-set(TOOLS benchmodel benchmark_convolution)
+set(TOOLS benchmodel benchmark_convolution benchmark_fully_fixed_conv)
 
 add_custom_target(tools ALL
 	DEPENDS ${TOOLS})
@@ -13,6 +13,7 @@ include_directories(tools ${NAM_DEPS_PATH}/nlohmann)
 add_executable(loadmodel loadmodel.cpp ${NAM_SOURCES})
 add_executable(benchmodel benchmodel.cpp ${NAM_SOURCES})
 add_executable(benchmark_convolution benchmark_convolution.cpp ${NAM_SOURCES})
+add_executable(benchmark_fully_fixed_conv benchmark_fully_fixed_conv.cpp ${NAM_SOURCES})
 add_executable(run_tests run_tests.cpp test/allocation_tracking.cpp ${NAM_SOURCES})
 # Compile run_tests without optimizations to ensure allocation tracking works correctly
 # Also ensure assertions are enabled (NDEBUG is not defined) so tests actually run
@@ -65,3 +66,6 @@ endforeach()
 # Don't let this break my build on debug:
 set_source_files_properties(../NAM/dsp.cpp PROPERTIES COMPILE_FLAGS "-Wno-error")
 set_source_files_properties(../NAM/conv1d.cpp PROPERTIES COMPILE_FLAGS "-Wno-error")
+set_source_files_properties(../NAM/conv1x1_factory.cpp PROPERTIES COMPILE_FLAGS "-Wno-error")
+set_source_files_properties(../NAM/conv1d_factory.cpp PROPERTIES COMPILE_FLAGS "-Wno-error")
+set_source_files_properties(benchmark_fully_fixed_conv.cpp PROPERTIES COMPILE_FLAGS "-Wno-error")

@@ -24,6 +24,9 @@
 #include "test/test_input_buffer_verification.cpp"
 #include "test/test_lstm.cpp"
 #include "test/test_wavenet_configurable_gating.cpp"
+#include "test/test_conv1x1_fixed.cpp"
+#include "test/test_conv1d_fixed.cpp"
+#include "test/test_fully_fixed_correctness.cpp"
 
 int main()
 {
@@ -231,6 +234,51 @@ int main()
 
   // Configurable gating/blending tests
   run_configurable_gating_tests();
+
+  // Conv1x1Fixed tests (templated implementation)
+  test_conv1x1_fixed::test_factory_create();
+  test_conv1x1_fixed::test_factory_create_with_groups();
+  test_conv1x1_fixed::test_numerical_equivalence();
+  test_conv1x1_fixed::test_numerical_equivalence_grouped();
+  test_conv1x1_fixed::test_process_realtime_safe();
+  test_conv1x1_fixed::test_process_grouped_realtime_safe();
+  test_conv1x1_fixed::test_set_max_buffer_size();
+  test_conv1x1_fixed::test_process_multiple_calls();
+  test_conv1x1_fixed::test_no_bias();
+
+  // Conv1DFixed tests (templated implementation)
+  test_conv1d_fixed::test_factory_create();
+  test_conv1d_fixed::test_factory_create_with_groups();
+  test_conv1d_fixed::test_numerical_equivalence();
+  test_conv1d_fixed::test_numerical_equivalence_grouped();
+  test_conv1d_fixed::test_numerical_equivalence_kernel4();
+  test_conv1d_fixed::test_process_realtime_safe();
+  test_conv1d_fixed::test_process_grouped_realtime_safe();
+  test_conv1d_fixed::test_set_max_buffer_size();
+  test_conv1d_fixed::test_process_multiple_calls();
+  test_conv1d_fixed::test_no_bias();
+  test_conv1d_fixed::test_with_dilation();
+
+  // Fully fixed correctness tests (Conv1x1FullyFixed vs Conv1x1)
+  test_fully_fixed_correctness::test_conv1x1_fully_fixed_2ch_32frames();
+  test_fully_fixed_correctness::test_conv1x1_fully_fixed_4ch_64frames();
+  test_fully_fixed_correctness::test_conv1x1_fully_fixed_4ch_4groups();
+  test_fully_fixed_correctness::test_conv1x1_fully_fixed_8ch_8groups();
+  test_fully_fixed_correctness::test_conv1x1_fully_fixed_no_bias();
+  test_fully_fixed_correctness::test_conv1x1_fully_fixed_partial_buffer();
+  test_fully_fixed_correctness::test_conv1x1_fully_fixed_multiple_calls();
+
+  // Fully fixed correctness tests (Conv1DFullyFixed vs Conv1D)
+  test_fully_fixed_correctness::test_conv1d_fully_fixed_4ch_k3_64frames();
+  test_fully_fixed_correctness::test_conv1d_fully_fixed_4ch_4groups();
+  test_fully_fixed_correctness::test_conv1d_fully_fixed_8ch_8groups();
+  test_fully_fixed_correctness::test_conv1d_fully_fixed_dilation2();
+  test_fully_fixed_correctness::test_conv1d_fully_fixed_dilation8();
+  test_fully_fixed_correctness::test_conv1d_fully_fixed_no_bias();
+  test_fully_fixed_correctness::test_conv1d_fully_fixed_multiple_calls();
+  test_fully_fixed_correctness::test_conv1d_fully_fixed_multiple_calls_dilation4();
+  test_fully_fixed_correctness::test_conv1d_fully_fixed_varying_buffer_sizes();
+  test_fully_fixed_correctness::test_conv1d_fully_fixed_kernel4();
 
   test_get_dsp::test_gets_input_level();
   test_get_dsp::test_gets_output_level();
