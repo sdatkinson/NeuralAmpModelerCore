@@ -57,7 +57,7 @@
                         "head_bias": false,
                         "groups_input": 3,
                         "groups_input_mixin": 1,
-                        "head_1x1": {
+                        "head1x1": {
                             "active": true,
                             "out_channels": 6,
                             "groups": 3
@@ -147,7 +147,7 @@
                         "head_bias": false,
                         "groups_input": 1,
                         "groups_input_mixin": 1,
-                        "head_1x1": {
+                        "head1x1": {
                             "active": true,
                             "out_channels": 4,
                             "groups": 2
@@ -1287,7 +1287,7 @@
                 "head_bias": true,
                 "groups_input": 1,
                 "groups_input_mixin": 4,
-                "head_1x1": {
+                "head1x1": {
                     "active": true,
                     "out_channels": 4,
                     "groups": 2

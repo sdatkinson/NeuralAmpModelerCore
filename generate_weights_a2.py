@@ -135,7 +135,7 @@ def count_layer_weights(layer_config: Dict[str, Any], condition_size: int, layer
         )
     
     # 4. Optional head1x1 weights
-    head1x1_config = layer_config.get("head_1x1") or layer_config.get("head1x1")
+    head1x1_config = layer_config.get("head1x1")
     if head1x1_config and head1x1_config.get("active", False):
         head1x1_out_channels = head1x1_config.get("out_channels", channels)
         head1x1_groups = head1x1_config.get("groups", 1)
@@ -177,7 +177,7 @@ def count_layer_array_weights(layer_config: Dict[str, Any]) -> int:
     1. Rechannel Conv1x1: (input_size, channels, bias=False)
     2. Layers (one per dilation)
     3. Head rechannel Conv1x1: (head_output_size, head_size, bias=head_bias)
-       where head_output_size = head_1x1.out_channels if head_1x1 active, else bottleneck
+       where head_output_size = head1x1.out_channels if head1x1 active, else bottleneck
     """
     input_size = layer_config["input_size"]
     condition_size = layer_config["condition_size"]
@@ -187,8 +187,8 @@ def count_layer_array_weights(layer_config: Dict[str, Any]) -> int:
     dilations = layer_config["dilations"]
     head_bias = layer_config.get("head_bias", False)
     
-    # Determine head output size: head_1x1.out_channels if active, else bottleneck
-    head1x1_config = layer_config.get("head_1x1") or layer_config.get("head1x1")
+    # Determine head output size: head1x1.out_channels if active, else bottleneck
+    head1x1_config = layer_config.get("head1x1")
     if head1x1_config and head1x1_config.get("active", False):
         head_output_size = head1x1_config.get("out_channels", channels)
     else:

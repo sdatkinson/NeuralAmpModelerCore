@@ -774,9 +774,9 @@ std::unique_ptr<nam::DSP> nam::wavenet::Factory(const nlohmann::json& config, st
     bool head1x1_active = false;
     int head1x1_out_channels = channels;
     int head1x1_groups = 1;
-    if (layer_config.find("head_1x1") != layer_config.end())
+    if (layer_config.find("head1x1") != layer_config.end())
     {
-      const auto& head1x1_config = layer_config["head_1x1"];
+      const auto& head1x1_config = layer_config["head1x1"];
       head1x1_active = head1x1_config["active"];
       head1x1_out_channels = head1x1_config["out_channels"];
       head1x1_groups = head1x1_config["groups"];
