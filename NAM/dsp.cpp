@@ -331,9 +331,30 @@ nam::Conv1x1::Conv1x1(const int in_channels, const int out_channels, const bool 
   }
 
   this->_num_groups = groups;
-  this->_weight.resize(out_channels, in_channels);
-  this->_weight.setZero();
   this->_do_bias = _bias;
+
+  // Check for depthwise convolution: groups == in_channels == out_channels
+  // In this case, each channel is processed independently with a single weight,
+  // so we can use efficient element-wise multiplication instead of matrix multiplication.
+  this->_is_depthwise = (groups == in_channels && in_channels == out_channels);
+
+  if (this->_is_depthwise)
+  {
+    // Depthwise: store one weight per channel
+    this->_channels = in_channels;
+    this->_depthwise_weight.resize(in_channels);
+    this->_depthwise_weight.setZero();
+    // Clear the matrix weight (not used)
+    this->_weight.resize(0, 0);
+  }
+  else
+  {
+    // Non-depthwise: store full weight matrix (block-diagonal for grouped convolutions)
+    this->_weight.resize(out_channels, in_channels);
+    this->_weight.setZero();
+    this->_channels = 0;
+  }
+
   if (_bias)
   {
     this->_bias.resize(out_channels);
@@ -349,7 +370,15 @@ void nam::Conv1x1::SetMaxBufferSize(const int maxBufferSize)
 
 void nam::Conv1x1::set_weights_(std::vector<float>::iterator& weights)
 {
-  if (this->_weight.size() > 0)
+  if (this->_is_depthwise)
+  {
+    // Depthwise convolution: one weight per channel
+    for (int c = 0; c < this->_channels; c++)
+    {
+      this->_depthwise_weight(c) = *(weights++);
+    }
+  }
+  else if (this->_weight.size() > 0)
   {
     const long out_channels = this->_weight.rows();
     const long in_channels = this->_weight.cols();
@@ -376,10 +405,35 @@ void nam::Conv1x1::set_weights_(std::vector<float>::iterator& weights)
       this->_bias(i) = *(weights++);
 }
 
+long nam::Conv1x1::get_out_channels() const
+{
+  if (this->_is_depthwise)
+    return this->_channels;
+  return this->_weight.rows();
+}
+
+long nam::Conv1x1::get_in_channels() const
+{
+  if (this->_is_depthwise)
+    return this->_channels;
+  return this->_weight.cols();
+}
+
 Eigen::MatrixXf nam::Conv1x1::process(const Eigen::MatrixXf& input, const int num_frames) const
 {
-  // Single GEMM for all cases - block-diagonal zero structure handles grouping
-  Eigen::MatrixXf result = this->_weight * input.leftCols(num_frames);
+  Eigen::MatrixXf result(get_out_channels(), num_frames);
+
+  if (this->_is_depthwise)
+  {
+    // Depthwise convolution: efficient element-wise multiplication
+    // Each channel is scaled by its corresponding weight
+    result.noalias() = this->_depthwise_weight.asDiagonal() * input.leftCols(num_frames);
+  }
+  else
+  {
+    // Single GEMM for all cases - block-diagonal zero structure handles grouping
+    result.noalias() = this->_weight * input.leftCols(num_frames);
+  }
 
   if (this->_do_bias)
     result.colwise() += this->_bias;
@@ -391,8 +445,17 @@ void nam::Conv1x1::process_(const Eigen::Ref<const Eigen::MatrixXf>& input, cons
 {
   assert(num_frames <= _output.cols());
 
-  // Single GEMM for all cases - block-diagonal zero structure handles grouping
-  _output.leftCols(num_frames).noalias() = this->_weight * input.leftCols(num_frames);
+  if (this->_is_depthwise)
+  {
+    // Depthwise convolution: efficient element-wise multiplication
+    // Each channel is scaled by its corresponding weight
+    _output.leftCols(num_frames).noalias() = this->_depthwise_weight.asDiagonal() * input.leftCols(num_frames);
+  }
+  else
+  {
+    // Single GEMM for all cases - block-diagonal zero structure handles grouping
+    _output.leftCols(num_frames).noalias() = this->_weight * input.leftCols(num_frames);
+  }
 
   if (this->_do_bias)
     _output.leftCols(num_frames).colwise() += this->_bias;

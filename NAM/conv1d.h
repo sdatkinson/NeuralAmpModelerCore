@@ -95,11 +95,11 @@ public:
                 const long j_start) const;
   /// \brief Get the number of input channels
   /// \return Number of input channels
-  long get_in_channels() const { return this->_weight.size() > 0 ? this->_weight[0].cols() : 0; };
+  long get_in_channels() const;
 
   /// \brief Get the kernel size
   /// \return Kernel size
-  long get_kernel_size() const { return this->_weight.size(); };
+  long get_kernel_size() const;
 
   /// \brief Get the total number of weights
   /// \return Total number of weight parameters
@@ -107,7 +107,7 @@ public:
 
   /// \brief Get the number of output channels
   /// \return Number of output channels
-  long get_out_channels() const { return this->_weight.size() > 0 ? this->_weight[0].rows() : 0; };
+  long get_out_channels() const;
 
   /// \brief Get the dilation factor
   /// \return Dilation factor
@@ -118,8 +118,13 @@ public:
   bool has_bias() const { return this->_bias.size() > 0; };
 
 protected:
-  // conv[kernel](cout, cin)
+  // conv[kernel](cout, cin) - used for non-depthwise convolutions
   std::vector<Eigen::MatrixXf> _weight;
+  // For depthwise convolution (groups == in_channels == out_channels):
+  // stores one weight per channel per kernel tap
+  std::vector<Eigen::VectorXf> _depthwise_weight;
+  bool _is_depthwise = false;
+  int _channels = 0; // Used for depthwise case (in_channels == out_channels)
   Eigen::VectorXf _bias;
   int _dilation;
   int _num_groups;
