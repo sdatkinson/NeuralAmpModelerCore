@@ -323,19 +323,13 @@ public:
   /// \param num_frames Number of frames to process
   void process_(const Eigen::Ref<const Eigen::MatrixXf>& input, const int num_frames);
 
-  long get_out_channels() const;
-  long get_in_channels() const;
+  long get_out_channels() const { return this->_weight.rows(); };
+  long get_in_channels() const { return this->_weight.cols(); };
 
 protected:
-  // For groups == 1: single weight matrix (out_channels x in_channels)
-  // For groups > 1: empty (use _group_weights instead)
   Eigen::MatrixXf _weight;
-  // For groups > 1: vector of per-group weight matrices, each (out_per_group x in_per_group)
-  std::vector<Eigen::MatrixXf> _group_weights;
   Eigen::VectorXf _bias;
   int _num_groups;
-  int _in_channels;
-  int _out_channels;
 
 private:
   Eigen::MatrixXf _output;

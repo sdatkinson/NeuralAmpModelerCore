@@ -317,10 +317,6 @@ std::unique_ptr<nam::DSP> nam::linear::Factory(const nlohmann::json& config, std
 // Conv1x1 ====================================================================
 
 nam::Conv1x1::Conv1x1(const int in_channels, const int out_channels, const bool _bias, const int groups)
-: _num_groups(groups)
-, _in_channels(in_channels)
-, _out_channels(out_channels)
-, _do_bias(_bias)
 {
   // Validate that channels divide evenly by groups
   if (in_channels % groups != 0)
@@ -334,25 +330,10 @@ nam::Conv1x1::Conv1x1(const int in_channels, const int out_channels, const bool 
                              + std::to_string(groups) + ")");
   }
 
-  if (groups == 1)
-  {
-    // Single group: use single weight matrix
-    this->_weight.resize(out_channels, in_channels);
-    this->_weight.setZero();
-  }
-  else
-  {
-    // Multiple groups: use per-group weight matrices (more memory efficient)
-    const int out_per_group = out_channels / groups;
-    const int in_per_group = in_channels / groups;
-    this->_group_weights.resize(groups);
-    for (int g = 0; g < groups; g++)
-    {
-      this->_group_weights[g].resize(out_per_group, in_per_group);
-      this->_group_weights[g].setZero();
-    }
-  }
-
+  this->_num_groups = groups;
+  this->_weight.resize(out_channels, in_channels);
+  this->_weight.setZero();
+  this->_do_bias = _bias;
   if (_bias)
   {
     this->_bias.resize(out_channels);
@@ -368,79 +349,37 @@ void nam::Conv1x1::SetMaxBufferSize(const int maxBufferSize)
 
 void nam::Conv1x1::set_weights_(std::vector<float>::iterator& weights)
 {
-  const int numGroups = this->_num_groups;
-
-  if (numGroups == 1)
+  if (this->_weight.size() > 0)
   {
-    // Single group: populate the single weight matrix
-    if (this->_weight.size() > 0)
-    {
-      const long out_channels = this->_weight.rows();
-      const long in_channels = this->_weight.cols();
-      for (long i = 0; i < out_channels; i++)
-      {
-        for (long j = 0; j < in_channels; j++)
-        {
-          this->_weight(i, j) = *(weights++);
-        }
-      }
-    }
-  }
-  else
-  {
-    // Multiple groups: populate per-group weight matrices
-    const long out_per_group = this->_out_channels / numGroups;
-    const long in_per_group = this->_in_channels / numGroups;
+    const long out_channels = this->_weight.rows();
+    const long in_channels = this->_weight.cols();
+    const int numGroups = this->_num_groups;
+    const long out_per_group = out_channels / numGroups;
+    const long in_per_group = in_channels / numGroups;
 
+    // For grouped convolutions, weights are organized per group
+    // Weight layout: weights are [group0, group1, ..., groupN-1]
+    // Each group's weight matrix is (out_channels/numGroups, in_channels/numGroups)
     for (int g = 0; g < numGroups; g++)
     {
-      for (long i = 0; i < out_per_group; i++)
+      for (auto i = 0; i < out_per_group; i++)
       {
-        for (long j = 0; j < in_per_group; j++)
+        for (auto j = 0; j < in_per_group; j++)
         {
-          this->_group_weights[g](i, j) = *(weights++);
+          this->_weight(g * out_per_group + i, g * in_per_group + j) = *(weights++);
         }
       }
     }
   }
-
   if (this->_do_bias)
     for (int i = 0; i < this->_bias.size(); i++)
       this->_bias(i) = *(weights++);
 }
 
-long nam::Conv1x1::get_out_channels() const
-{
-  return this->_out_channels;
-}
-
-long nam::Conv1x1::get_in_channels() const
-{
-  return this->_in_channels;
-}
-
 Eigen::MatrixXf nam::Conv1x1::process(const Eigen::MatrixXf& input, const int num_frames) const
 {
-  const int numGroups = this->_num_groups;
-  Eigen::MatrixXf result(this->_out_channels, num_frames);
-
-  if (numGroups == 1)
-  {
-    // Single GEMM for non-grouped case
-    result.noalias() = this->_weight * input.leftCols(num_frames);
-  }
-  else
-  {
-    // Grouped convolution: process each group with compact weight matrices
-    const long in_per_group = this->_in_channels / numGroups;
-    const long out_per_group = this->_out_channels / numGroups;
-
-    for (int g = 0; g < numGroups; g++)
-    {
-      result.middleRows(g * out_per_group, out_per_group).noalias() =
-        this->_group_weights[g] * input.leftCols(num_frames).middleRows(g * in_per_group, in_per_group);
-    }
-  }
+  // Single GEMM for all cases - block-diagonal zero structure handles grouping
+  Eigen::MatrixXf result = this->_weight * input.leftCols(num_frames);
 
   if (this->_do_bias)
     result.colwise() += this->_bias;
@@ -452,25 +391,8 @@ void nam::Conv1x1::process_(const Eigen::Ref<const Eigen::MatrixXf>& input, cons
 {
   assert(num_frames <= _output.cols());
 
-  const int numGroups = this->_num_groups;
-
-  if (numGroups == 1)
-  {
-    // Single GEMM for non-grouped case
-    _output.leftCols(num_frames).noalias() = this->_weight * input.leftCols(num_frames);
-  }
-  else
-  {
-    // Grouped convolution: process each group with compact weight matrices
-    const long in_per_group = this->_in_channels / numGroups;
-    const long out_per_group = this->_out_channels / numGroups;
-
-    for (int g = 0; g < numGroups; g++)
-    {
-      _output.leftCols(num_frames).middleRows(g * out_per_group, out_per_group).noalias() =
-        this->_group_weights[g] * input.leftCols(num_frames).middleRows(g * in_per_group, in_per_group);
-    }
-  }
+  // Single GEMM for all cases - block-diagonal zero structure handles grouping
+  _output.leftCols(num_frames).noalias() = this->_weight * input.leftCols(num_frames);
 
   if (this->_do_bias)
     _output.leftCols(num_frames).colwise() += this->_bias;
