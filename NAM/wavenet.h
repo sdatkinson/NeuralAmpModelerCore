@@ -59,6 +59,25 @@ struct Head1x1Params
   const int groups; ///< Number of groups for grouped convolution
 };
 
+/// \brief Parameters for layer1x1 configuration
+///
+/// Configures an optional 1x1 convolution that processes the activation output
+/// for the residual connection to the next layer.
+struct Layer1x1Params
+{
+  /// \brief Constructor
+  /// \param active_ Whether the layer1x1 convolution is active
+  /// \param groups_ Number of groups for grouped convolution
+  Layer1x1Params(bool active_, int groups_)
+  : active(active_)
+  , groups(groups_)
+  {
+  }
+
+  const bool active; ///< Whether the layer1x1 convolution is active
+  const int groups; ///< Number of groups for grouped convolution
+};
+
 /// \brief Parameters for FiLM (Feature-wise Linear Modulation) configuration
 ///
 /// FiLM applies per-channel scaling and optional shifting based on conditioning input.
@@ -94,7 +113,7 @@ struct LayerParams
   /// \param gating_mode_ Gating mode (NONE, GATED, or BLENDED)
   /// \param groups_input_ Number of groups for the input convolution
   /// \param groups_input_mixin_ Number of groups for the input mixin convolution
-  /// \param groups_1x1_ Number of groups for the 1x1 convolution
+  /// \param layer1x1_params_ Configuration of the optional layer1x1 convolution
   /// \param head1x1_params_ Configuration of the optional head1x1 convolution
   /// \param secondary_activation_config_ Secondary activation (for gating/blending)
   /// \param conv_pre_film_params_ FiLM parameters before the input convolution
@@ -102,18 +121,18 @@ struct LayerParams
   /// \param input_mixin_pre_film_params_ FiLM parameters before the input mixin
   /// \param input_mixin_post_film_params_ FiLM parameters after the input mixin
   /// \param activation_pre_film_params_ FiLM parameters after the input/mixin summed output before activation
-  /// \param activation_post_film_params_ FiLM parameters after the activation output before the 1x1 convolution
-  /// \param _1x1_post_film_params_ FiLM parameters after the 1x1 convolution
+  /// \param activation_post_film_params_ FiLM parameters after the activation output before the layer1x1 convolution
+  /// \param _layer1x1_post_film_params_ FiLM parameters after the layer1x1 convolution
   /// \param head1x1_post_film_params_ FiLM parameters after the head1x1 convolution
   LayerParams(const int condition_size_, const int channels_, const int bottleneck_, const int kernel_size_,
               const int dilation_, const activations::ActivationConfig& activation_config_,
               const GatingMode gating_mode_, const int groups_input_, const int groups_input_mixin_,
-              const int groups_1x1_, const Head1x1Params& head1x1_params_,
+              const Layer1x1Params& layer1x1_params_, const Head1x1Params& head1x1_params_,
               const activations::ActivationConfig& secondary_activation_config_,
               const _FiLMParams& conv_pre_film_params_, const _FiLMParams& conv_post_film_params_,
               const _FiLMParams& input_mixin_pre_film_params_, const _FiLMParams& input_mixin_post_film_params_,
               const _FiLMParams& activation_pre_film_params_, const _FiLMParams& activation_post_film_params_,
-              const _FiLMParams& _1x1_post_film_params_, const _FiLMParams& head1x1_post_film_params_)
+              const _FiLMParams& _layer1x1_post_film_params_, const _FiLMParams& head1x1_post_film_params_)
   : condition_size(condition_size_)
   , channels(channels_)
   , bottleneck(bottleneck_)
@@ -123,7 +142,7 @@ struct LayerParams
   , gating_mode(gating_mode_)
   , groups_input(groups_input_)
   , groups_input_mixin(groups_input_mixin_)
-  , groups_1x1(groups_1x1_)
+  , layer1x1_params(layer1x1_params_)
   , head1x1_params(head1x1_params_)
   , secondary_activation_config(secondary_activation_config_)
   , conv_pre_film_params(conv_pre_film_params_)
@@ -132,7 +151,7 @@ struct LayerParams
   , input_mixin_post_film_params(input_mixin_post_film_params_)
   , activation_pre_film_params(activation_pre_film_params_)
   , activation_post_film_params(activation_post_film_params_)
-  , _1x1_post_film_params(_1x1_post_film_params_)
+  , _layer1x1_post_film_params(_layer1x1_post_film_params_)
   , head1x1_post_film_params(head1x1_post_film_params_)
   {
   }
@@ -146,7 +165,7 @@ struct LayerParams
   const GatingMode gating_mode; ///< Gating mode (NONE, GATED, or BLENDED)
   const int groups_input; ///< Number of groups for the input convolution
   const int groups_input_mixin; ///< Number of groups for the input mixin convolution
-  const int groups_1x1; ///< Number of groups for the 1x1 convolution
+  const Layer1x1Params layer1x1_params; ///< Configuration of the optional layer1x1 convolution
   const Head1x1Params head1x1_params; ///< Configuration of the optional head1x1 convolution
   const activations::ActivationConfig secondary_activation_config; ///< Secondary activation (for gating/blending)
   const _FiLMParams conv_pre_film_params; ///< FiLM parameters before the input convolution
@@ -155,7 +174,7 @@ struct LayerParams
   const _FiLMParams input_mixin_post_film_params; ///< FiLM parameters after the input mixin
   const _FiLMParams activation_pre_film_params; ///< FiLM parameters before activation
   const _FiLMParams activation_post_film_params; ///< FiLM parameters after activation
-  const _FiLMParams _1x1_post_film_params; ///< FiLM parameters after the 1x1 convolution
+  const _FiLMParams _layer1x1_post_film_params; ///< FiLM parameters after the layer1x1 convolution (layer1x1_post_film)
   const _FiLMParams head1x1_post_film_params; ///< FiLM parameters after the head1x1 convolution
 };
 
@@ -166,9 +185,10 @@ struct LayerParams
 /// 2. Input mixin (conditioning input processing, with optional pre/post-FiLM)
 /// 3. Sum of conv and input mixin outputs
 /// 4. Activation (with optional gating/blending and pre/post FiLM)
-/// 5. 1x1 convolution for the next layer (with optional post-FiLM)
+/// 5. Optional layer1x1 convolution for the next layer (with optional post-FiLM)
 /// 6. Optional 1x1 convolution for the head output (with optional post-FiLM)
-/// 7. Residual connection (input + 1x1 output) and skip connection (to next layer)
+/// 7. Residual connection (input + layer1x1 output, or just input if layer1x1 inactive) and skip connection (to next
+/// layer)
 ///
 /// The layer supports multiple gating modes and FiLM at various points in the computation.
 /// See the walkthrough documentation for detailed step-by-step explanation.
@@ -177,18 +197,37 @@ class _Layer
 public:
   /// \brief Constructor with LayerParams
   /// \param params Parameters for constructing the layer
-  /// \throws std::invalid_argument If head1x1_post_film_params is active but head1x1 is not
+  /// \throws std::invalid_argument If head1x1_post_film_params is active but head1x1 is not, or if layer1x1 is inactive
+  /// but bottleneck != channels
   _Layer(const LayerParams& params)
   : _conv(params.channels, (params.gating_mode != GatingMode::NONE) ? 2 * params.bottleneck : params.bottleneck,
           params.kernel_size, true, params.dilation, params.groups_input)
   , _input_mixin(params.condition_size,
                  (params.gating_mode != GatingMode::NONE) ? 2 * params.bottleneck : params.bottleneck, false,
                  params.groups_input_mixin)
-  , _1x1(params.bottleneck, params.channels, true, params.groups_1x1)
   , _activation(activations::Activation::get_activation(params.activation_config))
   , _gating_mode(params.gating_mode)
   , _bottleneck(params.bottleneck)
   {
+    if (params.layer1x1_params.active)
+    {
+      _layer1x1 = std::make_unique<Conv1x1>(params.bottleneck, params.channels, true, params.layer1x1_params.groups);
+    }
+    else
+    {
+      // Validation: if layer1x1 is inactive, bottleneck must equal channels
+      if (params.bottleneck != params.channels)
+      {
+        throw std::invalid_argument("When layer1x1.active is false, bottleneck (" + std::to_string(params.bottleneck)
+                                    + ") must equal channels (" + std::to_string(params.channels) + ")");
+      }
+      // If there's a post-layer1x1 FiLM but no layer1x1, this is redundant--don't allow it
+      if (params._layer1x1_post_film_params.active)
+      {
+        throw std::invalid_argument("layer1x1_post_film cannot be active when layer1x1 is not active");
+      }
+    }
+
     if (params.head1x1_params.active)
     {
       _head1x1 = std::make_unique<Conv1x1>(
@@ -255,10 +294,11 @@ public:
         std::make_unique<FiLM>(params.condition_size, params.bottleneck, params.activation_post_film_params.shift,
                                params.activation_post_film_params.groups);
     }
-    if (params._1x1_post_film_params.active)
+    if (params._layer1x1_post_film_params.active && params.layer1x1_params.active)
     {
-      _1x1_post_film = std::make_unique<FiLM>(params.condition_size, params.channels,
-                                              params._1x1_post_film_params.shift, params._1x1_post_film_params.groups);
+      _layer1x1_post_film =
+        std::make_unique<FiLM>(params.condition_size, params.channels, params._layer1x1_post_film_params.shift,
+                               params._layer1x1_post_film_params.groups);
     }
     if (params.head1x1_post_film_params.active && params.head1x1_params.active)
     {
@@ -282,7 +322,7 @@ public:
   /// 1. Input convolution (with optional pre/post-FiLM)
   /// 2. Input mixin processing (with optional pre/post-FiLM)
   /// 3. Sum and activation (with optional gating/blending and pre/post-FiLM)
-  /// 4. 1x1 convolution toward the skip connection for next layer (with optional post-FiLM)
+  /// 4. Optional layer1x1 convolution toward the skip connection for next layer (with optional post-FiLM)
   /// 5. Optional 1x1 convolution for the head output (with optional post-FiLM)
   /// 6. Store outputs for next layer and the layer array head
   ///
@@ -306,7 +346,7 @@ public:
   /// \return Kernel size
   long get_kernel_size() const { return this->_conv.get_kernel_size(); };
 
-  /// \brief Get output to next layer (residual connection: input + _1x1 output)
+  /// \brief Get output to next layer (residual connection: input + layer1x1 output)
   ///
   /// Returns the full pre-allocated buffer; only the first num_frames columns
   /// are valid for a given processing call. Slice with .leftCols(num_frames) as needed.
@@ -341,13 +381,13 @@ private:
   Conv1D _conv;
   // Input mixin
   Conv1x1 _input_mixin;
-  // The post-activation 1x1 convolution
-  Conv1x1 _1x1;
+  // The post-activation layer1x1 convolution (optional)
+  std::unique_ptr<Conv1x1> _layer1x1;
   // The post-activation 1x1 convolution outputting to the head, optional
   std::unique_ptr<Conv1x1> _head1x1;
   // The internal state
   Eigen::MatrixXf _z;
-  // Output to next layer (residual connection: input + _1x1 output)
+  // Output to next layer (residual connection: input + layer1x1 output, or just input if layer1x1 inactive)
   Eigen::MatrixXf _output_next_layer;
   // Output to head (skip connection: activated conv output)
   Eigen::MatrixXf _output_head;
@@ -367,7 +407,7 @@ private:
   std::unique_ptr<FiLM> _input_mixin_post_film;
   std::unique_ptr<FiLM> _activation_pre_film;
   std::unique_ptr<FiLM> _activation_post_film;
-  std::unique_ptr<FiLM> _1x1_post_film;
+  std::unique_ptr<FiLM> _layer1x1_post_film;
   std::unique_ptr<FiLM> _head1x1_post_film;
 };
 
@@ -391,7 +431,7 @@ public:
   /// \param head_bias_ Whether to use bias in the head rechannel
   /// \param groups_input Number of groups for input convolutions
   /// \param groups_input_mixin_ Number of groups for input mixin convolutions
-  /// \param groups_1x1_ Number of groups for 1x1 convolutions
+  /// \param layer1x1_params_ Parameters for optional layer1x1 convolutions
   /// \param head1x1_params_ Parameters for optional head1x1 convolutions
   /// \param secondary_activation_configs_ Vector of secondary activation configs for gating/blending, one per layer
   /// \param conv_pre_film_params_ FiLM parameters before input convolutions
@@ -400,7 +440,7 @@ public:
   /// \param input_mixin_post_film_params_ FiLM parameters after input mixin
   /// \param activation_pre_film_params_ FiLM parameters before activation
   /// \param activation_post_film_params_ FiLM parameters after activation
-  /// \param _1x1_post_film_params_ FiLM parameters after 1x1 convolutions
+  /// \param _layer1x1_post_film_params_ FiLM parameters after layer1x1 convolutions
   /// \param head1x1_post_film_params_ FiLM parameters after head1x1 convolutions
   /// \throws std::invalid_argument If dilations, activation_configs, gating_modes, or secondary_activation_configs
   /// sizes don't match
@@ -408,12 +448,13 @@ public:
                    const int bottleneck_, const int kernel_size_, const std::vector<int>&& dilations_,
                    const std::vector<activations::ActivationConfig>&& activation_configs_,
                    const std::vector<GatingMode>&& gating_modes_, const bool head_bias_, const int groups_input,
-                   const int groups_input_mixin_, const int groups_1x1_, const Head1x1Params& head1x1_params_,
+                   const int groups_input_mixin_, const Layer1x1Params& layer1x1_params_,
+                   const Head1x1Params& head1x1_params_,
                    const std::vector<activations::ActivationConfig>&& secondary_activation_configs_,
                    const _FiLMParams& conv_pre_film_params_, const _FiLMParams& conv_post_film_params_,
                    const _FiLMParams& input_mixin_pre_film_params_, const _FiLMParams& input_mixin_post_film_params_,
                    const _FiLMParams& activation_pre_film_params_, const _FiLMParams& activation_post_film_params_,
-                   const _FiLMParams& _1x1_post_film_params_, const _FiLMParams& head1x1_post_film_params_)
+                   const _FiLMParams& _layer1x1_post_film_params_, const _FiLMParams& head1x1_post_film_params_)
   : input_size(input_size_)
   , condition_size(condition_size_)
   , head_size(head_size_)
@@ -426,7 +467,7 @@ public:
   , head_bias(head_bias_)
   , groups_input(groups_input)
   , groups_input_mixin(groups_input_mixin_)
-  , groups_1x1(groups_1x1_)
+  , layer1x1_params(layer1x1_params_)
   , head1x1_params(head1x1_params_)
   , secondary_activation_configs(std::move(secondary_activation_configs_))
   , conv_pre_film_params(conv_pre_film_params_)
@@ -435,7 +476,7 @@ public:
   , input_mixin_post_film_params(input_mixin_post_film_params_)
   , activation_pre_film_params(activation_pre_film_params_)
   , activation_post_film_params(activation_post_film_params_)
-  , _1x1_post_film_params(_1x1_post_film_params_)
+  , _layer1x1_post_film_params(_layer1x1_post_film_params_)
   , head1x1_post_film_params(head1x1_post_film_params_)
   {
     const size_t num_layers = dilations.size();
@@ -470,7 +511,7 @@ public:
   const bool head_bias; ///< Whether to use bias in head rechannel
   const int groups_input; ///< Number of groups for input convolutions
   const int groups_input_mixin; ///< Number of groups for input mixin
-  const int groups_1x1; ///< Number of groups for 1x1 convolutions
+  const Layer1x1Params layer1x1_params; ///< Parameters for optional layer1x1
   const Head1x1Params head1x1_params; ///< Parameters for optional head1x1
   std::vector<activations::ActivationConfig>
     secondary_activation_configs; ///< Secondary activation configs for gating/blending, one per layer
@@ -480,7 +521,7 @@ public:
   const _FiLMParams input_mixin_post_film_params; ///< FiLM params after input mixin
   const _FiLMParams activation_pre_film_params; ///< FiLM params before activation
   const _FiLMParams activation_post_film_params; ///< FiLM params after activation
-  const _FiLMParams _1x1_post_film_params; ///< FiLM params after 1x1 conv
+  const _FiLMParams _layer1x1_post_film_params; ///< FiLM params after layer1x1 conv
   const _FiLMParams head1x1_post_film_params; ///< FiLM params after head1x1 conv
 };
 

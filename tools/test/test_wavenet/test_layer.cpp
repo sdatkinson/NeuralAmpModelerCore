@@ -28,8 +28,10 @@ static nam::wavenet::_Layer make_layer(const int condition_size, const int chann
                                        const nam::activations::ActivationConfig& secondary_activation_config)
 {
   auto film_params = make_default_film_params();
+  // Create layer1x1_params with active=true and groups=groups_1x1 for backward compatibility
+  nam::wavenet::Layer1x1Params layer1x1_params(true, groups_1x1);
   nam::wavenet::LayerParams layer_params(condition_size, channels, bottleneck, kernel_size, dilation, activation_config,
-                                         gating_mode, groups_input, groups_input_mixin, groups_1x1, head1x1_params,
+                                         gating_mode, groups_input, groups_input_mixin, layer1x1_params, head1x1_params,
                                          secondary_activation_config, film_params, film_params, film_params,
                                          film_params, film_params, film_params, film_params, film_params);
   return nam::wavenet::_Layer(layer_params);

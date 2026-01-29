@@ -18,6 +18,7 @@
 #include "test/test_wavenet/test_real_time_safe.cpp"
 #include "test/test_wavenet/test_condition_processing.cpp"
 #include "test/test_wavenet/test_head1x1.cpp"
+#include "test/test_wavenet/test_layer1x1.cpp"
 #include "test/test_gating_activations.cpp"
 #include "test/test_wavenet_gating_compatibility.cpp"
 #include "test/test_blending_detailed.cpp"
@@ -160,6 +161,13 @@ int main()
   test_wavenet::test_head1x1::test_head1x1_gated();
   test_wavenet::test_head1x1::test_head1x1_groups();
   test_wavenet::test_head1x1::test_head1x1_different_out_channels();
+  test_wavenet::test_layer1x1::test_layer1x1_active();
+  test_wavenet::test_layer1x1::test_layer1x1_inactive();
+  test_wavenet::test_layer1x1::test_layer1x1_inactive_bottleneck_mismatch();
+  test_wavenet::test_layer1x1::test_layer1x1_post_film_active();
+  test_wavenet::test_layer1x1::test_layer1x1_post_film_inactive_with_layer1x1_inactive();
+  test_wavenet::test_layer1x1::test_layer1x1_gated();
+  test_wavenet::test_layer1x1::test_layer1x1_groups();
   test_wavenet::test_allocation_tracking_pass();
   test_wavenet::test_allocation_tracking_fail();
   test_wavenet::test_conv1d_process_realtime_safe();

@@ -20,13 +20,14 @@ static nam::wavenet::_Layer make_layer(const int condition_size, const int chann
                                        const int kernel_size, const int dilation,
                                        const nam::activations::ActivationConfig& activation_config,
                                        const nam::wavenet::GatingMode gating_mode, const int groups_input,
-                                       const int groups_input_mixin, const int groups_1x1,
+                                       const int groups_input_mixin,
+                                       const nam::wavenet::Layer1x1Params& layer1x1_params,
                                        const nam::wavenet::Head1x1Params& head1x1_params,
                                        const nam::activations::ActivationConfig& secondary_activation_config)
 {
   auto film_params = make_default_film_params();
   nam::wavenet::LayerParams layer_params(condition_size, channels, bottleneck, kernel_size, dilation, activation_config,
-                                         gating_mode, groups_input, groups_input_mixin, groups_1x1, head1x1_params,
+                                         gating_mode, groups_input, groups_input_mixin, layer1x1_params, head1x1_params,
                                          secondary_activation_config, film_params, film_params, film_params,
                                          film_params, film_params, film_params, film_params, film_params);
   return nam::wavenet::_Layer(layer_params);
@@ -37,7 +38,8 @@ static nam::wavenet::LayerArrayParams make_layer_array_params(
   const int input_size, const int condition_size, const int head_size, const int channels, const int bottleneck,
   const int kernel_size, std::vector<int>&& dilations, const nam::activations::ActivationConfig& activation_config,
   const nam::wavenet::GatingMode gating_mode, const bool head_bias, const int groups_input,
-  const int groups_input_mixin, const int groups_1x1, const nam::wavenet::Head1x1Params& head1x1_params,
+  const int groups_input_mixin, const nam::wavenet::Layer1x1Params& layer1x1_params,
+  const nam::wavenet::Head1x1Params& head1x1_params,
   const nam::activations::ActivationConfig& secondary_activation_config)
 {
   auto film_params = make_default_film_params();
@@ -48,18 +50,21 @@ static nam::wavenet::LayerArrayParams make_layer_array_params(
     dilations.size(), secondary_activation_config);
   return nam::wavenet::LayerArrayParams(input_size, condition_size, head_size, channels, bottleneck, kernel_size,
                                         std::move(dilations), std::move(activation_configs), std::move(gating_modes),
-                                        head_bias, groups_input, groups_input_mixin, groups_1x1, head1x1_params,
+                                        head_bias, groups_input, groups_input_mixin, layer1x1_params, head1x1_params,
                                         std::move(secondary_activation_configs), film_params, film_params, film_params,
                                         film_params, film_params, film_params, film_params, film_params);
 }
 
 // Helper function to create a LayerArray with default FiLM parameters
-static nam::wavenet::_LayerArray make_layer_array(
-  const int input_size, const int condition_size, const int head_size, const int channels, const int bottleneck,
-  const int kernel_size, const std::vector<int>& dilations, const nam::activations::ActivationConfig& activation_config,
-  const nam::wavenet::GatingMode gating_mode, const bool head_bias, const int groups_input,
-  const int groups_input_mixin, const int groups_1x1, const nam::wavenet::Head1x1Params& head1x1_params,
-  const nam::activations::ActivationConfig& secondary_activation_config)
+static nam::wavenet::_LayerArray make_layer_array(const int input_size, const int condition_size, const int head_size,
+                                                  const int channels, const int bottleneck, const int kernel_size,
+                                                  const std::vector<int>& dilations,
+                                                  const nam::activations::ActivationConfig& activation_config,
+                                                  const nam::wavenet::GatingMode gating_mode, const bool head_bias,
+                                                  const int groups_input, const int groups_input_mixin,
+                                                  const nam::wavenet::Layer1x1Params& layer1x1_params,
+                                                  const nam::wavenet::Head1x1Params& head1x1_params,
+                                                  const nam::activations::ActivationConfig& secondary_activation_config)
 {
   auto film_params = make_default_film_params();
   // Duplicate activation_config, gating_mode, and secondary_activation_config for each layer (based on dilations size)
@@ -70,9 +75,9 @@ static nam::wavenet::_LayerArray make_layer_array(
   std::vector<int> dilations_copy = dilations; // Make a copy since we need to move it
   nam::wavenet::LayerArrayParams params(
     input_size, condition_size, head_size, channels, bottleneck, kernel_size, std::move(dilations_copy),
-    std::move(activation_configs), std::move(gating_modes), head_bias, groups_input, groups_input_mixin, groups_1x1,
-    head1x1_params, std::move(secondary_activation_configs), film_params, film_params, film_params, film_params,
-    film_params, film_params, film_params, film_params);
+    std::move(activation_configs), std::move(gating_modes), head_bias, groups_input, groups_input_mixin,
+    layer1x1_params, head1x1_params, std::move(secondary_activation_configs), film_params, film_params, film_params,
+    film_params, film_params, film_params, film_params, film_params);
   return nam::wavenet::_LayerArray(params);
 }
 
@@ -90,7 +95,7 @@ public:
     const auto activation = nam::activations::ActivationConfig::simple(nam::activations::ActivationType::Tanh);
     const int groups_input = 1;
     const int groups_input_mixin = 1;
-    const int groups_1x1 = 1;
+    nam::wavenet::Layer1x1Params layer1x1_params(true, 1);
     nam::wavenet::Head1x1Params head1x1_params(false, channels, 1);
 
     // Test different gating activation configurations
@@ -102,7 +107,7 @@ public:
     for (const auto& gating_act : gating_activations)
     {
       auto layer = make_layer(conditionSize, channels, bottleneck, kernelSize, dilation, activation,
-                              nam::wavenet::GatingMode::GATED, groups_input, groups_input_mixin, groups_1x1,
+                              nam::wavenet::GatingMode::GATED, groups_input, groups_input_mixin, layer1x1_params,
                               head1x1_params, gating_act);
 
       // Verify that the layer was created successfully and has correct dimensions
@@ -121,7 +126,7 @@ public:
     const auto activation = nam::activations::ActivationConfig::simple(nam::activations::ActivationType::Tanh);
     const int groups_input = 1;
     const int groups_input_mixin = 1;
-    const int groups_1x1 = 1;
+    nam::wavenet::Layer1x1Params layer1x1_params(true, 1);
     nam::wavenet::Head1x1Params head1x1_params(false, channels, 1);
 
     // Test different blending activation configurations
@@ -133,7 +138,7 @@ public:
     for (const auto& blending_act : blending_activations)
     {
       auto layer = make_layer(conditionSize, channels, bottleneck, kernelSize, dilation, activation,
-                              nam::wavenet::GatingMode::BLENDED, groups_input, groups_input_mixin, groups_1x1,
+                              nam::wavenet::GatingMode::BLENDED, groups_input, groups_input_mixin, layer1x1_params,
                               head1x1_params, blending_act);
 
       // Verify that the layer was created successfully and has correct dimensions
@@ -156,7 +161,7 @@ public:
     const bool head_bias = false;
     const int groups_input = 1;
     const int groups_input_mixin = 1;
-    const int groups_1x1 = 1;
+    nam::wavenet::Layer1x1Params layer1x1_params(true, 1);
     nam::wavenet::Head1x1Params head1x1_params(false, channels, 1);
 
     // Test with different gating activations
@@ -164,7 +169,7 @@ public:
     auto params_gated =
       make_layer_array_params(input_size, condition_size, head_size, channels, bottleneck, kernel_size,
                               std::vector<int>{1, 2}, activation, nam::wavenet::GatingMode::GATED, head_bias,
-                              groups_input, groups_input_mixin, groups_1x1, head1x1_params, tanh_config);
+                              groups_input, groups_input_mixin, layer1x1_params, head1x1_params, tanh_config);
 
     assert(params_gated.gating_modes.size() == 2); // Two layers (dilations = {1, 2})
     assert(params_gated.gating_modes[0] == nam::wavenet::GatingMode::GATED);
@@ -178,7 +183,7 @@ public:
     auto params_blended =
       make_layer_array_params(input_size, condition_size, head_size, channels, bottleneck, kernel_size,
                               std::vector<int>{1, 2}, activation, nam::wavenet::GatingMode::BLENDED, head_bias,
-                              groups_input, groups_input_mixin, groups_1x1, head1x1_params, relu_config);
+                              groups_input, groups_input_mixin, layer1x1_params, head1x1_params, relu_config);
 
     assert(params_blended.gating_modes.size() == 2); // Two layers (dilations = {1, 2})
     assert(params_blended.gating_modes[0] == nam::wavenet::GatingMode::BLENDED);
@@ -202,12 +207,12 @@ public:
     const bool head_bias = false;
     const int groups_input = 1;
     const int groups_input_mixin = 1;
-    const int groups_1x1 = 1;
+    nam::wavenet::Layer1x1Params layer1x1_params(true, 1);
     nam::wavenet::Head1x1Params head1x1_params(false, channels, 1);
 
     auto layer_array = make_layer_array(
       input_size, condition_size, head_size, channels, bottleneck, kernel_size, std::vector<int>{1}, activation,
-      nam::wavenet::GatingMode::GATED, head_bias, groups_input, groups_input_mixin, groups_1x1, head1x1_params,
+      nam::wavenet::GatingMode::GATED, head_bias, groups_input, groups_input_mixin, layer1x1_params, head1x1_params,
       nam::activations::ActivationConfig::simple(nam::activations::ActivationType::ReLU));
 
     // Verify that layers were created correctly by checking receptive field
@@ -266,23 +271,23 @@ public:
     const auto activation = nam::activations::ActivationConfig::simple(nam::activations::ActivationType::Tanh);
     const int groups_input = 1;
     const int groups_input_mixin = 1;
-    const int groups_1x1 = 1;
+    nam::wavenet::Layer1x1Params layer1x1_params(true, 1);
     nam::wavenet::Head1x1Params head1x1_params(false, channels, 1);
 
     // Create layers with different gating activations
     auto layer_sigmoid =
       make_layer(conditionSize, channels, bottleneck, kernelSize, dilation, activation, nam::wavenet::GatingMode::GATED,
-                 groups_input, groups_input_mixin, groups_1x1, head1x1_params,
+                 groups_input, groups_input_mixin, layer1x1_params, head1x1_params,
                  nam::activations::ActivationConfig::simple(nam::activations::ActivationType::Sigmoid));
 
     auto layer_tanh =
       make_layer(conditionSize, channels, bottleneck, kernelSize, dilation, activation, nam::wavenet::GatingMode::GATED,
-                 groups_input, groups_input_mixin, groups_1x1, head1x1_params,
+                 groups_input, groups_input_mixin, layer1x1_params, head1x1_params,
                  nam::activations::ActivationConfig::simple(nam::activations::ActivationType::Tanh));
 
     auto layer_relu =
       make_layer(conditionSize, channels, bottleneck, kernelSize, dilation, activation, nam::wavenet::GatingMode::GATED,
-                 groups_input, groups_input_mixin, groups_1x1, head1x1_params,
+                 groups_input, groups_input_mixin, layer1x1_params, head1x1_params,
                  nam::activations::ActivationConfig::simple(nam::activations::ActivationType::ReLU));
 
     // Set max buffer size for all layers
