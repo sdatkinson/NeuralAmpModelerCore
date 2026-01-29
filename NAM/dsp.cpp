@@ -378,45 +378,11 @@ void nam::Conv1x1::set_weights_(std::vector<float>::iterator& weights)
 
 Eigen::MatrixXf nam::Conv1x1::process(const Eigen::MatrixXf& input, const int num_frames) const
 {
-  const int numGroups = this->_num_groups;
-  const long in_channels = get_in_channels();
-  const long out_channels = get_out_channels();
-  const long in_per_group = in_channels / numGroups;
-  const long out_per_group = out_channels / numGroups;
+  // Single GEMM for all cases - block-diagonal zero structure handles grouping
+  Eigen::MatrixXf result = this->_weight * input.leftCols(num_frames);
 
-  Eigen::MatrixXf result(out_channels, num_frames);
-
-  if (numGroups == 1)
-  {
-    // Standard convolution (no grouping)
-    if (this->_do_bias)
-      result = (this->_weight * input.leftCols(num_frames)).colwise() + this->_bias;
-    else
-      result = this->_weight * input.leftCols(num_frames);
-  }
-  else
-  {
-    // Grouped convolution: process each group separately
-    result.setZero();
-    for (int g = 0; g < numGroups; g++)
-    {
-      // Extract input slice for this group
-      auto input_group = input.leftCols(num_frames).middleRows(g * in_per_group, in_per_group);
-
-      // Extract weight slice for this group
-      auto weight_group = this->_weight.block(g * out_per_group, g * in_per_group, out_per_group, in_per_group);
-
-      // Extract output slice for this group
-      auto output_group = result.middleRows(g * out_per_group, out_per_group);
-
-      // Perform grouped convolution: output_group = weight_group * input_group
-      output_group.noalias() = weight_group * input_group;
-    }
-
-    // Add bias if present
-    if (this->_do_bias)
-      result.colwise() += this->_bias;
-  }
+  if (this->_do_bias)
+    result.colwise() += this->_bias;
 
   return result;
 }
@@ -425,39 +391,9 @@ void nam::Conv1x1::process_(const Eigen::Ref<const Eigen::MatrixXf>& input, cons
 {
   assert(num_frames <= _output.cols());
 
-  const int numGroups = this->_num_groups;
-  const long in_channels = get_in_channels();
-  const long out_channels = get_out_channels();
-  const long in_per_group = in_channels / numGroups;
-  const long out_per_group = out_channels / numGroups;
+  // Single GEMM for all cases - block-diagonal zero structure handles grouping
+  _output.leftCols(num_frames).noalias() = this->_weight * input.leftCols(num_frames);
 
-  if (numGroups == 1)
-  {
-    // Standard convolution (no grouping)
-    _output.leftCols(num_frames).noalias() = this->_weight * input.leftCols(num_frames);
-  }
-  else
-  {
-    // Grouped convolution: process each group separately
-    for (int g = 0; g < numGroups; g++)
-    {
-      // Extract input slice for this group
-      auto input_group = input.leftCols(num_frames).middleRows(g * in_per_group, in_per_group);
-
-      // Extract weight slice for this group
-      auto weight_group = this->_weight.block(g * out_per_group, g * in_per_group, out_per_group, in_per_group);
-
-      // Extract output slice for this group
-      auto output_group = _output.leftCols(num_frames).middleRows(g * out_per_group, out_per_group);
-
-      // Perform grouped convolution: output_group = weight_group * input_group
-      output_group.noalias() = weight_group * input_group;
-    }
-  }
-
-  // Add bias if present
   if (this->_do_bias)
-  {
     _output.leftCols(num_frames).colwise() += this->_bias;
-  }
 }
