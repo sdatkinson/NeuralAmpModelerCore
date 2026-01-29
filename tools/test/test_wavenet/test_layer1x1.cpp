@@ -254,8 +254,8 @@ void test_layer1x1_post_film_active()
     1.0f, 0.0f, 0.0f, 1.0f, // weights
     0.0f, 0.0f, // bias
     // layer1x1_post_film: (conditionSize, 2*channels) + bias (with shift)
-    1.0f, 1.0f, 1.0f, 1.0f, // scale weights
-    0.0f, 0.0f, 0.0f, 0.0f, // shift weights
+    1.0f, 1.0f, // scale weights
+    0.0f, 0.0f, // shift weights
     0.0f, 0.0f, 0.0f, 0.0f // bias
   };
 

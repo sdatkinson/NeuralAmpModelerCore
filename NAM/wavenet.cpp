@@ -202,7 +202,6 @@ void nam::wavenet::_Layer::Process(const Eigen::MatrixXf& input, const Eigen::Ma
     {
       this->_head1x1->process_(this->_z.topRows(bottleneck).leftCols(num_frames), num_frames);
     }
-    this->_head1x1->process(this->_z.topRows(bottleneck).leftCols(num_frames), num_frames);
     if (this->_head1x1_post_film)
     {
       Eigen::MatrixXf& head1x1_output = this->_head1x1->GetOutput();
