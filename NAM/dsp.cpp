@@ -332,9 +332,13 @@ nam::Conv1x1::Conv1x1(const int in_channels, const int out_channels, const bool 
 
   this->_num_groups = groups;
   this->_weight.resize(out_channels, in_channels);
+  this->_weight.setZero();
   this->_do_bias = _bias;
   if (_bias)
+  {
     this->_bias.resize(out_channels);
+    this->_bias.setZero();
+  }
 }
 
 
@@ -435,7 +439,6 @@ void nam::Conv1x1::process_(const Eigen::Ref<const Eigen::MatrixXf>& input, cons
   else
   {
     // Grouped convolution: process each group separately
-    _output.leftCols(num_frames).setZero();
     for (int g = 0; g < numGroups; g++)
     {
       // Extract input slice for this group

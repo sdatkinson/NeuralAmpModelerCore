@@ -55,10 +55,16 @@ void Conv1D::set_size_(const int in_channels, const int out_channels, const int 
   this->_num_groups = groups;
   this->_weight.resize(kernel_size);
   for (size_t i = 0; i < this->_weight.size(); i++)
+  {
     this->_weight[i].resize(out_channels,
                             in_channels); // y = Ax, input array (C,L)
+    this->_weight[i].setZero();
+  }
   if (do_bias)
+  {
     this->_bias.resize(out_channels);
+    this->_bias.setZero();
+  }
   else
     this->_bias.resize(0);
   this->_dilation = _dilation;
