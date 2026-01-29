@@ -197,7 +197,8 @@ class _Layer
 public:
   /// \brief Constructor with LayerParams
   /// \param params Parameters for constructing the layer
-  /// \throws std::invalid_argument If head1x1_post_film_params is active but head1x1 is not
+  /// \throws std::invalid_argument If head1x1_post_film_params is active but head1x1 is not, or if layer1x1 is inactive
+  /// but bottleneck != channels
   _Layer(const LayerParams& params)
   : _conv(params.channels, (params.gating_mode != GatingMode::NONE) ? 2 * params.bottleneck : params.bottleneck,
           params.kernel_size, true, params.dilation, params.groups_input)
@@ -214,6 +215,12 @@ public:
     }
     else
     {
+      // Validation: if layer1x1 is inactive, bottleneck must equal channels
+      if (params.bottleneck != params.channels)
+      {
+        throw std::invalid_argument("When layer1x1.active is false, bottleneck (" + std::to_string(params.bottleneck)
+                                    + ") must equal channels (" + std::to_string(params.channels) + ")");
+      }
       // If there's a post-layer1x1 FiLM but no layer1x1, this is redundant--don't allow it
       if (params._layer1x1_post_film_params.active)
       {

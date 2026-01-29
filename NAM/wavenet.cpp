@@ -606,13 +606,6 @@ std::unique_ptr<nam::DSP> nam::wavenet::Factory(const nlohmann::json& config, st
       layer1x1_active = layer1x1_config["active"]; // default to active
       layer1x1_groups = layer1x1_config["groups"];
     }
-    // Validation: if layer1x1 is inactive, bottleneck must equal channels
-    if (!layer1x1_active && bottleneck != channels)
-    {
-      throw std::runtime_error("Layer array " + std::to_string(i) + ": when layer1x1.active is false, bottleneck ("
-                               + std::to_string(bottleneck) + ") must equal channels (" + std::to_string(channels)
-                               + ")");
-    }
     nam::wavenet::Layer1x1Params layer1x1_params(layer1x1_active, layer1x1_groups);
 
     const int input_size = layer_config["input_size"];
