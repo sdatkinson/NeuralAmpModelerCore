@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "NAM/conv1d.h"
+#include "allocation_tracking.h"
 
 namespace test_conv1d
 {
@@ -847,5 +848,166 @@ void test_get_num_weights_grouped()
   expected = 2 * (8 * 8) / groups_4; // = 2 * 64 / 4 = 32
   actual = conv_4groups.get_num_weights();
   assert(actual == expected);
+}
+
+// Test that grouped convolution Process() is real-time safe (no allocations)
+void test_process_grouped_realtime_safe()
+{
+  const int in_channels = 8;
+  const int out_channels = 8;
+  const int kernel_size = 3;
+  const bool do_bias = true;
+  const int dilation = 1;
+  const int groups = 4;
+  const int num_frames = 64;
+
+  nam::Conv1D conv;
+  conv.set_size_(in_channels, out_channels, kernel_size, do_bias, dilation, groups);
+
+  // Initialize weights (identity-like for each group, each kernel position)
+  std::vector<float> weights;
+  const int in_per_group = in_channels / groups;
+  const int out_per_group = out_channels / groups;
+
+  // Weight layout: for each group, for each (i,j), for each kernel position k
+  for (int g = 0; g < groups; g++)
+  {
+    for (int i = 0; i < out_per_group; i++)
+    {
+      for (int j = 0; j < in_per_group; j++)
+      {
+        for (int k = 0; k < kernel_size; k++)
+        {
+          // Only set weight for last kernel tap and diagonal
+          weights.push_back((k == kernel_size - 1 && i == j) ? 1.0f : 0.0f);
+        }
+      }
+    }
+  }
+  // Add bias
+  for (int i = 0; i < out_channels; i++)
+  {
+    weights.push_back(0.0f);
+  }
+
+  auto it = weights.begin();
+  conv.set_weights_(it);
+  conv.SetMaxBufferSize(num_frames);
+
+  // Create input buffer
+  Eigen::MatrixXf input(in_channels, num_frames);
+  for (int i = 0; i < in_channels; i++)
+    for (int j = 0; j < num_frames; j++)
+      input(i, j) = static_cast<float>(i + j);
+
+  // Run allocation test
+  allocation_tracking::run_allocation_test_no_allocations(
+    nullptr,
+    [&]() {
+      conv.Process(input, num_frames);
+    },
+    nullptr, "test_process_grouped_realtime_safe");
+}
+
+// Test that non-grouped convolution Process() is also real-time safe
+void test_process_realtime_safe()
+{
+  const int in_channels = 16;
+  const int out_channels = 16;
+  const int kernel_size = 3;
+  const bool do_bias = true;
+  const int dilation = 1;
+  const int num_frames = 64;
+
+  nam::Conv1D conv;
+  conv.set_size_(in_channels, out_channels, kernel_size, do_bias, dilation);
+
+  // Initialize weights (identity for last kernel tap)
+  std::vector<float> weights;
+  for (int i = 0; i < out_channels; i++)
+  {
+    for (int j = 0; j < in_channels; j++)
+    {
+      for (int k = 0; k < kernel_size; k++)
+      {
+        weights.push_back((k == kernel_size - 1 && i == j) ? 1.0f : 0.0f);
+      }
+    }
+  }
+  // Add bias
+  for (int i = 0; i < out_channels; i++)
+  {
+    weights.push_back(0.0f);
+  }
+
+  auto it = weights.begin();
+  conv.set_weights_(it);
+  conv.SetMaxBufferSize(num_frames);
+
+  // Create input buffer
+  Eigen::MatrixXf input(in_channels, num_frames);
+  for (int i = 0; i < in_channels; i++)
+    for (int j = 0; j < num_frames; j++)
+      input(i, j) = static_cast<float>(i + j);
+
+  // Run allocation test
+  allocation_tracking::run_allocation_test_no_allocations(
+    nullptr,
+    [&]() {
+      conv.Process(input, num_frames);
+    },
+    nullptr, "test_process_realtime_safe");
+}
+
+// Test grouped convolution with dilation is real-time safe
+void test_process_grouped_dilated_realtime_safe()
+{
+  const int in_channels = 8;
+  const int out_channels = 8;
+  const int kernel_size = 2;
+  const bool do_bias = false;
+  const int dilation = 4;
+  const int groups = 2;
+  const int num_frames = 64;
+
+  nam::Conv1D conv;
+  conv.set_size_(in_channels, out_channels, kernel_size, do_bias, dilation, groups);
+
+  // Initialize weights
+  std::vector<float> weights;
+  const int in_per_group = in_channels / groups;
+  const int out_per_group = out_channels / groups;
+
+  for (int g = 0; g < groups; g++)
+  {
+    for (int i = 0; i < out_per_group; i++)
+    {
+      for (int j = 0; j < in_per_group; j++)
+      {
+        for (int k = 0; k < kernel_size; k++)
+        {
+          weights.push_back((k == kernel_size - 1 && i == j) ? 1.0f : 0.0f);
+        }
+      }
+    }
+  }
+
+  auto it = weights.begin();
+  conv.set_weights_(it);
+  conv.SetMaxBufferSize(num_frames);
+
+  // Create input buffer
+  Eigen::MatrixXf input(in_channels, num_frames);
+  for (int i = 0; i < in_channels; i++)
+    for (int j = 0; j < num_frames; j++)
+      input(i, j) = static_cast<float>(i + j);
+
+  // Run allocation test
+  allocation_tracking::run_allocation_test_no_allocations(
+    nullptr,
+    [&]() {
+      conv.Process(input, num_frames);
+    },
+    nullptr, "test_process_grouped_dilated_realtime_safe");
 }
 }; // namespace test_conv1d
