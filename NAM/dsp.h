@@ -323,11 +323,17 @@ public:
   /// \param num_frames Number of frames to process
   void process_(const Eigen::Ref<const Eigen::MatrixXf>& input, const int num_frames);
 
-  long get_out_channels() const { return this->_weight.rows(); };
-  long get_in_channels() const { return this->_weight.cols(); };
+  long get_out_channels() const;
+  long get_in_channels() const;
 
 protected:
+  // Non-depthwise: full weight matrix (out_channels x in_channels)
   Eigen::MatrixXf _weight;
+  // For depthwise convolution (groups == in_channels == out_channels):
+  // stores one weight per channel
+  Eigen::VectorXf _depthwise_weight;
+  bool _is_depthwise = false;
+  int _channels = 0; // Used for depthwise case (in_channels == out_channels)
   Eigen::VectorXf _bias;
   int _num_groups;
 
