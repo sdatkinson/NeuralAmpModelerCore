@@ -110,54 +110,22 @@ void Conv1D::Process(const Eigen::MatrixXf& input, const int num_frames)
   // Zero output before processing
   _output.leftCols(num_frames).setZero();
 
-  const int numGroups = this->_num_groups;
-  const long in_channels = get_in_channels();
-  const long out_channels = get_out_channels();
-  const long in_per_group = in_channels / numGroups;
-  const long out_per_group = out_channels / numGroups;
-
   // Process from ring buffer with dilation lookback
   // After Write(), data is at positions [_write_pos, _write_pos+num_frames-1]
   // For kernel tap k with offset, we need to read from _write_pos + offset
   // The offset is negative (looking back), so _write_pos + offset reads from earlier positions
-  // The original process_() reads: input.middleCols(i_start + offset, ncols)
-  // where i_start is the current position and offset is negative for lookback
-
-  if (numGroups == 1)
+  //
+  // Grouped convolution note: The weight matrices are block-diagonal (zeros off-diagonal),
+  // so we can use a single GEMM for all cases. A more advanced implementation could store
+  // compact per-group weight matrices and loop over groups, but at typical model sizes
+  // (e.g. 8 channels, 4 groups, 64 samples), the GEMM call overhead tends to dominate
+  // and the single sparse GEMM approach is faster.
+  for (size_t k = 0; k < this->_weight.size(); k++)
   {
-    // Standard convolution (no grouping)
-    for (size_t k = 0; k < this->_weight.size(); k++)
-    {
-      const long offset = this->_dilation * (k + 1 - (long)this->_weight.size());
-      const long lookback = -offset;
-      auto input_block = _input_buffer.Read(num_frames, lookback);
-      _output.leftCols(num_frames).noalias() += this->_weight[k] * input_block;
-    }
-  }
-  else
-  {
-    // Grouped convolution: process each group separately
-    for (int g = 0; g < numGroups; g++)
-    {
-      for (size_t k = 0; k < this->_weight.size(); k++)
-      {
-        const long offset = this->_dilation * (k + 1 - (long)this->_weight.size());
-        const long lookback = -offset;
-        auto input_block = _input_buffer.Read(num_frames, lookback);
-
-        // Extract input slice for this group
-        auto input_group = input_block.middleRows(g * in_per_group, in_per_group);
-
-        // Extract weight slice for this group
-        auto weight_group = this->_weight[k].block(g * out_per_group, g * in_per_group, out_per_group, in_per_group);
-
-        // Extract output slice for this group
-        auto output_group = _output.leftCols(num_frames).middleRows(g * out_per_group, out_per_group);
-
-        // Perform grouped convolution: output_group += weight_group * input_group
-        output_group.noalias() += weight_group * input_group;
-      }
-    }
+    const long offset = this->_dilation * (k + 1 - (long)this->_weight.size());
+    const long lookback = -offset;
+    auto input_block = _input_buffer.Read(num_frames, lookback);
+    _output.leftCols(num_frames).noalias() += this->_weight[k] * input_block;
   }
 
   // Add bias if present
@@ -173,49 +141,18 @@ void Conv1D::Process(const Eigen::MatrixXf& input, const int num_frames)
 void Conv1D::process_(const Eigen::MatrixXf& input, Eigen::MatrixXf& output, const long i_start, const long ncols,
                       const long j_start) const
 {
-  const int numGroups = this->_num_groups;
-  const long in_channels = get_in_channels();
-  const long out_channels = get_out_channels();
-  const long in_per_group = in_channels / numGroups;
-  const long out_per_group = out_channels / numGroups;
-
-  if (numGroups == 1)
+  // Grouped convolution note: The weight matrices are block-diagonal (zeros off-diagonal),
+  // so we can use a single GEMM for all cases. A more advanced implementation could store
+  // compact per-group weight matrices and loop over groups, but at typical model sizes
+  // (e.g. 8 channels, 4 groups, 64 samples), the GEMM call overhead tends to dominate
+  // and the single sparse GEMM approach is faster.
+  for (size_t k = 0; k < this->_weight.size(); k++)
   {
-    // Standard convolution (no grouping)
-    for (size_t k = 0; k < this->_weight.size(); k++)
-    {
-      const long offset = this->_dilation * (k + 1 - this->_weight.size());
-      if (k == 0)
-        output.middleCols(j_start, ncols).noalias() = this->_weight[k] * input.middleCols(i_start + offset, ncols);
-      else
-        output.middleCols(j_start, ncols).noalias() += this->_weight[k] * input.middleCols(i_start + offset, ncols);
-    }
-  }
-  else
-  {
-    // Grouped convolution: process each group separately
-    for (int g = 0; g < numGroups; g++)
-    {
-      for (size_t k = 0; k < this->_weight.size(); k++)
-      {
-        const long offset = this->_dilation * (k + 1 - this->_weight.size());
-
-        // Extract input slice for this group
-        auto input_group = input.middleCols(i_start + offset, ncols).middleRows(g * in_per_group, in_per_group);
-
-        // Extract weight slice for this group
-        auto weight_group = this->_weight[k].block(g * out_per_group, g * in_per_group, out_per_group, in_per_group);
-
-        // Extract output slice for this group
-        auto output_group = output.middleCols(j_start, ncols).middleRows(g * out_per_group, out_per_group);
-
-        // Perform grouped convolution
-        if (k == 0)
-          output_group.noalias() = weight_group * input_group;
-        else
-          output_group.noalias() += weight_group * input_group;
-      }
-    }
+    const long offset = this->_dilation * (k + 1 - this->_weight.size());
+    if (k == 0)
+      output.middleCols(j_start, ncols).noalias() = this->_weight[k] * input.middleCols(i_start + offset, ncols);
+    else
+      output.middleCols(j_start, ncols).noalias() += this->_weight[k] * input.middleCols(i_start + offset, ncols);
   }
   if (this->_bias.size() > 0)
   {
