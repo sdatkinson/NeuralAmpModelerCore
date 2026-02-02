@@ -25,6 +25,39 @@ export enum PREVIEW_MODE {
   IR = 'ir',
 }
 
+// Channel selection for multi-channel audio interfaces
+export type ChannelSelection = 'first' | 'second';
+
+// Discriminated union for input modes
+export type InputMode =
+  | { type: 'preview' }  // File playback (preexisting functionality)
+  | {
+      type: 'live';
+      deviceId?: string;
+      channelCount?: number;              // Number of available channels (1 or 2)
+      selectedChannel?: ChannelSelection; // Which channel to route to processing
+    };
+
+export interface AudioInputDevice {
+  deviceId: string;
+  label: string;
+}
+
+// Microphone permission state (permission concerns only)
+export type MicrophonePermissionStatus = 'idle' | 'pending' | 'granted' | 'denied' | 'error';
+
+export interface MicrophonePermissionState {
+  status: MicrophonePermissionStatus;
+  error: string | null;
+}
+
+// Audio input device state (device concerns only)
+export interface AudioInputDeviceState {
+  devices: AudioInputDevice[];
+  isLoading: boolean;
+  error: string | null;
+}
+
 // Utility type to ensure non-empty arrays
 type NonEmptyArray<T> = [T, ...T[]];
 

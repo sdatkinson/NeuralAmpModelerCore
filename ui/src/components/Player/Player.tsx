@@ -10,6 +10,12 @@ import { Pause } from '../ui/Pause';
 import { LogoSm } from '../ui/LogoSm';
 import { DEFAULT_INPUTS, DEFAULT_MODELS, DEFAULT_IRS } from '../../constants';
 import { CircularLoader } from '../ui/CircularLoader';
+import { SegmentedControl } from '../ui/SegmentedControl';
+import { LiveSetupDialog } from '../LiveSetupDialog';
+import { InputControlStrip } from '../ControlStrip';
+import { Plug, Settings } from 'lucide-react';
+
+type SourceMode = 'preview' | 'live';
 
 const PlayerFC: React.FC<T3kPlayerProps> = ({
   models = DEFAULT_MODELS,
@@ -25,6 +31,7 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
 }) => {
   const {
     audioState,
+    audioInputDevices,
     getAudioNodes,
     init,
     loadModel,
@@ -34,6 +41,8 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
     toggleBypass,
     connectVisualizerNode,
     cleanup,
+    startLiveInput,
+    stopLiveInput,
   } = useT3kPlayerContext();
 
   // Helper function to get default item
@@ -56,6 +65,11 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Source mode state (preview = file playback, live = direct input)
+  const [sourceMode, setSourceMode] = useState<SourceMode>('preview');
+  const [showPlaybackPausedMessage, setShowPlaybackPausedMessage] = useState(false);
+  const [isLiveSetupModalOpen, setIsLiveSetupModalOpen] = useState(false);
 
   // Refs
   const visualizerRef = useRef<HTMLCanvasElement>(null);
@@ -88,6 +102,16 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
         value: ir.url,
       })),
     [irs]
+  );
+
+  // Live device options for Select component
+  const liveDeviceOptions = React.useMemo(
+    () =>
+      audioInputDevices.devices.map(device => ({
+        label: device.label,
+        value: device.deviceId,
+      })),
+    [audioInputDevices.devices]
   );
 
   // Utility functions
@@ -161,7 +185,7 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
 
   // Visualizer setup
   useEffect(() => {
-    if (!audioState.isInitialized || !visualizerRef.current) return;
+    if (audioState.initState !== 'ready' || !visualizerRef.current) return;
 
     const audioContext = getAudioNodes().audioContext;
     if (!audioContext) return;
@@ -177,14 +201,47 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
       disconnect();
       visualizerNodeRef.current = null;
     };
-  }, [audioState.isInitialized, getAudioNodes, connectVisualizerNode]);
+  }, [audioState.initState, getAudioNodes, connectVisualizerNode]);
+
+  // Helper to mute/unmute live output
+  const setLiveOutputMuted = useCallback((muted: boolean) => {
+    const nodes = getAudioNodes();
+    if (nodes.outputGainNode && nodes.audioContext) {
+      nodes.outputGainNode.gain.setTargetAtTime(
+        muted ? 0 : 1,
+        nodes.audioContext.currentTime,
+        0.01 // 10ms for quick response
+      );
+    }
+  }, [getAudioNodes]);
 
   // Event handlers
   const togglePlay = useCallback(async () => {
-    setIsLoading(true);
-    if (!audioState.isInitialized) await init({ audioUrl: selectedInput.url });
     const nodes = getAudioNodes();
     const { audioElement, audioContext } = nodes;
+    const isLiveMode = sourceMode === 'live' && audioState.inputMode.type === 'live';
+
+    // Live mode: toggle output mute instead of file playback
+    if (isLiveMode) {
+      if (isPlaying) {
+        // Mute output
+        setLiveOutputMuted(true);
+        setIsPlaying(false);
+      } else {
+        // Ensure audio context is running
+        if (audioContext) {
+          await audioContext.resume();
+        }
+        // Unmute output
+        setLiveOutputMuted(false);
+        setIsPlaying(true);
+      }
+      return;
+    }
+
+    // Preview mode: standard file playback
+    setIsLoading(true);
+    if (audioState.initState !== 'ready') await init({ audioUrl: selectedInput.url });
 
     try {
       if (isPlaying) {
@@ -247,6 +304,7 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
     isPlaying,
     getAudioNodes,
     audioState,
+    sourceMode,
     selectedInput,
     selectedModel,
     selectedIr,
@@ -255,6 +313,7 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
     loadIr,
     removeIr,
     onPlay,
+    setLiveOutputMuted,
   ]);
 
   const handleSkipToStart = useCallback(() => {
@@ -275,14 +334,14 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
       if (model) {
         setSelectedModel(model);
         try {
-          if (audioState.isInitialized) await loadModel(model.url);
+          if (audioState.initState === 'ready') await loadModel(model.url);
           onModelChange?.(model);
         } catch (error) {
           console.error('Error loading model:', error);
         }
       }
     },
-    [models, loadModel, onModelChange, audioState.isInitialized]
+    [models, loadModel, onModelChange, audioState.initState]
   );
 
   const handleInputChange = useCallback(
@@ -296,7 +355,7 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
 
       try {
         if (
-          audioState.isInitialized &&
+          audioState.initState === 'ready' &&
           (!audioState.audioUrl || audioState.audioUrl !== input.url)
         ) {
           await loadAudio(input.url);
@@ -316,7 +375,7 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
       isPlaying,
       inputs,
       audioState.audioUrl,
-      audioState.isInitialized,
+      audioState.initState,
       getAudioNodes,
       loadAudio,
       onInputChange,
@@ -332,7 +391,7 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
       setSelectedIr(ir);
 
       try {
-        if (audioState.isInitialized && ir.url) {
+        if (audioState.initState === 'ready' && ir.url) {
           await loadIr({
             url: ir.url,
             wetAmount: ir.mix,
@@ -346,8 +405,70 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
         console.error('Error loading IR:', error);
       }
     },
-    [irs, loadIr, removeIr, onIrChange, audioState.isInitialized]
+    [irs, loadIr, removeIr, onIrChange, audioState.initState]
   );
+
+  // Handle source mode change (Preview <-> Live)
+  const handleSourceModeChange = useCallback(
+    (newMode: SourceMode) => {
+      if (newMode === sourceMode) return;
+
+      if (newMode === 'live') {
+        // Switching from Preview to Live
+        if (isPlaying) {
+          // Pause playback but preserve playhead position
+          const audioElement = getAudioNodes().audioElement;
+          if (audioElement) {
+            audioElement.pause();
+          }
+          setIsPlaying(false);
+          setShowPlaybackPausedMessage(true);
+
+          // Auto-hide the message after 3 seconds
+          setTimeout(() => {
+            setShowPlaybackPausedMessage(false);
+          }, 3000);
+        }
+        // Ensure live output starts muted (user must click play)
+        setLiveOutputMuted(true);
+      } else {
+        // Switching from Live to Preview
+        setShowPlaybackPausedMessage(false);
+        setIsPlaying(false);
+        // Stop live input and disconnect the source
+        stopLiveInput();
+        // Restore output gain for file playback
+        const nodes = getAudioNodes();
+        if (nodes.outputGainNode && nodes.audioContext) {
+          nodes.outputGainNode.gain.setTargetAtTime(1, nodes.audioContext.currentTime, 0.01);
+        }
+      }
+
+      setSourceMode(newMode);
+    },
+    [sourceMode, isPlaying, getAudioNodes, setLiveOutputMuted, stopLiveInput]
+  );
+
+  // Source mode options for segmented control
+  const sourceModeOptions = React.useMemo(
+    () => [
+      { value: 'preview' as const, label: 'Preview' },
+      { value: 'live' as const, label: 'Live' },
+    ],
+    []
+  );
+
+  // Derived state for live input
+  const liveInputMode = audioState.inputMode.type === 'live' ? audioState.inputMode : null;
+  const isLiveConnected = liveInputMode !== null;
+  const currentDeviceId = liveInputMode?.deviceId ?? null;
+
+  // Handle device change
+  const handleLiveDeviceChange = useCallback(async (deviceId: string) => {
+    if (deviceId !== currentDeviceId) {
+      await startLiveInput(deviceId);
+    }
+  }, [currentDeviceId, startLiveInput]);
 
   const bypassedStyles = audioState.isBypassed
     ? 'opacity-50 touch-none cursor-not-allowed grayscale'
@@ -441,15 +562,77 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
           </div>
         </div>
 
-        <div className='flex flex-col sm:flex-row items-center gap-2 sm:gap-6'>
-          <div className='w-full sm:w-1/2'>
-            <Select
-              options={audioOptions}
-              label='Input'
-              onChange={handleInputChange}
-              defaultOption={selectedInput.url}
-              // disabled={audioState.isBypassed}
+        {/* Source mode segmented control - its own row */}
+        <div className='flex flex-col gap-1 pt-2'>
+          <span className='text-sm text-zinc-400'>Source</span>
+          <div className='flex items-center gap-3'>
+            <SegmentedControl
+              options={sourceModeOptions}
+              value={sourceMode}
+              onChange={handleSourceModeChange}
             />
+            {showPlaybackPausedMessage && (
+              <span className='text-xs text-zinc-400 animate-pulse'>
+                Playback paused
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Input and IR row - always aligned */}
+        <div className='flex flex-col sm:flex-row items-start gap-2 sm:gap-6'>
+          <div className='w-full sm:w-1/2'>
+            {/* Preview mode: show input dropdown */}
+            {sourceMode === 'preview' && (
+              <Select
+                options={audioOptions}
+                label='Input'
+                onChange={handleInputChange}
+                defaultOption={selectedInput.url}
+              />
+            )}
+            
+            {/* Live mode: not connected - show setup button */}
+            {sourceMode === 'live' && !isLiveConnected && (
+              <div className='inline-flex flex-1 flex-col gap-1 w-full'>
+                <span className='text-sm text-zinc-400'>Live Input</span>
+                <div className='relative flex-1'>
+                  <button
+                    onClick={() => setIsLiveSetupModalOpen(true)}
+                    className='flex items-center gap-2 w-full overflow-hidden px-4 py-3 text-md border border-zinc-700 rounded-md bg-transparent hover:bg-zinc-800 transition-colors focus:outline-none'
+                  >
+                    <Plug size={18} className='text-zinc-400 flex-shrink-0' />
+                    <span className='text-ellipsis text-nowrap overflow-hidden min-w-0'>Enable Live Input</span>
+                  </button>
+                  {/* Helper text - positioned below without affecting layout */}
+                  <span className='absolute top-full mt-1 text-xs text-zinc-500'>
+                    Use headphones to avoid feedback.
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Live mode: connected - show device dropdown and settings gear */}
+            {sourceMode === 'live' && isLiveConnected && (
+              <div className='flex items-end gap-2 w-full'>
+                <div className='flex-1'>
+                  <Select
+                    options={liveDeviceOptions}
+                    label='Live Input'
+                    onChange={(value) => handleLiveDeviceChange(String(value))}
+                    defaultOption={currentDeviceId ?? ''}
+                  />
+                </div>
+                {/* Settings/Gear Icon */}
+                <button
+                  onClick={() => setIsLiveSetupModalOpen(true)}
+                  className='p-2.5 mb-[1px] hover:bg-zinc-800 rounded-md transition-colors border border-zinc-700'
+                  aria-label='Live input settings'
+                >
+                  <Settings size={18} className='text-zinc-400' />
+                </button>
+              </div>
+            )}
           </div>
 
           <div className={`w-full sm:w-1/2 ${bypassedStyles}`}>
@@ -460,6 +643,11 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
         </div>
       </div>
 
+      {/* Live Input Control Strip - only when live input is connected */}
+      {sourceMode === 'live' && isLiveConnected && (
+        <InputControlStrip />
+      )}
+
       {/* Footer */}
       <a
         href='https://www.tone3000.com'
@@ -469,6 +657,19 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
         <p className='text-zinc-400 text-xs'>Powered by</p>
         <LogoSm width={42} height={14} />
       </a>
+
+      {/* Live Setup Dialog */}
+      <LiveSetupDialog
+        isOpen={isLiveSetupModalOpen}
+        onClose={() => setIsLiveSetupModalOpen(false)}
+        onConnect={(deviceId, channel) => {
+          // Connection is already handled by the dialog (via startLiveInput)
+          // Ensure output starts muted - user must click play to hear signal
+          setLiveOutputMuted(true);
+          setIsPlaying(false);
+          console.log('Live input connected:', { deviceId, channel });
+        }}
+      />
     </div>
   );
 };

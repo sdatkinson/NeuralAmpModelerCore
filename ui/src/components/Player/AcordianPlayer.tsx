@@ -164,7 +164,7 @@ const PlayerFC: React.FC<T3kAcordianPlayerProps> = ({
   // Visualizer setup
   useEffect(() => {
     if (!isPlaying) return; // Only setup visualizer if the audio is playing
-    if (!audioState.isInitialized || !visualizerRef.current) return;
+    if (audioState.initState !== 'ready' || !visualizerRef.current) return;
 
     const audioContext = getAudioNodes().audioContext;
     if (!audioContext) return;
@@ -180,7 +180,7 @@ const PlayerFC: React.FC<T3kAcordianPlayerProps> = ({
       disconnect();
       visualizerNodeRef.current = null;
     };
-  }, [audioState.isInitialized, getAudioNodes, connectVisualizerNode, isPlaying]);
+  }, [audioState.initState, getAudioNodes, connectVisualizerNode, isPlaying]);
 
   const getDataWithCache = useCallback(async () => {
     if (selectedModel && selectedInput && selectedIr) {
@@ -203,7 +203,7 @@ const PlayerFC: React.FC<T3kAcordianPlayerProps> = ({
   const togglePlay = useCallback(async () => {
     setIsLoading(true);
     const { model, ir, input } = await getDataWithCache();
-    if (!audioState.isInitialized) await init({ audioUrl: input.url });
+    if (audioState.initState !== 'ready') await init({ audioUrl: input.url });
     const nodes = getAudioNodes();
     const { audioElement, audioContext } = nodes;
 
@@ -302,14 +302,14 @@ const PlayerFC: React.FC<T3kAcordianPlayerProps> = ({
       if (model) {
         setSelectedModel(model);
         try {
-          if (audioState.isInitialized && isPlaying) await loadModel(model.url);
+          if (audioState.initState === 'ready' && isPlaying) await loadModel(model.url);
           onModelChange?.(model);
         } catch (error) {
           console.error('Error loading model:', error);
         }
       }
     },
-    [models, loadModel, onModelChange, audioState.isInitialized, isPlaying]
+    [models, loadModel, onModelChange, audioState.initState, isPlaying]
   );
 
   const handleInputChange = useCallback(
@@ -324,7 +324,7 @@ const PlayerFC: React.FC<T3kAcordianPlayerProps> = ({
       try {
         if (wasPlaying) {
           if (
-            audioState.isInitialized &&
+            audioState.initState === 'ready' &&
             (!audioState.audioUrl || audioState.audioUrl !== input.url)
           ) {
             await loadAudio(input.url);
@@ -345,7 +345,7 @@ const PlayerFC: React.FC<T3kAcordianPlayerProps> = ({
       isPlaying,
       inputs,
       audioState.audioUrl,
-      audioState.isInitialized,
+      audioState.initState,
       getAudioNodes,
       loadAudio,
       onInputChange,
@@ -362,7 +362,7 @@ const PlayerFC: React.FC<T3kAcordianPlayerProps> = ({
 
       try {
         if (isPlaying) {
-          if (audioState.isInitialized && ir.url) {
+          if (audioState.initState === 'ready' && ir.url) {
             await loadIr({
               url: ir.url,
               wetAmount: ir.mix,
@@ -377,7 +377,7 @@ const PlayerFC: React.FC<T3kAcordianPlayerProps> = ({
         console.error('Error loading IR:', error);
       }
     },
-    [irs, loadIr, removeIr, onIrChange, audioState.isInitialized, isPlaying]
+    [irs, loadIr, removeIr, onIrChange, audioState.initState, isPlaying]
   );
 
   const bypassedStyles = bypassed

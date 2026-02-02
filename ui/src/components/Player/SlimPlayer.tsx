@@ -54,7 +54,7 @@ const SlimPlayerFC: React.FC<T3kSlimPlayerProps> = ({
       setIsLoading(false);
       return;
     }
-    if (!audioState.isInitialized) await init({ audioUrl: input.url });
+    if (audioState.initState !== 'ready') await init({ audioUrl: input.url });
     const nodes = getAudioNodes();
     const { audioElement, audioContext } = nodes;
 
