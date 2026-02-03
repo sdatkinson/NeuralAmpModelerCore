@@ -166,7 +166,7 @@ export function GainControl({
   return (
     <div className={`flex flex-col items-center gap-1 ${className}`}>
       {label && (
-        <label className="text-xs text-zinc-400 font-medium">{label}</label>
+        <label className="text-xs text-zinc-400">{label}</label>
       )}
 
       {/* Rotary knob */}

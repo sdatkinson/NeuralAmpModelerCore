@@ -222,9 +222,9 @@ export const LiveDeviceChannelContent: React.FC<LiveDeviceChannelContentProps> =
       <div className='flex flex-col gap-1'>
         <span className='text-sm text-zinc-400'>Input Level & Gain</span>
         <p className='text-xs text-zinc-500 mb-1'>Controls impact the selected channel.</p>
-        <div className='flex items-center gap-4'>
+        <div className='flex flex-wrap items-center gap-4'>
           {/* Meters */}
-          <div className='flex flex-col gap-2 flex-1'>
+          <div className='flex flex-col gap-2 flex-1 min-w-[200px]'>
             {isStereo ? (
               <>
                 {/* Left channel meter */}
