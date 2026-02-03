@@ -142,6 +142,12 @@ export function GainControl({
     [disabled, onChange, value, step, clamp]
   );
 
+  // Handle double-click to reset to 0 dB
+  const handleReset = useCallback(() => {
+    if (disabled) return;
+    onChange(clamp(0));
+  }, [disabled, onChange, clamp]);
+
   // Prevent scroll when hovering over knob
   useEffect(() => {
     const knob = knobRef.current;
@@ -167,10 +173,10 @@ export function GainControl({
       <div
         ref={knobRef}
         className={`
-          relative rounded-full cursor-pointer select-none
+          relative rounded-full select-none
           bg-zinc-800 border-2 border-zinc-600
           ${isDragging ? 'border-zinc-400' : 'hover:border-zinc-500'}
-          ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
+          ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
           transition-colors
         `}
         style={{ width: size, height: size }}
@@ -179,6 +185,7 @@ export function GainControl({
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
         onWheel={handleWheel}
+        onDoubleClick={handleReset}
         role="slider"
         aria-label={label}
         aria-valuemin={min}
@@ -232,6 +239,7 @@ export function GainControl({
             value={value.toFixed(1)}
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
+            onDoubleClick={handleReset}
             disabled={disabled}
             min={min}
             max={max}

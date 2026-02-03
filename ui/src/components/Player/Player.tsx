@@ -13,7 +13,7 @@ import { CircularLoader } from '../ui/CircularLoader';
 import { SegmentedControl } from '../ui/SegmentedControl';
 import { LiveSetupDialog } from '../LiveSetupDialog';
 import { InputControlStrip } from '../ControlStrip';
-import { Plug, Settings } from 'lucide-react';
+import { Loader2, Plug, Settings } from 'lucide-react';
 
 type SourceMode = 'preview' | 'live';
 
@@ -43,6 +43,9 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
     cleanup,
     startLiveInput,
     stopLiveInput,
+    setPlaying,
+    saveLiveSnapshot,
+    restoreLiveSnapshot,
   } = useT3kPlayerContext();
 
   // Helper function to get default item
@@ -61,7 +64,6 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
     getDefault(inputs)
   );
   const [selectedIr, setSelectedIr] = useState<IR>(() => getDefault(irs));
-  const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
@@ -144,12 +146,12 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
     if (!id) return;
     const handlePlay = (event: Event) => {
       if ((event as CustomEvent).detail.id !== id) {
-        setIsPlaying(false);
+        setPlaying(false);
       }
     };
     window.addEventListener('t3k-player-play', handlePlay);
     return () => window.removeEventListener('t3k-player-play', handlePlay);
-  }, [id]);
+  }, [id, setPlaying]);
 
   // Setup resize listener
   useEffect(() => {
@@ -164,7 +166,7 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
     if (!audioElement) return;
 
     const handleTimeUpdate = () => setCurrentTime(audioElement.currentTime);
-    const handleEnded = () => setIsPlaying(false);
+    const handleEnded = () => setPlaying(false);
     const handleLoadedMetadata = () => setDuration(audioElement.duration);
 
     // Set initial duration if already loaded
@@ -203,39 +205,18 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
     };
   }, [audioState.initState, getAudioNodes, connectVisualizerNode]);
 
-  // Helper to mute/unmute live output
-  const setLiveOutputMuted = useCallback((muted: boolean) => {
-    const nodes = getAudioNodes();
-    if (nodes.outputGainNode && nodes.audioContext) {
-      nodes.outputGainNode.gain.setTargetAtTime(
-        muted ? 0 : 1,
-        nodes.audioContext.currentTime,
-        0.01 // 10ms for quick response
-      );
-    }
-  }, [getAudioNodes]);
-
   // Event handlers
   const togglePlay = useCallback(async () => {
-    const nodes = getAudioNodes();
-    const { audioElement, audioContext } = nodes;
     const isLiveMode = sourceMode === 'live' && audioState.inputMode.type === 'live';
 
-    // Live mode: toggle output mute instead of file playback
+    // Live mode: toggle via context (handles output gain)
     if (isLiveMode) {
-      if (isPlaying) {
-        // Mute output
-        setLiveOutputMuted(true);
-        setIsPlaying(false);
-      } else {
-        // Ensure audio context is running
-        if (audioContext) {
-          await audioContext.resume();
-        }
-        // Unmute output
-        setLiveOutputMuted(false);
-        setIsPlaying(true);
+      const { audioContext } = getAudioNodes();
+      // Ensure audio context is running
+      if (audioContext && audioContext.state === 'suspended') {
+        await audioContext.resume();
       }
+      setPlaying(!audioState.isPlaying);
       return;
     }
 
@@ -244,15 +225,10 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
     if (audioState.initState !== 'ready') await init({ audioUrl: selectedInput.url });
 
     try {
-      if (isPlaying) {
-        if (audioElement) audioElement.pause();
-        setIsPlaying(false);
+      if (audioState.isPlaying) {
+        // Pause playback
+        setPlaying(false);
       } else {
-        // Ensure audio context is running
-        if (audioContext) {
-          await audioContext.resume();
-        }
-
         // Load audio if needed
         if (!audioState.audioUrl || audioState.audioUrl !== selectedInput.url) {
           await loadAudio(selectedInput.url);
@@ -276,8 +252,9 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
           removeIr();
         }
 
-        if (audioElement) await audioElement.play();
-        setIsPlaying(true);
+        // Start playback via context (handles audioElement.play() and state)
+        setPlaying(true);
+
         if (id) {
           try {
             // Emit play event to window
@@ -296,24 +273,24 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
       }
     } catch (error) {
       console.error('Error in togglePlay:', error);
-      setIsPlaying(false);
+      setPlaying(false);
     } finally {
       setIsLoading(false);
     }
   }, [
-    isPlaying,
     getAudioNodes,
     audioState,
     sourceMode,
     selectedInput,
     selectedModel,
     selectedIr,
+    init,
     loadAudio,
     loadModel,
     loadIr,
     removeIr,
     onPlay,
-    setLiveOutputMuted,
+    setPlaying,
   ]);
 
   const handleSkipToStart = useCallback(() => {
@@ -346,7 +323,7 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
 
   const handleInputChange = useCallback(
     async (value: string | number) => {
-      const wasPlaying = isPlaying;
+      const wasPlaying = audioState.isPlaying;
       const input = inputs.find(i => i.url === String(value));
 
       if (!input) return;
@@ -361,9 +338,9 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
           await loadAudio(input.url);
         }
 
-        const audioElement = getAudioNodes().audioElement;
-        if (wasPlaying && audioElement) {
-          audioElement.play();
+        // Resume playback if it was playing before
+        if (wasPlaying) {
+          setPlaying(true);
         }
 
         onInputChange?.(input);
@@ -372,13 +349,13 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
       }
     },
     [
-      isPlaying,
-      inputs,
+      audioState.isPlaying,
       audioState.audioUrl,
       audioState.initState,
-      getAudioNodes,
+      inputs,
       loadAudio,
       onInputChange,
+      setPlaying,
     ]
   );
 
@@ -410,18 +387,14 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
 
   // Handle source mode change (Preview <-> Live)
   const handleSourceModeChange = useCallback(
-    (newMode: SourceMode) => {
+    async (newMode: SourceMode) => {
       if (newMode === sourceMode) return;
 
       if (newMode === 'live') {
         // Switching from Preview to Live
-        if (isPlaying) {
+        if (audioState.isPlaying) {
           // Pause playback but preserve playhead position
-          const audioElement = getAudioNodes().audioElement;
-          if (audioElement) {
-            audioElement.pause();
-          }
-          setIsPlaying(false);
+          setPlaying(false);
           setShowPlaybackPausedMessage(true);
 
           // Auto-hide the message after 3 seconds
@@ -429,24 +402,28 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
             setShowPlaybackPausedMessage(false);
           }, 3000);
         }
-        // Ensure live output starts muted (user must click play)
-        setLiveOutputMuted(true);
+
+        // Restore device/channel/gain config if we have a saved snapshot
+        if (audioState.liveConfigSnapshot) {
+          await restoreLiveSnapshot();
+        }
       } else {
         // Switching from Live to Preview
         setShowPlaybackPausedMessage(false);
-        setIsPlaying(false);
+
+        // Save current live config before stopping
+        saveLiveSnapshot();
+
         // Stop live input and disconnect the source
         stopLiveInput();
-        // Restore output gain for file playback
-        const nodes = getAudioNodes();
-        if (nodes.outputGainNode && nodes.audioContext) {
-          nodes.outputGainNode.gain.setTargetAtTime(1, nodes.audioContext.currentTime, 0.01);
-        }
+
+        // Ensure playback is stopped when switching to preview
+        setPlaying(false);
       }
 
       setSourceMode(newMode);
     },
-    [sourceMode, isPlaying, getAudioNodes, setLiveOutputMuted, stopLiveInput]
+    [sourceMode, audioState.isPlaying, audioState.liveConfigSnapshot, setPlaying, stopLiveInput, saveLiveSnapshot, restoreLiveSnapshot]
   );
 
   // Source mode options for segmented control
@@ -500,10 +477,11 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
       <div className='flex items-center gap-4 overflow-hidden'>
         <button
           onClick={togglePlay}
-          className='p-0 focus:outline-none'
-          aria-label={isPlaying ? 'Pause' : 'Play'}
+          className={`p-0 focus:outline-none ${sourceMode === 'live' && !isLiveConnected ? 'opacity-50 cursor-not-allowed' : ''}`}
+          disabled={sourceMode === 'live' && !isLiveConnected}
+          aria-label={audioState.isPlaying ? 'Pause' : 'Play'}
         >
-          {isPlaying ? (
+          {audioState.isPlaying ? (
             <Pause />
           ) : isLoading ? (
             <CircularLoader size={48} />
@@ -514,16 +492,17 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
 
         <button
           onClick={handleSkipToStart}
-          className='p-0 focus:outline-none'
+          className={`p-0 focus:outline-none ${sourceMode === 'live' ? 'opacity-50 cursor-not-allowed' : ''}`}
+          disabled={sourceMode === 'live'}
           aria-label='Skip to start'
         >
-          <Skip opacity={currentTime > 0 ? 1 : 0.6} />
+          <Skip opacity={sourceMode === 'live' ? 0.6 : currentTime > 0 ? 1 : 0.6} />
         </button>
 
         <div className='hidden sm:flex text-sm font-mono gap-2 text-zinc-400'>
-          <span>{formatTime(currentTime)}</span>
+          <span>{sourceMode === 'live' ? '-:--' : formatTime(currentTime)}</span>
           <span> / </span>
-          <span>{formatTime(duration)}</span>
+          <span>{sourceMode === 'live' ? '-:--' : formatTime(duration)}</span>
         </div>
 
         <div ref={canvasWrapperRef} className='flex-1'>
@@ -604,32 +583,53 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
                     <Plug size={18} className='text-zinc-400 flex-shrink-0' />
                     <span className='text-ellipsis text-nowrap overflow-hidden min-w-0'>Enable Live Input</span>
                   </button>
-                  {/* Helper text - positioned below without affecting layout */}
-                  <span className='absolute top-full mt-1 text-xs text-zinc-500'>
-                    Use headphones to avoid feedback.
-                  </span>
+                  {/* Error or helper text - positioned below without affecting layout */}
+                  {audioInputDevices.error ? (
+                    <span className='absolute top-full mt-1 text-xs text-red-400'>
+                      {audioInputDevices.error}
+                    </span>
+                  ) : (
+                    <span className='absolute top-full mt-1 text-xs text-zinc-500'>
+                      Use headphones to avoid feedback.
+                    </span>
+                  )}
                 </div>
               </div>
             )}
 
             {/* Live mode: connected - show device dropdown and settings gear */}
             {sourceMode === 'live' && isLiveConnected && (
-              <div className='flex items-end gap-2 w-full'>
-                <div className='flex-1'>
-                  <Select
-                    options={liveDeviceOptions}
-                    label='Live Input'
-                    onChange={(value) => handleLiveDeviceChange(String(value))}
-                    defaultOption={currentDeviceId ?? ''}
-                  />
+              <div className='grid grid-cols-[1fr_48px] items-end gap-2 w-full'>
+                <div className='min-w-0'>
+                  {audioState.isLiveConnecting ? (
+                    <div className='flex flex-col gap-1 w-full'>
+                      <span className='text-sm text-zinc-400'>Live Input</span>
+                      <div className='flex items-center justify-between w-full px-4 py-3 text-md border border-zinc-700 rounded-md bg-transparent opacity-50 cursor-wait'>
+                        <span className='text-zinc-400'>Switching device...</span>
+                        <Loader2 size={24} className='text-zinc-400 animate-spin' />
+                      </div>
+                    </div>
+                  ) : (
+                    <Select
+                      options={liveDeviceOptions}
+                      label='Live Input'
+                      onChange={(value) => handleLiveDeviceChange(String(value))}
+                      defaultOption={currentDeviceId ?? ''}
+                    />
+                  )}
                 </div>
                 {/* Settings/Gear Icon */}
                 <button
                   onClick={() => setIsLiveSetupModalOpen(true)}
-                  className='p-2.5 mb-[1px] hover:bg-zinc-800 rounded-md transition-colors border border-zinc-700'
+                  disabled={audioState.isLiveConnecting}
+                  className={`w-12 flex items-center justify-center py-3 rounded-md transition-colors border border-zinc-700 ${
+                    audioState.isLiveConnecting
+                      ? 'opacity-50 cursor-not-allowed'
+                      : 'hover:bg-zinc-800'
+                  }`}
                   aria-label='Live input settings'
                 >
-                  <Settings size={18} className='text-zinc-400' />
+                  <Settings size={24} className='text-zinc-400' />
                 </button>
               </div>
             )}
@@ -663,10 +663,8 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
         isOpen={isLiveSetupModalOpen}
         onClose={() => setIsLiveSetupModalOpen(false)}
         onConnect={(deviceId, channel) => {
-          // Connection is already handled by the dialog (via startLiveInput)
-          // Ensure output starts muted - user must click play to hear signal
-          setLiveOutputMuted(true);
-          setIsPlaying(false);
+          // Connection is handled by the dialog (via startLiveInput)
+          // The dialog's Monitor Input checkbox controls isPlaying state
           console.log('Live input connected:', { deviceId, channel });
         }}
       />

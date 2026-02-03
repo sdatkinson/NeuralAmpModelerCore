@@ -11,6 +11,8 @@ export interface LevelMeterProps {
   className?: string;
   /** Label for accessibility */
   label?: string;
+  /** Show meter in inactive/grayscale state */
+  inactive?: boolean;
 }
 
 /**
@@ -35,10 +37,19 @@ export const LevelMeter = forwardRef<HTMLDivElement, LevelMeterProps>(
       thickness = 8,
       className = '',
       label = 'Audio level meter',
+      inactive = false,
     },
     ref
   ) => {
     const isVertical = orientation === 'vertical';
+
+    // Color gradient for active meter, gray for inactive
+    const activeGradient = isVertical
+      ? 'linear-gradient(to top, #22c55e 0%, #22c55e 60%, #eab308 75%, #ef4444 90%, #ef4444 100%)'
+      : 'linear-gradient(to right, #22c55e 0%, #22c55e 60%, #eab308 75%, #ef4444 90%, #ef4444 100%)';
+    const inactiveGradient = isVertical
+      ? 'linear-gradient(to top, #71717a 0%, #71717a 60%, #a1a1aa 75%, #d4d4d8 90%, #d4d4d8 100%)'
+      : 'linear-gradient(to right, #71717a 0%, #71717a 60%, #a1a1aa 75%, #d4d4d8 90%, #d4d4d8 100%)';
 
     return (
       <div
@@ -67,10 +78,8 @@ export const LevelMeter = forwardRef<HTMLDivElement, LevelMeterProps>(
             // Full dimension on the non-animated axis
             width: isVertical ? '100%' : '100%',
             height: isVertical ? '100%' : '100%',
-            // Gradient from green (bottom/left) through yellow to red (top/right)
-            background: isVertical
-              ? 'linear-gradient(to top, #22c55e 0%, #22c55e 60%, #eab308 75%, #ef4444 90%, #ef4444 100%)'
-              : 'linear-gradient(to right, #22c55e 0%, #22c55e 60%, #eab308 75%, #ef4444 90%, #ef4444 100%)',
+            // Gradient from green through yellow to red (or gray if inactive)
+            background: inactive ? inactiveGradient : activeGradient,
             // Scale transform controlled by --level (0 to 1)
             transform: isVertical
               ? 'scaleY(var(--level, 0))'

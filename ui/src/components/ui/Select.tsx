@@ -164,7 +164,7 @@ export const Select = ({
   return (
     <div
       ref={containerRef}
-      className={'inline-flex flex-1 flex-col gap-1 w-full'}
+      className={'flex flex-col gap-1 w-full'}
     >
       <div className={'flex justify-between items-end'}>
         {label && (
@@ -174,7 +174,7 @@ export const Select = ({
         )}
         {!!infoModal && infoModal}
       </div>
-      <div className='relative flex-1'>
+      <div className='relative'>
         <button
           ref={buttonRef}
           className={`flex items-center justify-between w-full overflow-hidden px-4 py-3 text-md border border-zinc-700 rounded-md bg-transparent focus:outline-none ${disabled ? 'touch-none cursor-not-allowed' : ''}`}

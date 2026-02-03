@@ -36,6 +36,7 @@ export type InputMode =
       deviceId?: string;
       channelCount?: number;              // Number of available channels (1 or 2)
       selectedChannel?: ChannelSelection; // Which channel to route to processing
+      channelGains?: Record<ChannelSelection, number>;  // Per-channel input gain in dB
     };
 
 export interface AudioInputDevice {
@@ -56,6 +57,7 @@ export interface AudioInputDeviceState {
   devices: AudioInputDevice[];
   isLoading: boolean;
   error: string | null;
+  preferredDeviceId: string | null;  // Device selected by user in browser permission dialog
 }
 
 // Utility type to ensure non-empty arrays

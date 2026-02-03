@@ -1,11 +1,10 @@
-import React, { useRef, useState, useEffect, useCallback } from 'react';
+import React, { useRef, useCallback, useEffect } from 'react';
 import { useT3kPlayerContext } from '../../context/T3kPlayerContext';
 import { useMeterAnimation } from '../../hooks/useMeterAnimation';
 import { LevelMeter } from '../ui/LevelMeter';
 import { ClipIndicator } from '../ui/ClipIndicator';
 import { GainControl } from '../ui/GainControl';
 import { SegmentedControl, SegmentOption } from '../ui/SegmentedControl';
-import { dbToLinear } from '../../utils/metering';
 import { ChannelSelection } from '../../types';
 
 // Channel options for the compact selector
@@ -27,13 +26,14 @@ const channelOptions: SegmentOption<ChannelSelection>[] = [
  * Only renders when audio is initialized and in live input mode.
  */
 export function InputControlStrip() {
-  const { getAudioNodes, audioState, selectLiveInputChannel } = useT3kPlayerContext();
+  const { getAudioNodes, audioState, selectLiveInputChannel, setLiveInputGain } = useT3kPlayerContext();
   const nodes = getAudioNodes();
 
-  // Derive channel info from live input mode
+  // Derive channel and gain info from live input mode
   const liveInputMode = audioState.inputMode.type === 'live' ? audioState.inputMode : null;
   const currentChannel = liveInputMode?.selectedChannel ?? 'first';
   const channelCount = liveInputMode?.channelCount ?? 1;
+  const inputGain = liveInputMode?.channelGains?.[currentChannel] ?? 0;
   const isStereo = channelCount >= 2;
 
   // Handle channel change
@@ -41,14 +41,16 @@ export function InputControlStrip() {
     selectLiveInputChannel(channel);
   }, [selectLiveInputChannel]);
 
+  // Handle gain change - use context's setLiveInputGain
+  const handleGainChange = useCallback((gainDb: number) => {
+    setLiveInputGain(gainDb);
+  }, [setLiveInputGain]);
+
   // Refs for meter DOM elements (used by animation hook)
   const inputMeterRef = useRef<HTMLDivElement>(null);
   const outputMeterRef = useRef<HTMLDivElement>(null);
   const inputClipRef = useRef<HTMLButtonElement>(null);
   const outputClipRef = useRef<HTMLButtonElement>(null);
-
-  // Gain control state (in dB)
-  const [inputGain, setInputGain] = useState(0);
 
   // Start meter animation when audio is initialized
   const { resetClipLatch } = useMeterAnimation(
@@ -69,17 +71,11 @@ export function InputControlStrip() {
     audioState.initState === 'ready'
   );
 
-  // Apply input gain to the audio graph
+  // Reset clip indicators when device or channel changes
+  const currentDeviceId = liveInputMode?.deviceId;
   useEffect(() => {
-    if (nodes.inputGainNode && nodes.audioContext) {
-      const linearGain = dbToLinear(inputGain);
-      nodes.inputGainNode.gain.setTargetAtTime(
-        linearGain,
-        nodes.audioContext.currentTime,
-        0.02 // 20ms smoothing
-      );
-    }
-  }, [inputGain, nodes.inputGainNode, nodes.audioContext]);
+    resetClipLatch('all');
+  }, [currentDeviceId, currentChannel, resetClipLatch]);
 
   // Don't render if audio not ready or not in live mode
   if (audioState.initState !== 'ready') {
@@ -90,8 +86,12 @@ export function InputControlStrip() {
     return null;
   }
 
+  const isConnecting = audioState.isLiveConnecting;
+
   return (
-    <div className='p-4 bg-zinc-800/50 rounded-lg border border-zinc-700'>
+    <div className={`p-4 bg-zinc-800/50 rounded-lg border border-zinc-700 transition-opacity ${
+      isConnecting ? 'opacity-50 pointer-events-none' : ''
+    }`}>
       <div className='flex items-start gap-6'>
         {/* Channel Selector - only for stereo devices */}
         {isStereo && (
@@ -109,12 +109,13 @@ export function InputControlStrip() {
         <div className='flex flex-col items-center'>
           <GainControl
             value={inputGain}
-            onChange={setInputGain}
+            onChange={handleGainChange}
             min={-20}
             max={20}
             step={0.5}
             label='Input Gain'
             size={52}
+            disabled={isConnecting}
           />
         </div>
 

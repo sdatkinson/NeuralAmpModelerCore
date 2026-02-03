@@ -6,7 +6,6 @@ import { LivePermissionContent } from './content/LivePermissionContent';
 import { LiveDeviceChannelContent } from './content/LiveDeviceChannelContent';
 import { useT3kPlayerContext } from '../../context/T3kPlayerContext';
 import { ChannelSelection } from '../../types';
-import { dbToLinear } from '../../utils/metering';
 
 interface LiveSetupDialogProps {
   isOpen: boolean;
@@ -31,73 +30,70 @@ export const LiveSetupDialog: React.FC<LiveSetupDialogProps> = ({
     startLiveInput,
     stopLiveInput,
     selectLiveInputChannel,
+    setLiveInputGain,
+    setPlaying,
     toggleBypass,
     getAudioNodes,
+    saveLiveSnapshot,
+    restoreLiveSnapshot,
+    clearLiveSnapshot,
   } = useT3kPlayerContext();
 
-  // Local state: only what's needed for dialog UI flow
+  // Local state: only UI flow
   const [step, setStep] = useState<SetupStep>('permission');
   const [isInitializing, setIsInitializing] = useState(true);
-  const [isConnectingDevice, setIsConnectingDevice] = useState(false);
-  const [isMonitoring, setIsMonitoring] = useState(false); // Local monitoring state for preview
-  const [inputGain, setInputGain] = useState(0); // Input gain in dB
-  const connectedRef = useRef(false); // Track if user clicked Connect
+  const connectedRef = useRef(false);
+
+  // Track if there was an existing connection when dialog opened
+  const hadExistingConnectionRef = useRef(false);
 
   // Derived from context (single source of truth)
   const liveInputMode = audioState.inputMode.type === 'live' ? audioState.inputMode : null;
   const currentDeviceId = liveInputMode?.deviceId ?? null;
   const currentChannel = liveInputMode?.selectedChannel ?? 'first';
   const channelCount = liveInputMode?.channelCount ?? 1;
+  const currentInputGain = liveInputMode?.channelGains?.[currentChannel] ?? 0;
 
   // Dialog open/close lifecycle
   useEffect(() => {
     if (isOpen) {
       connectedRef.current = false;
-      setIsMonitoring(false); // Reset monitoring state
       setIsInitializing(true);
+
+      // Check if there's an existing live connection
+      const existingLiveMode = audioState.inputMode.type === 'live' ? audioState.inputMode : null;
+      hadExistingConnectionRef.current = existingLiveMode !== null && existingLiveMode.deviceId !== undefined;
+
+      // Save snapshot for cancel/restore
+      if (hadExistingConnectionRef.current) {
+        saveLiveSnapshot();
+      }
+
       refreshAudioInputDevices().then(() => {
         setIsInitializing(false);
         setStep(microphonePermission.status === 'granted' ? 'device-channel-select' : 'permission');
       });
     } else if (!connectedRef.current) {
-      // Dialog closed without Connect - stop preview and restore bypass state
-      stopLiveInput();
-      if (audioState.isBypassed) toggleBypass();
+      // Dialog closed without Save - restore previous state including playback/bypass
+      if (hadExistingConnectionRef.current) {
+        restoreLiveSnapshot({ includePlaybackState: true });
+      } else {
+        // No existing connection: stop live input
+        stopLiveInput();
+      }
+      hadExistingConnectionRef.current = false;
     }
   }, [isOpen]);
 
   // Helper to ensure audio system is initialized before starting live input
   const initAndStartLiveInput = useCallback(async (deviceId: string) => {
-    setIsConnectingDevice(true);
-    try {
-      if (audioState.initState !== 'ready') {
-        // init() fully initializes the audio system:
-        // loads WASM, loads default model, waits for audio nodes to be created
-        await init();
-      }
-      await startLiveInput(deviceId);
-
-      // Enable bypass mode for preview (disconnects NAM worklet from output)
-      // This way we only hear dry signal (or silence) during setup
-      if (!audioState.isBypassed) {
-        toggleBypass();
-      }
-
-      // Set bypass gain based on current monitoring state (default: 0 = silence)
-      const nodes = getAudioNodes();
-      if (nodes.bypassNode && nodes.audioContext) {
-        nodes.bypassNode.gain.setValueAtTime(isMonitoring ? 1 : 0, nodes.audioContext.currentTime);
-      }
-    } finally {
-      setIsConnectingDevice(false);
+    if (audioState.initState !== 'ready') {
+      await init();
     }
-  }, [audioState.initState, audioState.isBypassed, init, startLiveInput, toggleBypass, getAudioNodes, isMonitoring]);
+    await startLiveInput(deviceId);
+  }, [audioState.initState, init, startLiveInput]);
 
-  // NOTE: We intentionally do NOT auto-start live input here.
-  // AudioContext creation requires a user gesture (browser autoplay policy).
-  // The user must explicitly click a device in the dropdown to trigger initialization.
-
-  // Event handlers - directly call context methods
+  // Event handlers
   const handleDeviceChange = useCallback((deviceId: string) => {
     initAndStartLiveInput(deviceId);
   }, [initAndStartLiveInput]);
@@ -107,54 +103,37 @@ export const LiveSetupDialog: React.FC<LiveSetupDialogProps> = ({
   }, [selectLiveInputChannel]);
 
   const handleMonitoringChange = useCallback((enabled: boolean) => {
-    // During preview, we stay in bypass mode (worklet disconnected)
-    // Monitor ON (checked) → bypass gain = 1 → hear dry signal
-    // Monitor OFF (unchecked) → bypass gain = 0 → silence
-    setIsMonitoring(enabled);
-    const nodes = getAudioNodes();
-    if (nodes.bypassNode && nodes.audioContext) {
-      nodes.bypassNode.gain.setValueAtTime(enabled ? 1 : 0, nodes.audioContext.currentTime);
-    }
-  }, [getAudioNodes]);
+    // Use context's setPlaying - this updates both the audio node and React state
+    setPlaying(enabled);
+  }, [setPlaying]);
+
+  const handleWetSignalToggle = useCallback(() => {
+    // Uses the same bypass state as the player
+    toggleBypass();
+  }, [toggleBypass]);
 
   const handleInputGainChange = useCallback((gainDb: number) => {
-    setInputGain(gainDb);
-    const nodes = getAudioNodes();
-    if (nodes.inputGainNode && nodes.audioContext) {
-      const linearGain = dbToLinear(gainDb);
-      nodes.inputGainNode.gain.setTargetAtTime(
-        linearGain,
-        nodes.audioContext.currentTime,
-        0.02 // 20ms smoothing
-      );
-    }
-  }, [getAudioNodes]);
+    setLiveInputGain(gainDb);
+  }, [setLiveInputGain]);
 
   const handleRequestPermission = useCallback(async () => {
     try {
-      await requestMicrophonePermission();
+      const preferredDeviceId = await requestMicrophonePermission();
       setStep('device-channel-select');
+
+      // Auto-connect to the device user selected in browser's permission dialog
+      if (preferredDeviceId) {
+        initAndStartLiveInput(preferredDeviceId);
+      }
     } catch {
       // Error handling is done in context
     }
-  }, [requestMicrophonePermission]);
+  }, [requestMicrophonePermission, initAndStartLiveInput]);
 
   const handleConnect = () => {
     if (currentDeviceId) {
       connectedRef.current = true;
-
-      // Exit bypass mode so the NAM processing is connected to output
-      // (during preview we were in bypass mode to hear dry signal)
-      if (audioState.isBypassed) {
-        toggleBypass();
-      }
-
-      // Reset bypass gain to 1 in case monitoring was off (gain was 0)
-      const nodes = getAudioNodes();
-      if (nodes.bypassNode && nodes.audioContext) {
-        nodes.bypassNode.gain.setValueAtTime(1, nodes.audioContext.currentTime);
-      }
-
+      clearLiveSnapshot();  // Commit changes, no need to restore
       onConnect?.(currentDeviceId, currentChannel);
     }
     handleClose();
@@ -196,7 +175,7 @@ export const LiveSetupDialog: React.FC<LiveSetupDialogProps> = ({
         onClick={handleConnect}
         disabled={!currentDeviceId}
       >
-        Connect
+        Save
       </Button>
     </div>
   ) : null;
@@ -204,12 +183,10 @@ export const LiveSetupDialog: React.FC<LiveSetupDialogProps> = ({
   // Skeleton content while checking permission state
   const skeletonContent = (
     <div className='flex flex-col gap-4'>
-      {/* Text skeleton */}
       <div className='flex flex-col gap-2'>
         <div className='h-4 bg-zinc-800 rounded animate-pulse w-full' />
         <div className='h-4 bg-zinc-800 rounded animate-pulse w-3/4' />
       </div>
-      {/* Button skeleton */}
       <div className='h-12 bg-zinc-800 rounded animate-pulse w-full' />
     </div>
   );
@@ -236,14 +213,16 @@ export const LiveSetupDialog: React.FC<LiveSetupDialogProps> = ({
           selectedDeviceId={currentDeviceId ?? ''}
           selectedChannel={currentChannel}
           channelCount={channelCount}
-          isMonitoring={isMonitoring}
-          inputGain={inputGain}
+          isMonitoring={audioState.isPlaying}
+          isWetSignalEnabled={!audioState.isBypassed}
+          inputGain={currentInputGain}
           onDeviceChange={handleDeviceChange}
           onChannelChange={handleChannelChange}
           onMonitoringChange={handleMonitoringChange}
+          onWetSignalToggle={handleWetSignalToggle}
           onInputGainChange={handleInputGainChange}
           isLoading={audioInputDevices.isLoading}
-          isConnecting={isConnectingDevice}
+          isConnecting={audioState.isLiveConnecting}
           error={audioInputDevices.error}
           onRefresh={refreshAudioInputDevices}
           channel0Meter={getAudioNodes().channel0PreviewMeter}

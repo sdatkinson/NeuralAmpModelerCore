@@ -4,6 +4,7 @@ import { AudioInputDevice, ChannelSelection } from '../../../types';
 import { Button } from '../../ui/Button';
 import { SegmentedControl, SegmentOption } from '../../ui/SegmentedControl';
 import { LevelMeter } from '../../ui/LevelMeter';
+import { ClipIndicator } from '../../ui/ClipIndicator';
 import { GainControl } from '../../ui/GainControl';
 import { useMeterAnimation } from '../../../hooks/useMeterAnimation';
 
@@ -13,10 +14,12 @@ interface LiveDeviceChannelContentProps {
   selectedChannel: ChannelSelection;
   channelCount: number;
   isMonitoring: boolean;
+  isWetSignalEnabled: boolean;
   inputGain: number;
   onDeviceChange: (deviceId: string) => void;
   onChannelChange: (channel: ChannelSelection) => void;
   onMonitoringChange: (enabled: boolean) => void;
+  onWetSignalToggle: () => void;
   onInputGainChange: (gainDb: number) => void;
   isLoading: boolean;
   isConnecting: boolean;
@@ -37,10 +40,12 @@ export const LiveDeviceChannelContent: React.FC<LiveDeviceChannelContentProps> =
   selectedChannel,
   channelCount,
   isMonitoring,
+  isWetSignalEnabled,
   inputGain,
   onDeviceChange,
   onChannelChange,
   onMonitoringChange,
+  onWetSignalToggle,
   onInputGainChange,
   isLoading,
   isConnecting,
@@ -54,6 +59,8 @@ export const LiveDeviceChannelContent: React.FC<LiveDeviceChannelContentProps> =
   // Refs for meter animation
   const channel0MeterRef = useRef<HTMLDivElement>(null);
   const channel1MeterRef = useRef<HTMLDivElement>(null);
+  const channel0ClipRef = useRef<HTMLButtonElement>(null);
+  const channel1ClipRef = useRef<HTMLButtonElement>(null);
 
   const selectedDevice = devices.find(d => d.deviceId === selectedDeviceId);
   const hasDevices = devices.length > 0;
@@ -70,11 +77,16 @@ export const LiveDeviceChannelContent: React.FC<LiveDeviceChannelContentProps> =
   }, [selectedDeviceDisconnected, devices, onDeviceChange]);
 
   // Set up meter animation for preview meters
-  useMeterAnimation(
-    channel0Meter ? { analyser: channel0Meter, meterRef: channel0MeterRef } : null,
-    channel1Meter && isStereo ? { analyser: channel1Meter, meterRef: channel1MeterRef } : null,
+  const { resetClipLatch } = useMeterAnimation(
+    channel0Meter ? { analyser: channel0Meter, meterRef: channel0MeterRef, clipRef: channel0ClipRef } : null,
+    channel1Meter && isStereo ? { analyser: channel1Meter, meterRef: channel1MeterRef, clipRef: channel1ClipRef } : null,
     true
   );
+
+  // Reset clip indicators when device or channel changes
+  useEffect(() => {
+    resetClipLatch('all');
+  }, [selectedDeviceId, selectedChannel, resetClipLatch]);
 
   // Loading skeleton
   if (isLoading) {
@@ -217,36 +229,55 @@ export const LiveDeviceChannelContent: React.FC<LiveDeviceChannelContentProps> =
               <>
                 {/* Left channel meter */}
                 <div className='flex items-center gap-2'>
-                  <span className='text-xs text-zinc-500 w-4'>L</span>
+                  <span className={`text-xs w-4 ${selectedChannel === 'first' ? 'font-bold text-zinc-300' : 'text-zinc-500'}`}>L</span>
                   <LevelMeter
                     ref={channel0MeterRef}
                     orientation='horizontal'
                     size={140}
                     thickness={12}
                     label='Left channel level'
+                    inactive={selectedChannel !== 'first'}
+                  />
+                  <ClipIndicator
+                    ref={channel0ClipRef}
+                    onClick={() => resetClipLatch('input')}
+                    size={12}
                   />
                 </div>
                 {/* Right channel meter */}
                 <div className='flex items-center gap-2'>
-                  <span className='text-xs text-zinc-500 w-4'>R</span>
+                  <span className={`text-xs w-4 ${selectedChannel === 'second' ? 'font-bold text-zinc-300' : 'text-zinc-500'}`}>R</span>
                   <LevelMeter
                     ref={channel1MeterRef}
                     orientation='horizontal'
                     size={140}
                     thickness={12}
                     label='Right channel level'
+                    inactive={selectedChannel !== 'second'}
+                  />
+                  <ClipIndicator
+                    ref={channel1ClipRef}
+                    onClick={() => resetClipLatch('output')}
+                    size={12}
                   />
                 </div>
               </>
             ) : (
               /* Single meter for mono */
-              <LevelMeter
-                ref={channel0MeterRef}
-                orientation='horizontal'
-                size={180}
-                thickness={12}
-                label='Input level'
-              />
+              <div className='flex items-center gap-2'>
+                <LevelMeter
+                  ref={channel0MeterRef}
+                  orientation='horizontal'
+                  size={180}
+                  thickness={12}
+                  label='Input level'
+                />
+                <ClipIndicator
+                  ref={channel0ClipRef}
+                  onClick={() => resetClipLatch('input')}
+                  size={12}
+                />
+              </div>
             )}
           </div>
 
@@ -259,6 +290,7 @@ export const LiveDeviceChannelContent: React.FC<LiveDeviceChannelContentProps> =
             step={0.5}
             label='Gain'
             size={44}
+            disabled={!selectedDeviceId || isConnecting}
           />
         </div>
       </div>
@@ -274,10 +306,25 @@ export const LiveDeviceChannelContent: React.FC<LiveDeviceChannelContentProps> =
           />
           <span className='text-sm text-zinc-300'>Monitor input (hear yourself)</span>
         </label>
-        <div className='flex items-start gap-2 p-2 bg-yellow-950/30 border border-yellow-900/30 rounded text-xs text-yellow-400'>
-          <AlertTriangle size={14} className='flex-shrink-0 mt-0.5' />
-          <span>Use headphones to avoid feedback</span>
-        </div>
+
+        {/* Wet Signal Toggle - only show when monitoring is enabled */}
+        {isMonitoring && (
+          <label className='flex items-center gap-3 cursor-pointer ml-7'>
+            <input
+              type='checkbox'
+              checked={isWetSignalEnabled}
+              onChange={onWetSignalToggle}
+              className='w-4 h-4 rounded border-zinc-600 bg-zinc-800 text-blue-500 focus:ring-blue-500 focus:ring-offset-zinc-900'
+            />
+            <span className='text-sm text-zinc-300'>Enable rig (hear processed signal)</span>
+          </label>
+        )}
+      </div>
+
+      {/* Headphones warning */}
+      <div className='flex items-start gap-2 p-2 bg-yellow-950/30 border border-yellow-900/30 rounded text-xs text-yellow-400'>
+        <AlertTriangle size={14} className='flex-shrink-0 mt-0.5' />
+        <span>Use headphones to avoid feedback</span>
       </div>
 
       {/* Helper text for mono devices */}
