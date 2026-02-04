@@ -304,8 +304,8 @@ export function T3kPlayerContextProvider({
   };
 
   // Helper: Apply output device routing with browser-specific handling
-  // Firefox requires MediaStreamDestination + HTMLAudioElement workaround
-  // Chrome/Safari can use AudioContext.setSinkId directly
+  // Firefox and Safari require MediaStreamDestination + HTMLAudioElement workaround
+  // Chrome can use AudioContext.setSinkId directly
   const applyOutputDeviceRouting = async (
     nodes: AudioNodes,
     deviceId: string | null
@@ -313,10 +313,13 @@ export function T3kPlayerContextProvider({
     const { audioContext, outputMeterNode } = nodes;
     if (!audioContext || !outputMeterNode) return;
 
-    const isFirefox = navigator.userAgent.toLowerCase().includes('firefox');
+    const ua = navigator.userAgent.toLowerCase();
+    const isFirefox = ua.includes('firefox');
+    const isSafari = ua.includes('safari') && !ua.includes('chrome');
+    const needsMediaStreamWorkaround = isFirefox || isSafari;
 
-    if (isFirefox) {
-      // Firefox: Must route through MediaStreamDestination + HTMLAudioElement
+    if (needsMediaStreamWorkaround) {
+      // Firefox/Safari: Must route through MediaStreamDestination + HTMLAudioElement
       // Always clean up existing Firefox audio elements first
       if (nodes.firefoxOutputElement) {
         nodes.firefoxOutputElement.pause();
@@ -356,7 +359,7 @@ export function T3kPlayerContextProvider({
         outputMeterNode.connect(audioContext.destination);
       }
     } else {
-      // Chrome/Safari: Use AudioContext.setSinkId directly
+      // Chrome: Use AudioContext.setSinkId directly
       const contextWithSinkId = audioContext as AudioContext & { setSinkId?: (sinkId: string) => Promise<void> };
       if (typeof contextWithSinkId.setSinkId === 'function') {
         try {

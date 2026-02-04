@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronDown, AlertCircle, AlertTriangle, Loader2 } from 'lucide-react';
+import { ChevronDown, Loader2 } from 'lucide-react';
 import { AudioInputDevice, AudioOutputDevice, ChannelSelection } from '../../../types';
 import { Button } from '../../ui/Button';
+import { Alert } from '../../ui/Alert';
+import { InlineAlert } from '../../ui/InlineAlert';
 import { SegmentedControl, SegmentOption } from '../../ui/SegmentedControl';
 import { LevelMeter } from '../../ui/LevelMeter';
 import { ClipIndicator } from '../../ui/ClipIndicator';
@@ -77,7 +79,9 @@ export const DeviceChannelContent: React.FC<DeviceChannelContentProps> = ({
   const selectedDevice = devices.find(d => d.deviceId === selectedDeviceId);
   const hasDevices = devices.length > 0;
   const isStereo = channelCount >= 2;
-  const isFirefox = typeof navigator !== 'undefined' && navigator.userAgent.toLowerCase().includes('firefox');
+  const ua = typeof navigator !== 'undefined' ? navigator.userAgent.toLowerCase() : '';
+  const isSafari = ua.includes('safari') && !ua.includes('chrome');
+  const needsMediaStreamWorkaround = ua.includes('firefox') || isSafari;
 
   // Mode-aware flags
   const isPreviewMode = sourceMode === 'preview';
@@ -127,15 +131,9 @@ export const DeviceChannelContent: React.FC<DeviceChannelContentProps> = ({
   if (isLiveMode && error && !hasDevices) {
     return (
       <div className='flex flex-col gap-4'>
-        <div className='flex items-start gap-3 p-3 bg-red-950/50 border border-red-900/50 rounded-md'>
-          <AlertCircle size={18} className='text-red-400 flex-shrink-0 mt-0.5' />
-          <div className='flex flex-col gap-1'>
-            <p className='text-sm text-red-300'>{error}</p>
-            <p className='text-xs text-red-400'>
-              Please check your connections and try again.
-            </p>
-          </div>
-        </div>
+        <Alert variant='error' description='Please check your connections and try again.'>
+          {error}
+        </Alert>
         <Button variant='secondary' onClick={onRefresh}>
           Refresh Devices
         </Button>
@@ -147,15 +145,9 @@ export const DeviceChannelContent: React.FC<DeviceChannelContentProps> = ({
   if (isLiveMode && !hasDevices) {
     return (
       <div className='flex flex-col gap-4'>
-        <div className='flex items-start gap-3 p-3 bg-yellow-950/50 border border-yellow-900/50 rounded-md'>
-          <AlertCircle size={18} className='text-yellow-400 flex-shrink-0 mt-0.5' />
-          <div className='flex flex-col gap-1'>
-            <p className='text-sm text-yellow-300'>No audio input devices found.</p>
-            <p className='text-xs text-yellow-400'>
-              Please connect an audio interface or microphone and try again.
-            </p>
-          </div>
-        </div>
+        <Alert variant='warning' description='Please connect an audio interface or microphone and try again.'>
+          No audio input devices found.
+        </Alert>
         <Button variant='secondary' onClick={onRefresh}>
           Refresh Devices
         </Button>
@@ -169,12 +161,9 @@ export const DeviceChannelContent: React.FC<DeviceChannelContentProps> = ({
     <div className='flex flex-col gap-5'>
       {/* Warning if a device was disconnected but others are available (live mode only) */}
       {isLiveMode && error && hasDevices && (
-        <div className='flex items-start gap-3 p-3 bg-yellow-950/50 border border-yellow-900/50 rounded-md'>
-          <AlertTriangle size={18} className='text-yellow-400 flex-shrink-0 mt-0.5' />
-          <p className='text-sm text-yellow-300'>
-            A device was disconnected. Please select another device.
-          </p>
-        </div>
+        <Alert variant='warning'>
+          A device was disconnected. Please select another device.
+        </Alert>
       )}
 
       {/* Input Device Selection - only in live mode */}
@@ -226,6 +215,12 @@ export const DeviceChannelContent: React.FC<DeviceChannelContentProps> = ({
               </div>
             )}
           </div>
+          {/* Safari stereo limitation warning */}
+          {!isStereo && isSafari && (
+            <InlineAlert className='mt-1'>
+              Safari does not support stereo audio input. For stereo, use Chrome or Firefox.
+            </InlineAlert>
+          )}
         </div>
       )}
 
@@ -241,7 +236,7 @@ export const DeviceChannelContent: React.FC<DeviceChannelContentProps> = ({
               <span className='text-ellipsis text-nowrap overflow-hidden min-w-0'>
                 {selectedOutputDeviceId
                   ? outputDevices.find(d => d.deviceId === selectedOutputDeviceId)?.label ?? 'Unknown Device'
-                  : isFirefox
+                  : needsMediaStreamWorkaround
                     ? 'System Default'
                     : outputDevices[0]?.label ?? 'Select device'}
               </span>
@@ -257,8 +252,8 @@ export const DeviceChannelContent: React.FC<DeviceChannelContentProps> = ({
             {isOutputDropdownOpen && (
               <div className='absolute z-10 w-full mt-1 bg-zinc-900 rounded-md shadow-lg border border-zinc-700'>
                 <ul className='py-1 overflow-auto text-base rounded-md max-h-48'>
-                  {/* Only show System Default option in Firefox where explicit selection is needed */}
-                  {isFirefox && (
+                  {/* Only show System Default option in Firefox/Safari where explicit selection is needed */}
+                  {needsMediaStreamWorkaround && (
                     <li
                       className={`cursor-pointer select-none py-2 px-3 hover:bg-zinc-800 ${
                         selectedOutputDeviceId === null ? 'bg-zinc-800' : ''
@@ -291,10 +286,9 @@ export const DeviceChannelContent: React.FC<DeviceChannelContentProps> = ({
           </div>
           {/* Headphones warning - only in live mode */}
           {isLiveMode && (
-            <div className='flex items-start gap-2 p-2 mt-1 bg-yellow-950/30 border border-yellow-900/30 rounded text-xs text-yellow-400'>
-              <AlertTriangle size={14} className='flex-shrink-0 mt-0.5' />
-              <span>Use headphones to avoid feedback</span>
-            </div>
+            <InlineAlert className='mt-1'>
+              Use headphones to avoid feedback
+            </InlineAlert>
           )}
         </div>
       )}

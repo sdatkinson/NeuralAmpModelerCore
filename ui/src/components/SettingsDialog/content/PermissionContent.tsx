@@ -1,6 +1,7 @@
 import React from 'react';
-import { Mic, Loader2, AlertCircle } from 'lucide-react';
+import { Mic, Loader2 } from 'lucide-react';
 import { Button } from '../../ui/Button';
+import { Alert } from '../../ui/Alert';
 import { MicrophonePermissionStatus } from '../../../types';
 
 type SourceMode = 'preview' | 'live';
@@ -41,42 +42,34 @@ export const PermissionContent: React.FC<PermissionContentProps> = ({
       {/* Blocked State - permanent block, needs browser settings */}
       {isBlocked && (
         <div className='flex flex-col gap-3'>
-          <div className='flex items-start gap-3 p-3 bg-red-950/50 border border-red-900/50 rounded-md'>
-            <AlertCircle size={18} className='text-red-400 flex-shrink-0 mt-0.5' />
-            <div className='flex flex-col gap-1'>
-              <p className='text-sm text-red-300'>Microphone access is blocked.</p>
-              <p className='text-xs text-red-400'>
-                {errorMessage ?? 'Permission was denied in your browser settings.'}
-              </p>
-            </div>
-          </div>
-          <div className='flex flex-col gap-2 p-3 bg-zinc-800/50 border border-zinc-700 rounded-md'>
-            <p className='text-sm text-zinc-300 font-medium'>To enable microphone access:</p>
-            <ol className='text-xs text-zinc-400 list-decimal list-inside space-y-1'>
+          <Alert
+            variant='error'
+            description={errorMessage ?? 'Permission was denied in your browser settings.'}
+          >
+            Microphone access is blocked.
+          </Alert>
+          <Alert variant='info'>
+            <p className='font-medium'>To enable microphone access:</p>
+            <ol className='text-xs text-zinc-400 list-decimal list-inside space-y-1 mt-1'>
               <li>Click the lock or site settings icon in your browser&apos;s address bar</li>
               <li>Find &quot;Microphone&quot; in the permissions list</li>
               <li>Change the setting to &quot;Allow&quot;</li>
               <li>Refresh this page</li>
             </ol>
-          </div>
+          </Alert>
         </div>
       )}
 
       {/* Error State - can retry */}
       {hasError && (
-        <div className='flex items-start gap-3 p-3 bg-red-950/50 border border-red-900/50 rounded-md'>
-          <AlertCircle size={18} className='text-red-400 flex-shrink-0 mt-0.5' />
-          <div className='flex flex-col gap-1'>
-            <p className='text-sm text-red-300'>
-              {status === 'denied'
-                ? 'Microphone access was denied.'
-                : 'Unable to access microphone.'}
-            </p>
-            <p className='text-xs text-red-400'>
-              {errorMessage ?? 'Please check your browser settings and try again.'}
-            </p>
-          </div>
-        </div>
+        <Alert
+          variant='error'
+          description={errorMessage ?? 'Please check your browser settings and try again.'}
+        >
+          {status === 'denied'
+            ? 'Microphone access was denied.'
+            : 'Unable to access microphone.'}
+        </Alert>
       )}
 
       {/* Allow Microphone Button - hide when blocked */}
