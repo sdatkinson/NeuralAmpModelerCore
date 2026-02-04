@@ -11,7 +11,7 @@ import { LogoSm } from '../ui/LogoSm';
 import { DEFAULT_INPUTS, DEFAULT_MODELS, DEFAULT_IRS } from '../../constants';
 import { CircularLoader } from '../ui/CircularLoader';
 import { SegmentedControl } from '../ui/SegmentedControl';
-import { LiveSetupDialog } from '../LiveSetupDialog';
+import { SettingsDialog } from '../SettingsDialog';
 import { InputControlStrip } from '../ControlStrip';
 import { Loader2, Plug, Settings } from 'lucide-react';
 
@@ -32,6 +32,7 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
   const {
     audioState,
     audioInputDevices,
+    audioOutputDevices,
     getAudioNodes,
     init,
     loadModel,
@@ -44,8 +45,8 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
     startLiveInput,
     stopLiveInput,
     setPlaying,
-    saveLiveSnapshot,
-    restoreLiveSnapshot,
+    saveSettingsSnapshot,
+    restoreSettingsSnapshot,
   } = useT3kPlayerContext();
 
   // Helper function to get default item
@@ -71,12 +72,14 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
   // Source mode state (preview = file playback, live = direct input)
   const [sourceMode, setSourceMode] = useState<SourceMode>('preview');
   const [showPlaybackPausedMessage, setShowPlaybackPausedMessage] = useState(false);
-  const [isLiveSetupModalOpen, setIsLiveSetupModalOpen] = useState(false);
+  const [showOutputFallbackMessage, setShowOutputFallbackMessage] = useState(false);
+  const [isSettingsDialogOpen, setIsSettingsDialogOpen] = useState(false);
 
   // Refs
   const visualizerRef = useRef<HTMLCanvasElement>(null);
   const visualizerNodeRef = useRef<AnalyserNode | null>(null);
   const canvasWrapperRef = useRef<HTMLDivElement>(null);
+  const prevOutputDeviceIdRef = useRef<string | null>(audioOutputDevices.selectedDeviceId);
 
   // Memoized options
   const modelOptions = React.useMemo(
@@ -140,6 +143,20 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
       cleanup();
     };
   }, [cleanup]);
+
+  // Detect output device fallback (when selected device is disconnected)
+  useEffect(() => {
+    const prevId = prevOutputDeviceIdRef.current;
+    const currentId = audioOutputDevices.selectedDeviceId;
+
+    // Detect transition from non-null to null (fallback to default)
+    if (prevId !== null && currentId === null) {
+      setShowOutputFallbackMessage(true);
+      setTimeout(() => setShowOutputFallbackMessage(false), 3000);
+    }
+
+    prevOutputDeviceIdRef.current = currentId;
+  }, [audioOutputDevices.selectedDeviceId]);
 
   // Setup play event listener
   useEffect(() => {
@@ -403,16 +420,17 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
           }, 3000);
         }
 
-        // Restore device/channel/gain config if we have a saved snapshot
-        if (audioState.liveConfigSnapshot) {
-          await restoreLiveSnapshot();
+        // Restore live input settings if we have a saved snapshot
+        // Don't restore output device - it should persist as currently set
+        if (audioState.settingsSnapshot?.deviceId) {
+          await restoreSettingsSnapshot({ includeOutputDevice: false });
         }
       } else {
         // Switching from Live to Preview
         setShowPlaybackPausedMessage(false);
 
         // Save current live config before stopping
-        saveLiveSnapshot();
+        saveSettingsSnapshot({ includeLiveSettings: true });
 
         // Stop live input and disconnect the source
         stopLiveInput();
@@ -423,7 +441,7 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
 
       setSourceMode(newMode);
     },
-    [sourceMode, audioState.isPlaying, audioState.liveConfigSnapshot, setPlaying, stopLiveInput, saveLiveSnapshot, restoreLiveSnapshot]
+    [sourceMode, audioState.isPlaying, audioState.settingsSnapshot, setPlaying, stopLiveInput, saveSettingsSnapshot, restoreSettingsSnapshot]
   );
 
   // Source mode options for segmented control
@@ -541,7 +559,7 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
           </div>
         </div>
 
-        {/* Source mode segmented control - its own row */}
+        {/* Source mode segmented control with settings button */}
         <div className='flex flex-col gap-1 pt-2'>
           <span className='text-sm text-zinc-400'>Source</span>
           <div className='flex items-center gap-3'>
@@ -550,9 +568,22 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
               value={sourceMode}
               onChange={handleSourceModeChange}
             />
+            {/* Settings button - always visible */}
+            <button
+              onClick={() => setIsSettingsDialogOpen(true)}
+              className='p-2 rounded-md transition-colors border border-zinc-700 hover:bg-zinc-800'
+              aria-label='Settings'
+            >
+              <Settings size={20} className='text-zinc-400' />
+            </button>
             {showPlaybackPausedMessage && (
               <span className='text-xs text-zinc-400 animate-pulse'>
                 Playback paused
+              </span>
+            )}
+            {showOutputFallbackMessage && (
+              <span className='text-xs text-zinc-400 animate-pulse'>
+                Output switched to default
               </span>
             )}
           </div>
@@ -577,7 +608,7 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
                 <span className='text-sm text-zinc-400'>Live Input</span>
                 <div className='relative flex-1'>
                   <button
-                    onClick={() => setIsLiveSetupModalOpen(true)}
+                    onClick={() => setIsSettingsDialogOpen(true)}
                     className='flex items-center gap-2 w-full overflow-hidden px-4 py-3 text-md border border-zinc-700 rounded-md bg-transparent hover:bg-zinc-800 transition-colors focus:outline-none'
                   >
                     <Plug size={18} className='text-zinc-400 flex-shrink-0' />
@@ -597,40 +628,25 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
               </div>
             )}
 
-            {/* Live mode: connected - show device dropdown and settings gear */}
+            {/* Live mode: connected - show device dropdown (settings button is next to Source selector) */}
             {sourceMode === 'live' && isLiveConnected && (
-              <div className='grid grid-cols-[1fr_48px] items-end gap-2 w-full'>
-                <div className='min-w-0'>
-                  {audioState.isLiveConnecting ? (
-                    <div className='flex flex-col gap-1 w-full'>
-                      <span className='text-sm text-zinc-400'>Live Input</span>
-                      <div className='flex items-center justify-between w-full px-4 py-3 text-md border border-zinc-700 rounded-md bg-transparent opacity-50 cursor-wait'>
-                        <span className='text-zinc-400'>Switching device...</span>
-                        <Loader2 size={24} className='text-zinc-400 animate-spin' />
-                      </div>
+              <div className='w-full'>
+                {audioState.isLiveConnecting ? (
+                  <div className='flex flex-col gap-1 w-full'>
+                    <span className='text-sm text-zinc-400'>Live Input</span>
+                    <div className='flex items-center justify-between w-full px-4 py-3 text-md border border-zinc-700 rounded-md bg-transparent opacity-50 cursor-wait'>
+                      <span className='text-zinc-400'>Switching device...</span>
+                      <Loader2 size={24} className='text-zinc-400 animate-spin' />
                     </div>
-                  ) : (
-                    <Select
-                      options={liveDeviceOptions}
-                      label='Live Input'
-                      onChange={(value) => handleLiveDeviceChange(String(value))}
-                      defaultOption={currentDeviceId ?? ''}
-                    />
-                  )}
-                </div>
-                {/* Settings/Gear Icon */}
-                <button
-                  onClick={() => setIsLiveSetupModalOpen(true)}
-                  disabled={audioState.isLiveConnecting}
-                  className={`w-12 flex items-center justify-center py-3 rounded-md transition-colors border border-zinc-700 ${
-                    audioState.isLiveConnecting
-                      ? 'opacity-50 cursor-not-allowed'
-                      : 'hover:bg-zinc-800'
-                  }`}
-                  aria-label='Live input settings'
-                >
-                  <Settings size={24} className='text-zinc-400' />
-                </button>
+                  </div>
+                ) : (
+                  <Select
+                    options={liveDeviceOptions}
+                    label='Live Input'
+                    onChange={(value) => handleLiveDeviceChange(String(value))}
+                    defaultOption={currentDeviceId ?? ''}
+                  />
+                )}
               </div>
             )}
           </div>
@@ -658,10 +674,11 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
         <LogoSm width={42} height={14} />
       </a>
 
-      {/* Live Setup Dialog */}
-      <LiveSetupDialog
-        isOpen={isLiveSetupModalOpen}
-        onClose={() => setIsLiveSetupModalOpen(false)}
+      {/* Settings Dialog */}
+      <SettingsDialog
+        isOpen={isSettingsDialogOpen}
+        onClose={() => setIsSettingsDialogOpen(false)}
+        sourceMode={sourceMode}
         onConnect={(deviceId, channel) => {
           // Connection is handled by the dialog (via startLiveInput)
           // The dialog's Monitor Input checkbox controls isPlaying state

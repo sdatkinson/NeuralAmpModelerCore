@@ -44,8 +44,19 @@ export interface AudioInputDevice {
   label: string;
 }
 
+export interface AudioOutputDevice {
+  deviceId: string;
+  label: string;
+}
+
 // Microphone permission state (permission concerns only)
-export type MicrophonePermissionStatus = 'idle' | 'pending' | 'granted' | 'denied' | 'error';
+// - 'idle': not yet requested
+// - 'pending': waiting for user response to browser prompt
+// - 'granted': permission granted
+// - 'denied': permission denied (can retry)
+// - 'blocked': permanently blocked by browser (must reset in browser settings)
+// - 'error': other error (device not found, in use, etc.)
+export type MicrophonePermissionStatus = 'idle' | 'pending' | 'granted' | 'denied' | 'blocked' | 'error';
 
 export interface MicrophonePermissionState {
   status: MicrophonePermissionStatus;
@@ -58,6 +69,12 @@ export interface AudioInputDeviceState {
   isLoading: boolean;
   error: string | null;
   preferredDeviceId: string | null;  // Device selected by user in browser permission dialog
+}
+
+// Audio output device state
+export interface AudioOutputDeviceState {
+  devices: AudioOutputDevice[];
+  selectedDeviceId: string | null;  // null means system default
 }
 
 // Utility type to ensure non-empty arrays

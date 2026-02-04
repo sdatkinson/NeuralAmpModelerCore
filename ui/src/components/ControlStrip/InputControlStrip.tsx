@@ -94,7 +94,7 @@ export function InputControlStrip() {
     }`}>
       <div className='grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6'>
         {/* Controls */}
-        <div className='flex flex-wrap items-start gap-6 md:gap-8'>
+        <div className='flex flex-wrap items-start justify-between gap-4'>
           {/* Channel Selector - only for stereo devices */}
           {isStereo && (
             <div className='flex flex-col items-center gap-1'>
@@ -168,7 +168,7 @@ export function InputControlStrip() {
         <div className='text-xs text-zinc-500 space-y-1'>
           <p>Adjust <span className='text-zinc-400'>Input Gain</span> to optimize signal level.</p>
           <p>Red clip indicators latch when signal peaks. Click to reset.</p>
-          <p>Output is normalized.</p>
+          <p>Output is normalized by default.</p>
         </div>
       </div>
     </div>

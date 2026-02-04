@@ -11,7 +11,7 @@ import React, {
 import { useModule } from '../hooks/useModule';
 import { readModel } from '../utils/readModel';
 import { DEFAULT_AUDIO_SRC, DEFAULT_MODELS } from '../constants';
-import { InputMode, AudioInputDevice, MicrophonePermissionStatus, MicrophonePermissionState, AudioInputDeviceState, ChannelSelection } from '../types';
+import { InputMode, AudioInputDevice, AudioOutputDevice, MicrophonePermissionStatus, MicrophonePermissionState, AudioInputDeviceState, AudioOutputDeviceState, ChannelSelection } from '../types';
 import { dbToLinear } from '../utils/metering';
 
 /**
@@ -61,18 +61,24 @@ interface AudioNodes {
   channelMergerNode: ChannelMergerNode | null;
   channel0PreviewMeter: AnalyserNode | null;
   channel1PreviewMeter: AnalyserNode | null;
+  // Firefox audio output workaround
+  firefoxOutputDestination: MediaStreamAudioDestinationNode | null;
+  firefoxOutputElement: HTMLAudioElement | null;
 }
 
 // Explicit initialization states for visibility into the init process
 type AudioInitState = 'uninitialized' | 'initializing' | 'ready';
 
-// Snapshot of live input configuration for restore operations
-interface LiveConfigSnapshot {
-  deviceId: string;
-  channel: ChannelSelection;
-  channelGains: Record<ChannelSelection, number>;
-  wasPlaying: boolean;
-  wasBypassed: boolean;
+// Snapshot of settings configuration for restore operations (used by dialog cancel)
+interface SettingsSnapshot {
+  // Live input settings (only present when in live mode)
+  deviceId?: string;
+  channel?: ChannelSelection;
+  channelGains?: Record<ChannelSelection, number>;
+  wasPlaying?: boolean;
+  wasBypassed?: boolean;
+  // Output device (used in both modes)
+  outputDeviceId: string | null;
 }
 
 interface AudioState {
@@ -85,8 +91,8 @@ interface AudioState {
   audioUrl: string | null;
   // Input mode state
   inputMode: InputMode;
-  // Snapshot of live config for restoring (used by mode switching and dialog cancel)
-  liveConfigSnapshot: LiveConfigSnapshot | null;
+  // Snapshot of settings for restoring (used by mode switching and dialog cancel)
+  settingsSnapshot: SettingsSnapshot | null;
 }
 
 interface IrConfig {
@@ -100,6 +106,7 @@ interface T3kPlayerContextType {
   audioState: AudioState;
   microphonePermission: MicrophonePermissionState;
   audioInputDevices: AudioInputDeviceState;
+  audioOutputDevices: AudioOutputDeviceState;
 
   // Getters
   getAudioNodes: () => AudioNodes;
@@ -126,16 +133,20 @@ interface T3kPlayerContextType {
   // Playback control
   setPlaying: (playing: boolean) => void;
 
-  // Live config snapshot (for mode switching and dialog cancel)
-  saveLiveSnapshot: () => void;
-  restoreLiveSnapshot: (options?: { includePlaybackState?: boolean }) => Promise<void>;
-  clearLiveSnapshot: () => void;
+  // Settings snapshot (for mode switching and dialog cancel)
+  saveSettingsSnapshot: (options?: { includeLiveSettings?: boolean }) => void;
+  restoreSettingsSnapshot: (options?: { includePlaybackState?: boolean; includeLiveSettings?: boolean; includeOutputDevice?: boolean }) => Promise<void>;
+  clearSettingsSnapshot: () => void;
 
   // Microphone permission actions
   requestMicrophonePermission: () => Promise<string | null>;  // Returns preferred device ID
 
   // Audio input device actions
-  refreshAudioInputDevices: () => Promise<void>;
+  refreshAudioDevices: () => Promise<{ inputDevices: AudioInputDevice[]; preferredDeviceId: string | null }>;
+
+  // Audio output device actions
+  setOutputDevice: (deviceId: string | null) => Promise<void>;
+  refreshAudioOutputDevices: () => Promise<void>;
 }
 
 // Context
@@ -157,7 +168,7 @@ export function T3kPlayerContextProvider({
     irUrl: null,
     audioUrl: null,
     inputMode: { type: 'preview' },
-    liveConfigSnapshot: null,
+    settingsSnapshot: null,
   });
 
   // Microphone permission state (permission concerns only)
@@ -172,6 +183,12 @@ export function T3kPlayerContextProvider({
     isLoading: false,
     error: null,
     preferredDeviceId: null,
+  });
+
+  // Audio output device state
+  const [audioOutputDevices, setAudioOutputDevices] = useState<AudioOutputDeviceState>({
+    devices: [],
+    selectedDeviceId: null,  // null = system default
   });
 
   // Refs for non-render-triggering data
@@ -200,6 +217,9 @@ export function T3kPlayerContextProvider({
     channelMergerNode: null,
     channel0PreviewMeter: null,
     channel1PreviewMeter: null,
+    // Firefox audio output workaround
+    firefoxOutputDestination: null,
+    firefoxOutputElement: null,
   });
 
   const isInitializingRef = useRef<boolean>(false);
@@ -211,13 +231,150 @@ export function T3kPlayerContextProvider({
     return audioNodesRef.current;
   }, []);
 
+  // Helper: Clean up all live input nodes (mediaStream, source, gain, splitter, merger, meters)
+  // This is used by startLiveInput, stopLiveInput, cleanup, and event handlers
+  const cleanupLiveInputNodes = (nodes: AudioNodes): void => {
+    if (nodes.mediaStream) {
+      nodes.mediaStream.getTracks().forEach(track => track.stop());
+      nodes.mediaStream = null;
+    }
+    if (nodes.liveSourceNode) {
+      nodes.liveSourceNode.disconnect();
+      nodes.liveSourceNode = null;
+    }
+    if (nodes.liveInputGainNode) {
+      nodes.liveInputGainNode.disconnect();
+      nodes.liveInputGainNode = null;
+    }
+    if (nodes.channelSplitterNode) {
+      nodes.channelSplitterNode.disconnect();
+      nodes.channelSplitterNode = null;
+    }
+    if (nodes.channelMergerNode) {
+      nodes.channelMergerNode.disconnect();
+      nodes.channelMergerNode = null;
+    }
+    if (nodes.channel0PreviewMeter) {
+      nodes.channel0PreviewMeter.disconnect();
+      nodes.channel0PreviewMeter = null;
+    }
+    if (nodes.channel1PreviewMeter) {
+      nodes.channel1PreviewMeter.disconnect();
+      nodes.channel1PreviewMeter = null;
+    }
+  };
+
+  // Helper: Clean up Firefox output routing and reconnect outputMeterNode to default destination
+  // This is used when transitioning away from Firefox's HTMLAudioElement workaround
+  const cleanupFirefoxOutputRouting = (nodes: AudioNodes): void => {
+    // Track if Firefox routing was active (need to know for proper cleanup)
+    const hadFirefoxRouting = nodes.firefoxOutputElement !== null || nodes.firefoxOutputDestination !== null;
+
+    if (nodes.firefoxOutputElement) {
+      nodes.firefoxOutputElement.pause();
+      nodes.firefoxOutputElement.srcObject = null;
+      nodes.firefoxOutputElement = null;
+    }
+    if (nodes.firefoxOutputDestination) {
+      nodes.firefoxOutputDestination.disconnect();
+      nodes.firefoxOutputDestination = null;
+    }
+
+    // Reconnect outputMeterNode to destination
+    // If Firefox routing was active, outputMeterNode was connected to firefoxOutputDestination,
+    // so we need to disconnect it first to avoid having multiple output connections
+    if (nodes.outputMeterNode && nodes.audioContext) {
+      if (hadFirefoxRouting) {
+        // Firefox routing was active - disconnect from old destination before reconnecting
+        try {
+          nodes.outputMeterNode.disconnect();
+        } catch {
+          // May not have any connections
+        }
+        nodes.outputMeterNode.connect(nodes.audioContext.destination);
+      } else {
+        // No Firefox routing was active - just try to connect (may already be connected)
+        try {
+          nodes.outputMeterNode.connect(nodes.audioContext.destination);
+        } catch {
+          // Already connected
+        }
+      }
+    }
+  };
+
+  // Helper: Apply output device routing with browser-specific handling
+  // Firefox requires MediaStreamDestination + HTMLAudioElement workaround
+  // Chrome/Safari can use AudioContext.setSinkId directly
+  const applyOutputDeviceRouting = async (
+    nodes: AudioNodes,
+    deviceId: string | null
+  ): Promise<void> => {
+    const { audioContext, outputMeterNode } = nodes;
+    if (!audioContext || !outputMeterNode) return;
+
+    const isFirefox = navigator.userAgent.toLowerCase().includes('firefox');
+
+    if (isFirefox) {
+      // Firefox: Must route through MediaStreamDestination + HTMLAudioElement
+      // Always clean up existing Firefox audio elements first
+      if (nodes.firefoxOutputElement) {
+        nodes.firefoxOutputElement.pause();
+        nodes.firefoxOutputElement.srcObject = null;
+        nodes.firefoxOutputElement = null;
+      }
+      if (nodes.firefoxOutputDestination) {
+        nodes.firefoxOutputDestination.disconnect();
+        nodes.firefoxOutputDestination = null;
+      }
+
+      // Disconnect ALL outputs from outputMeterNode to ensure clean state
+      try {
+        outputMeterNode.disconnect();
+      } catch {
+        // May not have any connections
+      }
+
+      if (deviceId) {
+        // Specific device selected - route through HTMLAudioElement with setSinkId
+        const mediaStreamDestination = audioContext.createMediaStreamDestination();
+        nodes.firefoxOutputDestination = mediaStreamDestination;
+        outputMeterNode.connect(mediaStreamDestination);
+
+        const outputElement = new Audio();
+        outputElement.srcObject = mediaStreamDestination.stream;
+        nodes.firefoxOutputElement = outputElement;
+
+        const elementWithSinkId = outputElement as HTMLAudioElement & { setSinkId?: (sinkId: string) => Promise<void> };
+        if (typeof elementWithSinkId.setSinkId === 'function') {
+          await elementWithSinkId.setSinkId(deviceId);
+        }
+
+        await outputElement.play();
+      } else {
+        // System default selected - reconnect to normal destination
+        outputMeterNode.connect(audioContext.destination);
+      }
+    } else {
+      // Chrome/Safari: Use AudioContext.setSinkId directly
+      const contextWithSinkId = audioContext as AudioContext & { setSinkId?: (sinkId: string) => Promise<void> };
+      if (typeof contextWithSinkId.setSinkId === 'function') {
+        try {
+          await contextWithSinkId.setSinkId(deviceId ?? '');
+        } catch (e) {
+          console.warn('[Audio] Failed to set AudioContext sink:', e);
+        }
+      }
+    }
+  };
+
   // Query browser's microphone permission state
   const queryBrowserPermission = useCallback(async (): Promise<MicrophonePermissionStatus> => {
     try {
       // Note: 'microphone' requires casting as it's not in all TypeScript definitions
       const result = await navigator.permissions.query({ name: 'microphone' as PermissionName });
       if (result.state === 'granted') return 'granted';
-      if (result.state === 'denied') return 'denied';
+      if (result.state === 'denied') return 'blocked'; // Permanently blocked in browser settings
       return 'idle'; // 'prompt' state means user hasn't decided yet
     } catch {
       // Permissions API not supported (e.g., Firefox for microphone)
@@ -259,10 +416,11 @@ export function T3kPlayerContextProvider({
               error: null,
             }));
           } else if (result.state === 'denied') {
+            // Browser 'denied' state means permanently blocked
             setMicrophonePermission(prev => ({
               ...prev,
-              status: 'denied',
-              error: 'Microphone access was revoked in browser settings.',
+              status: 'blocked',
+              error: 'Microphone access is blocked. Please enable it in your browser settings.',
             }));
           } else {
             setMicrophonePermission(prev => ({
@@ -351,10 +509,20 @@ export function T3kPlayerContextProvider({
       // Determine if this was a permission denial or other error
       if (error instanceof DOMException) {
         if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-          setMicrophonePermission({
-            status: 'denied',
-            error: 'You can enable microphone access in your browser settings.',
-          });
+          // Check if permanently blocked via Permissions API
+          const permissionState = await queryBrowserPermission();
+          if (permissionState === 'blocked') {
+            setMicrophonePermission({
+              status: 'blocked',
+              error: 'Microphone access is blocked. Please enable it in your browser settings.',
+            });
+          } else {
+            // Temporary denial or Permissions API not supported - can retry
+            setMicrophonePermission({
+              status: 'denied',
+              error: 'Microphone access was denied. Please try again.',
+            });
+          }
         } else if (error.name === 'NotFoundError') {
           setMicrophonePermission({
             status: 'error',
@@ -382,22 +550,25 @@ export function T3kPlayerContextProvider({
   }, []);
 
   // Refresh audio input devices (device concerns only)
-  const refreshAudioInputDevices = useCallback(async (): Promise<void> => {
-    // First check permission state
-    const status = await queryBrowserPermission();
-    
-    // Update permission state
-    setMicrophonePermission(prev => ({
-      ...prev,
-      status,
-      error: status === 'granted' ? null : prev.error,
-    }));
+  const refreshAudioDevices = useCallback(async (): Promise<{ inputDevices: AudioInputDevice[]; preferredDeviceId: string | null }> => {
+    // First check permission state via Permissions API
+    const permApiStatus = await queryBrowserPermission();
 
-    if (status !== 'granted') {
-      // Can't enumerate devices without permission
-      return;
+    // If Permissions API says granted or blocked, trust it
+    if (permApiStatus === 'granted' || permApiStatus === 'blocked') {
+      setMicrophonePermission(prev => ({
+        ...prev,
+        status: permApiStatus,
+        error: permApiStatus === 'granted' ? null : prev.error,
+      }));
+
+      if (permApiStatus === 'blocked') {
+        return { inputDevices: [], preferredDeviceId: null };
+      }
     }
 
+    // For Firefox (or when Permissions API returns 'idle'), we need to check differently:
+    // Try enumerating devices - if we get labels, we have permission
     setAudioInputDevices(prev => ({
       ...prev,
       isLoading: true,
@@ -405,28 +576,111 @@ export function T3kPlayerContextProvider({
     }));
 
     try {
-      const allDevices = await navigator.mediaDevices.enumerateDevices();
-      const audioInputs = allDevices
-        .filter(device => device.kind === 'audioinput')
-        .map(device => ({
-          deviceId: device.deviceId,
-          label: device.label || `Input ${device.deviceId.slice(0, 8)}`,
+      let allDevices = await navigator.mediaDevices.enumerateDevices();
+      let audioInputs = allDevices.filter(device => device.kind === 'audioinput');
+
+      // Check if we have device labels (indicates permission was granted)
+      // Firefox returns empty labels until getUserMedia is called in this session
+      const hasLabels = audioInputs.some(device => device.label && device.label.length > 0);
+
+      if (!hasLabels) {
+        // No labels - need to call getUserMedia to get proper device info
+        // This happens on Firefox even when Permissions API says 'granted'
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          stream.getTracks().forEach(t => t.stop());
+
+          // Re-enumerate after getting permission
+          allDevices = await navigator.mediaDevices.enumerateDevices();
+          audioInputs = allDevices.filter(device => device.kind === 'audioinput');
+
+          setMicrophonePermission({
+            status: 'granted',
+            error: null,
+          });
+        } catch (error) {
+          // getUserMedia failed - user denied or no devices
+          if (error instanceof DOMException &&
+              (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError')) {
+            setMicrophonePermission(prev => ({
+              ...prev,
+              status: 'denied',
+              error: null,
+            }));
+            setAudioInputDevices(prev => ({
+              ...prev,
+              isLoading: false,
+            }));
+            return { inputDevices: [], preferredDeviceId: null };
+          }
+          // Other error - continue with what we have
+        }
+      } else if (hasLabels) {
+        // We have labels, so permission is granted
+        setMicrophonePermission(prev => ({
+          ...prev,
+          status: 'granted',
+          error: null,
         }));
-      
+      }
+
+      const mappedInputDevices = audioInputs.map(device => ({
+        deviceId: device.deviceId,
+        label: device.label || `Input ${device.deviceId.slice(0, 8)}`,
+      }));
+
+      // Also enumerate output devices
+      const audioOutputs = allDevices.filter(device => device.kind === 'audiooutput');
+      const mappedOutputDevices = audioOutputs.map(device => ({
+        deviceId: device.deviceId,
+        label: device.label || `Output ${device.deviceId.slice(0, 8)}`,
+      }));
+
       setAudioInputDevices(prev => ({
         ...prev,
-        devices: audioInputs,
+        devices: mappedInputDevices,
         isLoading: false,
-        error: audioInputs.length === 0 ? 'No audio input devices found.' : null,
+        error: mappedInputDevices.length === 0 ? 'No audio input devices found.' : null,
       }));
+
+      setAudioOutputDevices(prev => ({
+        ...prev,
+        devices: mappedOutputDevices,
+      }));
+
+      return { inputDevices: mappedInputDevices, preferredDeviceId: audioInputDevices.preferredDeviceId };
     } catch {
       setAudioInputDevices(prev => ({
         ...prev,
         isLoading: false,
         error: 'Failed to enumerate audio devices.',
       }));
+      return { inputDevices: [], preferredDeviceId: null };
     }
-  }, [queryBrowserPermission]);
+  }, [queryBrowserPermission, audioInputDevices.preferredDeviceId]);
+
+  // Refresh audio output devices only (no microphone permission required)
+  // Use this when you only need output device list without triggering permission prompts
+  const refreshAudioOutputDevices = useCallback(async (): Promise<void> => {
+    try {
+      const allDevices = await navigator.mediaDevices.enumerateDevices();
+      const audioOutputs = allDevices.filter(device => device.kind === 'audiooutput');
+
+      // Output devices may have labels even without microphone permission
+      // (depends on browser, but we don't need to call getUserMedia for outputs)
+      const mappedOutputDevices = audioOutputs.map(device => ({
+        deviceId: device.deviceId,
+        label: device.label || `Output ${device.deviceId.slice(0, 8)}`,
+      }));
+
+      setAudioOutputDevices(prev => ({
+        ...prev,
+        devices: mappedOutputDevices,
+      }));
+    } catch (error) {
+      console.error('Error enumerating output devices:', error);
+    }
+  }, []);
 
   // Listen for device changes (connect/disconnect)
   useEffect(() => {
@@ -454,36 +708,13 @@ export function T3kPlayerContextProvider({
               // Active device was disconnected - stop live input and switch to preview
               console.warn('Active audio input device was disconnected');
 
-              // Stop the media stream and clean up
               const nodes = audioNodesRef.current;
-              if (nodes.mediaStream) {
-                nodes.mediaStream.getTracks().forEach((track: MediaStreamTrack) => track.stop());
-                nodes.mediaStream = null;
-              }
-              if (nodes.liveSourceNode) {
-                nodes.liveSourceNode.disconnect();
-                nodes.liveSourceNode = null;
-              }
-              if (nodes.liveInputGainNode) {
-                nodes.liveInputGainNode.disconnect();
-                nodes.liveInputGainNode = null;
-              }
-              if (nodes.channelSplitterNode) {
-                nodes.channelSplitterNode.disconnect();
-                nodes.channelSplitterNode = null;
-              }
-              if (nodes.channelMergerNode) {
-                nodes.channelMergerNode.disconnect();
-                nodes.channelMergerNode = null;
-              }
-              if (nodes.channel0PreviewMeter) {
-                nodes.channel0PreviewMeter.disconnect();
-                nodes.channel0PreviewMeter = null;
-              }
-              if (nodes.channel1PreviewMeter) {
-                nodes.channel1PreviewMeter.disconnect();
-                nodes.channel1PreviewMeter = null;
-              }
+
+              // Clean up all live input nodes
+              cleanupLiveInputNodes(nodes);
+
+              // Clean up Firefox output routing and reconnect to default destination
+              cleanupFirefoxOutputRouting(nodes);
 
               // Reconnect file source if available
               if (nodes.sourceNode && nodes.inputGainNode) {
@@ -516,6 +747,29 @@ export function T3kPlayerContextProvider({
             devices: audioInputs,
             error: audioInputs.length === 0 ? 'All audio devices have been disconnected.' : null,
           }));
+
+          // Update output device list and check if selected was disconnected
+          const audioOutputs = allDevices
+            .filter(device => device.kind === 'audiooutput')
+            .map(device => ({
+              deviceId: device.deviceId,
+              label: device.label || `Output ${device.deviceId.slice(0, 8)}`,
+            }));
+
+          const currentOutputId = audioOutputDevices.selectedDeviceId;
+          const selectedOutputStillExists = currentOutputId === null ||
+            audioOutputs.some(d => d.deviceId === currentOutputId);
+
+          setAudioOutputDevices(prev => ({
+            ...prev,
+            devices: audioOutputs,
+          }));
+
+          // If selected output was disconnected, fall back to system default
+          if (!selectedOutputStillExists) {
+            console.warn('Selected audio output device was disconnected, falling back to system default');
+            setOutputDevice(null);
+          }
         } catch {
           setAudioInputDevices(prev => ({
             ...prev,
@@ -529,7 +783,48 @@ export function T3kPlayerContextProvider({
     return () => {
       navigator.mediaDevices.removeEventListener('devicechange', handleDeviceChange);
     };
-  }, [microphonePermission.status, audioState.inputMode]);
+  }, [microphonePermission.status, audioState.inputMode, audioOutputDevices.selectedDeviceId]);
+
+  // Handle permission revocation while in live mode
+  useEffect(() => {
+    // Only act if permission was revoked while we're in live mode
+    if (
+      microphonePermission.status !== 'granted' &&
+      microphonePermission.status !== 'pending' &&
+      audioState.inputMode.type === 'live'
+    ) {
+      console.warn('Microphone permission was revoked while in live mode');
+
+      const nodes = audioNodesRef.current;
+
+      // Clean up all live input nodes
+      cleanupLiveInputNodes(nodes);
+
+      // Clean up Firefox output routing and reconnect to default destination
+      cleanupFirefoxOutputRouting(nodes);
+
+      // Reconnect file source if available
+      if (nodes.sourceNode && nodes.inputGainNode) {
+        try {
+          nodes.sourceNode.connect(nodes.inputGainNode);
+        } catch {
+          // Source might already be connected
+        }
+      }
+
+      // Update state to preview mode
+      setAudioState(prev => ({
+        ...prev,
+        inputMode: { type: 'preview' },
+      }));
+
+      // Set error message to notify user
+      setAudioInputDevices(prev => ({
+        ...prev,
+        error: 'Microphone permission was revoked. Please re-enable access in your browser settings.',
+      }));
+    }
+  }, [microphonePermission.status, audioState.inputMode.type]);
 
   // Promise that resolves when audio system is ready (WASM callback has fired)
   const audioReadyPromiseRef = useRef<Promise<void> | null>(null);
@@ -1026,7 +1321,7 @@ export function T3kPlayerContextProvider({
   // Cleanup
   const cleanup = useCallback((): void => {
     const nodes = getAudioNodes();
-    const { audioElement, mediaStream, liveSourceNode } = nodes;
+    const { audioElement } = nodes;
 
     // Stop file playback
     if (audioElement) {
@@ -1034,15 +1329,11 @@ export function T3kPlayerContextProvider({
       audioElement.currentTime = 0;
     }
 
-    // Stop live input
-    if (mediaStream) {
-      mediaStream.getTracks().forEach(track => track.stop());
-      nodes.mediaStream = null;
-    }
-    if (liveSourceNode) {
-      liveSourceNode.disconnect();
-      nodes.liveSourceNode = null;
-    }
+    // Clean up all live input nodes
+    cleanupLiveInputNodes(nodes);
+
+    // Clean up Firefox output routing and reconnect to default destination
+    cleanupFirefoxOutputRouting(nodes);
 
     removeIr();
 
@@ -1059,8 +1350,10 @@ export function T3kPlayerContextProvider({
   const enumerateInputDevices = useCallback(async (): Promise<AudioInputDevice[]> => {
     try {
       // Request permission first to get labeled devices
-      await navigator.mediaDevices.getUserMedia({ audio: true });
-      
+      const tempStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Stop the stream immediately to release the microphone
+      tempStream.getTracks().forEach(track => track.stop());
+
       const devices = await navigator.mediaDevices.enumerateDevices();
       const audioInputs = devices
         .filter(device => device.kind === 'audioinput')
@@ -1077,7 +1370,15 @@ export function T3kPlayerContextProvider({
   }, []);
 
   // Start live audio input from microphone/audio interface
-  const startLiveInput = useCallback(async (deviceId?: string): Promise<void> => {
+  // Optional initialChannel and initialChannelGains allow restoring a previous configuration
+  // without needing to call selectLiveInputChannel separately (which would have stale closure issues)
+  const startLiveInput = useCallback(async (
+    deviceId?: string,
+    options?: { initialChannel?: ChannelSelection; initialChannelGains?: Record<ChannelSelection, number> }
+  ): Promise<void> => {
+    const initialChannel = options?.initialChannel ?? 'first';
+    const initialChannelGains = options?.initialChannelGains ?? { first: 0, second: 0 };
+    const initialChannelIndex = initialChannel === 'first' ? 0 : 1;
     const nodes = getAudioNodes();
     const { audioContext, inputMeterNode, sourceNode, audioElement } = nodes;
 
@@ -1088,13 +1389,34 @@ export function T3kPlayerContextProvider({
     setAudioState(prev => ({ ...prev, isLiveConnecting: true }));
 
     try {
-      // Stop any existing live input
+      // Stop any existing live input - full cleanup to ensure clean state
       if (nodes.mediaStream) {
         nodes.mediaStream.getTracks().forEach(track => track.stop());
-        nodes.liveSourceNode?.disconnect();
-        nodes.liveInputGainNode?.disconnect();
-        nodes.channelSplitterNode?.disconnect();
-        nodes.channelMergerNode?.disconnect();
+        nodes.mediaStream = null;
+      }
+      if (nodes.liveSourceNode) {
+        nodes.liveSourceNode.disconnect();
+        nodes.liveSourceNode = null;
+      }
+      if (nodes.liveInputGainNode) {
+        nodes.liveInputGainNode.disconnect();
+        nodes.liveInputGainNode = null;
+      }
+      if (nodes.channelSplitterNode) {
+        nodes.channelSplitterNode.disconnect();
+        nodes.channelSplitterNode = null;
+      }
+      if (nodes.channelMergerNode) {
+        nodes.channelMergerNode.disconnect();
+        nodes.channelMergerNode = null;
+      }
+      if (nodes.channel0PreviewMeter) {
+        nodes.channel0PreviewMeter.disconnect();
+        nodes.channel0PreviewMeter = null;
+      }
+      if (nodes.channel1PreviewMeter) {
+        nodes.channel1PreviewMeter.disconnect();
+        nodes.channel1PreviewMeter = null;
       }
 
       // Stop file playback if active
@@ -1103,7 +1425,6 @@ export function T3kPlayerContextProvider({
       }
 
       // Request microphone/audio interface access with settings optimized for instruments
-      // Request stereo to support multi-channel interfaces
       const constraints: MediaStreamConstraints = {
         audio: {
           deviceId: deviceId ? { exact: deviceId } : undefined,
@@ -1117,6 +1438,16 @@ export function T3kPlayerContextProvider({
 
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       nodes.mediaStream = stream;
+      console.log('[Live Input] getUserMedia stream:', {
+        active: stream.active,
+        tracks: stream.getAudioTracks().map(t => ({
+          label: t.label,
+          enabled: t.enabled,
+          muted: t.muted,
+          readyState: t.readyState,
+          settings: t.getSettings()
+        }))
+      });
 
       // Get actual channel count from the track
       const track = stream.getAudioTracks()[0];
@@ -1155,8 +1486,13 @@ export function T3kPlayerContextProvider({
 
       // Route selected channel to processing chain
       // Connect: channelSplitter → channelMerger → inputMeterNode (bypassing inputGainNode)
-      nodes.channelSplitterNode.connect(nodes.channelMergerNode, 0, 0);
+      nodes.channelSplitterNode.connect(nodes.channelMergerNode, initialChannelIndex, 0);
       nodes.channelMergerNode.connect(inputMeterNode);
+
+      // Apply initial gain for the selected channel
+      const initialGainDb = initialChannelGains[initialChannel] ?? 0;
+      const initialLinearGain = dbToLinear(initialGainDb);
+      nodes.liveInputGainNode.gain.setValueAtTime(initialLinearGain, audioContext.currentTime);
 
       setAudioState(prev => ({
         ...prev,
@@ -1165,8 +1501,8 @@ export function T3kPlayerContextProvider({
           type: 'live',
           deviceId: deviceId,
           channelCount: channelCount,
-          selectedChannel: 'first',
-          channelGains: { first: 0, second: 0 },
+          selectedChannel: initialChannel,
+          channelGains: initialChannelGains,
         },
       }));
 
@@ -1174,52 +1510,28 @@ export function T3kPlayerContextProvider({
       if (audioContext.state === 'suspended') {
         await audioContext.resume();
       }
+
+      // Re-apply output device routing (handles Firefox workaround automatically)
+      // This is needed after changing input sources to maintain proper audio routing
+      const selectedOutputId = audioOutputDevices.selectedDeviceId;
+      await applyOutputDeviceRouting(nodes, selectedOutputId);
     } catch (error) {
       setAudioState(prev => ({ ...prev, isLiveConnecting: false }));
       console.error('Error starting live input:', error);
       throw error;
     }
-  }, [getAudioNodes]);
+  }, [getAudioNodes, audioOutputDevices.selectedDeviceId]);
 
   // Stop live audio input
   const stopLiveInput = useCallback((): void => {
     const nodes = getAudioNodes();
-    const { mediaStream, liveSourceNode, sourceNode, inputGainNode } = nodes;
+    const { sourceNode, inputGainNode } = nodes;
 
-    if (mediaStream) {
-      // Stop all tracks in the stream
-      mediaStream.getTracks().forEach(track => track.stop());
-      nodes.mediaStream = null;
-    }
+    // Clean up all live input nodes
+    cleanupLiveInputNodes(nodes);
 
-    if (liveSourceNode) {
-      liveSourceNode.disconnect();
-      nodes.liveSourceNode = null;
-    }
-
-    // Clean up live input gain node
-    if (nodes.liveInputGainNode) {
-      nodes.liveInputGainNode.disconnect();
-      nodes.liveInputGainNode = null;
-    }
-
-    // Clean up channel selection nodes
-    if (nodes.channelSplitterNode) {
-      nodes.channelSplitterNode.disconnect();
-      nodes.channelSplitterNode = null;
-    }
-    if (nodes.channelMergerNode) {
-      nodes.channelMergerNode.disconnect();
-      nodes.channelMergerNode = null;
-    }
-    if (nodes.channel0PreviewMeter) {
-      nodes.channel0PreviewMeter.disconnect();
-      nodes.channel0PreviewMeter = null;
-    }
-    if (nodes.channel1PreviewMeter) {
-      nodes.channel1PreviewMeter.disconnect();
-      nodes.channel1PreviewMeter = null;
-    }
+    // Clean up Firefox output routing and reconnect to default destination
+    cleanupFirefoxOutputRouting(nodes);
 
     // Reconnect file source if available
     if (sourceNode && inputGainNode) {
@@ -1345,6 +1657,26 @@ export function T3kPlayerContextProvider({
     });
   }, [getAudioNodes]);
 
+  // Set output device for audio playback
+  const setOutputDevice = useCallback(async (deviceId: string | null): Promise<void> => {
+    const nodes = getAudioNodes();
+    const { audioContext, outputMeterNode } = nodes;
+
+    // Update state
+    setAudioOutputDevices(prev => ({
+      ...prev,
+      selectedDeviceId: deviceId,
+    }));
+
+    // If no audio context or output meter node yet, just save the preference
+    if (!audioContext || !outputMeterNode) {
+      return;
+    }
+
+    // Apply output routing (handles Firefox workaround automatically)
+    await applyOutputDeviceRouting(nodes, deviceId);
+  }, [getAudioNodes]);
+
   // Set playing state (controls audioElement in preview mode, outputGainNode in live mode)
   const setPlaying = useCallback((playing: boolean): void => {
     const nodes = getAudioNodes();
@@ -1354,6 +1686,10 @@ export function T3kPlayerContextProvider({
     if (audioState.inputMode.type === 'live') {
       // Live mode: control output gain (mute/unmute)
       if (outputGainNode && audioContext) {
+        // Resume context if suspended (required for Firefox)
+        if (playing && audioContext.state === 'suspended') {
+          audioContext.resume();
+        }
         outputGainNode.gain.setTargetAtTime(
           playing ? 1 : 0,
           audioContext.currentTime,
@@ -1383,67 +1719,86 @@ export function T3kPlayerContextProvider({
     setAudioState(prev => ({ ...prev, isPlaying: playing }));
   }, [getAudioNodes, audioState.inputMode.type]);
 
-  // Save current live config to snapshot (for restoring later)
-  const saveLiveSnapshot = useCallback((): void => {
+  // Save current settings to snapshot (for restoring later)
+  // Options:
+  //   includeLiveSettings: if true, also save live input settings (device, channel, gains)
+  //                        (use true when in live mode, false when in preview mode)
+  // Note: When includeLiveSettings is false, existing live settings in the snapshot are preserved
+  const saveSettingsSnapshot = useCallback((options?: { includeLiveSettings?: boolean }): void => {
+    const includeLive = options?.includeLiveSettings ?? false;
     setAudioState(prev => {
-      if (prev.inputMode.type !== 'live' || !prev.inputMode.deviceId) {
-        return prev;
+      const snapshot: SettingsSnapshot = {
+        outputDeviceId: audioOutputDevices.selectedDeviceId,
+      };
+
+      // Include live settings if requested and we're in live mode
+      if (includeLive && prev.inputMode.type === 'live' && prev.inputMode.deviceId) {
+        snapshot.deviceId = prev.inputMode.deviceId;
+        snapshot.channel = prev.inputMode.selectedChannel ?? 'first';
+        snapshot.channelGains = prev.inputMode.channelGains ?? { first: 0, second: 0 };
+        snapshot.wasPlaying = prev.isPlaying;
+        snapshot.wasBypassed = prev.isBypassed;
+      } else if (prev.settingsSnapshot) {
+        // Preserve existing live settings from previous snapshot
+        snapshot.deviceId = prev.settingsSnapshot.deviceId;
+        snapshot.channel = prev.settingsSnapshot.channel;
+        snapshot.channelGains = prev.settingsSnapshot.channelGains;
+        snapshot.wasPlaying = prev.settingsSnapshot.wasPlaying;
+        snapshot.wasBypassed = prev.settingsSnapshot.wasBypassed;
       }
+
       return {
         ...prev,
-        liveConfigSnapshot: {
-          deviceId: prev.inputMode.deviceId,
-          channel: prev.inputMode.selectedChannel ?? 'first',
-          channelGains: prev.inputMode.channelGains ?? { first: 0, second: 0 },
-          wasPlaying: prev.isPlaying,
-          wasBypassed: prev.isBypassed,
-        },
+        settingsSnapshot: snapshot,
       };
     });
-  }, []);
+  }, [audioOutputDevices.selectedDeviceId]);
 
-  // Restore live config from snapshot (handles async reconnection)
+  // Restore settings from snapshot (handles async reconnection for live mode)
   // Options:
   //   includePlaybackState: if true, also restore playing and bypass state
   //                         (use true for dialog cancel, false for source mode switching)
-  const restoreLiveSnapshot = useCallback(async (options?: { includePlaybackState?: boolean }): Promise<void> => {
-    const snapshot = audioState.liveConfigSnapshot;
+  //   includeLiveSettings: if true, restore live input settings (device, channel, gains)
+  //                        (use true when restoring in live mode, false in preview mode)
+  //   includeOutputDevice: if true, restore output device (use true for dialog cancel, false for mode switching)
+  const restoreSettingsSnapshot = useCallback(async (options?: { includePlaybackState?: boolean; includeLiveSettings?: boolean; includeOutputDevice?: boolean }): Promise<void> => {
+    const snapshot = audioState.settingsSnapshot;
     if (!snapshot) return;
 
-    const { deviceId, channel, channelGains, wasPlaying, wasBypassed } = snapshot;
+    const { deviceId, channel, channelGains, wasPlaying, wasBypassed, outputDeviceId } = snapshot;
     const includePlaybackState = options?.includePlaybackState ?? false;
+    const includeLiveSettings = options?.includeLiveSettings ?? true;
+    const includeOutputDevice = options?.includeOutputDevice ?? true;
 
-    // Reconnect to device (async)
-    await startLiveInput(deviceId);
+    // If snapshot has live settings and we should restore them
+    if (includeLiveSettings && deviceId && channel && channelGains) {
+      // Reconnect to device with initial channel and gains
+      // This avoids stale closure issues that would occur if we called
+      // selectLiveInputChannel separately after startLiveInput
+      await startLiveInput(deviceId, {
+        initialChannel: channel,
+        initialChannelGains: channelGains,
+      });
 
-    // Restore channel gains to state
-    setAudioState(prev => {
-      if (prev.inputMode.type !== 'live') return prev;
-      return {
-        ...prev,
-        inputMode: {
-          ...prev.inputMode,
-          channelGains,
-        },
-      };
-    });
-
-    // Select channel and apply gain (using snapshot values directly to avoid race condition)
-    selectLiveInputChannel(channel);
-    setLiveInputGain(channelGains[channel] ?? 0);
-
-    // Only restore playback/bypass state if requested (e.g., dialog cancel)
-    if (includePlaybackState) {
-      setPlaying(wasPlaying);
-      if (audioState.isBypassed !== wasBypassed) {
-        toggleBypass();
+      // Only restore playback/bypass state if requested (e.g., dialog cancel)
+      if (includePlaybackState) {
+        setPlaying(wasPlaying ?? false);
+        if (audioState.isBypassed !== (wasBypassed ?? false)) {
+          toggleBypass();
+        }
       }
     }
-  }, [audioState.liveConfigSnapshot, audioState.isBypassed, startLiveInput, selectLiveInputChannel, setPlaying, toggleBypass]);
+
+    // Restore output device AFTER startLiveInput to avoid race condition
+    // (startLiveInput reads audioOutputDevices.selectedDeviceId which may not have updated yet)
+    if (includeOutputDevice) {
+      await setOutputDevice(outputDeviceId);
+    }
+  }, [audioState.settingsSnapshot, audioState.isBypassed, setOutputDevice, startLiveInput, setPlaying, toggleBypass]);
 
   // Clear the snapshot (after successful connect or when no longer needed)
-  const clearLiveSnapshot = useCallback((): void => {
-    setAudioState(prev => ({ ...prev, liveConfigSnapshot: null }));
+  const clearSettingsSnapshot = useCallback((): void => {
+    setAudioState(prev => ({ ...prev, settingsSnapshot: null }));
   }, []);
 
   // Memoize context value
@@ -1452,6 +1807,7 @@ export function T3kPlayerContextProvider({
       audioState,
       microphonePermission,
       audioInputDevices,
+      audioOutputDevices,
       getAudioNodes,
       init,
       loadModel,
@@ -1468,17 +1824,20 @@ export function T3kPlayerContextProvider({
       isLiveInputActive,
       selectLiveInputChannel,
       setLiveInputGain,
+      setOutputDevice,
       setPlaying,
-      saveLiveSnapshot,
-      restoreLiveSnapshot,
-      clearLiveSnapshot,
+      saveSettingsSnapshot,
+      restoreSettingsSnapshot,
+      clearSettingsSnapshot,
       requestMicrophonePermission,
-      refreshAudioInputDevices,
+      refreshAudioDevices,
+      refreshAudioOutputDevices,
     }),
     [
       audioState,
       microphonePermission,
       audioInputDevices,
+      audioOutputDevices,
       getAudioNodes,
       init,
       loadModel,
@@ -1495,12 +1854,14 @@ export function T3kPlayerContextProvider({
       isLiveInputActive,
       selectLiveInputChannel,
       setLiveInputGain,
+      setOutputDevice,
       setPlaying,
-      saveLiveSnapshot,
-      restoreLiveSnapshot,
-      clearLiveSnapshot,
+      saveSettingsSnapshot,
+      restoreSettingsSnapshot,
+      clearSettingsSnapshot,
       requestMicrophonePermission,
-      refreshAudioInputDevices,
+      refreshAudioDevices,
+      refreshAudioOutputDevices,
     ]
   );
 
@@ -1525,7 +1886,7 @@ export const useT3kPlayerContext = () => {
         irUrl: null,
         audioUrl: null,
         inputMode: { type: 'preview' } as InputMode,
-        liveConfigSnapshot: null,
+        settingsSnapshot: null,
       },
       microphonePermission: {
         status: 'idle' as const,
@@ -1536,6 +1897,10 @@ export const useT3kPlayerContext = () => {
         isLoading: false,
         error: null,
         preferredDeviceId: null,
+      },
+      audioOutputDevices: {
+        devices: [],
+        selectedDeviceId: null,
       },
       getAudioNodes: () => ({
         audioContext: null,
@@ -1559,6 +1924,8 @@ export const useT3kPlayerContext = () => {
         channelMergerNode: null,
         channel0PreviewMeter: null,
         channel1PreviewMeter: null,
+        firefoxOutputDestination: null,
+        firefoxOutputElement: null,
       }),
       init: async () => {},
       loadModel: async () => {},
@@ -1575,12 +1942,14 @@ export const useT3kPlayerContext = () => {
       isLiveInputActive: () => false,
       selectLiveInputChannel: () => {},
       setLiveInputGain: () => {},
+      setOutputDevice: async () => {},
       setPlaying: () => {},
-      saveLiveSnapshot: () => {},
-      restoreLiveSnapshot: async () => {},
-      clearLiveSnapshot: () => {},
+      saveSettingsSnapshot: () => {},
+      restoreSettingsSnapshot: async () => {},
+      clearSettingsSnapshot: () => {},
       requestMicrophonePermission: async () => null,
-      refreshAudioInputDevices: async () => {},
+      refreshAudioDevices: async () => ({ inputDevices: [], preferredDeviceId: null }),
+      refreshAudioOutputDevices: async () => {},
     };
   }
 
