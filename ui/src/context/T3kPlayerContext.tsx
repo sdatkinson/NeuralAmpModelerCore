@@ -1393,34 +1393,7 @@ export function T3kPlayerContextProvider({
 
     try {
       // Stop any existing live input - full cleanup to ensure clean state
-      if (nodes.mediaStream) {
-        nodes.mediaStream.getTracks().forEach(track => track.stop());
-        nodes.mediaStream = null;
-      }
-      if (nodes.liveSourceNode) {
-        nodes.liveSourceNode.disconnect();
-        nodes.liveSourceNode = null;
-      }
-      if (nodes.liveInputGainNode) {
-        nodes.liveInputGainNode.disconnect();
-        nodes.liveInputGainNode = null;
-      }
-      if (nodes.channelSplitterNode) {
-        nodes.channelSplitterNode.disconnect();
-        nodes.channelSplitterNode = null;
-      }
-      if (nodes.channelMergerNode) {
-        nodes.channelMergerNode.disconnect();
-        nodes.channelMergerNode = null;
-      }
-      if (nodes.channel0PreviewMeter) {
-        nodes.channel0PreviewMeter.disconnect();
-        nodes.channel0PreviewMeter = null;
-      }
-      if (nodes.channel1PreviewMeter) {
-        nodes.channel1PreviewMeter.disconnect();
-        nodes.channel1PreviewMeter = null;
-      }
+      cleanupLiveInputNodes(nodes);
 
       // Stop file playback if active
       if (audioElement) {
@@ -1428,18 +1401,33 @@ export function T3kPlayerContextProvider({
       }
 
       // Request microphone/audio interface access with settings optimized for instruments
-      const constraints: MediaStreamConstraints = {
-        audio: {
-          deviceId: deviceId ? { exact: deviceId } : undefined,
-          channelCount: { ideal: 2 },  // Request stereo if available
-          // Disable processing that would color the guitar/mic signal
-          echoCancellation: false,
-          noiseSuppression: false,
-          autoGainControl: false,
-        },
+      const baseAudioConstraints: MediaTrackConstraints = {
+        channelCount: { ideal: 2 },  // Request stereo if available
+        // Disable processing that would color the guitar/mic signal
+        echoCancellation: false,
+        noiseSuppression: false,
+        autoGainControl: false,
       };
 
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            ...baseAudioConstraints,
+            deviceId: deviceId ? { exact: deviceId } : undefined,
+          },
+        });
+      } catch (error) {
+        // If exact device match failed, try without device constraint
+        if (deviceId && error instanceof DOMException && error.name === 'OverconstrainedError') {
+          console.warn(`Device ${deviceId} not available, falling back to default`);
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: baseAudioConstraints,
+          });
+        } else {
+          throw error;
+        }
+      }
       nodes.mediaStream = stream;
       console.log('[Live Input] getUserMedia stream:', {
         active: stream.active,
@@ -1456,6 +1444,16 @@ export function T3kPlayerContextProvider({
       const track = stream.getAudioTracks()[0];
       const settings = track.getSettings();
       const channelCount = settings.channelCount ?? 1;
+
+      // Listen for track ending (device disconnected, permission revoked, etc.)
+      track.addEventListener('ended', () => {
+        console.warn('Audio track ended unexpectedly');
+        cleanupLiveInputNodes(nodes);
+        setAudioState(prev => ({
+          ...prev,
+          inputMode: { type: 'preview' },
+        }));
+      });
 
       // Create source node from the live stream
       const liveSource = audioContext.createMediaStreamSource(stream);
@@ -1519,7 +1517,14 @@ export function T3kPlayerContextProvider({
       const selectedOutputId = audioOutputDevices.selectedDeviceId;
       await applyOutputDeviceRouting(nodes, selectedOutputId);
     } catch (error) {
-      setAudioState(prev => ({ ...prev, isLiveConnecting: false }));
+      // Clean up any partially-created live input nodes
+      cleanupLiveInputNodes(nodes);
+
+      setAudioState(prev => ({
+        ...prev,
+        isLiveConnecting: false,
+        inputMode: { type: 'preview' },
+      }));
       console.error('Error starting live input:', error);
       throw error;
     }
@@ -1691,7 +1696,10 @@ export function T3kPlayerContextProvider({
       if (outputGainNode && audioContext) {
         // Resume context if suspended (required for Firefox)
         if (playing && audioContext.state === 'suspended') {
-          audioContext.resume();
+          audioContext.resume().catch(error => {
+            console.error('Failed to resume audio context:', error);
+            setAudioState(prev => ({ ...prev, isPlaying: false }));
+          });
         }
         outputGainNode.gain.setTargetAtTime(
           playing ? 1 : 0,
@@ -1703,8 +1711,13 @@ export function T3kPlayerContextProvider({
       // Preview mode: control audio element playback
       if (audioElement) {
         if (playing) {
-          audioContext?.resume();
-          audioElement.play().catch(console.error);
+          audioContext?.resume().catch(error => {
+            console.error('Failed to resume audio context:', error);
+          });
+          audioElement.play().catch(error => {
+            console.error('Playback failed:', error);
+            setAudioState(prev => ({ ...prev, isPlaying: false }));
+          });
         } else {
           audioElement.pause();
         }
