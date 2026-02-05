@@ -25,19 +25,23 @@ export enum PREVIEW_MODE {
   IR = 'ir',
 }
 
+// Source mode for players: 'preview' uses file playback, 'live' uses direct input
+export type SourceMode = 'preview' | 'live';
+
 // Channel selection for multi-channel audio interfaces
 export type ChannelSelection = 'first' | 'second';
 
-// Discriminated union for input modes
-export type InputMode =
-  | { type: 'preview' }  // File playback (preexisting functionality)
-  | {
-      type: 'live';
-      deviceId?: string;
-      channelCount?: number;              // Number of available channels (1 or 2)
-      selectedChannel?: ChannelSelection; // Which channel to route to processing
-      channelGains?: Record<ChannelSelection, number>;  // Per-channel input gain in dB
-    };
+// What audio source is currently active (connected to the audio engine)
+export type InputMode = { type: 'preview' } | { type: 'live' };
+
+// Configured live input settings (persists even when preview is active)
+// This allows the UI to show the configured device even when file playback is active
+export interface LiveInputConfig {
+  deviceId: string;
+  channelCount: number;
+  selectedChannel: ChannelSelection;
+  channelGains: Record<ChannelSelection, number>;
+}
 
 export interface AudioInputDevice {
   deviceId: string;

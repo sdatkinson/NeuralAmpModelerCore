@@ -5,15 +5,22 @@ import { Button } from '../ui/Button';
 import { PermissionContent } from './content/PermissionContent';
 import { DeviceChannelContent } from './content/DeviceChannelContent';
 import { useT3kPlayerContext } from '../../context/T3kPlayerContext';
-import { ChannelSelection } from '../../types';
-
-type SourceMode = 'preview' | 'live';
+import { ChannelSelection, Model, IR, SourceMode } from '../../types';
 
 interface SettingsDialogProps {
   isOpen: boolean;
   onClose: () => void;
   sourceMode: SourceMode;
   onConnect?: (deviceId: string, channel: ChannelSelection) => void;
+  // Model/IR to load when monitoring starts
+  selectedModel: Model;
+  selectedIr: IR;
+  // Player ID for tracking which player owns the monitoring
+  playerId?: string;
+  // Snapshot functions (from useLiveMode hook - per-player state)
+  saveSettingsSnapshot: (options?: { includeLiveSettings?: boolean }) => void;
+  restoreSettingsSnapshot: (options?: { includePlaybackState?: boolean; includeLiveSettings?: boolean; includeOutputDevice?: boolean }) => Promise<void>;
+  clearSettingsSnapshot: () => void;
 }
 
 type SetupStep = 'permission' | 'device-channel-select';
@@ -23,6 +30,12 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
   onClose,
   sourceMode,
   onConnect,
+  selectedModel,
+  selectedIr,
+  playerId,
+  saveSettingsSnapshot,
+  restoreSettingsSnapshot,
+  clearSettingsSnapshot,
 }) => {
   const {
     microphonePermission,
@@ -34,15 +47,16 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
     refreshAudioDevices,
     startLiveInput,
     stopLiveInput,
+    clearLiveInputConfig,
     selectLiveInputChannel,
     setLiveInputGain,
     setOutputDevice,
     setPlaying,
     toggleBypass,
     getAudioNodes,
-    saveSettingsSnapshot,
-    restoreSettingsSnapshot,
-    clearSettingsSnapshot,
+    loadModel,
+    loadIr,
+    removeIr,
   } = useT3kPlayerContext();
 
   // Local state: only UI flow
@@ -54,13 +68,16 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
   const openedInLiveModeRef = useRef(false);
   // Track if there was an existing live connection when dialog opened
   const hadExistingConnectionRef = useRef(false);
+  // Track if dialog was ever opened (to avoid running close logic on initial mount)
+  const wasEverOpenedRef = useRef(false);
 
   // Derived from context (single source of truth)
-  const liveInputMode = audioState.inputMode.type === 'live' ? audioState.inputMode : null;
-  const currentDeviceId = liveInputMode?.deviceId ?? null;
-  const currentChannel = liveInputMode?.selectedChannel ?? 'first';
-  const channelCount = liveInputMode?.channelCount ?? 1;
-  const currentInputGain = liveInputMode?.channelGains?.[currentChannel] ?? 0;
+  // Use liveInputConfig for UI (persists even when preview is active)
+  const liveInputConfig = audioState.liveInputConfig;
+  const currentDeviceId = liveInputConfig?.deviceId ?? null;
+  const currentChannel = liveInputConfig?.selectedChannel ?? 'first';
+  const channelCount = liveInputConfig?.channelCount ?? 1;
+  const currentInputGain = liveInputConfig?.channelGains?.[currentChannel] ?? 0;
 
   const isLiveMode = sourceMode === 'live';
   const isPreviewMode = sourceMode === 'preview';
@@ -68,18 +85,18 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
   // Dialog open/close lifecycle
   useEffect(() => {
     if (isOpen) {
+      wasEverOpenedRef.current = true;
       savedRef.current = false;
       setIsInitializing(true);
 
       // Capture mode at open time to avoid stale closure
       openedInLiveModeRef.current = sourceMode === 'live';
 
-      // Check if there's an existing live connection (only relevant in live mode)
-      const existingLiveMode = audioState.inputMode.type === 'live' ? audioState.inputMode : null;
-      hadExistingConnectionRef.current = existingLiveMode !== null && existingLiveMode.deviceId !== undefined;
+      // Check if there's an existing live config (persists even when preview is active)
+      hadExistingConnectionRef.current = audioState.liveInputConfig !== null;
 
       // Save snapshot for cancel/restore
-      saveSettingsSnapshot({ includeLiveSettings: openedInLiveModeRef.current && hadExistingConnectionRef.current });
+      saveSettingsSnapshot({ includeLiveSettings: hadExistingConnectionRef.current });
 
       // If permission not granted, show permission step immediately (no loading needed)
       // Only refresh devices if we already have permission
@@ -88,7 +105,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
           setIsInitializing(false);
           setStep('device-channel-select');
 
-          // In live mode, auto-connect if no device is currently selected
+          // In live mode, auto-connect if no device is currently configured
           if (sourceMode === 'live' && !hadExistingConnectionRef.current && inputDevices.length > 0) {
             const deviceToConnect = preferredDeviceId ?? inputDevices[0].deviceId;
             initAndStartLiveInput(deviceToConnect);
@@ -98,11 +115,21 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
         setIsInitializing(false);
         setStep('permission');
       }
-    } else if (!savedRef.current) {
-      // Dialog closed without Save - restore using the mode captured at open time
+    } else if (wasEverOpenedRef.current && !savedRef.current) {
+      // Dialog closed without Save - revert all changes
+      // Only run if dialog was previously opened (not on initial mount)
+
+      // If we opened without a live config but one was created during this session, clear it
+      // This handles the case where user configures input then cancels from a fresh setup
+      if (!hadExistingConnectionRef.current && audioState.liveInputConfig !== null) {
+        clearLiveInputConfig();
+      }
+
+      // Restore settings (output device, and live settings if they existed before)
       restoreSettingsSnapshot({
         includePlaybackState: true,
-        includeLiveSettings: openedInLiveModeRef.current
+        includeLiveSettings: hadExistingConnectionRef.current,
+        includeOutputDevice: true,
       });
       hadExistingConnectionRef.current = false;
     }
@@ -135,10 +162,28 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
     selectLiveInputChannel(channel);
   }, [selectLiveInputChannel]);
 
-  const handleMonitoringChange = useCallback((enabled: boolean) => {
-    // Use context's setPlaying - this updates both the audio node and React state
-    setPlaying(enabled);
-  }, [setPlaying]);
+  const handleMonitoringChange = useCallback(async (enabled: boolean) => {
+    if (enabled) {
+      // Load selected model/IR before enabling monitoring
+      if (audioState.initState === 'ready') {
+        if (audioState.modelUrl !== selectedModel.url) {
+          await loadModel(selectedModel.url);
+        }
+        if (selectedIr.url) {
+          if (audioState.irUrl !== selectedIr.url) {
+            await loadIr({
+              url: selectedIr.url,
+              wetAmount: selectedIr.mix ?? 1,
+              gainAmount: selectedIr.gain ?? 1,
+            });
+          }
+        } else if (audioState.irUrl !== null) {
+          removeIr();
+        }
+      }
+    }
+    setPlaying(enabled, playerId);
+  }, [setPlaying, loadModel, loadIr, removeIr, audioState, selectedModel, selectedIr, playerId]);
 
   const handleWetSignalToggle = useCallback(() => {
     // Uses the same bypass state as the player

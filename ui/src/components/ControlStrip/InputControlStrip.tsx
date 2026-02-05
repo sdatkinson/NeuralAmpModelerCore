@@ -13,6 +13,11 @@ const channelOptions: SegmentOption<ChannelSelection>[] = [
   { value: 'second', label: '2' },
 ];
 
+interface InputControlStripProps {
+  /** Whether this player is the active one (controls meter animation and colors) */
+  isActive?: boolean;
+}
+
 /**
  * Input control strip for live input mode.
  *
@@ -25,15 +30,15 @@ const channelOptions: SegmentOption<ChannelSelection>[] = [
  *
  * Only renders when audio is initialized and in live input mode.
  */
-export function InputControlStrip() {
+export function InputControlStrip({ isActive = true }: InputControlStripProps) {
   const { getAudioNodes, audioState, selectLiveInputChannel, setLiveInputGain } = useT3kPlayerContext();
   const nodes = getAudioNodes();
 
-  // Derive channel and gain info from live input mode
-  const liveInputMode = audioState.inputMode.type === 'live' ? audioState.inputMode : null;
-  const currentChannel = liveInputMode?.selectedChannel ?? 'first';
-  const channelCount = liveInputMode?.channelCount ?? 1;
-  const inputGain = liveInputMode?.channelGains?.[currentChannel] ?? 0;
+  // Derive channel and gain info from liveInputConfig (persists even when preview is active)
+  const liveInputConfig = audioState.liveInputConfig;
+  const currentChannel = liveInputConfig?.selectedChannel ?? 'first';
+  const channelCount = liveInputConfig?.channelCount ?? 1;
+  const inputGain = liveInputConfig?.channelGains?.[currentChannel] ?? 0;
   const isStereo = channelCount >= 2;
 
   // Handle channel change
@@ -53,36 +58,34 @@ export function InputControlStrip() {
   const outputClipRef = useRef<HTMLButtonElement>(null);
 
   // Start meter animation when audio is initialized
+  // Animation always runs so users can see signal levels; inactive state only affects colors
   const { resetClipLatch } = useMeterAnimation(
     nodes.inputMeterNode
       ? {
           analyser: nodes.inputMeterNode,
           meterRef: inputMeterRef,
-          clipRef: inputClipRef,
+          clipRef: isActive ? inputClipRef : undefined,  // Only latch clips when active
         }
       : null,
     nodes.outputMeterNode
       ? {
           analyser: nodes.outputMeterNode,
           meterRef: outputMeterRef,
-          clipRef: outputClipRef,
+          clipRef: isActive ? outputClipRef : undefined,  // Only latch clips when active
         }
       : null,
     audioState.initState === 'ready'
   );
 
-  // Reset clip indicators when device or channel changes
-  const currentDeviceId = liveInputMode?.deviceId;
+  // Reset clip indicators when device, channel changes, or when becoming inactive
+  const currentDeviceId = liveInputConfig?.deviceId;
   useEffect(() => {
     resetClipLatch('all');
-  }, [currentDeviceId, currentChannel, resetClipLatch]);
+  }, [currentDeviceId, currentChannel, isActive, resetClipLatch]);
 
-  // Don't render if audio not ready or not in live mode
+  // Don't render if audio not ready
+  // Note: Parent component controls visibility based on sourceMode and liveInputConfig
   if (audioState.initState !== 'ready') {
-    return null;
-  }
-
-  if (audioState.inputMode.type !== 'live') {
     return null;
   }
 
@@ -134,6 +137,7 @@ export function InputControlStrip() {
                   size={60}
                   thickness={8}
                   label='Input level'
+                  inactive={!isActive}
                 />
                 <ClipIndicator
                   ref={inputClipRef}
@@ -153,6 +157,7 @@ export function InputControlStrip() {
                   size={60}
                   thickness={8}
                   label='Output level'
+                  inactive={!isActive}
                 />
                 <ClipIndicator
                   ref={outputClipRef}

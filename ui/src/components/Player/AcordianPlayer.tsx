@@ -1,6 +1,6 @@
 import React, { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { useT3kPlayerContext } from '../../context/T3kPlayerContext';
-import { Input, IR, Model, PREVIEW_MODE, T3kAcordianPlayerProps } from '../../types';
+import { Input, IR, Model, PREVIEW_MODE, SourceMode, T3kAcordianPlayerProps } from '../../types';
 import { initVisualizer, setupVisualizer } from '../../utils/visualizer';
 import { Play } from '../ui/Play';
 import { Skip } from '../ui/Skip';
@@ -10,7 +10,11 @@ import { Pause } from '../ui/Pause';
 import { LogoSm } from '../ui/LogoSm';
 import { DEFAULT_INPUTS, DEFAULT_MODELS, DEFAULT_IRS } from '../../constants';
 import { CircularLoader } from '../ui/CircularLoader';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronDown, ChevronUp, Loader2, Plug, Settings } from 'lucide-react';
+import { SegmentedControl } from '../ui/SegmentedControl';
+import { SettingsDialog } from '../SettingsDialog';
+import { InputControlStrip } from '../ControlStrip';
+import { useLiveMode } from '../../hooks/useLiveMode';
 
 const PlayerFC: React.FC<T3kAcordianPlayerProps> = ({
   getData = async () => ({ models: DEFAULT_MODELS, irs: DEFAULT_IRS, inputs: DEFAULT_INPUTS }),
@@ -25,6 +29,7 @@ const PlayerFC: React.FC<T3kAcordianPlayerProps> = ({
 }) => {
   const {
     audioState,
+    audioInputDevices,
     getAudioNodes,
     init,
     loadModel,
@@ -34,7 +39,28 @@ const PlayerFC: React.FC<T3kAcordianPlayerProps> = ({
     toggleBypass,
     connectVisualizerNode,
     cleanup,
+    setPlaying,
+    startLiveInput,
+    stopLiveInput,
   } = useT3kPlayerContext();
+
+  // Live mode hook
+  const {
+    sourceMode,
+    isSettingsDialogOpen,
+    showPlaybackPausedMessage,
+    showOutputFallbackMessage,
+    isLiveConfigured,
+    currentDeviceId,
+    liveDeviceOptions,
+    handleSourceModeChange,
+    handleLiveDeviceChange,
+    openSettingsDialog,
+    closeSettingsDialog,
+    saveSettingsSnapshot,
+    restoreSettingsSnapshot,
+    clearSettingsSnapshot,
+  } = useLiveMode({ playerId: id });
 
   // Helper function to get default item
   const getDefault = useCallback(
@@ -48,7 +74,8 @@ const PlayerFC: React.FC<T3kAcordianPlayerProps> = ({
   const [selectedModel, setSelectedModel] = useState<Model | null>(null);
   const [selectedInput, setSelectedInput] = useState<Input | null>(null);
   const [selectedIr, setSelectedIr] = useState<IR | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
+  // isPlaying is derived from context - this player is playing if it's the active player
+  const isThisPlayerPlaying = audioState.activePlayerId === id;
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
@@ -116,18 +143,6 @@ const PlayerFC: React.FC<T3kAcordianPlayerProps> = ({
     };
   }, [cleanup]);
 
-  // Setup play event listener
-  useEffect(() => {
-    if (!id) return;
-    const handlePlay = (event: Event) => {
-      if ((event as CustomEvent).detail.id !== id) {
-        setIsPlaying(false);
-      }
-    };
-    window.addEventListener('t3k-player-play', handlePlay);
-    return () => window.removeEventListener('t3k-player-play', handlePlay);
-  }, [id]);
-
   // Setup resize listener
   useEffect(() => {
     handleResize();
@@ -137,12 +152,12 @@ const PlayerFC: React.FC<T3kAcordianPlayerProps> = ({
 
   // Audio element event listeners
   useEffect(() => {
-    if (!isPlaying) return; // Only listen to time updates if the audio is playing
+    if (!isThisPlayerPlaying) return; // Only listen to time updates if this player is playing
     const audioElement = getAudioNodes().audioElement;
     if (!audioElement) return;
 
     const handleTimeUpdate = () => setCurrentTime(audioElement.currentTime);
-    const handleEnded = () => setIsPlaying(false);
+    const handleEnded = () => setPlaying(false);
     const handleLoadedMetadata = () => setDuration(audioElement.duration);
 
     // Set initial duration if already loaded
@@ -159,11 +174,11 @@ const PlayerFC: React.FC<T3kAcordianPlayerProps> = ({
       audioElement.removeEventListener('ended', handleEnded);
       audioElement.removeEventListener('loadedmetadata', handleLoadedMetadata);
     };
-  }, [getAudioNodes, audioState, isPlaying]);
+  }, [getAudioNodes, audioState, isThisPlayerPlaying, setPlaying]);
 
   // Visualizer setup
   useEffect(() => {
-    if (!isPlaying) return; // Only setup visualizer if the audio is playing
+    if (!isThisPlayerPlaying) return; // Only setup visualizer if this player is playing
     if (audioState.initState !== 'ready' || !visualizerRef.current) return;
 
     const audioContext = getAudioNodes().audioContext;
@@ -180,7 +195,7 @@ const PlayerFC: React.FC<T3kAcordianPlayerProps> = ({
       disconnect();
       visualizerNodeRef.current = null;
     };
-  }, [audioState.initState, getAudioNodes, connectVisualizerNode, isPlaying]);
+  }, [audioState.initState, getAudioNodes, connectVisualizerNode, isThisPlayerPlaying]);
 
   const getDataWithCache = useCallback(async () => {
     if (selectedModel && selectedInput && selectedIr) {
@@ -201,16 +216,75 @@ const PlayerFC: React.FC<T3kAcordianPlayerProps> = ({
 
   // Event handlers
   const togglePlay = useCallback(async () => {
+    // This player wants to use live input
+    const wantsLiveInput = sourceMode === 'live';
+    // The audio engine is currently using live input
+    const liveInputActive = audioState.inputMode.type === 'live';
+
+    // Live mode: toggle via context (handles output gain)
+    if (wantsLiveInput) {
+      const { model, ir } = await getDataWithCache();
+      const { audioContext } = getAudioNodes();
+
+      // If audio engine isn't in live mode yet, reconnect using the configured device
+      if (!liveInputActive && audioState.liveInputConfig) {
+        await startLiveInput(audioState.liveInputConfig.deviceId, {
+          initialChannel: audioState.liveInputConfig.selectedChannel,
+          initialChannelGains: audioState.liveInputConfig.channelGains,
+        });
+      }
+
+      // Ensure audio context is running
+      if (audioContext && audioContext.state === 'suspended') {
+        await audioContext.resume();
+      }
+
+      // Sync model with selection
+      if (!audioState.modelUrl || audioState.modelUrl !== model.url) {
+        await loadModel(model.url);
+      }
+
+      // Sync IR with selection
+      if (ir.url) {
+        if (!audioState.irUrl || audioState.irUrl !== ir.url) {
+          await loadIr({
+            url: ir.url,
+            wetAmount: ir.mix,
+            gainAmount: ir.gain,
+          });
+        }
+      } else {
+        removeIr();
+      }
+
+      // Toggle bypass if needed
+      if (audioState.isBypassed !== bypassed) toggleBypass();
+
+      // Toggle: if this player is active, stop; otherwise start
+      if (isThisPlayerPlaying) {
+        setPlaying(false);
+      } else {
+        setPlaying(true, id);
+      }
+      return;
+    }
+
+    // Preview mode: standard file playback
+    // If live input is active, stop it first (take over audio engine)
+    if (liveInputActive) {
+      stopLiveInput();
+    }
+
     setIsLoading(true);
     const { model, ir, input } = await getDataWithCache();
     if (audioState.initState !== 'ready') await init({ audioUrl: input.url });
     const nodes = getAudioNodes();
-    const { audioElement, audioContext } = nodes;
+    const { audioContext } = nodes;
 
     try {
-      if (isPlaying) {
-        if (audioElement) audioElement.pause();
-        setIsPlaying(false);
+      if (isThisPlayerPlaying) {
+        // This player is playing - pause it
+        setPlaying(false);
       } else {
         // Ensure audio context is running
         if (audioContext) {
@@ -240,20 +314,12 @@ const PlayerFC: React.FC<T3kAcordianPlayerProps> = ({
           removeIr();
         }
 
-        if (audioElement) await audioElement.play();
         // Toggle bypass if needed
         if (audioState.isBypassed !== bypassed) toggleBypass();
-        setIsPlaying(true);
-        if (id) {
-          try {
-            // Emit play event to window
-            window.dispatchEvent(
-              new CustomEvent('t3k-player-play', { detail: { id } })
-            );
-          } catch (error) {
-            console.error('Error emitting play event:', error);
-          }
-        }
+
+        // Start playback via context (handles audioElement.play() and outputGainNode)
+        setPlaying(true, id);
+
         onPlay?.({
           model: model,
           ir: ir,
@@ -262,15 +328,18 @@ const PlayerFC: React.FC<T3kAcordianPlayerProps> = ({
       }
     } catch (error) {
       console.error('Error in togglePlay:', error);
-      setIsPlaying(false);
+      setPlaying(false);
     } finally {
       setIsLoading(false);
     }
   }, [
-    isPlaying,
+    id,
+    isThisPlayerPlaying,
     getAudioNodes,
     audioState,
+    sourceMode,
     getDataWithCache,
+    init,
     loadAudio,
     loadModel,
     loadIr,
@@ -278,6 +347,9 @@ const PlayerFC: React.FC<T3kAcordianPlayerProps> = ({
     onPlay,
     toggleBypass,
     bypassed,
+    setPlaying,
+    startLiveInput,
+    stopLiveInput,
   ]);
 
   const handleSkipToStart = useCallback(() => {
@@ -291,10 +363,10 @@ const PlayerFC: React.FC<T3kAcordianPlayerProps> = ({
   const handleBypassToggle = useCallback(() => {
     const newBypassed = !bypassed;
     setBypassed(newBypassed);
-    if (isPlaying && audioState.isBypassed !== newBypassed) {
+    if (isThisPlayerPlaying && audioState.isBypassed !== newBypassed) {
       toggleBypass();
     }
-  }, [toggleBypass, bypassed, audioState, isPlaying]);
+  }, [toggleBypass, bypassed, audioState, isThisPlayerPlaying]);
 
   const handleModelChange = useCallback(
     async (value: string | number) => {
@@ -302,19 +374,19 @@ const PlayerFC: React.FC<T3kAcordianPlayerProps> = ({
       if (model) {
         setSelectedModel(model);
         try {
-          if (audioState.initState === 'ready' && isPlaying) await loadModel(model.url);
+          if (audioState.initState === 'ready' && isThisPlayerPlaying) await loadModel(model.url);
           onModelChange?.(model);
         } catch (error) {
           console.error('Error loading model:', error);
         }
       }
     },
-    [models, loadModel, onModelChange, audioState.initState, isPlaying]
+    [models, loadModel, onModelChange, audioState.initState, isThisPlayerPlaying]
   );
 
   const handleInputChange = useCallback(
     async (value: string | number) => {
-      const wasPlaying = isPlaying;
+      const wasThisPlayerPlaying = isThisPlayerPlaying;
       const input = inputs?.find(i => i.url === String(value));
 
       if (!input) return;
@@ -322,7 +394,7 @@ const PlayerFC: React.FC<T3kAcordianPlayerProps> = ({
       setSelectedInput(input);
 
       try {
-        if (wasPlaying) {
+        if (wasThisPlayerPlaying) {
           if (
             audioState.initState === 'ready' &&
             (!audioState.audioUrl || audioState.audioUrl !== input.url)
@@ -330,10 +402,8 @@ const PlayerFC: React.FC<T3kAcordianPlayerProps> = ({
             await loadAudio(input.url);
           }
 
-          const audioElement = getAudioNodes().audioElement;
-          if (audioElement) {
-            audioElement.play();
-          }
+          // Resume playback via context
+          setPlaying(true, id);
         }
 
         onInputChange?.(input);
@@ -342,13 +412,14 @@ const PlayerFC: React.FC<T3kAcordianPlayerProps> = ({
       }
     },
     [
-      isPlaying,
+      id,
+      isThisPlayerPlaying,
       inputs,
       audioState.audioUrl,
       audioState.initState,
-      getAudioNodes,
       loadAudio,
       onInputChange,
+      setPlaying,
     ]
   );
 
@@ -361,7 +432,7 @@ const PlayerFC: React.FC<T3kAcordianPlayerProps> = ({
       setSelectedIr(ir);
 
       try {
-        if (isPlaying) {
+        if (isThisPlayerPlaying) {
           if (audioState.initState === 'ready' && ir.url) {
             await loadIr({
               url: ir.url,
@@ -377,7 +448,16 @@ const PlayerFC: React.FC<T3kAcordianPlayerProps> = ({
         console.error('Error loading IR:', error);
       }
     },
-    [irs, loadIr, removeIr, onIrChange, audioState.initState, isPlaying]
+    [irs, loadIr, removeIr, onIrChange, audioState.initState, isThisPlayerPlaying]
+  );
+
+  // Source mode options for segmented control
+  const sourceModeOptions = React.useMemo(
+    () => [
+      { value: 'preview' as const, label: 'Preview' },
+      { value: 'live' as const, label: 'Live' },
+    ],
+    []
   );
 
   const bypassedStyles = bypassed
@@ -410,11 +490,11 @@ const PlayerFC: React.FC<T3kAcordianPlayerProps> = ({
       <div className={`flex items-center gap-4 overflow-hidden ${disabled ? 'opacity-50 touch-none cursor-not-allowed' : ''}`}>
         <button
           onClick={togglePlay}
-          className={`p-0 focus:outline-none ${disabled ? 'cursor-not-allowed' : ''}`}
-          aria-label={isPlaying ? 'Pause' : 'Play'}
-          disabled={disabled}
+          className={`p-0 focus:outline-none ${disabled || (sourceMode === 'live' && !isLiveConfigured) ? 'cursor-not-allowed opacity-50' : ''}`}
+          aria-label={isThisPlayerPlaying ? 'Pause' : 'Play'}
+          disabled={disabled || (sourceMode === 'live' && !isLiveConfigured)}
         >
-          {isPlaying ? (
+          {isThisPlayerPlaying ? (
             <Pause size={40} />
           ) : isLoading ? (
             <CircularLoader size={40} />
@@ -425,17 +505,17 @@ const PlayerFC: React.FC<T3kAcordianPlayerProps> = ({
 
         <button
           onClick={handleSkipToStart}
-          className={`p-0 focus:outline-none ${disabled ? 'cursor-not-allowed' : ''}`}
+          className={`p-0 focus:outline-none ${disabled || sourceMode === 'live' ? 'cursor-not-allowed' : ''}`}
           aria-label='Skip to start'
-          disabled={disabled}
+          disabled={disabled || sourceMode === 'live'}
         >
-          <Skip size={24} opacity={currentTime > 0 ? 1 : 0.6} />
+          <Skip size={24} opacity={sourceMode === 'live' ? 0.6 : currentTime > 0 ? 1 : 0.6} />
         </button>
 
         <div className='hidden sm:flex text-sm font-mono gap-2 text-zinc-400'>
-          <span>{formatTime(currentTime)}</span>
+          <span>{sourceMode === 'live' ? '-:--' : formatTime(currentTime)}</span>
           <span> / </span>
-          <span>{formatTime(duration)}</span>
+          <span>{sourceMode === 'live' ? '-:--' : formatTime(duration)}</span>
         </div>
 
         <div ref={canvasWrapperRef} className='flex-1'>
@@ -491,15 +571,95 @@ const PlayerFC: React.FC<T3kAcordianPlayerProps> = ({
           </div>
         </div>
 
-        <div className='flex flex-col sm:flex-row items-center gap-2 sm:gap-6'>
-          <div className='w-full sm:w-1/2'>
-            <Select
-              options={audioOptions || []}
-              label='Input'
-              onChange={handleInputChange}
-              defaultOption={selectedInput?.url}
-              // disabled={audioState.isBypassed}
+        {/* Source mode segmented control with settings button */}
+        <div className='flex flex-col gap-1 pt-2'>
+          <span className='text-sm text-zinc-400'>Source</span>
+          <div className='flex items-center gap-3'>
+            <SegmentedControl
+              options={sourceModeOptions}
+              value={sourceMode}
+              onChange={handleSourceModeChange}
             />
+            {/* Settings button - always visible */}
+            <button
+              onClick={openSettingsDialog}
+              className='p-2 rounded-md transition-colors border border-zinc-700 hover:bg-zinc-800'
+              aria-label='Settings'
+            >
+              <Settings size={20} className='text-zinc-400' />
+            </button>
+            {showPlaybackPausedMessage && (
+              <span className='text-xs text-zinc-400 animate-pulse'>
+                Playback paused
+              </span>
+            )}
+            {showOutputFallbackMessage && (
+              <span className='text-xs text-zinc-400 animate-pulse'>
+                Output switched to default
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className='flex flex-col sm:flex-row items-start gap-2 sm:gap-6'>
+          <div className='w-full sm:w-1/2'>
+            {/* Preview mode: show input dropdown */}
+            {sourceMode === 'preview' && (
+              <Select
+                options={audioOptions || []}
+                label='Input'
+                onChange={handleInputChange}
+                defaultOption={selectedInput?.url}
+              />
+            )}
+
+            {/* Live mode: not connected - show setup button */}
+            {sourceMode === 'live' && !isLiveConfigured && (
+              <div className='inline-flex flex-1 flex-col gap-1 w-full'>
+                <span className='text-sm text-zinc-400'>Live Input</span>
+                <div className='relative flex-1'>
+                  <button
+                    onClick={openSettingsDialog}
+                    className='flex items-center gap-2 w-full overflow-hidden px-4 py-3 text-md border border-zinc-700 rounded-md bg-transparent hover:bg-zinc-800 transition-colors focus:outline-none'
+                  >
+                    <Plug size={18} className='text-zinc-400 flex-shrink-0' />
+                    <span className='text-ellipsis text-nowrap overflow-hidden min-w-0'>Enable Live Input</span>
+                  </button>
+                  {/* Error or helper text - positioned below without affecting layout */}
+                  {audioInputDevices.error ? (
+                    <span className='absolute top-full mt-1 text-xs text-red-400'>
+                      {audioInputDevices.error}
+                    </span>
+                  ) : (
+                    <span className='absolute top-full mt-1 text-xs text-zinc-500'>
+                      Use headphones to avoid feedback.
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Live mode: connected - show device dropdown */}
+            {sourceMode === 'live' && isLiveConfigured && (
+              <div className='w-full'>
+                {audioState.isLiveConnecting ? (
+                  <div className='flex flex-col gap-1 w-full'>
+                    <span className='text-sm text-zinc-400'>Live Input</span>
+                    <div className='flex items-center justify-between w-full px-4 py-3 text-md border border-zinc-700 rounded-md bg-transparent opacity-50 cursor-wait'>
+                      <span className='text-zinc-400'>Switching device...</span>
+                      <Loader2 size={24} className='text-zinc-400 animate-spin' />
+                    </div>
+                  </div>
+                ) : (
+                  <Select
+                    options={liveDeviceOptions}
+                    label='Live Input'
+                    onChange={(value) => handleLiveDeviceChange(String(value))}
+                    defaultOption={currentDeviceId ?? ''}
+                  />
+                )}
+              </div>
+            )}
           </div>
 
           <div className={`w-full sm:w-1/2 ${bypassedStyles}`}>
@@ -509,6 +669,13 @@ const PlayerFC: React.FC<T3kAcordianPlayerProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Live Input Control Strip - only when live input is connected */}
+      {sourceMode === 'live' && isLiveConfigured && (
+        <div className='pt-4'>
+          <InputControlStrip isActive={isThisPlayerPlaying} />
+        </div>
+      )}
 
       {/* Footer */}
       <a
@@ -520,6 +687,26 @@ const PlayerFC: React.FC<T3kAcordianPlayerProps> = ({
         <LogoSm width={42} height={14} />
       </a>
         </>
+      )}
+
+      {/* Settings Dialog - only render when we have model/ir data */}
+      {selectedModel && selectedIr && (
+        <SettingsDialog
+          isOpen={isSettingsDialogOpen}
+          onClose={closeSettingsDialog}
+          sourceMode={sourceMode}
+          selectedModel={selectedModel}
+          selectedIr={selectedIr}
+          playerId={id}
+          saveSettingsSnapshot={saveSettingsSnapshot}
+          restoreSettingsSnapshot={restoreSettingsSnapshot}
+          clearSettingsSnapshot={clearSettingsSnapshot}
+          onConnect={(deviceId, channel) => {
+            // Connection is handled by the dialog (via startLiveInput)
+            // The dialog's Monitor Input checkbox controls isPlaying state
+            console.log('Live input connected:', { deviceId, channel });
+          }}
+        />
       )}
     </div>
   );

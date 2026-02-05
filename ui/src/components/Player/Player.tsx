@@ -1,6 +1,6 @@
 import React, { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { useT3kPlayerContext } from '../../context/T3kPlayerContext';
-import { Input, IR, Model, PREVIEW_MODE, T3kPlayerProps } from '../../types';
+import { Input, IR, Model, PREVIEW_MODE, SourceMode, T3kPlayerProps } from '../../types';
 import { initVisualizer, setupVisualizer } from '../../utils/visualizer';
 import { Play } from '../ui/Play';
 import { Skip } from '../ui/Skip';
@@ -14,8 +14,7 @@ import { SegmentedControl } from '../ui/SegmentedControl';
 import { SettingsDialog } from '../SettingsDialog';
 import { InputControlStrip } from '../ControlStrip';
 import { Loader2, Plug, Settings } from 'lucide-react';
-
-type SourceMode = 'preview' | 'live';
+import { useLiveMode } from '../../hooks/useLiveMode';
 
 const PlayerFC: React.FC<T3kPlayerProps> = ({
   models = DEFAULT_MODELS,
@@ -32,7 +31,6 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
   const {
     audioState,
     audioInputDevices,
-    audioOutputDevices,
     getAudioNodes,
     init,
     loadModel,
@@ -45,9 +43,25 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
     startLiveInput,
     stopLiveInput,
     setPlaying,
+  } = useT3kPlayerContext();
+
+  // Live mode hook
+  const {
+    sourceMode,
+    isSettingsDialogOpen,
+    showPlaybackPausedMessage,
+    showOutputFallbackMessage,
+    isLiveConfigured,
+    currentDeviceId,
+    liveDeviceOptions,
+    handleSourceModeChange,
+    handleLiveDeviceChange,
+    openSettingsDialog,
+    closeSettingsDialog,
     saveSettingsSnapshot,
     restoreSettingsSnapshot,
-  } = useT3kPlayerContext();
+    clearSettingsSnapshot,
+  } = useLiveMode({ playerId: id });
 
   // Helper function to get default item
   const getDefault = useCallback(
@@ -68,18 +82,12 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
-  
-  // Source mode state (preview = file playback, live = direct input)
-  const [sourceMode, setSourceMode] = useState<SourceMode>('preview');
-  const [showPlaybackPausedMessage, setShowPlaybackPausedMessage] = useState(false);
-  const [showOutputFallbackMessage, setShowOutputFallbackMessage] = useState(false);
-  const [isSettingsDialogOpen, setIsSettingsDialogOpen] = useState(false);
+  const [bypassed, setBypassed] = useState(false);
 
   // Refs
   const visualizerRef = useRef<HTMLCanvasElement>(null);
   const visualizerNodeRef = useRef<AnalyserNode | null>(null);
   const canvasWrapperRef = useRef<HTMLDivElement>(null);
-  const prevOutputDeviceIdRef = useRef<string | null>(audioOutputDevices.selectedDeviceId);
 
   // Memoized options
   const modelOptions = React.useMemo(
@@ -109,16 +117,6 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
     [irs]
   );
 
-  // Live device options for Select component
-  const liveDeviceOptions = React.useMemo(
-    () =>
-      audioInputDevices.devices.map(device => ({
-        label: device.label,
-        value: device.deviceId,
-      })),
-    [audioInputDevices.devices]
-  );
-
   // Utility functions
   const formatTime = useCallback((time: number) => {
     const minutes = Math.floor(time / 60);
@@ -144,32 +142,6 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
     };
   }, [cleanup]);
 
-  // Detect output device fallback (when selected device is disconnected)
-  useEffect(() => {
-    const prevId = prevOutputDeviceIdRef.current;
-    const currentId = audioOutputDevices.selectedDeviceId;
-
-    // Detect transition from non-null to null (fallback to default)
-    if (prevId !== null && currentId === null) {
-      setShowOutputFallbackMessage(true);
-      setTimeout(() => setShowOutputFallbackMessage(false), 3000);
-    }
-
-    prevOutputDeviceIdRef.current = currentId;
-  }, [audioOutputDevices.selectedDeviceId]);
-
-  // Setup play event listener
-  useEffect(() => {
-    if (!id) return;
-    const handlePlay = (event: Event) => {
-      if ((event as CustomEvent).detail.id !== id) {
-        setPlaying(false);
-      }
-    };
-    window.addEventListener('t3k-player-play', handlePlay);
-    return () => window.removeEventListener('t3k-player-play', handlePlay);
-  }, [id, setPlaying]);
-
   // Setup resize listener
   useEffect(() => {
     handleResize();
@@ -177,8 +149,13 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
     return () => window.removeEventListener('resize', handleResize);
   }, [handleResize]);
 
-  // Audio element event listeners
+  // Derived state: is THIS player the active one?
+  const isThisPlayerActive = audioState.activePlayerId === id;
+
+  // Audio element event listeners - only when THIS player is active
   useEffect(() => {
+    if (!isThisPlayerActive) return; // Only listen when this player is playing
+
     const audioElement = getAudioNodes().audioElement;
     if (!audioElement) return;
 
@@ -200,10 +177,11 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
       audioElement.removeEventListener('ended', handleEnded);
       audioElement.removeEventListener('loadedmetadata', handleLoadedMetadata);
     };
-  }, [getAudioNodes, audioState]);
+  }, [getAudioNodes, isThisPlayerActive, setPlaying]);
 
-  // Visualizer setup
+  // Visualizer setup - only when THIS player is active
   useEffect(() => {
+    if (!isThisPlayerActive) return; // Only connect visualizer when this player is playing
     if (audioState.initState !== 'ready' || !visualizerRef.current) return;
 
     const audioContext = getAudioNodes().audioContext;
@@ -220,29 +198,79 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
       disconnect();
       visualizerNodeRef.current = null;
     };
-  }, [audioState.initState, getAudioNodes, connectVisualizerNode]);
+  }, [audioState.initState, getAudioNodes, connectVisualizerNode, isThisPlayerActive]);
 
   // Event handlers
   const togglePlay = useCallback(async () => {
-    const isLiveMode = sourceMode === 'live' && audioState.inputMode.type === 'live';
+    // This player wants to use live input
+    const wantsLiveInput = sourceMode === 'live';
+    // The audio engine is currently using live input
+    const liveInputActive = audioState.inputMode.type === 'live';
 
     // Live mode: toggle via context (handles output gain)
-    if (isLiveMode) {
+    if (wantsLiveInput) {
       const { audioContext } = getAudioNodes();
+
+      // If audio engine isn't in live mode yet, reconnect using the configured device
+      if (!liveInputActive && audioState.liveInputConfig) {
+        await startLiveInput(audioState.liveInputConfig.deviceId, {
+          initialChannel: audioState.liveInputConfig.selectedChannel,
+          initialChannelGains: audioState.liveInputConfig.channelGains,
+        });
+      }
+
       // Ensure audio context is running
       if (audioContext && audioContext.state === 'suspended') {
         await audioContext.resume();
       }
-      setPlaying(!audioState.isPlaying);
+
+      // Sync model with selection
+      if (!audioState.modelUrl || audioState.modelUrl !== selectedModel.url) {
+        await loadModel(selectedModel.url);
+      }
+
+      // Sync IR with selection
+      if (selectedIr.url) {
+        if (!audioState.irUrl || audioState.irUrl !== selectedIr.url) {
+          await loadIr({
+            url: selectedIr.url,
+            wetAmount: selectedIr.mix,
+            gainAmount: selectedIr.gain,
+          });
+        }
+      } else {
+        removeIr();
+      }
+
+      // Sync bypass state when this player takes over
+      if (audioState.isBypassed !== bypassed) {
+        toggleBypass();
+      }
+
+      // Toggle: if this player is active, stop; otherwise start
+      const isThisPlayerActive = audioState.activePlayerId === id;
+      if (isThisPlayerActive) {
+        setPlaying(false);
+      } else {
+        setPlaying(true, id);
+      }
       return;
     }
 
     // Preview mode: standard file playback
+    // If live input is active, stop it first (take over audio engine)
+    if (liveInputActive) {
+      stopLiveInput();
+    }
+
     setIsLoading(true);
     if (audioState.initState !== 'ready') await init({ audioUrl: selectedInput.url });
 
     try {
-      if (audioState.isPlaying) {
+      // Check if THIS player is currently playing (not just any player)
+      const isThisPlayerActiveInToggle = audioState.activePlayerId === id;
+
+      if (isThisPlayerActiveInToggle) {
         // Pause playback
         setPlaying(false);
       } else {
@@ -269,19 +297,14 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
           removeIr();
         }
 
-        // Start playback via context (handles audioElement.play() and state)
-        setPlaying(true);
-
-        if (id) {
-          try {
-            // Emit play event to window
-            window.dispatchEvent(
-              new CustomEvent('t3k-player-play', { detail: { id } })
-            );
-          } catch (error) {
-            console.error('Error emitting play event:', error);
-          }
+        // Sync bypass state when this player takes over
+        if (audioState.isBypassed !== bypassed) {
+          toggleBypass();
         }
+
+        // Start playback via context (handles audioElement.play() and state)
+        setPlaying(true, id);
+
         onPlay?.({
           model: selectedModel,
           ir: selectedIr,
@@ -295,6 +318,7 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
       setIsLoading(false);
     }
   }, [
+    id,
     getAudioNodes,
     audioState,
     sourceMode,
@@ -306,8 +330,12 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
     loadModel,
     loadIr,
     removeIr,
+    startLiveInput,
+    stopLiveInput,
     onPlay,
     setPlaying,
+    bypassed,
+    toggleBypass,
   ]);
 
   const handleSkipToStart = useCallback(() => {
@@ -319,8 +347,13 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
   }, [getAudioNodes]);
 
   const handleBypassToggle = useCallback(() => {
-    toggleBypass();
-  }, [toggleBypass]);
+    const newBypassed = !bypassed;
+    setBypassed(newBypassed);
+    // Only sync to context if this player is currently active
+    if (isThisPlayerActive && audioState.isBypassed !== newBypassed) {
+      toggleBypass();
+    }
+  }, [toggleBypass, bypassed, audioState.isBypassed, isThisPlayerActive]);
 
   const handleModelChange = useCallback(
     async (value: string | number) => {
@@ -328,19 +361,23 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
       if (model) {
         setSelectedModel(model);
         try {
-          if (audioState.initState === 'ready') await loadModel(model.url);
+          // Only load model if this player is active (avoid affecting other players)
+          if (audioState.initState === 'ready' && isThisPlayerActive) {
+            await loadModel(model.url);
+          }
           onModelChange?.(model);
         } catch (error) {
           console.error('Error loading model:', error);
         }
       }
     },
-    [models, loadModel, onModelChange, audioState.initState]
+    [models, loadModel, onModelChange, audioState.initState, isThisPlayerActive]
   );
 
   const handleInputChange = useCallback(
     async (value: string | number) => {
-      const wasPlaying = audioState.isPlaying;
+      // Check if THIS player was playing (not just any player)
+      const wasThisPlayerPlaying = audioState.activePlayerId === id;
       const input = inputs.find(i => i.url === String(value));
 
       if (!input) return;
@@ -355,9 +392,9 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
           await loadAudio(input.url);
         }
 
-        // Resume playback if it was playing before
-        if (wasPlaying) {
-          setPlaying(true);
+        // Resume playback if THIS player was playing before
+        if (wasThisPlayerPlaying) {
+          setPlaying(true, id);
         }
 
         onInputChange?.(input);
@@ -366,7 +403,8 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
       }
     },
     [
-      audioState.isPlaying,
+      id,
+      audioState.activePlayerId,
       audioState.audioUrl,
       audioState.initState,
       inputs,
@@ -385,63 +423,24 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
       setSelectedIr(ir);
 
       try {
-        if (audioState.initState === 'ready' && ir.url) {
-          await loadIr({
-            url: ir.url,
-            wetAmount: ir.mix,
-            gainAmount: ir.gain,
-          });
-        } else {
-          removeIr();
+        // Only load IR if this player is active (avoid affecting other players)
+        if (isThisPlayerActive) {
+          if (audioState.initState === 'ready' && ir.url) {
+            await loadIr({
+              url: ir.url,
+              wetAmount: ir.mix,
+              gainAmount: ir.gain,
+            });
+          } else {
+            removeIr();
+          }
         }
         onIrChange?.(ir);
       } catch (error) {
         console.error('Error loading IR:', error);
       }
     },
-    [irs, loadIr, removeIr, onIrChange, audioState.initState]
-  );
-
-  // Handle source mode change (Preview <-> Live)
-  const handleSourceModeChange = useCallback(
-    async (newMode: SourceMode) => {
-      if (newMode === sourceMode) return;
-
-      if (newMode === 'live') {
-        // Switching from Preview to Live
-        if (audioState.isPlaying) {
-          // Pause playback but preserve playhead position
-          setPlaying(false);
-          setShowPlaybackPausedMessage(true);
-
-          // Auto-hide the message after 3 seconds
-          setTimeout(() => {
-            setShowPlaybackPausedMessage(false);
-          }, 3000);
-        }
-
-        // Restore live input settings if we have a saved snapshot
-        // Don't restore output device - it should persist as currently set
-        if (audioState.settingsSnapshot?.deviceId) {
-          await restoreSettingsSnapshot({ includeOutputDevice: false });
-        }
-      } else {
-        // Switching from Live to Preview
-        setShowPlaybackPausedMessage(false);
-
-        // Save current live config before stopping
-        saveSettingsSnapshot({ includeLiveSettings: true });
-
-        // Stop live input and disconnect the source
-        stopLiveInput();
-
-        // Ensure playback is stopped when switching to preview
-        setPlaying(false);
-      }
-
-      setSourceMode(newMode);
-    },
-    [sourceMode, audioState.isPlaying, audioState.settingsSnapshot, setPlaying, stopLiveInput, saveSettingsSnapshot, restoreSettingsSnapshot]
+    [irs, loadIr, removeIr, onIrChange, audioState.initState, isThisPlayerActive]
   );
 
   // Source mode options for segmented control
@@ -453,19 +452,7 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
     []
   );
 
-  // Derived state for live input
-  const liveInputMode = audioState.inputMode.type === 'live' ? audioState.inputMode : null;
-  const isLiveConnected = liveInputMode !== null;
-  const currentDeviceId = liveInputMode?.deviceId ?? null;
-
-  // Handle device change
-  const handleLiveDeviceChange = useCallback(async (deviceId: string) => {
-    if (deviceId !== currentDeviceId) {
-      await startLiveInput(deviceId);
-    }
-  }, [currentDeviceId, startLiveInput]);
-
-  const bypassedStyles = audioState.isBypassed
+  const bypassedStyles = bypassed
     ? 'opacity-50 touch-none cursor-not-allowed grayscale'
     : '';
 
@@ -475,7 +462,7 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
       label='Model'
       onChange={handleModelChange}
       defaultOption={selectedModel.url!}
-      disabled={audioState.isBypassed}
+      disabled={bypassed}
     />
   );
 
@@ -485,7 +472,7 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
       label='IR'
       onChange={handleIrChange}
       defaultOption={selectedIr.url}
-      disabled={audioState.isBypassed}
+      disabled={bypassed}
     />
   );
 
@@ -495,11 +482,11 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
       <div className='flex items-center gap-4 overflow-hidden'>
         <button
           onClick={togglePlay}
-          className={`p-0 focus:outline-none ${sourceMode === 'live' && !isLiveConnected ? 'opacity-50 cursor-not-allowed' : ''}`}
-          disabled={sourceMode === 'live' && !isLiveConnected}
-          aria-label={audioState.isPlaying ? 'Pause' : 'Play'}
+          className={`p-0 focus:outline-none ${sourceMode === 'live' && !isLiveConfigured ? 'opacity-50 cursor-not-allowed' : ''}`}
+          disabled={sourceMode === 'live' && !isLiveConfigured}
+          aria-label={isThisPlayerActive ? 'Pause' : 'Play'}
         >
-          {audioState.isPlaying ? (
+          {isThisPlayerActive ? (
             <Pause />
           ) : isLoading ? (
             <CircularLoader size={48} />
@@ -553,7 +540,7 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
             <ToggleSimple
               label=''
               onChange={handleBypassToggle}
-              isChecked={!audioState.isBypassed}
+              isChecked={!bypassed}
               ariaLabel='Bypass'
             />
           </div>
@@ -570,7 +557,7 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
             />
             {/* Settings button - always visible */}
             <button
-              onClick={() => setIsSettingsDialogOpen(true)}
+              onClick={openSettingsDialog}
               className='p-2 rounded-md transition-colors border border-zinc-700 hover:bg-zinc-800'
               aria-label='Settings'
             >
@@ -603,12 +590,12 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
             )}
             
             {/* Live mode: not connected - show setup button */}
-            {sourceMode === 'live' && !isLiveConnected && (
+            {sourceMode === 'live' && !isLiveConfigured && (
               <div className='inline-flex flex-1 flex-col gap-1 w-full'>
                 <span className='text-sm text-zinc-400'>Live Input</span>
                 <div className='relative flex-1'>
                   <button
-                    onClick={() => setIsSettingsDialogOpen(true)}
+                    onClick={openSettingsDialog}
                     className='flex items-center gap-2 w-full overflow-hidden px-4 py-3 text-md border border-zinc-700 rounded-md bg-transparent hover:bg-zinc-800 transition-colors focus:outline-none'
                   >
                     <Plug size={18} className='text-zinc-400 flex-shrink-0' />
@@ -629,7 +616,7 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
             )}
 
             {/* Live mode: connected - show device dropdown (settings button is next to Source selector) */}
-            {sourceMode === 'live' && isLiveConnected && (
+            {sourceMode === 'live' && isLiveConfigured && (
               <div className='w-full'>
                 {audioState.isLiveConnecting ? (
                   <div className='flex flex-col gap-1 w-full'>
@@ -660,8 +647,8 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
       </div>
 
       {/* Live Input Control Strip - only when live input is connected */}
-      {sourceMode === 'live' && isLiveConnected && (
-        <InputControlStrip />
+      {sourceMode === 'live' && isLiveConfigured && (
+        <InputControlStrip isActive={isThisPlayerActive} />
       )}
 
       {/* Footer */}
@@ -677,8 +664,14 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
       {/* Settings Dialog */}
       <SettingsDialog
         isOpen={isSettingsDialogOpen}
-        onClose={() => setIsSettingsDialogOpen(false)}
+        onClose={closeSettingsDialog}
         sourceMode={sourceMode}
+        selectedModel={selectedModel}
+        selectedIr={selectedIr}
+        playerId={id}
+        saveSettingsSnapshot={saveSettingsSnapshot}
+        restoreSettingsSnapshot={restoreSettingsSnapshot}
+        clearSettingsSnapshot={clearSettingsSnapshot}
         onConnect={(deviceId, channel) => {
           // Connection is handled by the dialog (via startLiveInput)
           // The dialog's Monitor Input checkbox controls isPlaying state
