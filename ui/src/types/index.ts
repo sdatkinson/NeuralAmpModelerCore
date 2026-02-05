@@ -53,6 +53,27 @@ export interface AudioOutputDevice {
   label: string;
 }
 
+// Snapshot of settings for restore on dialog cancel
+export interface SettingsSnapshot {
+  outputDeviceId: string | null;
+  inputMode: InputMode;
+  liveInputConfig: LiveInputConfig | null;
+  isPlaying: boolean;
+  isBypassed: boolean;
+  activePlayerId: string | null;
+}
+
+// State of the global settings dialog (managed by context)
+export interface SettingsDialogState {
+  isOpen: boolean;
+  sourceMode: SourceMode;
+  playerId?: string;
+  selectedModel?: Model;
+  selectedIr?: IR;
+  snapshot: SettingsSnapshot | null;
+  hadExistingConfig: boolean;
+}
+
 // Microphone permission state (permission concerns only)
 // - 'idle': not yet requested
 // - 'pending': waiting for user response to browser prompt

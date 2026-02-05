@@ -12,9 +12,8 @@ import { DEFAULT_INPUTS, DEFAULT_MODELS, DEFAULT_IRS } from '../../constants';
 import { CircularLoader } from '../ui/CircularLoader';
 import { ChevronDown, ChevronUp, Loader2, Plug, Settings } from 'lucide-react';
 import { SegmentedControl } from '../ui/SegmentedControl';
-import { SettingsDialog } from '../SettingsDialog';
 import { InputControlStrip } from '../ControlStrip';
-import { useLiveMode } from '../../hooks/useLiveMode';
+import { useSourceMode } from '../../hooks/useSourceMode';
 
 const PlayerFC: React.FC<T3kAcordianPlayerProps> = ({
   getData = async () => ({ models: DEFAULT_MODELS, irs: DEFAULT_IRS, inputs: DEFAULT_INPUTS }),
@@ -44,23 +43,19 @@ const PlayerFC: React.FC<T3kAcordianPlayerProps> = ({
     stopLiveInput,
   } = useT3kPlayerContext();
 
-  // Live mode hook
+  // Source mode hook (per-player)
   const {
     sourceMode,
-    isSettingsDialogOpen,
     showPlaybackPausedMessage,
-    showOutputFallbackMessage,
     isLiveConfigured,
     currentDeviceId,
     liveDeviceOptions,
     handleSourceModeChange,
     handleLiveDeviceChange,
-    openSettingsDialog,
-    closeSettingsDialog,
-    saveSettingsSnapshot,
-    restoreSettingsSnapshot,
-    clearSettingsSnapshot,
-  } = useLiveMode({ playerId: id });
+  } = useSourceMode({ playerId: id });
+
+  // Global settings dialog and output fallback from context
+  const { openSettingsDialog: openDialog, outputFallbackMessage } = useT3kPlayerContext();
 
   // Helper function to get default item
   const getDefault = useCallback(
@@ -214,6 +209,17 @@ const PlayerFC: React.FC<T3kAcordianPlayerProps> = ({
     return { model, ir, input };
   }, [getData, selectedModel, selectedInput, selectedIr]);
 
+  // Open settings dialog - loads data first if needed
+  const openSettingsDialog = useCallback(async () => {
+    const { model, ir } = await getDataWithCache();
+    openDialog({
+      sourceMode,
+      playerId: id,
+      selectedModel: model,
+      selectedIr: ir,
+    });
+  }, [getDataWithCache, openDialog, sourceMode, id]);
+
   // Event handlers
   const togglePlay = useCallback(async () => {
     // This player wants to use live input
@@ -270,8 +276,9 @@ const PlayerFC: React.FC<T3kAcordianPlayerProps> = ({
     }
 
     // Preview mode: standard file playback
-    // If live input is active, stop it first (take over audio engine)
-    if (liveInputActive) {
+    // Check actual node state (not React state, which can be stale due to closure capture)
+    const { mediaStream } = getAudioNodes();
+    if (mediaStream?.active) {
       stopLiveInput();
     }
 
@@ -469,7 +476,7 @@ const PlayerFC: React.FC<T3kAcordianPlayerProps> = ({
       options={modelOptions || []}
       label='Model'
       onChange={handleModelChange}
-      defaultOption={selectedModel?.url!}
+      value={selectedModel?.url!}
       disabled={bypassed}
     />
   );
@@ -479,7 +486,7 @@ const PlayerFC: React.FC<T3kAcordianPlayerProps> = ({
       options={irOptions || []}
       label='IR'
       onChange={handleIrChange}
-      defaultOption={selectedIr?.url}
+      value={selectedIr?.url}
       disabled={bypassed}
     />
   );
@@ -593,9 +600,9 @@ const PlayerFC: React.FC<T3kAcordianPlayerProps> = ({
                 Playback paused
               </span>
             )}
-            {showOutputFallbackMessage && (
+            {outputFallbackMessage && (
               <span className='text-xs text-zinc-400 animate-pulse'>
-                Output switched to default
+                {outputFallbackMessage}
               </span>
             )}
           </div>
@@ -609,7 +616,7 @@ const PlayerFC: React.FC<T3kAcordianPlayerProps> = ({
                 options={audioOptions || []}
                 label='Input'
                 onChange={handleInputChange}
-                defaultOption={selectedInput?.url}
+                value={selectedInput?.url}
               />
             )}
 
@@ -617,7 +624,7 @@ const PlayerFC: React.FC<T3kAcordianPlayerProps> = ({
             {sourceMode === 'live' && !isLiveConfigured && (
               <div className='inline-flex flex-1 flex-col gap-1 w-full'>
                 <span className='text-sm text-zinc-400'>Live Input</span>
-                <div className='relative flex-1'>
+                <div className='flex flex-col gap-1 flex-1'>
                   <button
                     onClick={openSettingsDialog}
                     className='flex items-center gap-2 w-full overflow-hidden px-4 py-3 text-md border border-zinc-700 rounded-md bg-transparent hover:bg-zinc-800 transition-colors focus:outline-none'
@@ -625,13 +632,12 @@ const PlayerFC: React.FC<T3kAcordianPlayerProps> = ({
                     <Plug size={18} className='text-zinc-400 flex-shrink-0' />
                     <span className='text-ellipsis text-nowrap overflow-hidden min-w-0'>Enable Live Input</span>
                   </button>
-                  {/* Error or helper text - positioned below without affecting layout */}
                   {audioInputDevices.error ? (
-                    <span className='absolute top-full mt-1 text-xs text-red-400'>
+                    <span className='text-xs text-red-400'>
                       {audioInputDevices.error}
                     </span>
                   ) : (
-                    <span className='absolute top-full mt-1 text-xs text-zinc-500'>
+                    <span className='text-xs text-zinc-500'>
                       Use headphones to avoid feedback.
                     </span>
                   )}
@@ -655,7 +661,7 @@ const PlayerFC: React.FC<T3kAcordianPlayerProps> = ({
                     options={liveDeviceOptions}
                     label='Live Input'
                     onChange={(value) => handleLiveDeviceChange(String(value))}
-                    defaultOption={currentDeviceId ?? ''}
+                    value={currentDeviceId ?? ''}
                   />
                 )}
               </div>
@@ -689,25 +695,6 @@ const PlayerFC: React.FC<T3kAcordianPlayerProps> = ({
         </>
       )}
 
-      {/* Settings Dialog - only render when we have model/ir data */}
-      {selectedModel && selectedIr && (
-        <SettingsDialog
-          isOpen={isSettingsDialogOpen}
-          onClose={closeSettingsDialog}
-          sourceMode={sourceMode}
-          selectedModel={selectedModel}
-          selectedIr={selectedIr}
-          playerId={id}
-          saveSettingsSnapshot={saveSettingsSnapshot}
-          restoreSettingsSnapshot={restoreSettingsSnapshot}
-          clearSettingsSnapshot={clearSettingsSnapshot}
-          onConnect={(deviceId, channel) => {
-            // Connection is handled by the dialog (via startLiveInput)
-            // The dialog's Monitor Input checkbox controls isPlaying state
-            console.log('Live input connected:', { deviceId, channel });
-          }}
-        />
-      )}
     </div>
   );
 };

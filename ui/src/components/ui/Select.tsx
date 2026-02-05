@@ -14,31 +14,25 @@ interface Option {
 
 interface SelectProps {
   options: Option[];
-  defaultOption?: string | number;
+  value?: string | number;
   onChange?: (selected: string | number) => void | Promise<void>;
   label?: string;
   disabled?: boolean;
   backgroundColor?: string;
   infoModal?: ReactNode;
-  value?: string | number;
 }
 
 export const Select = ({
   options,
   label,
-  defaultOption,
+  value,
   onChange,
   disabled = false,
   backgroundColor = 'bg-zinc-900',
   infoModal,
-  value,
 }: SelectProps) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [selectedOption, setSelectedOption] = useState(
-    defaultOption
-      ? options.find(opt => opt.value === defaultOption) || options[0]
-      : options[0]
-  );
+  const selectedOption = options.find(opt => opt.value === value) || options[0];
   const containerRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
@@ -68,7 +62,6 @@ export const Select = ({
 
   const handleSelect = useCallback(
     (option: Option) => {
-      setSelectedOption(option);
       setIsOpen(false);
       buttonRef.current?.focus();
       if (onChange) {
@@ -152,14 +145,6 @@ export const Select = ({
       listElement.scrollTop -= listRect.top - activeRect.top;
     }
   }, [activeIndex, isOpen, selectId]);
-
-  useEffect(() => {
-    if (!value) return;
-    if (value !== selectedOption?.value) {
-      setSelectedOption(options.find(opt => opt.value === value) || options[0]);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value]);
 
   return (
     <div

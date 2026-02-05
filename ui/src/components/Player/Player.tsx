@@ -11,10 +11,9 @@ import { LogoSm } from '../ui/LogoSm';
 import { DEFAULT_INPUTS, DEFAULT_MODELS, DEFAULT_IRS } from '../../constants';
 import { CircularLoader } from '../ui/CircularLoader';
 import { SegmentedControl } from '../ui/SegmentedControl';
-import { SettingsDialog } from '../SettingsDialog';
 import { InputControlStrip } from '../ControlStrip';
 import { Loader2, Plug, Settings } from 'lucide-react';
-import { useLiveMode } from '../../hooks/useLiveMode';
+import { useSourceMode } from '../../hooks/useSourceMode';
 
 const PlayerFC: React.FC<T3kPlayerProps> = ({
   models = DEFAULT_MODELS,
@@ -45,23 +44,19 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
     setPlaying,
   } = useT3kPlayerContext();
 
-  // Live mode hook
+  // Source mode hook (per-player)
   const {
     sourceMode,
-    isSettingsDialogOpen,
     showPlaybackPausedMessage,
-    showOutputFallbackMessage,
     isLiveConfigured,
     currentDeviceId,
     liveDeviceOptions,
     handleSourceModeChange,
     handleLiveDeviceChange,
-    openSettingsDialog,
-    closeSettingsDialog,
-    saveSettingsSnapshot,
-    restoreSettingsSnapshot,
-    clearSettingsSnapshot,
-  } = useLiveMode({ playerId: id });
+  } = useSourceMode({ playerId: id });
+
+  // Global settings dialog and output fallback from context
+  const { openSettingsDialog: openDialog, outputFallbackMessage } = useT3kPlayerContext();
 
   // Helper function to get default item
   const getDefault = useCallback(
@@ -83,6 +78,15 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
   const [duration, setDuration] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [bypassed, setBypassed] = useState(false);
+
+  const openSettingsDialog = useCallback(() => {
+    openDialog({
+      sourceMode,
+      playerId: id,
+      selectedModel,
+      selectedIr,
+    });
+  }, [openDialog, sourceMode, id, selectedModel, selectedIr]);
 
   // Helper: Sync this player's preferences to the audio engine when taking over
   // This consolidates the model/IR/bypass sync logic that was duplicated in togglePlay
@@ -274,7 +278,9 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
     }
 
     // === PREVIEW MODE ===
-    if (liveInputActive) {
+    // Check actual node state (not React state, which can be stale due to closure capture)
+    const { mediaStream } = getAudioNodes();
+    if (mediaStream?.active) {
       stopLiveInput();
     }
 
@@ -455,7 +461,7 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
       options={modelOptions}
       label='Model'
       onChange={handleModelChange}
-      defaultOption={selectedModel.url!}
+      value={selectedModel.url!}
       disabled={bypassed}
     />
   );
@@ -465,7 +471,7 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
       options={irOptions}
       label='IR'
       onChange={handleIrChange}
-      defaultOption={selectedIr.url}
+      value={selectedIr.url}
       disabled={bypassed}
     />
   );
@@ -562,9 +568,9 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
                 Playback paused
               </span>
             )}
-            {showOutputFallbackMessage && (
+            {outputFallbackMessage && (
               <span className='text-xs text-zinc-400 animate-pulse'>
-                Output switched to default
+                {outputFallbackMessage}
               </span>
             )}
           </div>
@@ -579,7 +585,7 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
                 options={audioOptions}
                 label='Input'
                 onChange={handleInputChange}
-                defaultOption={selectedInput.url}
+                value={selectedInput.url}
               />
             )}
             
@@ -625,7 +631,7 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
                     options={liveDeviceOptions}
                     label='Live Input'
                     onChange={(value) => handleLiveDeviceChange(String(value))}
-                    defaultOption={currentDeviceId ?? ''}
+                    value={currentDeviceId ?? ''}
                   />
                 )}
               </div>
@@ -655,23 +661,6 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
         <LogoSm width={42} height={14} />
       </a>
 
-      {/* Settings Dialog */}
-      <SettingsDialog
-        isOpen={isSettingsDialogOpen}
-        onClose={closeSettingsDialog}
-        sourceMode={sourceMode}
-        selectedModel={selectedModel}
-        selectedIr={selectedIr}
-        playerId={id}
-        saveSettingsSnapshot={saveSettingsSnapshot}
-        restoreSettingsSnapshot={restoreSettingsSnapshot}
-        clearSettingsSnapshot={clearSettingsSnapshot}
-        onConnect={(deviceId, channel) => {
-          // Connection is handled by the dialog (via startLiveInput)
-          // The dialog's Monitor Input checkbox controls isPlaying state
-          console.log('Live input connected:', { deviceId, channel });
-        }}
-      />
     </div>
   );
 };

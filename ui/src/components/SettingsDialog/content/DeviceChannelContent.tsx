@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { ChevronDown, Loader2 } from 'lucide-react';
+import React, { useRef, useEffect } from 'react';
+import { Loader2 } from 'lucide-react';
 import { AudioInputDevice, AudioOutputDevice, ChannelSelection } from '../../../types';
 import { Button } from '../../ui/Button';
 import { Alert } from '../../ui/Alert';
@@ -8,6 +8,7 @@ import { SegmentedControl, SegmentOption } from '../../ui/SegmentedControl';
 import { LevelMeter } from '../../ui/LevelMeter';
 import { ClipIndicator } from '../../ui/ClipIndicator';
 import { GainControl } from '../../ui/GainControl';
+import { Select } from '../../ui/Select';
 import { useMeterAnimation } from '../../../hooks/useMeterAnimation';
 
 type SourceMode = 'preview' | 'live';
@@ -67,38 +68,19 @@ export const DeviceChannelContent: React.FC<DeviceChannelContentProps> = ({
   selectedOutputDeviceId,
   onOutputDeviceChange,
 }) => {
-  const [isInputDropdownOpen, setIsInputDropdownOpen] = useState(false);
-  const [isOutputDropdownOpen, setIsOutputDropdownOpen] = useState(false);
-
   // Refs for meter animation
   const channel0MeterRef = useRef<HTMLDivElement>(null);
   const channel1MeterRef = useRef<HTMLDivElement>(null);
   const channel0ClipRef = useRef<HTMLButtonElement>(null);
   const channel1ClipRef = useRef<HTMLButtonElement>(null);
 
-  const selectedDevice = devices.find(d => d.deviceId === selectedDeviceId);
   const hasDevices = devices.length > 0;
   const isStereo = channelCount >= 2;
   const ua = typeof navigator !== 'undefined' ? navigator.userAgent.toLowerCase() : '';
   const isSafari = ua.includes('safari') && !ua.includes('chrome');
   const needsMediaStreamWorkaround = ua.includes('firefox') || isSafari;
 
-  // Mode-aware flags
-  const isPreviewMode = sourceMode === 'preview';
   const isLiveMode = sourceMode === 'live';
-
-  // In preview mode, live-specific controls are disabled
-  const liveControlsDisabled = isPreviewMode;
-
-  // Check if selected device is still available
-  const selectedDeviceDisconnected = selectedDeviceId && !selectedDevice && hasDevices;
-
-  // Auto-select first device if selected device was disconnected (only in live mode)
-  useEffect(() => {
-    if (isLiveMode && selectedDeviceDisconnected && devices.length > 0) {
-      onDeviceChange(devices[0].deviceId);
-    }
-  }, [isLiveMode, selectedDeviceDisconnected, devices, onDeviceChange]);
 
   // Set up meter animation for preview meters (only in live mode)
   const { resetClipLatch } = useMeterAnimation(
@@ -155,8 +137,6 @@ export const DeviceChannelContent: React.FC<DeviceChannelContentProps> = ({
     );
   }
 
-  const selectedDeviceLabel = selectedDevice?.label ?? 'Select device';
-
   return (
     <div className='flex flex-col gap-5'>
       {/* Warning if a device was disconnected but others are available (live mode only) */}
@@ -168,53 +148,23 @@ export const DeviceChannelContent: React.FC<DeviceChannelContentProps> = ({
 
       {/* Input Device Selection - only in live mode */}
       {isLiveMode && (
-        <div className='flex flex-col gap-1'>
-          <span className='text-sm text-zinc-400'>Input Device</span>
-          <div className='relative'>
-            <button
-              onClick={() => !isConnecting && setIsInputDropdownOpen(!isInputDropdownOpen)}
-              disabled={isConnecting}
-              className={`flex items-center justify-between w-full overflow-hidden px-4 py-3 text-md border border-zinc-700 rounded-md bg-transparent focus:outline-none transition-colors ${
-                isConnecting ? 'opacity-50 cursor-wait' : 'hover:bg-zinc-800'
-              }`}
-            >
-              <span className='text-ellipsis text-nowrap overflow-hidden min-w-0'>
-                {isConnecting ? 'Initializing audio...' : selectedDeviceLabel}
-              </span>
-              {isConnecting ? (
+        <div>
+          {isConnecting ? (
+            <div className='flex flex-col gap-1'>
+              <span className='text-sm text-zinc-400'>Input Device</span>
+              <div className='flex items-center justify-between w-full overflow-hidden px-4 py-3 text-md border border-zinc-700 rounded-md bg-transparent opacity-50 cursor-wait'>
+                <span className='text-ellipsis text-nowrap overflow-hidden min-w-0'>Initializing audio...</span>
                 <Loader2 size={20} className='text-zinc-400 flex-shrink-0 animate-spin' />
-              ) : (
-                <ChevronDown
-                  size={20}
-                  className={`text-zinc-400 flex-shrink-0 transition-transform ${
-                    isInputDropdownOpen ? 'rotate-180' : ''
-                  }`}
-                />
-              )}
-            </button>
-
-            {/* Input Dropdown */}
-            {isInputDropdownOpen && (
-              <div className='absolute z-10 w-full mt-1 bg-zinc-900 rounded-md shadow-lg border border-zinc-700'>
-                <ul className='py-1 overflow-auto text-base rounded-md max-h-48'>
-                  {devices.map(device => (
-                    <li
-                      key={device.deviceId}
-                      className={`cursor-pointer select-none py-2 px-3 hover:bg-zinc-800 ${
-                        selectedDeviceId === device.deviceId ? 'bg-zinc-800' : ''
-                      }`}
-                      onClick={() => {
-                        onDeviceChange(device.deviceId);
-                        setIsInputDropdownOpen(false);
-                      }}
-                    >
-                      {device.label}
-                    </li>
-                  ))}
-                </ul>
               </div>
-            )}
-          </div>
+            </div>
+          ) : (
+            <Select
+              options={devices.map(d => ({ label: d.label, value: d.deviceId }))}
+              value={selectedDeviceId}
+              label='Input Device'
+              onChange={(value) => onDeviceChange(String(value))}
+            />
+          )}
           {/* Safari stereo limitation warning */}
           {!isStereo && isSafari && (
             <InlineAlert className='mt-1'>
@@ -226,64 +176,16 @@ export const DeviceChannelContent: React.FC<DeviceChannelContentProps> = ({
 
       {/* Output Device Selection - always shown */}
       {outputDevices.length > 0 && (
-        <div className='flex flex-col gap-1'>
-          <span className='text-sm text-zinc-400'>Output Device</span>
-          <div className='relative'>
-            <button
-              onClick={() => setIsOutputDropdownOpen(!isOutputDropdownOpen)}
-              className='flex items-center justify-between w-full overflow-hidden px-4 py-3 text-md border border-zinc-700 rounded-md bg-transparent focus:outline-none transition-colors hover:bg-zinc-800'
-            >
-              <span className='text-ellipsis text-nowrap overflow-hidden min-w-0'>
-                {selectedOutputDeviceId
-                  ? outputDevices.find(d => d.deviceId === selectedOutputDeviceId)?.label ?? 'Unknown Device'
-                  : needsMediaStreamWorkaround
-                    ? 'System Default'
-                    : outputDevices[0]?.label ?? 'Select device'}
-              </span>
-              <ChevronDown
-                size={20}
-                className={`text-zinc-400 flex-shrink-0 transition-transform ${
-                  isOutputDropdownOpen ? 'rotate-180' : ''
-                }`}
-              />
-            </button>
-
-            {/* Output Dropdown */}
-            {isOutputDropdownOpen && (
-              <div className='absolute z-10 w-full mt-1 bg-zinc-900 rounded-md shadow-lg border border-zinc-700'>
-                <ul className='py-1 overflow-auto text-base rounded-md max-h-48'>
-                  {/* Only show System Default option in Firefox/Safari where explicit selection is needed */}
-                  {needsMediaStreamWorkaround && (
-                    <li
-                      className={`cursor-pointer select-none py-2 px-3 hover:bg-zinc-800 ${
-                        selectedOutputDeviceId === null ? 'bg-zinc-800' : ''
-                      }`}
-                      onClick={() => {
-                        onOutputDeviceChange(null);
-                        setIsOutputDropdownOpen(false);
-                      }}
-                    >
-                      System Default
-                    </li>
-                  )}
-                  {outputDevices.map(device => (
-                    <li
-                      key={device.deviceId}
-                      className={`cursor-pointer select-none py-2 px-3 hover:bg-zinc-800 ${
-                        selectedOutputDeviceId === device.deviceId ? 'bg-zinc-800' : ''
-                      }`}
-                      onClick={() => {
-                        onOutputDeviceChange(device.deviceId);
-                        setIsOutputDropdownOpen(false);
-                      }}
-                    >
-                      {device.label}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </div>
+        <div>
+          <Select
+            options={[
+              ...(needsMediaStreamWorkaround ? [{ label: 'System Default', value: '' }] : []),
+              ...outputDevices.map(d => ({ label: d.label, value: d.deviceId })),
+            ]}
+            value={selectedOutputDeviceId ?? ''}
+            label='Output Device'
+            onChange={(value) => onOutputDeviceChange(value === '' ? null : String(value))}
+          />
           {/* Headphones warning - only in live mode */}
           {isLiveMode && (
             <InlineAlert className='mt-1'>

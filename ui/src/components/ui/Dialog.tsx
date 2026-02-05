@@ -1,8 +1,10 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 
 interface DialogProps {
   isOpen: boolean;
   onClose: () => void;
+  /** Called once when the dialog opens. Ref-guarded against StrictMode double-fire. */
+  onOpen?: () => void;
   header?: React.ReactNode;
   footer?: React.ReactNode;
   children: React.ReactNode;
@@ -22,12 +24,27 @@ const maxWidthStyles: Record<string, string> = {
 export const Dialog: React.FC<DialogProps> = ({
   isOpen,
   onClose,
+  onOpen,
   header,
   footer,
   children,
   closeOnBackdropClick = true,
   maxWidth = 'md',
 }) => {
+  // Call onOpen exactly once per open transition.
+  // The ref persists across StrictMode's simulated unmount/remount,
+  // preventing the double-fire while still calling on each real mount.
+  const didOpenRef = useRef(false);
+  useEffect(() => {
+    if (isOpen && !didOpenRef.current) {
+      didOpenRef.current = true;
+      onOpen?.();
+    }
+    if (!isOpen) {
+      didOpenRef.current = false;
+    }
+  }, [isOpen, onOpen]);
+
   // Handle escape key
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -69,7 +86,7 @@ export const Dialog: React.FC<DialogProps> = ({
 
       {/* Dialog Content */}
       <div
-        className={`relative bg-zinc-900 border border-zinc-700 rounded-xl w-full ${maxWidthStyles[maxWidth]} mx-4 shadow-xl`}
+        className={`relative bg-zinc-900 text-white border border-zinc-700 rounded-xl w-full ${maxWidthStyles[maxWidth]} mx-4 shadow-xl`}
       >
         {/* Header */}
         {header && (

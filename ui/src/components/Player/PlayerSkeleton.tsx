@@ -23,7 +23,7 @@ export const PlayerSkeleton: React.FC<PlayerSkeletonProps> = ({
       options={[]}
       label='Model'
       onChange={() => {}}
-      defaultOption={''}
+      value={''}
       disabled={true}
     />
   );
@@ -33,7 +33,7 @@ export const PlayerSkeleton: React.FC<PlayerSkeletonProps> = ({
       options={[]}
       label='IR'
       onChange={() => {}}
-      defaultOption={''}
+      value={''}
       disabled={true}
     />
   );
@@ -107,7 +107,7 @@ export const PlayerSkeleton: React.FC<PlayerSkeletonProps> = ({
               options={[]}
               label='Input'
               onChange={() => {}}
-              defaultOption={''}
+              value={''}
               disabled={true}
             />
           </div>

@@ -7,6 +7,7 @@ export {
   T3kPlayerContextProvider,
   useT3kPlayerContext,
 } from './context/T3kPlayerContext';
+export { T3kPlayerProvider } from './context/T3kPlayerProvider';
 export { default as T3kSlimPlayer } from './components/Player/SlimPlayer';
 export { default as T3kAcordianPlayer } from './components/Player/AcordianPlayer';
 

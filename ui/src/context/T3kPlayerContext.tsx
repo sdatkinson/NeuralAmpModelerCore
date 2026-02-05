@@ -11,7 +11,7 @@ import React, {
 import { useModule } from '../hooks/useModule';
 import { readModel } from '../utils/readModel';
 import { DEFAULT_AUDIO_SRC, DEFAULT_MODELS } from '../constants';
-import { InputMode, LiveInputConfig, AudioInputDevice, AudioOutputDevice, MicrophonePermissionStatus, MicrophonePermissionState, AudioInputDeviceState, AudioOutputDeviceState, ChannelSelection } from '../types';
+import { InputMode, LiveInputConfig, AudioInputDevice, AudioOutputDevice, MicrophonePermissionStatus, MicrophonePermissionState, AudioInputDeviceState, AudioOutputDeviceState, ChannelSelection, SettingsSnapshot, SettingsDialogState, SourceMode, Model, IR } from '../types';
 import { dbToLinear } from '../utils/metering';
 
 /**
@@ -131,6 +131,12 @@ interface T3kPlayerContextType {
   // Audio output device actions
   setOutputDevice: (deviceId: string | null) => Promise<void>;
   refreshAudioOutputDevices: () => Promise<void>;
+
+  // Settings dialog (global, single instance)
+  settingsDialog: SettingsDialogState;
+  openSettingsDialog: (config: { sourceMode: SourceMode; playerId?: string; selectedModel: Model; selectedIr: IR }) => void;
+  closeSettingsDialog: (options: { saved: boolean }) => void;
+  outputFallbackMessage: string | null;
 }
 
 // Context
@@ -175,6 +181,19 @@ export function T3kPlayerContextProvider({
     devices: [],
     selectedDeviceId: null,  // null = system default
   });
+
+  // Settings dialog state (global, single instance)
+  const [settingsDialog, setSettingsDialog] = useState<SettingsDialogState>({
+    isOpen: false,
+    sourceMode: 'preview',
+    snapshot: null,
+    hadExistingConfig: false,
+  });
+  const settingsDialogRef = useRef(settingsDialog);
+  settingsDialogRef.current = settingsDialog;
+
+  // Output fallback message (shown when output device is disconnected)
+  const [outputFallbackMessage, setOutputFallbackMessage] = useState<string | null>(null);
 
   // Refs for non-render-triggering data
   const audioNodesRef = useRef<AudioNodes>({
@@ -776,6 +795,8 @@ export function T3kPlayerContextProvider({
           if (!selectedOutputStillExists) {
             console.warn('Selected audio output device was disconnected, falling back to system default');
             setOutputDevice(null);
+            setOutputFallbackMessage('Output switched to default');
+            setTimeout(() => setOutputFallbackMessage(null), 3000);
           }
         } catch {
           setAudioInputDevices(prev => ({
@@ -1317,8 +1338,6 @@ export function T3kPlayerContextProvider({
     const initialChannelGains = options?.initialChannelGains ?? { first: 0, second: 0 };
     const initialChannelIndex = initialChannel === 'first' ? 0 : 1;
 
-    // Use guard helper to verify initialization, but use getAudioNodes() for the actual
-    // reference since we need to mutate audioNodesRef.current (not a copy)
     if (!isAudioReady()) {
       throw new Error('Audio system not initialized. Call init() first.');
     }
@@ -1330,12 +1349,10 @@ export function T3kPlayerContextProvider({
     }
 
     // Take over audio engine: stop any current playback and reset ownership
-    // This ensures clean handoff when switching to live input
     if (audioElement) {
       audioElement.pause();
     }
     if (nodes.outputGainNode && audioContext) {
-      // Mute output during transition
       nodes.outputGainNode.gain.setTargetAtTime(0, audioContext.currentTime, 0.01);
     }
 
@@ -1347,13 +1364,12 @@ export function T3kPlayerContextProvider({
     }));
 
     try {
-      // Stop any existing live input - full cleanup to ensure clean state
+      // Clean up any existing live input nodes before setting up new ones
       cleanupLiveInputNodes(nodes);
 
       // Request microphone/audio interface access with settings optimized for instruments
       const baseAudioConstraints: MediaTrackConstraints = {
         channelCount: { ideal: 2 },  // Request stereo if available
-        // Disable processing that would color the guitar/mic signal
         echoCancellation: false,
         noiseSuppression: false,
         autoGainControl: false,
@@ -1368,7 +1384,6 @@ export function T3kPlayerContextProvider({
           },
         });
       } catch (error) {
-        // If exact device match failed, try without device constraint
         if (deviceId && error instanceof DOMException && error.name === 'OverconstrainedError') {
           console.warn(`Device ${deviceId} not available, falling back to default`);
           stream = await navigator.mediaDevices.getUserMedia({
@@ -1378,17 +1393,8 @@ export function T3kPlayerContextProvider({
           throw error;
         }
       }
+
       nodes.mediaStream = stream;
-      console.log('[Live Input] getUserMedia stream:', {
-        active: stream.active,
-        tracks: stream.getAudioTracks().map(t => ({
-          label: t.label,
-          enabled: t.enabled,
-          muted: t.muted,
-          readyState: t.readyState,
-          settings: t.getSettings()
-        }))
-      });
 
       // Get actual channel count and device ID from the track
       const track = stream.getAudioTracks()[0];
@@ -1589,38 +1595,30 @@ export function T3kPlayerContextProvider({
       return;
     }
 
-    // Get the currently selected channel from liveInputConfig
-    const currentChannel = audioState.liveInputConfig?.selectedChannel;
-
-    // Convert channel names to indices
     const newChannelIndex = channel === 'first' ? 0 : 1;
-    const currentChannelIndex = currentChannel === 'first' ? 0 : currentChannel === 'second' ? 1 : undefined;
 
-    // Disconnect current channel if different
-    if (currentChannelIndex !== undefined && currentChannelIndex !== newChannelIndex) {
-      channelSplitterNode.disconnect(channelMergerNode, currentChannelIndex, 0);
-    }
+    // Disconnect all splitter → merger connections, then connect only the new channel.
+    // This avoids relying on React state to track the current connection, which can be
+    // stale due to closure capture. Since connect() is additive, a missed disconnect
+    // would result in both channels being heard simultaneously.
+    channelSplitterNode.disconnect(channelMergerNode);
+    channelSplitterNode.connect(channelMergerNode, newChannelIndex, 0);
 
-    // Connect new channel (only if not already connected)
-    if (currentChannelIndex !== newChannelIndex) {
-      channelSplitterNode.connect(channelMergerNode, newChannelIndex, 0);
-    }
-
-    // Apply the gain setting for the new channel
-    if (liveInputGainNode && audioContext && audioState.liveInputConfig) {
-      const channelGains = audioState.liveInputConfig.channelGains;
-      const gainDb = channelGains?.[channel] ?? 0;
-      const linearGain = dbToLinear(gainDb);
-      liveInputGainNode.gain.setTargetAtTime(
-        linearGain,
-        audioContext.currentTime,
-        0.02
-      );
-    }
-
-    // Update liveInputConfig state
+    // Update state and apply gain for the new channel.
+    // Using functional update to read latest state (avoids stale closure).
     setAudioState(prev => {
       if (!prev.liveInputConfig) return prev;
+
+      if (liveInputGainNode && audioContext) {
+        const gainDb = prev.liveInputConfig.channelGains?.[channel] ?? 0;
+        const linearGain = dbToLinear(gainDb);
+        liveInputGainNode.gain.setTargetAtTime(
+          linearGain,
+          audioContext.currentTime,
+          0.02
+        );
+      }
+
       return {
         ...prev,
         liveInputConfig: {
@@ -1629,7 +1627,7 @@ export function T3kPlayerContextProvider({
         },
       };
     });
-  }, [getAudioNodes, audioState.liveInputConfig]);
+  }, [getAudioNodes]);
 
   // Set live input gain for the currently selected channel (persists to liveInputConfig)
   const setLiveInputGain = useCallback((gainDb: number): void => {
@@ -1682,6 +1680,34 @@ export function T3kPlayerContextProvider({
     // Apply output routing (handles Firefox workaround automatically)
     await applyOutputDeviceRouting(nodes, deviceId);
   }, [getAudioNodes]);
+
+  // Open the global settings dialog with a snapshot of current state
+  const openSettingsDialog = useCallback((config: {
+    sourceMode: SourceMode;
+    playerId?: string;
+    selectedModel: Model;
+    selectedIr: IR;
+  }): void => {
+    const hadExistingConfig = audioState.liveInputConfig !== null;
+    const snapshot: SettingsSnapshot = {
+      outputDeviceId: audioOutputDevices.selectedDeviceId,
+      inputMode: { ...audioState.inputMode },
+      liveInputConfig: audioState.liveInputConfig ? { ...audioState.liveInputConfig } : null,
+      isPlaying: audioState.isPlaying,
+      isBypassed: audioState.isBypassed,
+      activePlayerId: audioState.activePlayerId,
+    };
+
+    setSettingsDialog({
+      isOpen: true,
+      sourceMode: config.sourceMode,
+      playerId: config.playerId,
+      selectedModel: config.selectedModel,
+      selectedIr: config.selectedIr,
+      snapshot,
+      hadExistingConfig,
+    });
+  }, [audioState.liveInputConfig, audioState.inputMode, audioState.isPlaying, audioState.isBypassed, audioState.activePlayerId, audioOutputDevices.selectedDeviceId]);
 
   // Set playing state (controls audioElement in preview mode, outputGainNode in live mode)
   // playerId identifies which player is taking control (required when playing=true)
@@ -1748,6 +1774,51 @@ export function T3kPlayerContextProvider({
     }));
   }, [isAudioReady, getAudioNodes, audioState.inputMode.type]);
 
+  // Close the global settings dialog, restoring snapshot on cancel
+  const closeSettingsDialog = useCallback(async (options: { saved: boolean }): Promise<void> => {
+    const dialog = settingsDialogRef.current;
+    if (!dialog.isOpen) return;
+
+    if (!options.saved && dialog.snapshot) {
+      // Cancel: restore previous state
+      const { snapshot, hadExistingConfig } = dialog;
+
+      // If we opened without a live config but one was created, clear it
+      if (!hadExistingConfig && audioState.liveInputConfig !== null) {
+        clearLiveInputConfig();
+      } else if (hadExistingConfig && snapshot.liveInputConfig) {
+        // Only reconnect live input if it was actually active (not just configured)
+        if (snapshot.inputMode.type === 'live') {
+          await startLiveInput(snapshot.liveInputConfig.deviceId, {
+            initialChannel: snapshot.liveInputConfig.selectedChannel,
+            initialChannelGains: snapshot.liveInputConfig.channelGains,
+          });
+
+          // Restore playback and bypass state
+          setPlaying(snapshot.isPlaying, snapshot.activePlayerId ?? undefined);
+          if (audioState.isBypassed !== snapshot.isBypassed) {
+            toggleBypass();
+          }
+        } else {
+          // Was in preview mode — just restore the config without connecting
+          setAudioState(prev => ({
+            ...prev,
+            liveInputConfig: snapshot.liveInputConfig,
+          }));
+        }
+      }
+
+      // Restore output device
+      await setOutputDevice(snapshot.outputDeviceId);
+    }
+
+    setSettingsDialog(prev => ({
+      ...prev,
+      isOpen: false,
+      snapshot: null,
+    }));
+  }, [audioState.liveInputConfig, audioState.isBypassed, clearLiveInputConfig, startLiveInput, setPlaying, setOutputDevice, toggleBypass]);
+
   // Memoize context value
   const contextValue = useMemo<T3kPlayerContextType>(
     () => ({
@@ -1777,6 +1848,10 @@ export function T3kPlayerContextProvider({
       requestMicrophonePermission,
       refreshAudioDevices,
       refreshAudioOutputDevices,
+      settingsDialog,
+      openSettingsDialog,
+      closeSettingsDialog,
+      outputFallbackMessage,
     }),
     [
       audioState,
@@ -1805,6 +1880,10 @@ export function T3kPlayerContextProvider({
       requestMicrophonePermission,
       refreshAudioDevices,
       refreshAudioOutputDevices,
+      settingsDialog,
+      openSettingsDialog,
+      closeSettingsDialog,
+      outputFallbackMessage,
     ]
   );
 
@@ -1890,6 +1969,15 @@ export const useT3kPlayerContext = () => {
       requestMicrophonePermission: async () => null,
       refreshAudioDevices: async () => ({ inputDevices: [], preferredDeviceId: null }),
       refreshAudioOutputDevices: async () => {},
+      settingsDialog: {
+        isOpen: false,
+        sourceMode: 'preview',
+        snapshot: null,
+        hadExistingConfig: false,
+      } as SettingsDialogState,
+      openSettingsDialog: () => {},
+      closeSettingsDialog: () => {},
+      outputFallbackMessage: null,
     };
   }
 

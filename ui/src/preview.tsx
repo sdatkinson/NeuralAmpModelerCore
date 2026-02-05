@@ -2,7 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { T3kPlayer } from './components/T3kPlayer';
 import T3kAcordianPlayer from './components/Player/AcordianPlayer';
-import { T3kPlayerContextProvider } from './context/T3kPlayerContext';
+import { T3kPlayerProvider } from './context/T3kPlayerProvider';
 import './index.css';
 import { PREVIEW_MODE } from './types';
 import { DEFAULT_INPUTS, DEFAULT_IRS, DEFAULT_MODELS } from './constants';
@@ -75,9 +75,9 @@ const PreviewContent: React.FC = () => {
 
 const Preview: React.FC = () => {
   return (
-    <T3kPlayerContextProvider>
+    <T3kPlayerProvider>
       <PreviewContent />
-    </T3kPlayerContextProvider>
+    </T3kPlayerProvider>
   );
 };
 
