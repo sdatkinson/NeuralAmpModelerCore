@@ -89,7 +89,7 @@ export function InputControlStrip({ isActive = true }: InputControlStripProps) {
     return null;
   }
 
-  const isConnecting = audioState.isLiveConnecting;
+  const isConnecting = audioState.inputMode.type === 'connecting';
 
   return (
     <div className={`p-4 bg-zinc-800/50 rounded-lg border border-zinc-700 transition-opacity ${

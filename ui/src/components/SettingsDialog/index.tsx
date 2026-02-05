@@ -39,13 +39,11 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
     startLiveInput,
     selectLiveInputChannel,
     setLiveInputGain,
+    syncEngineSettings,
     setOutputDevice,
     setPlaying,
-    toggleBypass,
+    setBypass,
     getAudioNodes,
-    loadModel,
-    loadIr,
-    removeIr,
   } = useT3kPlayerContext();
 
   // Local state: only UI flow
@@ -62,14 +60,12 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
   const isLiveMode = sourceMode === 'live';
   const isPreviewMode = sourceMode === 'preview';
 
-  // React to permission changes while dialog is open
-  useEffect(() => {
-    if (!isOpen || isInitializing) return;
-
-    if (microphonePermission.status !== 'granted' && step === 'device-channel-select') {
-      setStep('permission');
-    }
-  }, [isOpen, isInitializing, microphonePermission.status, step]);
+  // Derive effective step: if permission was revoked while on device-channel-select, show permission
+  const effectiveStep = (
+    !isInitializing &&
+    microphonePermission.status !== 'granted' &&
+    step === 'device-channel-select'
+  ) ? 'permission' : step;
 
   // Helper to ensure audio system is initialized before starting live input
   const initAndStartLiveInput = useCallback(async (deviceId: string) => {
@@ -110,30 +106,19 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
   }, [selectLiveInputChannel]);
 
   const handleMonitoringChange = useCallback(async (enabled: boolean) => {
-    if (enabled) {
-      if (audioState.initState === 'ready') {
-        if (audioState.modelUrl !== selectedModel.url) {
-          await loadModel(selectedModel.url);
-        }
-        if (selectedIr.url) {
-          if (audioState.irUrl !== selectedIr.url) {
-            await loadIr({
-              url: selectedIr.url,
-              wetAmount: selectedIr.mix ?? 1,
-              gainAmount: selectedIr.gain ?? 1,
-            });
-          }
-        } else if (audioState.irUrl !== null) {
-          removeIr();
-        }
-      }
+    if (enabled && audioState.initState === 'ready') {
+      await syncEngineSettings({
+        modelUrl: selectedModel.url,
+        ir: { url: selectedIr.url, mix: selectedIr.mix ?? 1, gain: selectedIr.gain ?? 1 },
+        bypassed: audioState.isBypassed,
+      });
     }
     setPlaying(enabled, playerId);
-  }, [setPlaying, loadModel, loadIr, removeIr, audioState.initState, audioState.modelUrl, audioState.irUrl, selectedModel, selectedIr, playerId]);
+  }, [setPlaying, syncEngineSettings, audioState.initState, audioState.isBypassed, selectedModel, selectedIr, playerId]);
 
   const handleWetSignalToggle = useCallback(() => {
-    toggleBypass();
-  }, [toggleBypass]);
+    setBypass(!audioState.isBypassed);
+  }, [setBypass, audioState.isBypassed]);
 
   const handleInputGainChange = useCallback((gainDb: number) => {
     setLiveInputGain(gainDb);
@@ -177,7 +162,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
   );
 
   // Footer only for device/channel selection step
-  const footer = !isInitializing && step === 'device-channel-select' ? (
+  const footer = !isInitializing && effectiveStep === 'device-channel-select' ? (
     <div className='flex justify-end gap-3 p-4'>
       <Button variant='ghost' onClick={onCancel}>
         Cancel
@@ -214,7 +199,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
     >
       {isInitializing ? (
         skeletonContent
-      ) : step === 'permission' ? (
+      ) : effectiveStep === 'permission' ? (
         <PermissionContent
           status={microphonePermission.status}
           errorMessage={microphonePermission.error}
@@ -237,7 +222,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
           onWetSignalToggle={handleWetSignalToggle}
           onInputGainChange={handleInputGainChange}
           isLoading={audioInputDevices.isLoading}
-          isConnecting={audioState.isLiveConnecting}
+          isConnecting={audioState.inputMode.type === 'connecting'}
           error={audioInputDevices.error}
           onRefresh={refreshAudioDevices}
           channel0Meter={getAudioNodes().channel0PreviewMeter}

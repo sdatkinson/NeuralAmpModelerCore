@@ -13,6 +13,7 @@ import { readModel } from '../utils/readModel';
 import { DEFAULT_AUDIO_SRC, DEFAULT_MODELS } from '../constants';
 import { InputMode, LiveInputConfig, AudioInputDevice, AudioOutputDevice, MicrophonePermissionStatus, MicrophonePermissionState, AudioInputDeviceState, AudioOutputDeviceState, ChannelSelection, SettingsSnapshot, SettingsDialogState, SourceMode, Model, IR } from '../types';
 import { dbToLinear } from '../utils/metering';
+import { showToast } from '../hooks/useToast';
 
 /**
  * Audio Initialization Flow
@@ -72,7 +73,6 @@ interface AudioState {
   isPlaying: boolean;  // Whether audio is playing (preview) or monitoring (live)
   activePlayerId: string | null;  // Which player is currently controlling playback
   isBypassed: boolean;
-  isLiveConnecting: boolean;  // Whether live input is being connected/switched
   modelUrl: string | null;
   irUrl: string | null;
   audioUrl: string | null;
@@ -106,9 +106,16 @@ interface T3kPlayerContextType {
   loadAudio: (src: string) => Promise<void>;
   loadIr: (config: IrConfig) => Promise<void>;
   removeIr: () => void;
-  toggleBypass: () => void;
+  setBypass: (bypassed: boolean) => void;
   cleanup: () => void;
   connectVisualizerNode: (analyserNode: AnalyserNode) => () => void;
+
+  // Engine sync
+  syncEngineSettings: (config: {
+    modelUrl: string;
+    ir: { url: string | null; mix?: number; gain?: number };
+    bypassed: boolean;
+  }) => Promise<void>;
 
   // Input mode actions
   startLiveInput: (deviceId?: string, options?: { initialChannel?: ChannelSelection; initialChannelGains?: Record<ChannelSelection, number> }) => Promise<void>;
@@ -136,7 +143,6 @@ interface T3kPlayerContextType {
   settingsDialog: SettingsDialogState;
   openSettingsDialog: (config: { sourceMode: SourceMode; playerId?: string; selectedModel: Model; selectedIr: IR }) => void;
   closeSettingsDialog: (options: { saved: boolean }) => void;
-  outputFallbackMessage: string | null;
 }
 
 // Context
@@ -154,7 +160,6 @@ export function T3kPlayerContextProvider({
     isPlaying: false,
     activePlayerId: null,
     isBypassed: false,
-    isLiveConnecting: false,
     modelUrl: null,
     irUrl: null,
     audioUrl: null,
@@ -189,11 +194,10 @@ export function T3kPlayerContextProvider({
     snapshot: null,
     hadExistingConfig: false,
   });
-  const settingsDialogRef = useRef(settingsDialog);
-  settingsDialogRef.current = settingsDialog;
-
-  // Output fallback message (shown when output device is disconnected)
-  const [outputFallbackMessage, setOutputFallbackMessage] = useState<string | null>(null);
+  const settingsSnapshotRef = useRef<{ snapshot: SettingsSnapshot | null; hadExistingConfig: boolean }>({
+    snapshot: null,
+    hadExistingConfig: false,
+  });
 
   // Refs for non-render-triggering data
   const audioNodesRef = useRef<AudioNodes>({
@@ -344,7 +348,7 @@ export function T3kPlayerContextProvider({
       activePlayerId: null,
     }));
 
-    // Set appropriate error message
+    // Set appropriate error message (persistent, shown in live input UI)
     const errorMessages: Record<LiveInputUnavailableReason, string> = {
       'device-disconnected': 'Audio input device was disconnected.',
       'permission-revoked': 'Microphone permission was revoked. Please re-enable access in your browser settings.',
@@ -354,6 +358,13 @@ export function T3kPlayerContextProvider({
       ...prev,
       error: errorMessages[reason],
     }));
+
+    // Immediate feedback via toast (visible regardless of which player/mode is shown)
+    const toastMessages: Record<LiveInputUnavailableReason, string> = {
+      'device-disconnected': 'Audio input device disconnected',
+      'permission-revoked': 'Microphone permission revoked',
+    };
+    showToast(toastMessages[reason]);
   }, []);
 
   // Helper: Apply output device routing with browser-specific handling
@@ -795,8 +806,7 @@ export function T3kPlayerContextProvider({
           if (!selectedOutputStillExists) {
             console.warn('Selected audio output device was disconnected, falling back to system default');
             setOutputDevice(null);
-            setOutputFallbackMessage('Output switched to default');
-            setTimeout(() => setOutputFallbackMessage(null), 3000);
+            showToast('Output switched to default');
           }
         } catch {
           setAudioInputDevices(prev => ({
@@ -813,29 +823,6 @@ export function T3kPlayerContextProvider({
     };
   }, [microphonePermission.status, audioState.liveInputConfig, audioOutputDevices.selectedDeviceId, handleLiveInputUnavailable]);
 
-  // Track previous permission status to detect revocation
-  const prevPermissionStatusRef = useRef<MicrophonePermissionStatus>(microphonePermission.status);
-
-  // Handle permission revocation while we have a live config
-  useEffect(() => {
-    const prevStatus = prevPermissionStatusRef.current;
-    const currentStatus = microphonePermission.status;
-
-    // Update ref for next render
-    prevPermissionStatusRef.current = currentStatus;
-
-    // Detect transition FROM 'granted' to anything else while we have a live config
-    // This catches Chrome's 'prompt' state (our 'idle') when user revokes permission
-    if (
-      prevStatus === 'granted' &&
-      currentStatus !== 'granted' &&
-      currentStatus !== 'pending' &&
-      audioState.liveInputConfig !== null
-    ) {
-      console.warn('Microphone permission was revoked while in live mode');
-      handleLiveInputUnavailable('permission-revoked');
-    }
-  }, [microphonePermission.status, audioState.liveInputConfig, handleLiveInputUnavailable]);
 
   /**
    * Initialize the audio system fully.
@@ -1211,10 +1198,10 @@ export function T3kPlayerContextProvider({
     setAudioState(prev => ({ ...prev, irUrl: null }));
   }, [getAudioNodes]);
 
-  // Toggle bypass
-  const toggleBypass = useCallback((): void => {
+  // Set bypass to a specific state (idempotent — reads audio node to determine if action is needed)
+  const setBypass = useCallback((bypassed: boolean): void => {
     if (!isAudioReady()) {
-      console.warn('Cannot toggle bypass: audio not initialized');
+      console.warn('Cannot set bypass: audio not initialized');
       return;
     }
 
@@ -1231,14 +1218,15 @@ export function T3kPlayerContextProvider({
     } = nodes;
 
     if (!audioWorkletNode || !audioContext || !bypassNode) {
-      console.warn('Cannot toggle bypass: required nodes not available');
+      console.warn('Cannot set bypass: required nodes not available');
       return;
     }
 
-    const isBypassed = bypassNode.gain.value === 1;
+    const currentlyBypassed = bypassNode.gain.value === 1;
+    if (currentlyBypassed === bypassed) return; // already in desired state
 
     try {
-      if (!isBypassed) {
+      if (bypassed) {
         // Enable bypass
         if (irNode && irWetGain && irDryGain && irGain && outputGainNode) {
           // Disconnect IR paths
@@ -1270,11 +1258,33 @@ export function T3kPlayerContextProvider({
         bypassNode.gain.setValueAtTime(0, audioContext.currentTime);
       }
 
-      setAudioState(prev => ({ ...prev, isBypassed: !isBypassed }));
+      setAudioState(prev => ({ ...prev, isBypassed: bypassed }));
     } catch (error) {
-      console.error('Error toggling bypass:', error);
+      console.error('Error setting bypass:', error);
     }
   }, [isAudioReady, getAudioNodes]);
+
+  // Sync engine settings (model, IR, bypass) to match a player's preferences
+  const syncEngineSettings = useCallback(async (config: {
+    modelUrl: string;
+    ir: { url: string | null; mix?: number; gain?: number };
+    bypassed: boolean;
+  }): Promise<void> => {
+    const currentModelUrl = audioState.modelUrl;
+    const currentIrUrl = audioState.irUrl;
+
+    if (currentModelUrl !== config.modelUrl) {
+      await loadModel(config.modelUrl);
+    }
+    if (config.ir.url) {
+      if (currentIrUrl !== config.ir.url) {
+        await loadIr({ url: config.ir.url, wetAmount: config.ir.mix, gainAmount: config.ir.gain });
+      }
+    } else if (currentIrUrl) {
+      removeIr();
+    }
+    setBypass(config.bypassed);
+  }, [audioState.modelUrl, audioState.irUrl, loadModel, loadIr, removeIr, setBypass]);
 
   // Connect visualizer
   const connectVisualizerNode = useCallback(
@@ -1358,7 +1368,7 @@ export function T3kPlayerContextProvider({
 
     setAudioState(prev => ({
       ...prev,
-      isLiveConnecting: true,
+      inputMode: { type: 'connecting' },
       isPlaying: false,
       activePlayerId: null,
     }));
@@ -1403,13 +1413,11 @@ export function T3kPlayerContextProvider({
       const actualDeviceId = settings.deviceId ?? deviceId ?? '';
 
       // Listen for track ending (device disconnected, permission revoked, etc.)
+      // This is the most reliable signal — Chrome kills the track immediately on permission reset,
+      // but may not fire the Permissions API 'change' event.
       track.addEventListener('ended', () => {
         console.warn('Audio track ended unexpectedly');
-        cleanupLiveInputNodes(nodes);
-        setAudioState(prev => ({
-          ...prev,
-          inputMode: { type: 'preview' },
-        }));
+        handleLiveInputUnavailable('device-disconnected');
       });
 
       // Create source node from the live stream
@@ -1454,7 +1462,6 @@ export function T3kPlayerContextProvider({
 
       setAudioState(prev => ({
         ...prev,
-        isLiveConnecting: false,
         inputMode: { type: 'live' },
         liveInputConfig: {
           deviceId: actualDeviceId,
@@ -1479,13 +1486,12 @@ export function T3kPlayerContextProvider({
 
       setAudioState(prev => ({
         ...prev,
-        isLiveConnecting: false,
         inputMode: { type: 'preview' },
       }));
       console.error('Error starting live input:', error);
       throw error;
     }
-  }, [isAudioReady, getAudioNodes, audioOutputDevices.selectedDeviceId]);
+  }, [isAudioReady, getAudioNodes, audioOutputDevices.selectedDeviceId, handleLiveInputUnavailable]);
 
   // Stop live audio input and prepare for preview mode takeover
   // Note: This preserves liveInputConfig so players can still see/use the configured device.
@@ -1698,6 +1704,8 @@ export function T3kPlayerContextProvider({
       activePlayerId: audioState.activePlayerId,
     };
 
+    settingsSnapshotRef.current = { snapshot, hadExistingConfig };
+
     setSettingsDialog({
       isOpen: true,
       sourceMode: config.sourceMode,
@@ -1776,12 +1784,9 @@ export function T3kPlayerContextProvider({
 
   // Close the global settings dialog, restoring snapshot on cancel
   const closeSettingsDialog = useCallback(async (options: { saved: boolean }): Promise<void> => {
-    const dialog = settingsDialogRef.current;
-    if (!dialog.isOpen) return;
+    const { snapshot, hadExistingConfig } = settingsSnapshotRef.current;
 
-    if (!options.saved && dialog.snapshot) {
-      // Cancel: restore previous state
-      const { snapshot, hadExistingConfig } = dialog;
+    if (!options.saved && snapshot) {
 
       // If we opened without a live config but one was created, clear it
       if (!hadExistingConfig && audioState.liveInputConfig !== null) {
@@ -1796,9 +1801,7 @@ export function T3kPlayerContextProvider({
 
           // Restore playback and bypass state
           setPlaying(snapshot.isPlaying, snapshot.activePlayerId ?? undefined);
-          if (audioState.isBypassed !== snapshot.isBypassed) {
-            toggleBypass();
-          }
+          setBypass(snapshot.isBypassed);
         } else {
           // Was in preview mode — just restore the config without connecting
           setAudioState(prev => ({
@@ -1817,7 +1820,7 @@ export function T3kPlayerContextProvider({
       isOpen: false,
       snapshot: null,
     }));
-  }, [audioState.liveInputConfig, audioState.isBypassed, clearLiveInputConfig, startLiveInput, setPlaying, setOutputDevice, toggleBypass]);
+  }, [audioState.liveInputConfig, clearLiveInputConfig, startLiveInput, setPlaying, setOutputDevice, setBypass]);
 
   // Memoize context value
   const contextValue = useMemo<T3kPlayerContextType>(
@@ -1833,7 +1836,8 @@ export function T3kPlayerContextProvider({
       loadAudio,
       loadIr,
       removeIr,
-      toggleBypass,
+      setBypass,
+      syncEngineSettings,
       cleanup,
       connectVisualizerNode,
       startLiveInput,
@@ -1851,7 +1855,6 @@ export function T3kPlayerContextProvider({
       settingsDialog,
       openSettingsDialog,
       closeSettingsDialog,
-      outputFallbackMessage,
     }),
     [
       audioState,
@@ -1865,7 +1868,8 @@ export function T3kPlayerContextProvider({
       loadAudio,
       loadIr,
       removeIr,
-      toggleBypass,
+      setBypass,
+      syncEngineSettings,
       cleanup,
       connectVisualizerNode,
       startLiveInput,
@@ -1883,7 +1887,6 @@ export function T3kPlayerContextProvider({
       settingsDialog,
       openSettingsDialog,
       closeSettingsDialog,
-      outputFallbackMessage,
     ]
   );
 
@@ -1904,7 +1907,6 @@ export const useT3kPlayerContext = () => {
         isPlaying: false,
         activePlayerId: null,
         isBypassed: false,
-        isLiveConnecting: false,
         modelUrl: null,
         irUrl: null,
         audioUrl: null,
@@ -1954,7 +1956,8 @@ export const useT3kPlayerContext = () => {
       loadAudio: async () => {},
       loadIr: async () => {},
       removeIr: () => {},
-      toggleBypass: () => {},
+      setBypass: () => {},
+      syncEngineSettings: async () => {},
       cleanup: () => {},
       connectVisualizerNode: () => () => {},
       startLiveInput: async () => {},
@@ -1977,7 +1980,6 @@ export const useT3kPlayerContext = () => {
       } as SettingsDialogState,
       openSettingsDialog: () => {},
       closeSettingsDialog: () => {},
-      outputFallbackMessage: null,
     };
   }
 

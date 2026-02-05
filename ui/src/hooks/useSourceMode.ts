@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useT3kPlayerContext } from '../context/T3kPlayerContext';
-import { SourceMode, LiveInputConfig } from '../types';
+import { SourceMode } from '../types';
 
 interface UseSourceModeOptions {
   playerId?: string;
@@ -12,11 +12,7 @@ interface UseSourceModeReturn {
   sourceMode: SourceMode;
   showPlaybackPausedMessage: boolean;
 
-  // Derived (from context)
-  isLiveConfigured: boolean;
-  isLiveInputActive: boolean;
-  currentDeviceId: string | null;
-  liveInputConfig: LiveInputConfig | null;
+  // Derived (from context, shared by multiple consumers)
   liveDeviceOptions: Array<{ label: string; value: string }>;
 
   // Handlers
@@ -38,13 +34,7 @@ export function useSourceMode(options: UseSourceModeOptions = {}): UseSourceMode
   const [sourceMode, setSourceMode] = useState<SourceMode>('preview');
   const [showPlaybackPausedMessage, setShowPlaybackPausedMessage] = useState(false);
 
-  // Derived state for live input
-  const liveInputConfig = audioState.liveInputConfig;
-  const isLiveConfigured = liveInputConfig !== null;
-  const isLiveInputActive = audioState.inputMode.type === 'live';
-  const currentDeviceId = liveInputConfig?.deviceId ?? null;
-
-  // Live device options for Select component
+  // Live device options for Select component (shared by multiple consumers)
   const liveDeviceOptions = useMemo(
     () =>
       audioInputDevices.devices.map(device => ({
@@ -105,20 +95,16 @@ export function useSourceMode(options: UseSourceModeOptions = {}): UseSourceMode
   // Handle device change
   const handleLiveDeviceChange = useCallback(
     async (deviceId: string) => {
-      if (deviceId !== currentDeviceId) {
+      if (deviceId !== audioState.liveInputConfig?.deviceId) {
         await startLiveInput(deviceId);
       }
     },
-    [currentDeviceId, startLiveInput]
+    [audioState.liveInputConfig?.deviceId, startLiveInput]
   );
 
   return {
     sourceMode,
     showPlaybackPausedMessage,
-    isLiveConfigured,
-    isLiveInputActive,
-    currentDeviceId,
-    liveInputConfig,
     liveDeviceOptions,
     handleSourceModeChange,
     handleLiveDeviceChange,

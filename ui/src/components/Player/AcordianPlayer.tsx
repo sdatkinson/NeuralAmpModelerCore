@@ -14,6 +14,7 @@ import { ChevronDown, ChevronUp, Loader2, Plug, Settings } from 'lucide-react';
 import { SegmentedControl } from '../ui/SegmentedControl';
 import { InputControlStrip } from '../ControlStrip';
 import { useSourceMode } from '../../hooks/useSourceMode';
+import { useToast } from '../../hooks/useToast';
 
 const PlayerFC: React.FC<T3kAcordianPlayerProps> = ({
   getData = async () => ({ models: DEFAULT_MODELS, irs: DEFAULT_IRS, inputs: DEFAULT_INPUTS }),
@@ -35,7 +36,8 @@ const PlayerFC: React.FC<T3kAcordianPlayerProps> = ({
     loadAudio,
     loadIr,
     removeIr,
-    toggleBypass,
+    setBypass,
+    syncEngineSettings,
     connectVisualizerNode,
     cleanup,
     setPlaying,
@@ -47,15 +49,20 @@ const PlayerFC: React.FC<T3kAcordianPlayerProps> = ({
   const {
     sourceMode,
     showPlaybackPausedMessage,
-    isLiveConfigured,
-    currentDeviceId,
     liveDeviceOptions,
     handleSourceModeChange,
     handleLiveDeviceChange,
   } = useSourceMode({ playerId: id });
 
-  // Global settings dialog and output fallback from context
-  const { openSettingsDialog: openDialog, outputFallbackMessage } = useT3kPlayerContext();
+  // Derived from context
+  const isLiveConfigured = audioState.liveInputConfig !== null;
+  const currentDeviceId = audioState.liveInputConfig?.deviceId ?? null;
+
+  // Global settings dialog from context
+  const { openSettingsDialog: openDialog } = useT3kPlayerContext();
+
+  // Toast messages (e.g. output device fallback)
+  const toastMessage = useToast();
 
   // Helper function to get default item
   const getDefault = useCallback(
@@ -245,26 +252,12 @@ const PlayerFC: React.FC<T3kAcordianPlayerProps> = ({
         await audioContext.resume();
       }
 
-      // Sync model with selection
-      if (!audioState.modelUrl || audioState.modelUrl !== model.url) {
-        await loadModel(model.url);
-      }
-
-      // Sync IR with selection
-      if (ir.url) {
-        if (!audioState.irUrl || audioState.irUrl !== ir.url) {
-          await loadIr({
-            url: ir.url,
-            wetAmount: ir.mix,
-            gainAmount: ir.gain,
-          });
-        }
-      } else {
-        removeIr();
-      }
-
-      // Toggle bypass if needed
-      if (audioState.isBypassed !== bypassed) toggleBypass();
+      // Sync engine settings
+      await syncEngineSettings({
+        modelUrl: model.url,
+        ir: { url: ir.url, mix: ir.mix, gain: ir.gain },
+        bypassed,
+      });
 
       // Toggle: if this player is active, stop; otherwise start
       if (isThisPlayerPlaying) {
@@ -303,26 +296,12 @@ const PlayerFC: React.FC<T3kAcordianPlayerProps> = ({
           await loadAudio(input.url);
         }
 
-        // Load model if needed
-        if (!audioState.modelUrl || audioState.modelUrl !== model.url) {
-          await loadModel(model.url);
-        }
-
-        // Handle IR loading
-        if (ir.url) {
-          if (!audioState.irUrl || audioState.irUrl !== ir.url) {
-            await loadIr({
-              url: ir.url,
-              wetAmount: ir.mix,
-              gainAmount: ir.gain,
-            });
-          }
-        } else {
-          removeIr();
-        }
-
-        // Toggle bypass if needed
-        if (audioState.isBypassed !== bypassed) toggleBypass();
+        // Sync engine settings
+        await syncEngineSettings({
+          modelUrl: model.url,
+          ir: { url: ir.url, mix: ir.mix, gain: ir.gain },
+          bypassed,
+        });
 
         // Start playback via context (handles audioElement.play() and outputGainNode)
         setPlaying(true, id);
@@ -348,11 +327,8 @@ const PlayerFC: React.FC<T3kAcordianPlayerProps> = ({
     getDataWithCache,
     init,
     loadAudio,
-    loadModel,
-    loadIr,
-    removeIr,
+    syncEngineSettings,
     onPlay,
-    toggleBypass,
     bypassed,
     setPlaying,
     startLiveInput,
@@ -370,10 +346,10 @@ const PlayerFC: React.FC<T3kAcordianPlayerProps> = ({
   const handleBypassToggle = useCallback(() => {
     const newBypassed = !bypassed;
     setBypassed(newBypassed);
-    if (isThisPlayerPlaying && audioState.isBypassed !== newBypassed) {
-      toggleBypass();
+    if (isThisPlayerPlaying) {
+      setBypass(newBypassed);
     }
-  }, [toggleBypass, bypassed, audioState.isBypassed, isThisPlayerPlaying]);
+  }, [setBypass, bypassed, isThisPlayerPlaying]);
 
   const handleModelChange = useCallback(
     async (value: string | number) => {
@@ -600,9 +576,9 @@ const PlayerFC: React.FC<T3kAcordianPlayerProps> = ({
                 Playback paused
               </span>
             )}
-            {outputFallbackMessage && (
+            {toastMessage && (
               <span className='text-xs text-zinc-400 animate-pulse'>
-                {outputFallbackMessage}
+                {toastMessage}
               </span>
             )}
           </div>
@@ -648,7 +624,7 @@ const PlayerFC: React.FC<T3kAcordianPlayerProps> = ({
             {/* Live mode: connected - show device dropdown */}
             {sourceMode === 'live' && isLiveConfigured && (
               <div className='w-full'>
-                {audioState.isLiveConnecting ? (
+                {audioState.inputMode.type === 'connecting' ? (
                   <div className='flex flex-col gap-1 w-full'>
                     <span className='text-sm text-zinc-400'>Live Input</span>
                     <div className='flex items-center justify-between w-full px-4 py-3 text-md border border-zinc-700 rounded-md bg-transparent opacity-50 cursor-wait'>

@@ -14,6 +14,7 @@ import { SegmentedControl } from '../ui/SegmentedControl';
 import { InputControlStrip } from '../ControlStrip';
 import { Loader2, Plug, Settings } from 'lucide-react';
 import { useSourceMode } from '../../hooks/useSourceMode';
+import { useToast } from '../../hooks/useToast';
 
 const PlayerFC: React.FC<T3kPlayerProps> = ({
   models = DEFAULT_MODELS,
@@ -36,7 +37,8 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
     loadAudio,
     loadIr,
     removeIr,
-    toggleBypass,
+    setBypass,
+    syncEngineSettings,
     connectVisualizerNode,
     cleanup,
     startLiveInput,
@@ -48,15 +50,20 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
   const {
     sourceMode,
     showPlaybackPausedMessage,
-    isLiveConfigured,
-    currentDeviceId,
     liveDeviceOptions,
     handleSourceModeChange,
     handleLiveDeviceChange,
   } = useSourceMode({ playerId: id });
 
-  // Global settings dialog and output fallback from context
-  const { openSettingsDialog: openDialog, outputFallbackMessage } = useT3kPlayerContext();
+  // Derived from context
+  const isLiveConfigured = audioState.liveInputConfig !== null;
+  const currentDeviceId = audioState.liveInputConfig?.deviceId ?? null;
+
+  // Global settings dialog from context
+  const { openSettingsDialog: openDialog } = useT3kPlayerContext();
+
+  // Toast messages (e.g. output device fallback)
+  const toastMessage = useToast();
 
   // Helper function to get default item
   const getDefault = useCallback(
@@ -89,42 +96,13 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
   }, [openDialog, sourceMode, id, selectedModel, selectedIr]);
 
   // Helper: Sync this player's preferences to the audio engine when taking over
-  // This consolidates the model/IR/bypass sync logic that was duplicated in togglePlay
   const syncPlayerToEngine = useCallback(async () => {
-    // Sync model if this player's selection differs from engine
-    if (!audioState.modelUrl || audioState.modelUrl !== selectedModel.url) {
-      await loadModel(selectedModel.url);
-    }
-
-    // Sync IR
-    if (selectedIr.url) {
-      if (!audioState.irUrl || audioState.irUrl !== selectedIr.url) {
-        await loadIr({
-          url: selectedIr.url,
-          wetAmount: selectedIr.mix,
-          gainAmount: selectedIr.gain,
-        });
-      }
-    } else if (audioState.irUrl) {
-      removeIr();
-    }
-
-    // Sync bypass state
-    if (audioState.isBypassed !== bypassed) {
-      toggleBypass();
-    }
-  }, [
-    audioState.modelUrl,
-    audioState.irUrl,
-    audioState.isBypassed,
-    selectedModel.url,
-    selectedIr,
-    bypassed,
-    loadModel,
-    loadIr,
-    removeIr,
-    toggleBypass,
-  ]);
+    await syncEngineSettings({
+      modelUrl: selectedModel.url,
+      ir: { url: selectedIr.url, mix: selectedIr.mix, gain: selectedIr.gain },
+      bypassed,
+    });
+  }, [syncEngineSettings, selectedModel.url, selectedIr, bypassed]);
 
   // Refs
   const visualizerRef = useRef<HTMLCanvasElement>(null);
@@ -350,10 +328,10 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
     const newBypassed = !bypassed;
     setBypassed(newBypassed);
     // Only sync to context if this player is currently active
-    if (isThisPlayerActive && audioState.isBypassed !== newBypassed) {
-      toggleBypass();
+    if (isThisPlayerActive) {
+      setBypass(newBypassed);
     }
-  }, [toggleBypass, bypassed, audioState.isBypassed, isThisPlayerActive]);
+  }, [setBypass, bypassed, isThisPlayerActive]);
 
   const handleModelChange = useCallback(
     async (value: string | number) => {
@@ -568,9 +546,9 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
                 Playback paused
               </span>
             )}
-            {outputFallbackMessage && (
+            {toastMessage && (
               <span className='text-xs text-zinc-400 animate-pulse'>
-                {outputFallbackMessage}
+                {toastMessage}
               </span>
             )}
           </div>
@@ -618,7 +596,7 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
             {/* Live mode: connected - show device dropdown (settings button is next to Source selector) */}
             {sourceMode === 'live' && isLiveConfigured && (
               <div className='w-full'>
-                {audioState.isLiveConnecting ? (
+                {audioState.inputMode.type === 'connecting' ? (
                   <div className='flex flex-col gap-1 w-full'>
                     <span className='text-sm text-zinc-400'>Live Input</span>
                     <div className='flex items-center justify-between w-full px-4 py-3 text-md border border-zinc-700 rounded-md bg-transparent opacity-50 cursor-wait'>

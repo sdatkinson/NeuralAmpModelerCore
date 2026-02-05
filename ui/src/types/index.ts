@@ -32,7 +32,7 @@ export type SourceMode = 'preview' | 'live';
 export type ChannelSelection = 'first' | 'second';
 
 // What audio source is currently active (connected to the audio engine)
-export type InputMode = { type: 'preview' } | { type: 'live' };
+export type InputMode = { type: 'preview' } | { type: 'connecting' } | { type: 'live' };
 
 // Configured live input settings (persists even when preview is active)
 // This allows the UI to show the configured device even when file playback is active

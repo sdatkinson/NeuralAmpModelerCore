@@ -71,60 +71,56 @@ export const Select = ({
     [onChange]
   );
 
-  useEffect(() => {
-    let button = buttonRef.current;
-    const listener = (e: KeyboardEvent) => {
-      if (!isOpen) {
-        if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown') {
-          e.preventDefault();
-          setIsOpen(true);
-          setActiveIndex(
-            options.findIndex(opt => opt.value === selectedOption.value)
-          );
-        }
-        return;
+  const keydownHandlerRef = useRef<(e: KeyboardEvent) => void>();
+  keydownHandlerRef.current = (e: KeyboardEvent) => {
+    if (!isOpen) {
+      if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        setIsOpen(true);
+        setActiveIndex(
+          options.findIndex(opt => opt.value === selectedOption.value)
+        );
       }
-
-      switch (e.key) {
-        case 'Enter':
-        case ' ':
-          e.preventDefault();
-          if (activeIndex >= 0 && activeIndex < options.length) {
-            handleSelect(options[activeIndex]);
-          }
-          break;
-        case 'ArrowDown':
-          e.preventDefault();
-          if (activeIndex < options.length - 1) {
-            setActiveIndex(prev => prev + 1);
-          }
-          break;
-        case 'ArrowUp':
-          e.preventDefault();
-          if (activeIndex > 0) {
-            setActiveIndex(prev => prev - 1);
-          }
-          break;
-        case 'Escape':
-          setIsOpen(false);
-          buttonRef.current?.focus();
-          break;
-        case 'Tab':
-          setIsOpen(false);
-          break;
-      }
-    };
-
-    if (button) {
-      button.addEventListener('keydown', listener);
+      return;
     }
 
-    return () => {
-      if (button) {
-        button.removeEventListener('keydown', listener);
-      }
-    };
-  }, [isOpen, options, activeIndex, selectedOption?.value, handleSelect]);
+    switch (e.key) {
+      case 'Enter':
+      case ' ':
+        e.preventDefault();
+        if (activeIndex >= 0 && activeIndex < options.length) {
+          handleSelect(options[activeIndex]);
+        }
+        break;
+      case 'ArrowDown':
+        e.preventDefault();
+        if (activeIndex < options.length - 1) {
+          setActiveIndex(prev => prev + 1);
+        }
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        if (activeIndex > 0) {
+          setActiveIndex(prev => prev - 1);
+        }
+        break;
+      case 'Escape':
+        setIsOpen(false);
+        buttonRef.current?.focus();
+        break;
+      case 'Tab':
+        setIsOpen(false);
+        break;
+    }
+  };
+
+  useEffect(() => {
+    const button = buttonRef.current;
+    if (!button) return;
+    const listener = (e: KeyboardEvent) => keydownHandlerRef.current?.(e);
+    button.addEventListener('keydown', listener);
+    return () => button.removeEventListener('keydown', listener);
+  }, []);
 
   // Add effect for scrolling active item into view
   useEffect(() => {
