@@ -54,8 +54,6 @@ interface AudioNodes {
   // Metering nodes
   inputMeterNode: AnalyserNode | null;
   outputMeterNode: AnalyserNode | null;
-  // Output protection
-  limiterNode: DynamicsCompressorNode | null;
   // Channel selection (for multi-channel interfaces)
   channelSplitterNode: ChannelSplitterNode | null;
   channelMergerNode: ChannelMergerNode | null;
@@ -196,8 +194,6 @@ export function T3kPlayerContextProvider({
     // Metering nodes
     inputMeterNode: null,
     outputMeterNode: null,
-    // Output protection
-    limiterNode: null,
     // Channel selection
     channelSplitterNode: null,
     channelMergerNode: null,
@@ -889,15 +885,6 @@ export function T3kPlayerContextProvider({
             nodes.inputMeterNode = new AnalyserNode(context, meterConfig);
             nodes.outputMeterNode = new AnalyserNode(context, meterConfig);
 
-            // Create limiter for output protection
-            nodes.limiterNode = new DynamicsCompressorNode(context, {
-              threshold: -3,
-              knee: 6,
-              ratio: 20,
-              attack: 0.003,
-              release: 0.1
-            });
-
             // Create source from audio element
             nodes.sourceNode = context.createMediaElementSource(nodes.audioElement!);
 
@@ -908,8 +895,7 @@ export function T3kPlayerContextProvider({
             nodes.bypassNode.connect(nodes.outputGainNode);
             nodes.inputMeterNode!.connect(audioWorkletNode);
             audioWorkletNode.connect(nodes.outputGainNode);
-            nodes.outputGainNode.connect(nodes.limiterNode!);
-            nodes.limiterNode!.connect(nodes.outputMeterNode!);
+            nodes.outputGainNode.connect(nodes.outputMeterNode!);
             nodes.outputMeterNode!.connect(context.destination);
 
             context.resume();
@@ -1868,7 +1854,6 @@ export const useT3kPlayerContext = () => {
         mediaStream: null,
         inputMeterNode: null,
         outputMeterNode: null,
-        limiterNode: null,
         channelSplitterNode: null,
         channelMergerNode: null,
         channel0PreviewMeter: null,
