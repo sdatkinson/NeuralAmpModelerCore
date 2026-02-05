@@ -183,7 +183,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
       }
     }
     setPlaying(enabled, playerId);
-  }, [setPlaying, loadModel, loadIr, removeIr, audioState, selectedModel, selectedIr, playerId]);
+  }, [setPlaying, loadModel, loadIr, removeIr, audioState.initState, audioState.modelUrl, audioState.irUrl, selectedModel, selectedIr, playerId]);
 
   const handleWetSignalToggle = useCallback(() => {
     // Uses the same bypass state as the player

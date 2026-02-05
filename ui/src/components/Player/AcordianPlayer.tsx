@@ -174,7 +174,7 @@ const PlayerFC: React.FC<T3kAcordianPlayerProps> = ({
       audioElement.removeEventListener('ended', handleEnded);
       audioElement.removeEventListener('loadedmetadata', handleLoadedMetadata);
     };
-  }, [getAudioNodes, audioState, isThisPlayerPlaying, setPlaying]);
+  }, [getAudioNodes, isThisPlayerPlaying, setPlaying]);
 
   // Visualizer setup
   useEffect(() => {
@@ -366,7 +366,7 @@ const PlayerFC: React.FC<T3kAcordianPlayerProps> = ({
     if (isThisPlayerPlaying && audioState.isBypassed !== newBypassed) {
       toggleBypass();
     }
-  }, [toggleBypass, bypassed, audioState, isThisPlayerPlaying]);
+  }, [toggleBypass, bypassed, audioState.isBypassed, isThisPlayerPlaying]);
 
   const handleModelChange = useCallback(
     async (value: string | number) => {

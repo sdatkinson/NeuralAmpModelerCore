@@ -98,6 +98,7 @@ interface T3kPlayerContextType {
 
   // Getters
   getAudioNodes: () => AudioNodes;
+  isAudioReady: () => boolean;
 
   // Actions
   init: (options?: { audioUrl?: string; modelUrl?: string }) => Promise<void>;
@@ -213,6 +214,14 @@ export function T3kPlayerContextProvider({
     return audioNodesRef.current;
   }, []);
 
+  // Check if audio system is ready for operations
+  // Use this for conditional logic or UI state
+  const isAudioReady = useCallback((): boolean => {
+    if (!isInitializedRef.current) return false;
+    const nodes = audioNodesRef.current;
+    return !!(nodes.audioContext && nodes.audioWorkletNode);
+  }, []);
+
   // Helper: Clean up all live input nodes (mediaStream, source, gain, splitter, merger, meters)
   // This is used by startLiveInput, stopLiveInput, cleanup, and event handlers
   const cleanupLiveInputNodes = (nodes: AudioNodes): void => {
@@ -284,6 +293,49 @@ export function T3kPlayerContextProvider({
       }
     }
   };
+
+  // Helper: Handle live input becoming unavailable (device disconnected or permission revoked)
+  // Cleans up audio nodes, reverts to preview mode, and sets an error message
+  type LiveInputUnavailableReason = 'device-disconnected' | 'permission-revoked';
+
+  const handleLiveInputUnavailable = useCallback((reason: LiveInputUnavailableReason): void => {
+    const nodes = audioNodesRef.current;
+
+    // Clean up all live input nodes
+    cleanupLiveInputNodes(nodes);
+
+    // Clean up Firefox output routing and reconnect to default destination
+    cleanupFirefoxOutputRouting(nodes);
+
+    // Reconnect file source to input gain if available (restore preview path)
+    if (nodes.sourceNode && nodes.inputGainNode) {
+      try {
+        nodes.sourceNode.connect(nodes.inputGainNode);
+      } catch {
+        // Source might already be connected
+      }
+    }
+
+    // Revert to preview mode and clear live config
+    setAudioState(prev => ({
+      ...prev,
+      inputMode: { type: 'preview' },
+      liveInputConfig: null,
+      isPlaying: false,
+      activePlayerId: null,
+    }));
+
+    // Set appropriate error message
+    const errorMessages: Record<LiveInputUnavailableReason, string> = {
+      'device-disconnected': 'Audio input device was disconnected.',
+      'permission-revoked': 'Microphone permission was revoked. Please re-enable access in your browser settings.',
+    };
+
+    setAudioInputDevices(prev => ({
+      ...prev,
+      error: errorMessages[reason],
+    }));
+  }, []);
 
   // Helper: Apply output device routing with browser-specific handling
   // Firefox and Safari require MediaStreamDestination + HTMLAudioElement workaround
@@ -689,40 +741,10 @@ export function T3kPlayerContextProvider({
             const configuredDeviceStillExists = audioInputs.some(d => d.deviceId === configuredDeviceId);
 
             if (!configuredDeviceStillExists) {
-              // Configured device was disconnected - clear config and stop live input
               console.warn('Configured audio input device was disconnected');
-
-              const nodes = audioNodesRef.current;
-
-              // Clean up all live input nodes
-              cleanupLiveInputNodes(nodes);
-
-              // Clean up Firefox output routing and reconnect to default destination
-              cleanupFirefoxOutputRouting(nodes);
-
-              // Reconnect file source if available
-              if (nodes.sourceNode && nodes.inputGainNode) {
-                try {
-                  nodes.sourceNode.connect(nodes.inputGainNode);
-                } catch {
-                  // Source might already be connected
-                }
-              }
-
-              // Update state: clear liveInputConfig since device no longer exists
-              setAudioState(prev => ({
-                ...prev,
-                inputMode: { type: 'preview' },
-                liveInputConfig: null,
-              }));
-
-              // Set error message to notify user
-              setAudioInputDevices(prev => ({
-                ...prev,
-                devices: audioInputs,
-                isLoading: false,
-                error: 'Audio input device was disconnected.',
-              }));
+              handleLiveInputUnavailable('device-disconnected');
+              // Also update the devices list
+              setAudioInputDevices(prev => ({ ...prev, devices: audioInputs }));
               return;
             }
           }
@@ -768,49 +790,31 @@ export function T3kPlayerContextProvider({
     return () => {
       navigator.mediaDevices.removeEventListener('devicechange', handleDeviceChange);
     };
-  }, [microphonePermission.status, audioState.liveInputConfig, audioOutputDevices.selectedDeviceId]);
+  }, [microphonePermission.status, audioState.liveInputConfig, audioOutputDevices.selectedDeviceId, handleLiveInputUnavailable]);
+
+  // Track previous permission status to detect revocation
+  const prevPermissionStatusRef = useRef<MicrophonePermissionStatus>(microphonePermission.status);
 
   // Handle permission revocation while we have a live config
   useEffect(() => {
-    // Only act if permission was revoked while we have a configured live device
+    const prevStatus = prevPermissionStatusRef.current;
+    const currentStatus = microphonePermission.status;
+
+    // Update ref for next render
+    prevPermissionStatusRef.current = currentStatus;
+
+    // Detect transition FROM 'granted' to anything else while we have a live config
+    // This catches Chrome's 'prompt' state (our 'idle') when user revokes permission
     if (
-      microphonePermission.status !== 'granted' &&
-      microphonePermission.status !== 'pending' &&
+      prevStatus === 'granted' &&
+      currentStatus !== 'granted' &&
+      currentStatus !== 'pending' &&
       audioState.liveInputConfig !== null
     ) {
       console.warn('Microphone permission was revoked while in live mode');
-
-      const nodes = audioNodesRef.current;
-
-      // Clean up all live input nodes
-      cleanupLiveInputNodes(nodes);
-
-      // Clean up Firefox output routing and reconnect to default destination
-      cleanupFirefoxOutputRouting(nodes);
-
-      // Reconnect file source if available
-      if (nodes.sourceNode && nodes.inputGainNode) {
-        try {
-          nodes.sourceNode.connect(nodes.inputGainNode);
-        } catch {
-          // Source might already be connected
-        }
-      }
-
-      // Update state: clear liveInputConfig since permission was revoked
-      setAudioState(prev => ({
-        ...prev,
-        inputMode: { type: 'preview' },
-        liveInputConfig: null,
-      }));
-
-      // Set error message to notify user
-      setAudioInputDevices(prev => ({
-        ...prev,
-        error: 'Microphone permission was revoked. Please re-enable access in your browser settings.',
-      }));
+      handleLiveInputUnavailable('permission-revoked');
     }
-  }, [microphonePermission.status, audioState.liveInputConfig]);
+  }, [microphonePermission.status, audioState.liveInputConfig, handleLiveInputUnavailable]);
 
   /**
    * Initialize the audio system fully.
@@ -940,27 +944,6 @@ export function T3kPlayerContextProvider({
     [getAudioNodes]
   );
 
-  // Sync audio nodes with React state when initialization completes
-  // This ensures audio nodes reflect the current state even if state was set before init
-  useEffect(() => {
-    if (audioState.initState !== 'ready') return;
-
-    const nodes = getAudioNodes();
-    const { outputGainNode, bypassNode, audioContext } = nodes;
-
-    if (outputGainNode && audioContext) {
-      // Sync output gain with isPlaying state
-      const targetGain = audioState.isPlaying ? 1 : 0;
-      outputGainNode.gain.setTargetAtTime(targetGain, audioContext.currentTime, 0.01);
-    }
-
-    if (bypassNode && audioContext) {
-      // Sync bypass with isBypassed state
-      const targetGain = audioState.isBypassed ? 1 : 0;
-      bypassNode.gain.setTargetAtTime(targetGain, audioContext.currentTime, 0.01);
-    }
-  }, [audioState.initState, audioState.isPlaying, audioState.isBypassed, getAudioNodes]);
-
   // Internal model loading function used during init (bypasses isInitializingRef check)
   const loadModelInternal = async (modelUrl: string): Promise<void> => {
     // Fetch and process model file
@@ -1076,9 +1059,13 @@ export function T3kPlayerContextProvider({
   );
 
   // Load IR with configuration
+  // NOTE: This function uses a polling pattern to wait for audio nodes. This is defensive
+  // code for edge cases where loadIr might be called before audio nodes are fully available.
+  // In normal usage, callers should ensure init() has completed before calling loadIr().
+  // TODO: Consider removing polling and requiring callers to use isAudioReady() guard.
   const loadIr = useCallback(
     async ({ url, wetAmount = 1, gainAmount = 1 }: IrConfig): Promise<void> => {
-      // Poll for audio nodes with timeout
+      // Poll for audio nodes with timeout (defensive - see note above)
       const pollForNodes = async (): Promise<{
         audioContext: AudioContext;
         audioWorkletNode: AudioWorkletNode;
@@ -1205,6 +1192,11 @@ export function T3kPlayerContextProvider({
 
   // Toggle bypass
   const toggleBypass = useCallback((): void => {
+    if (!isAudioReady()) {
+      console.warn('Cannot toggle bypass: audio not initialized');
+      return;
+    }
+
     const nodes = getAudioNodes();
     const {
       audioWorkletNode,
@@ -1217,40 +1209,42 @@ export function T3kPlayerContextProvider({
       irGain,
     } = nodes;
 
-    if (!audioWorkletNode || !bypassNode || !audioContext)
-      return console.error('Audio nodes not initialized for bypass');
+    if (!audioWorkletNode || !audioContext || !bypassNode) {
+      console.warn('Cannot toggle bypass: required nodes not available');
+      return;
+    }
 
     const isBypassed = bypassNode.gain.value === 1;
 
     try {
       if (!isBypassed) {
         // Enable bypass
-        if (irNode && irWetGain && irDryGain && irGain) {
+        if (irNode && irWetGain && irDryGain && irGain && outputGainNode) {
           // Disconnect IR paths
           audioWorkletNode.disconnect(irNode);
           audioWorkletNode.disconnect(irDryGain);
           irNode.disconnect(irGain);
           irGain.disconnect(irWetGain);
-          irWetGain.disconnect(outputGainNode!);
-          irDryGain.disconnect(outputGainNode!);
-        } else {
+          irWetGain.disconnect(outputGainNode);
+          irDryGain.disconnect(outputGainNode);
+        } else if (outputGainNode) {
           // Disconnect direct path
-          audioWorkletNode.disconnect(outputGainNode!);
+          audioWorkletNode.disconnect(outputGainNode);
         }
         bypassNode.gain.setValueAtTime(1, audioContext.currentTime);
       } else {
         // Disable bypass
-        if (irNode && irWetGain && irDryGain && irGain) {
+        if (irNode && irWetGain && irDryGain && irGain && outputGainNode) {
           // Reconnect IR paths
           audioWorkletNode.connect(irNode);
           irNode.connect(irGain);
           irGain.connect(irWetGain);
-          irWetGain.connect(outputGainNode!);
+          irWetGain.connect(outputGainNode);
           audioWorkletNode.connect(irDryGain);
-          irDryGain.connect(outputGainNode!);
-        } else {
+          irDryGain.connect(outputGainNode);
+        } else if (outputGainNode) {
           // Reconnect direct path
-          audioWorkletNode.connect(outputGainNode!);
+          audioWorkletNode.connect(outputGainNode);
         }
         bypassNode.gain.setValueAtTime(0, audioContext.currentTime);
       }
@@ -1259,7 +1253,7 @@ export function T3kPlayerContextProvider({
     } catch (error) {
       console.error('Error toggling bypass:', error);
     }
-  }, [getAudioNodes]);
+  }, [isAudioReady, getAudioNodes]);
 
   // Connect visualizer
   const connectVisualizerNode = useCallback(
@@ -1322,11 +1316,17 @@ export function T3kPlayerContextProvider({
     const initialChannel = options?.initialChannel ?? 'first';
     const initialChannelGains = options?.initialChannelGains ?? { first: 0, second: 0 };
     const initialChannelIndex = initialChannel === 'first' ? 0 : 1;
+
+    // Use guard helper to verify initialization, but use getAudioNodes() for the actual
+    // reference since we need to mutate audioNodesRef.current (not a copy)
+    if (!isAudioReady()) {
+      throw new Error('Audio system not initialized. Call init() first.');
+    }
     const nodes = getAudioNodes();
     const { audioContext, inputMeterNode, sourceNode, audioElement } = nodes;
 
     if (!audioContext || !inputMeterNode) {
-      throw new Error('Audio system not initialized. Call init() first.');
+      throw new Error('Required audio nodes not available.');
     }
 
     // Take over audio engine: stop any current playback and reset ownership
@@ -1479,7 +1479,7 @@ export function T3kPlayerContextProvider({
       console.error('Error starting live input:', error);
       throw error;
     }
-  }, [getAudioNodes, audioOutputDevices.selectedDeviceId]);
+  }, [isAudioReady, getAudioNodes, audioOutputDevices.selectedDeviceId]);
 
   // Stop live audio input and prepare for preview mode takeover
   // Note: This preserves liveInputConfig so players can still see/use the configured device.
@@ -1686,6 +1686,13 @@ export function T3kPlayerContextProvider({
   // Set playing state (controls audioElement in preview mode, outputGainNode in live mode)
   // playerId identifies which player is taking control (required when playing=true)
   const setPlaying = useCallback((playing: boolean, playerId?: string): void => {
+    // Guard: require initialization when starting playback
+    // (stopping is always allowed to handle edge cases)
+    if (playing && !isAudioReady()) {
+      console.warn('Cannot start playback: audio not initialized');
+      return;
+    }
+
     const nodes = getAudioNodes();
     const { audioElement, outputGainNode, audioContext, mediaStream } = nodes;
 
@@ -1739,7 +1746,7 @@ export function T3kPlayerContextProvider({
       isPlaying: playing,
       activePlayerId: playing ? (playerId ?? prev.activePlayerId) : null,
     }));
-  }, [getAudioNodes, audioState.inputMode.type]);
+  }, [isAudioReady, getAudioNodes, audioState.inputMode.type]);
 
   // Memoize context value
   const contextValue = useMemo<T3kPlayerContextType>(
@@ -1749,6 +1756,7 @@ export function T3kPlayerContextProvider({
       audioInputDevices,
       audioOutputDevices,
       getAudioNodes,
+      isAudioReady,
       init,
       loadModel,
       loadAudio,
@@ -1776,6 +1784,7 @@ export function T3kPlayerContextProvider({
       audioInputDevices,
       audioOutputDevices,
       getAudioNodes,
+      isAudioReady,
       init,
       loadModel,
       loadAudio,

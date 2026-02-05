@@ -84,6 +84,44 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [bypassed, setBypassed] = useState(false);
 
+  // Helper: Sync this player's preferences to the audio engine when taking over
+  // This consolidates the model/IR/bypass sync logic that was duplicated in togglePlay
+  const syncPlayerToEngine = useCallback(async () => {
+    // Sync model if this player's selection differs from engine
+    if (!audioState.modelUrl || audioState.modelUrl !== selectedModel.url) {
+      await loadModel(selectedModel.url);
+    }
+
+    // Sync IR
+    if (selectedIr.url) {
+      if (!audioState.irUrl || audioState.irUrl !== selectedIr.url) {
+        await loadIr({
+          url: selectedIr.url,
+          wetAmount: selectedIr.mix,
+          gainAmount: selectedIr.gain,
+        });
+      }
+    } else if (audioState.irUrl) {
+      removeIr();
+    }
+
+    // Sync bypass state
+    if (audioState.isBypassed !== bypassed) {
+      toggleBypass();
+    }
+  }, [
+    audioState.modelUrl,
+    audioState.irUrl,
+    audioState.isBypassed,
+    selectedModel.url,
+    selectedIr,
+    bypassed,
+    loadModel,
+    loadIr,
+    removeIr,
+    toggleBypass,
+  ]);
+
   // Refs
   const visualizerRef = useRef<HTMLCanvasElement>(null);
   const visualizerNodeRef = useRef<AnalyserNode | null>(null);
@@ -202,12 +240,11 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
 
   // Event handlers
   const togglePlay = useCallback(async () => {
-    // This player wants to use live input
     const wantsLiveInput = sourceMode === 'live';
-    // The audio engine is currently using live input
     const liveInputActive = audioState.inputMode.type === 'live';
+    const isThisPlayerActive = audioState.activePlayerId === id;
 
-    // Live mode: toggle via context (handles output gain)
+    // === LIVE MODE ===
     if (wantsLiveInput) {
       const { audioContext } = getAudioNodes();
 
@@ -224,31 +261,10 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
         await audioContext.resume();
       }
 
-      // Sync model with selection
-      if (!audioState.modelUrl || audioState.modelUrl !== selectedModel.url) {
-        await loadModel(selectedModel.url);
-      }
+      // Sync this player's settings to engine
+      await syncPlayerToEngine();
 
-      // Sync IR with selection
-      if (selectedIr.url) {
-        if (!audioState.irUrl || audioState.irUrl !== selectedIr.url) {
-          await loadIr({
-            url: selectedIr.url,
-            wetAmount: selectedIr.mix,
-            gainAmount: selectedIr.gain,
-          });
-        }
-      } else {
-        removeIr();
-      }
-
-      // Sync bypass state when this player takes over
-      if (audioState.isBypassed !== bypassed) {
-        toggleBypass();
-      }
-
-      // Toggle: if this player is active, stop; otherwise start
-      const isThisPlayerActive = audioState.activePlayerId === id;
+      // Toggle playback
       if (isThisPlayerActive) {
         setPlaying(false);
       } else {
@@ -257,52 +273,30 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
       return;
     }
 
-    // Preview mode: standard file playback
-    // If live input is active, stop it first (take over audio engine)
+    // === PREVIEW MODE ===
     if (liveInputActive) {
       stopLiveInput();
     }
 
     setIsLoading(true);
-    if (audioState.initState !== 'ready') await init({ audioUrl: selectedInput.url });
 
     try {
-      // Check if THIS player is currently playing (not just any player)
-      const isThisPlayerActiveInToggle = audioState.activePlayerId === id;
+      if (audioState.initState !== 'ready') {
+        await init({ audioUrl: selectedInput.url });
+      }
 
-      if (isThisPlayerActiveInToggle) {
-        // Pause playback
+      if (isThisPlayerActive) {
         setPlaying(false);
       } else {
-        // Load audio if needed
+        // Load audio file if needed
         if (!audioState.audioUrl || audioState.audioUrl !== selectedInput.url) {
           await loadAudio(selectedInput.url);
         }
 
-        // Load model if needed
-        if (!audioState.modelUrl || audioState.modelUrl !== selectedModel.url) {
-          await loadModel(selectedModel.url);
-        }
+        // Sync this player's settings to engine
+        await syncPlayerToEngine();
 
-        // Handle IR loading
-        if (selectedIr.url) {
-          if (!audioState.irUrl || audioState.irUrl !== selectedIr.url) {
-            await loadIr({
-              url: selectedIr.url,
-              wetAmount: selectedIr.mix,
-              gainAmount: selectedIr.gain,
-            });
-          }
-        } else {
-          removeIr();
-        }
-
-        // Sync bypass state when this player takes over
-        if (audioState.isBypassed !== bypassed) {
-          toggleBypass();
-        }
-
-        // Start playback via context (handles audioElement.play() and state)
+        // Start playback
         setPlaying(true, id);
 
         onPlay?.({
@@ -319,23 +313,23 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
     }
   }, [
     id,
-    getAudioNodes,
-    audioState,
+    audioState.inputMode.type,
+    audioState.activePlayerId,
+    audioState.liveInputConfig,
+    audioState.initState,
+    audioState.audioUrl,
     sourceMode,
     selectedInput,
     selectedModel,
     selectedIr,
+    getAudioNodes,
     init,
     loadAudio,
-    loadModel,
-    loadIr,
-    removeIr,
     startLiveInput,
     stopLiveInput,
-    onPlay,
     setPlaying,
-    bypassed,
-    toggleBypass,
+    syncPlayerToEngine,
+    onPlay,
   ]);
 
   const handleSkipToStart = useCallback(() => {
