@@ -62,9 +62,9 @@ interface AudioNodes {
   channelMergerNode: ChannelMergerNode | null;
   channel0PreviewMeter: AnalyserNode | null;
   channel1PreviewMeter: AnalyserNode | null;
-  // Firefox audio output workaround
-  firefoxOutputDestination: MediaStreamAudioDestinationNode | null;
-  firefoxOutputElement: HTMLAudioElement | null;
+  // Output device routing workaround (Firefox/Safari don't support AudioContext.setSinkId)
+  outputWorkaroundDestination: MediaStreamAudioDestinationNode | null;
+  outputWorkaroundElement: HTMLAudioElement | null;
 }
 
 // Explicit initialization states for visibility into the init process
@@ -231,9 +231,8 @@ export function T3kPlayerContextProvider({
     channelMergerNode: null,
     channel0PreviewMeter: null,
     channel1PreviewMeter: null,
-    // Firefox audio output workaround
-    firefoxOutputDestination: null,
-    firefoxOutputElement: null,
+    outputWorkaroundDestination: null,
+    outputWorkaroundElement: null,
   });
 
   const isInitializingRef = useRef<boolean>(false);
@@ -286,41 +285,30 @@ export function T3kPlayerContextProvider({
     }
   };
 
-  // Helper: Clean up Firefox output routing and reconnect outputMeterNode to default destination
-  // This is used when transitioning away from Firefox's HTMLAudioElement workaround
-  const cleanupFirefoxOutputRouting = (nodes: AudioNodes): void => {
-    // Track if Firefox routing was active (need to know for proper cleanup)
-    const hadFirefoxRouting = nodes.firefoxOutputElement !== null || nodes.firefoxOutputDestination !== null;
+  // Clean up output device workaround routing (Firefox/Safari) and reconnect to default destination
+  const cleanupOutputWorkaroundRouting = (nodes: AudioNodes): void => {
+    const hadWorkaroundRouting = nodes.outputWorkaroundElement !== null || nodes.outputWorkaroundDestination !== null;
 
-    if (nodes.firefoxOutputElement) {
-      nodes.firefoxOutputElement.pause();
-      nodes.firefoxOutputElement.srcObject = null;
-      nodes.firefoxOutputElement = null;
+    if (nodes.outputWorkaroundElement) {
+      nodes.outputWorkaroundElement.pause();
+      nodes.outputWorkaroundElement.srcObject = null;
+      nodes.outputWorkaroundElement = null;
     }
-    if (nodes.firefoxOutputDestination) {
-      nodes.firefoxOutputDestination.disconnect();
-      nodes.firefoxOutputDestination = null;
+    if (nodes.outputWorkaroundDestination) {
+      nodes.outputWorkaroundDestination.disconnect();
+      nodes.outputWorkaroundDestination = null;
     }
 
-    // Reconnect outputMeterNode to destination
-    // If Firefox routing was active, outputMeterNode was connected to firefoxOutputDestination,
-    // so we need to disconnect it first to avoid having multiple output connections
     if (nodes.outputMeterNode && nodes.audioContext) {
-      if (hadFirefoxRouting) {
-        // Firefox routing was active - disconnect from old destination before reconnecting
+      if (hadWorkaroundRouting) {
         try {
           nodes.outputMeterNode.disconnect();
-        } catch {
-          // May not have any connections
-        }
+        } catch { /* no connections */ }
         nodes.outputMeterNode.connect(nodes.audioContext.destination);
       } else {
-        // No Firefox routing was active - just try to connect (may already be connected)
         try {
           nodes.outputMeterNode.connect(nodes.audioContext.destination);
-        } catch {
-          // Already connected
-        }
+        } catch { /* already connected */ }
       }
     }
   };
@@ -329,15 +317,12 @@ export function T3kPlayerContextProvider({
   // Used by stopLiveInput, clearLiveInputConfig, and handleLiveInputUnavailable.
   const teardownLiveInput = (nodes: AudioNodes, options: { muteOutput: boolean }): void => {
     cleanupLiveInputNodes(nodes);
-    cleanupFirefoxOutputRouting(nodes);
+    cleanupOutputWorkaroundRouting(nodes);
 
     // Reconnect file source to restore preview path
     if (nodes.sourceNode && nodes.inputGainNode) {
-      try {
-        nodes.sourceNode.connect(nodes.inputGainNode);
-      } catch {
-        // Source might already be connected
-      }
+      try { nodes.sourceNode.disconnect(nodes.inputGainNode); } catch { /* not connected */ }
+      nodes.sourceNode.connect(nodes.inputGainNode);
     }
 
     if (options.muteOutput && nodes.outputGainNode && nodes.audioContext) {
@@ -380,9 +365,7 @@ export function T3kPlayerContextProvider({
     showToast(toastMessages[reason]);
   }, []);
 
-  // Helper: Apply output device routing with browser-specific handling
-  // Firefox and Safari require MediaStreamDestination + HTMLAudioElement workaround
-  // Chrome can use AudioContext.setSinkId directly
+  // Apply output device routing with browser-specific handling
   const applyOutputDeviceRouting = async (
     nodes: AudioNodes,
     deviceId: string | null
@@ -391,34 +374,29 @@ export function T3kPlayerContextProvider({
     if (!audioContext || !outputMeterNode) return;
 
     if (needsMediaStreamWorkaround) {
-      // Firefox/Safari: Must route through MediaStreamDestination + HTMLAudioElement
-      // Always clean up existing Firefox audio elements first
-      if (nodes.firefoxOutputElement) {
-        nodes.firefoxOutputElement.pause();
-        nodes.firefoxOutputElement.srcObject = null;
-        nodes.firefoxOutputElement = null;
+      // Route through MediaStreamDestination + HTMLAudioElement
+      if (nodes.outputWorkaroundElement) {
+        nodes.outputWorkaroundElement.pause();
+        nodes.outputWorkaroundElement.srcObject = null;
+        nodes.outputWorkaroundElement = null;
       }
-      if (nodes.firefoxOutputDestination) {
-        nodes.firefoxOutputDestination.disconnect();
-        nodes.firefoxOutputDestination = null;
+      if (nodes.outputWorkaroundDestination) {
+        nodes.outputWorkaroundDestination.disconnect();
+        nodes.outputWorkaroundDestination = null;
       }
 
-      // Disconnect ALL outputs from outputMeterNode to ensure clean state
       try {
         outputMeterNode.disconnect();
-      } catch {
-        // May not have any connections
-      }
+      } catch { /* no connections */ }
 
       if (deviceId) {
-        // Specific device selected - route through HTMLAudioElement with setSinkId
         const mediaStreamDestination = audioContext.createMediaStreamDestination();
-        nodes.firefoxOutputDestination = mediaStreamDestination;
+        nodes.outputWorkaroundDestination = mediaStreamDestination;
         outputMeterNode.connect(mediaStreamDestination);
 
         const outputElement = new Audio();
         outputElement.srcObject = mediaStreamDestination.stream;
-        nodes.firefoxOutputElement = outputElement;
+        nodes.outputWorkaroundElement = outputElement;
 
         const elementWithSinkId = outputElement as HTMLAudioElement & { setSinkId?: (sinkId: string) => Promise<void> };
         if (typeof elementWithSinkId.setSinkId === 'function') {
@@ -427,11 +405,9 @@ export function T3kPlayerContextProvider({
 
         await outputElement.play();
       } else {
-        // System default selected - reconnect to normal destination
         outputMeterNode.connect(audioContext.destination);
       }
     } else {
-      // Chrome: Use AudioContext.setSinkId directly
       const contextWithSinkId = audioContext as AudioContext & { setSinkId?: (sinkId: string) => Promise<void> };
       if (typeof contextWithSinkId.setSinkId === 'function') {
         try {
@@ -452,7 +428,7 @@ export function T3kPlayerContextProvider({
       if (result.state === 'denied') return 'blocked'; // Permanently blocked in browser settings
       return 'idle'; // 'prompt' state means user hasn't decided yet
     } catch {
-      // Permissions API not supported (e.g., Firefox for microphone)
+      // Permissions API not supported for microphone (e.g., Firefox)
       return 'idle';
     }
   }, []);
@@ -888,7 +864,7 @@ export function T3kPlayerContextProvider({
             nodes.bypassNode = new GainNode(context, { gain: 0 });
 
             // Create metering nodes
-            const meterConfig = { fftSize: 256, smoothingTimeConstant: 0.3 };
+            const meterConfig = { fftSize: 128, smoothingTimeConstant: 0.3 };
             nodes.inputMeterNode = new AnalyserNode(context, meterConfig);
             nodes.outputMeterNode = new AnalyserNode(context, meterConfig);
 
@@ -1217,7 +1193,7 @@ export function T3kPlayerContextProvider({
       return;
     }
 
-    const currentlyBypassed = bypassNode.gain.value === 1;
+    const currentlyBypassed = bypassNode.gain.value > 0.5;
     if (currentlyBypassed === bypassed) return; // already in desired state
 
     try {
@@ -1235,7 +1211,7 @@ export function T3kPlayerContextProvider({
           // Disconnect direct path
           audioWorkletNode.disconnect(outputGainNode);
         }
-        bypassNode.gain.setValueAtTime(1, audioContext.currentTime);
+        bypassNode.gain.setTargetAtTime(1, audioContext.currentTime, 0.002);
       } else {
         // Disable bypass
         if (irNode && irWetGain && irDryGain && irGain && outputGainNode) {
@@ -1250,7 +1226,7 @@ export function T3kPlayerContextProvider({
           // Reconnect direct path
           audioWorkletNode.connect(outputGainNode);
         }
-        bypassNode.gain.setValueAtTime(0, audioContext.currentTime);
+        bypassNode.gain.setTargetAtTime(0, audioContext.currentTime, 0.002);
       }
 
       setAudioState(prev => ({ ...prev, isBypassed: bypassed }));
@@ -1306,24 +1282,61 @@ export function T3kPlayerContextProvider({
   // Cleanup
   const cleanup = useCallback((): void => {
     const nodes = getAudioNodes();
-    const { audioElement } = nodes;
+    const { audioElement, audioContext } = nodes;
 
     // Stop file playback
     if (audioElement) {
       audioElement.pause();
       audioElement.currentTime = 0;
+      audioElement.remove();
     }
 
     // Clean up all live input nodes
     cleanupLiveInputNodes(nodes);
 
-    // Clean up Firefox output routing and reconnect to default destination
-    cleanupFirefoxOutputRouting(nodes);
+    cleanupOutputWorkaroundRouting(nodes);
 
     removeIr();
 
+    // Disconnect all core audio nodes
+    const coreNodes: (AudioNode | null)[] = [
+      nodes.inputGainNode,
+      nodes.outputGainNode,
+      nodes.bypassNode,
+      nodes.inputMeterNode,
+      nodes.outputMeterNode,
+      nodes.sourceNode,
+      nodes.audioWorkletNode,
+    ];
+    for (const node of coreNodes) {
+      try { node?.disconnect(); } catch { /* already disconnected */ }
+    }
+
+    // Close AudioContext
+    if (audioContext && audioContext.state !== 'closed') {
+      audioContext.close();
+    }
+
+    // Null out all node references
+    nodes.audioContext = null;
+    nodes.audioElement = null;
+    nodes.audioWorkletNode = null;
+    nodes.inputGainNode = null;
+    nodes.outputGainNode = null;
+    nodes.bypassNode = null;
+    nodes.sourceNode = null;
+    nodes.inputMeterNode = null;
+    nodes.outputMeterNode = null;
+    nodes.irNode = null;
+    nodes.irWetGain = null;
+    nodes.irDryGain = null;
+    nodes.irGain = null;
+
+    isInitializedRef.current = false;
+
     setAudioState(prev => ({
       ...prev,
+      initState: 'uninitialized',
       isPlaying: false,
       activePlayerId: null,
       modelUrl: null,
@@ -1432,7 +1445,7 @@ export function T3kPlayerContextProvider({
       nodes.channelMergerNode = audioContext.createChannelMerger(1);
 
       // Create per-channel meters (post-gain, since gain is applied before splitting)
-      const meterConfig = { fftSize: 256, smoothingTimeConstant: 0.3 };
+      const meterConfig = { fftSize: 128, smoothingTimeConstant: 0.3 };
       nodes.channel0PreviewMeter = new AnalyserNode(audioContext, meterConfig);
       nodes.channel1PreviewMeter = new AnalyserNode(audioContext, meterConfig);
 
@@ -1473,8 +1486,7 @@ export function T3kPlayerContextProvider({
         await audioContext.resume();
       }
 
-      // Re-apply output device routing (handles Firefox workaround automatically)
-      // This is needed after changing input sources to maintain proper audio routing
+      // Re-apply output device routing after changing input sources
       const selectedOutputId = audioOutputDevices.selectedDeviceId;
       await applyOutputDeviceRouting(nodes, selectedOutputId);
     } catch (error) {
@@ -1646,7 +1658,7 @@ export function T3kPlayerContextProvider({
       return;
     }
 
-    // Apply output routing (handles Firefox workaround automatically)
+    // Apply output routing
     try {
       await applyOutputDeviceRouting(nodes, deviceId);
     } catch (error) {
@@ -1705,7 +1717,7 @@ export function T3kPlayerContextProvider({
     if (isActuallyLiveMode) {
       // Live mode: control output gain only (no audio element involved)
       if (outputGainNode && audioContext) {
-        // Resume context if suspended (required for Firefox)
+        // Resume context if suspended
         if (playing && audioContext.state === 'suspended') {
           audioContext.resume().catch(error => {
             console.error('Failed to resume audio context:', error);
@@ -1793,6 +1805,19 @@ export function T3kPlayerContextProvider({
       snapshot: null,
     }));
   }, [audioState.liveInputConfig, clearLiveInputConfig, startLiveInput, setPlaying, setOutputDevice, setBypass]);
+
+  // Full teardown on provider unmount (handles HMR/routing teardown)
+  useEffect(() => {
+    const nodesRef = audioNodesRef;
+    const initRef = isInitializedRef;
+    return () => {
+      const nodes = nodesRef.current;
+      if (nodes.audioContext && nodes.audioContext.state !== 'closed') {
+        nodes.audioContext.close();
+      }
+      initRef.current = false;
+    };
+  }, []);
 
   // Memoize context value
   const contextValue = useMemo<T3kPlayerContextType>(
@@ -1922,8 +1947,8 @@ export const useT3kPlayerContext = () => {
         channelMergerNode: null,
         channel0PreviewMeter: null,
         channel1PreviewMeter: null,
-        firefoxOutputDestination: null,
-        firefoxOutputElement: null,
+        outputWorkaroundDestination: null,
+        outputWorkaroundElement: null,
       }),
       init: async () => {},
       loadModel: async () => {},

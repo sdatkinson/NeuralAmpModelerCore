@@ -166,13 +166,9 @@ export const PlayerSettings: React.FC<PlayerSettingsProps> = ({
                   <Plug size={18} className='text-zinc-400 flex-shrink-0' />
                   <span className='text-ellipsis text-nowrap overflow-hidden min-w-0'>Enable Live Input</span>
                 </button>
-                {audioInputError ? (
+                {audioInputError && (
                   <span className='absolute top-full mt-1 text-xs text-red-400'>
                     {audioInputError}
-                  </span>
-                ) : (
-                  <span className='absolute top-full mt-1 text-xs text-zinc-500'>
-                    Use headphones to avoid feedback.
                   </span>
                 )}
               </div>

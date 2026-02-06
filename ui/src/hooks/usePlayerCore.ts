@@ -258,11 +258,12 @@ export function usePlayerCore(options: UsePlayerCoreOptions): UsePlayerCoreRetur
     const audioContext = getAudioNodes().audioContext;
     if (!audioContext) return;
 
-    const visualizer = setupVisualizer(visualizerRef.current, audioContext);
-    visualizerNodeRef.current = visualizer;
-    const disconnect = connectVisualizerNode(visualizer);
+    const { analyser, stop } = setupVisualizer(visualizerRef.current, audioContext);
+    visualizerNodeRef.current = analyser;
+    const disconnect = connectVisualizerNode(analyser);
 
     return () => {
+      stop();
       disconnect();
       visualizerNodeRef.current = null;
     };

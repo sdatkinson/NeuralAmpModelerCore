@@ -67,10 +67,14 @@ export function InputControlStrip({ isActive = true }: InputControlStripProps) {
     audioState.initState === 'ready'
   );
 
-  // Reset clip indicators when device, channel changes, or when becoming inactive
+  // Reset clip indicators when device, channel changes, or when becoming inactive (paused)
   const currentDeviceId = liveInputConfig?.deviceId;
   useEffect(() => {
     resetClipLatch('all');
+    // Also clear DOM directly — when isActive flips to false, resetClipLatch
+    // may have stale (undefined) clipRefs since they're conditionally passed
+    inputClipRef.current?.classList.remove('clipped');
+    outputClipRef.current?.classList.remove('clipped');
   }, [currentDeviceId, currentChannel, isActive, resetClipLatch]);
 
   // Don't render if audio not ready
