@@ -117,18 +117,12 @@ inline float swish(float x)
 
 inline float hardswish(float x)
 {
-  if (x <= -3.0)
-  {
-    return 0;
-  }
-  else if (x >= 3.0)
-  {
-    return x;
-  }
-  else
-  {
-    return x * (x + 3.0) / 6.0;
-  }
+  // Branchless implementation using clamp
+  // hardswish(x) = x * relu6(x + 3) / 6
+  //              = x * clamp(x + 3, 0, 6) / 6
+  const float t = x + 3.0f;
+  const float clamped = t < 0.0f ? 0.0f : (t > 6.0f ? 6.0f : t);
+  return x * clamped * (1.0f / 6.0f);
 }
 
 inline float softsign(float x)
@@ -241,9 +235,23 @@ class ActivationReLU : public Activation
 public:
   void apply(float* data, long size) override
   {
-    for (long pos = 0; pos < size; pos++)
+    // Optimized ReLU with loop unrolling
+    long pos = 0;
+    // Process 4 elements at a time
+    for (; pos + 3 < size; pos += 4)
     {
-      data[pos] = relu(data[pos]);
+      // Branchless ReLU using conditional
+      const float v0 = data[pos], v1 = data[pos + 1];
+      const float v2 = data[pos + 2], v3 = data[pos + 3];
+      data[pos]     = v0 > 0.0f ? v0 : 0.0f;
+      data[pos + 1] = v1 > 0.0f ? v1 : 0.0f;
+      data[pos + 2] = v2 > 0.0f ? v2 : 0.0f;
+      data[pos + 3] = v3 > 0.0f ? v3 : 0.0f;
+    }
+    // Handle remainder
+    for (; pos < size; pos++)
+    {
+      data[pos] = data[pos] > 0.0f ? data[pos] : 0.0f;
     }
   }
 };
@@ -308,7 +316,20 @@ class ActivationSigmoid : public Activation
 public:
   void apply(float* data, long size) override
   {
-    for (long pos = 0; pos < size; pos++)
+    long pos = 0;
+    // Process 4 elements at a time
+    for (; pos + 3 < size; pos += 4)
+    {
+      const float x0 = data[pos], x1 = data[pos + 1];
+      const float x2 = data[pos + 2], x3 = data[pos + 3];
+
+      data[pos]     = 1.0f / (1.0f + expf(-x0));
+      data[pos + 1] = 1.0f / (1.0f + expf(-x1));
+      data[pos + 2] = 1.0f / (1.0f + expf(-x2));
+      data[pos + 3] = 1.0f / (1.0f + expf(-x3));
+    }
+    // Handle remainder
+    for (; pos < size; pos++)
     {
       data[pos] = sigmoid(data[pos]);
     }
@@ -320,7 +341,25 @@ class ActivationSwish : public Activation
 public:
   void apply(float* data, long size) override
   {
-    for (long pos = 0; pos < size; pos++)
+    long pos = 0;
+    // Process 4 elements at a time: swish(x) = x * sigmoid(x) = x / (1 + exp(-x))
+    for (; pos + 3 < size; pos += 4)
+    {
+      const float x0 = data[pos], x1 = data[pos + 1];
+      const float x2 = data[pos + 2], x3 = data[pos + 3];
+
+      const float s0 = 1.0f / (1.0f + expf(-x0));
+      const float s1 = 1.0f / (1.0f + expf(-x1));
+      const float s2 = 1.0f / (1.0f + expf(-x2));
+      const float s3 = 1.0f / (1.0f + expf(-x3));
+
+      data[pos]     = x0 * s0;
+      data[pos + 1] = x1 * s1;
+      data[pos + 2] = x2 * s2;
+      data[pos + 3] = x3 * s3;
+    }
+    // Handle remainder
+    for (; pos < size; pos++)
     {
       data[pos] = swish(data[pos]);
     }
@@ -332,7 +371,29 @@ class ActivationHardSwish : public Activation
 public:
   void apply(float* data, long size) override
   {
-    for (long pos = 0; pos < size; pos++)
+    const float inv6 = 1.0f / 6.0f;
+    long pos = 0;
+    // Process 4 elements at a time
+    for (; pos + 3 < size; pos += 4)
+    {
+      const float x0 = data[pos], x1 = data[pos + 1];
+      const float x2 = data[pos + 2], x3 = data[pos + 3];
+
+      const float t0 = x0 + 3.0f, t1 = x1 + 3.0f;
+      const float t2 = x2 + 3.0f, t3 = x3 + 3.0f;
+
+      const float c0 = t0 < 0.0f ? 0.0f : (t0 > 6.0f ? 6.0f : t0);
+      const float c1 = t1 < 0.0f ? 0.0f : (t1 > 6.0f ? 6.0f : t1);
+      const float c2 = t2 < 0.0f ? 0.0f : (t2 > 6.0f ? 6.0f : t2);
+      const float c3 = t3 < 0.0f ? 0.0f : (t3 > 6.0f ? 6.0f : t3);
+
+      data[pos]     = x0 * c0 * inv6;
+      data[pos + 1] = x1 * c1 * inv6;
+      data[pos + 2] = x2 * c2 * inv6;
+      data[pos + 3] = x3 * c3 * inv6;
+    }
+    // Handle remainder
+    for (; pos < size; pos++)
     {
       data[pos] = hardswish(data[pos]);
     }
@@ -344,7 +405,20 @@ class ActivationSoftsign : public Activation
 public:
   void apply(float* data, long size) override
   {
-    for (long pos = 0; pos < size; pos++)
+    long pos = 0;
+    // Process 4 elements at a time
+    for (; pos + 3 < size; pos += 4)
+    {
+      const float x0 = data[pos], x1 = data[pos + 1];
+      const float x2 = data[pos + 2], x3 = data[pos + 3];
+
+      data[pos]     = x0 / (1.0f + fabsf(x0));
+      data[pos + 1] = x1 / (1.0f + fabsf(x1));
+      data[pos + 2] = x2 / (1.0f + fabsf(x2));
+      data[pos + 3] = x3 / (1.0f + fabsf(x3));
+    }
+    // Handle remainder
+    for (; pos < size; pos++)
     {
       data[pos] = softsign(data[pos]);
     }
@@ -373,8 +447,8 @@ public:
   // Fast lookup with linear interpolation
   inline float lookup(float x) const
   {
-    // Clamp input to range
-    x = std::clamp(x, min_x_, max_x_);
+    // Clamp input to range (inline to avoid header dependency)
+    x = x < min_x_ ? min_x_ : (x > max_x_ ? max_x_ : x);
 
     // Calculate float index
     float f_idx = (x - min_x_) * inv_step_;
