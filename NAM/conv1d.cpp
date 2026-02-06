@@ -1,4 +1,5 @@
 #include "conv1d.h"
+#include "profiling.h"
 #include <stdexcept>
 
 namespace nam
@@ -143,6 +144,9 @@ void Conv1D::SetMaxBufferSize(const int maxBufferSize)
 
 void Conv1D::Process(const Eigen::MatrixXf& input, const int num_frames)
 {
+  // Note: Profiling is done at the caller level (e.g., _Layer::Process in wavenet.cpp)
+  // to avoid double-counting when Conv1D is called from within profiled blocks.
+
   // Write input to ring buffer
   _input_buffer.Write(input, num_frames);
 
