@@ -42,7 +42,10 @@ export function GainControl({
   disabled = false,
 }: GainControlProps) {
   const knobRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editValue, setEditValue] = useState('');
   const dragStartRef = useRef<{ y: number; startValue: number } | null>(null);
 
   const clamp = useCallback(
@@ -59,29 +62,60 @@ export function GainControl({
     [min, max]
   );
 
-  // Handle text input change
+  // Handle text input change (only updates local state while editing)
   const handleInputChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      const parsed = parseFloat(e.target.value);
-      if (!isNaN(parsed)) {
-        onChange(clamp(parsed));
-      }
+      setEditValue(e.target.value);
     },
-    [onChange, clamp]
+    []
   );
+
+  // Commit the edit value to parent
+  const commitEdit = useCallback(() => {
+    const parsed = parseFloat(editValue);
+    if (!isNaN(parsed)) {
+      onChange(clamp(parsed));
+    }
+    setIsEditing(false);
+  }, [editValue, onChange, clamp]);
+
+  // Handle focus: enter editing mode
+  const handleFocus = useCallback(() => {
+    setEditValue(value.toFixed(1));
+    setIsEditing(true);
+    // Select all text after React re-renders with editValue
+    requestAnimationFrame(() => inputRef.current?.select());
+  }, [value]);
+
+  // Handle blur: commit and exit editing mode
+  const handleBlur = useCallback(() => {
+    commitEdit();
+  }, [commitEdit]);
 
   // Handle keyboard input
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLInputElement>) => {
-      if (e.key === 'ArrowUp') {
+      if (e.key === 'Enter') {
         e.preventDefault();
-        onChange(clamp(value + step));
+        commitEdit();
+        inputRef.current?.blur();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        setIsEditing(false);
+        inputRef.current?.blur();
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        const newValue = clamp(value + step);
+        onChange(newValue);
+        setEditValue(newValue.toFixed(1));
       } else if (e.key === 'ArrowDown') {
         e.preventDefault();
-        onChange(clamp(value - step));
+        const newValue = clamp(value - step);
+        onChange(newValue);
+        setEditValue(newValue.toFixed(1));
       }
     },
-    [onChange, value, step, clamp]
+    [commitEdit, onChange, value, step, clamp]
   );
 
   // Handle increment/decrement buttons
@@ -145,7 +179,9 @@ export function GainControl({
   // Handle double-click to reset to 0 dB
   const handleReset = useCallback(() => {
     if (disabled) return;
-    onChange(clamp(0));
+    const resetValue = clamp(0);
+    onChange(resetValue);
+    setEditValue(resetValue.toFixed(1));
   }, [disabled, onChange, clamp]);
 
   // Prevent scroll when hovering over knob
@@ -235,24 +271,22 @@ export function GainControl({
 
         <div className="relative">
           <input
-            type="number"
-            value={value.toFixed(1)}
+            ref={inputRef}
+            type="text"
+            inputMode="decimal"
+            value={isEditing ? editValue : value.toFixed(1)}
             onChange={handleInputChange}
+            onFocus={handleFocus}
+            onBlur={handleBlur}
             onKeyDown={handleKeyDown}
             onDoubleClick={handleReset}
             disabled={disabled}
-            min={min}
-            max={max}
-            step={step}
             className="
               w-14 h-5 px-1
               text-center text-xs text-zinc-300
               bg-transparent border-none
               focus:outline-none
               disabled:opacity-50 disabled:cursor-not-allowed
-              [appearance:textfield]
-              [&::-webkit-outer-spin-button]:appearance-none
-              [&::-webkit-inner-spin-button]:appearance-none
             "
             aria-label={`${label} value in dB`}
           />

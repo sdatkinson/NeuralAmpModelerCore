@@ -749,9 +749,8 @@ export function T3kPlayerContextProvider({
     deviceId?: string,
     options?: { initialChannel?: ChannelSelection; initialChannelGains?: Record<ChannelSelection, number> }
   ): Promise<void> => {
-    const initialChannel = options?.initialChannel ?? 'first';
+    const requestedChannel = options?.initialChannel ?? 'first';
     const initialChannelGains = options?.initialChannelGains ?? { first: 0, second: 0 };
-    const initialChannelIndex = initialChannel === 'first' ? 0 : 1;
 
     if (!isAudioReady()) {
       throw new Error('Audio system not initialized. Call init() first.');
@@ -816,6 +815,10 @@ export function T3kPlayerContextProvider({
       const settings = track.getSettings();
       const channelCount = settings.channelCount ?? 1;
       const actualDeviceId = settings.deviceId ?? deviceId ?? '';
+
+      // Clamp channel selection to what the device actually supports
+      const initialChannel = (channelCount > 1) ? requestedChannel : 'first';
+      const initialChannelIndex = initialChannel === 'first' ? 0 : 1;
 
       // Listen for track ending (device disconnected, permission revoked, etc.)
       // This is the most reliable signal — Chrome kills the track immediately on permission reset,
