@@ -68,9 +68,6 @@ interface T3kPlayerContextType {
   startLiveInput: (deviceId?: string, options?: { initialChannel?: ChannelSelection; initialChannelGains?: Record<ChannelSelection, number> }) => Promise<void>;
   reconnectLiveInput: () => Promise<void>;
   stopLiveInput: () => void;
-  clearLiveInputConfig: () => void;  // Explicitly clear saved config (used when user disconnects in settings)
-  setInputMode: (mode: InputMode) => void;
-  isLiveInputActive: () => boolean;
   selectLiveInputChannel: (channel: ChannelSelection) => void;
   setLiveInputGain: (gainDb: number) => void;
 
@@ -928,7 +925,7 @@ export function T3kPlayerContextProvider({
 
   // Clear the saved live input configuration (used when user explicitly disconnects in settings)
   // This stops live input if active AND clears the saved config so it won't auto-reconnect
-  const clearLiveInputConfig = useCallback((): void => {
+  const clearLiveInputConfig = (): void => {
     const nodes = getAudioNodes();
 
     // Stop live input if currently active
@@ -944,30 +941,7 @@ export function T3kPlayerContextProvider({
       isPlaying: false,
       activePlayerId: null,
     }));
-  }, [getAudioNodes]);
-
-  // Set input mode (switches between preview and live)
-  const setInputMode = useCallback((mode: InputMode): void => {
-    const nodes = getAudioNodes();
-    
-    if (mode.type === 'live' && !nodes.mediaStream) {
-      // If switching to live but no stream, caller should use startLiveInput
-      console.warn('No live input stream. Call startLiveInput() to enable live input.');
-      return;
-    }
-
-    if (mode.type === 'preview') {
-      stopLiveInput();
-    }
-
-    setAudioState(prev => ({ ...prev, inputMode: mode }));
-  }, [getAudioNodes, stopLiveInput]);
-
-  // Check if live input stream is actually active (hardware state)
-  const isLiveInputActive = useCallback((): boolean => {
-    const { mediaStream } = getAudioNodes();
-    return mediaStream !== null && mediaStream.active;
-  }, [getAudioNodes]);
+  };
 
   // Select which channel to route from live input to processing
   const selectLiveInputChannel = useCallback((channel: ChannelSelection): void => {
@@ -1176,7 +1150,7 @@ export function T3kPlayerContextProvider({
       isOpen: false,
       snapshot: null,
     }));
-  }, [audioState.liveInputConfig, clearLiveInputConfig, startLiveInput, setPlaying, setOutputDevice, setBypass]);
+  }, [audioState.liveInputConfig, startLiveInput, setPlaying, setOutputDevice, setBypass]);
 
   // Full teardown on provider unmount (handles HMR/routing teardown)
   useEffect(() => {
@@ -1212,9 +1186,6 @@ export function T3kPlayerContextProvider({
       startLiveInput,
       reconnectLiveInput,
       stopLiveInput,
-      clearLiveInputConfig,
-      setInputMode,
-      isLiveInputActive,
       selectLiveInputChannel,
       setLiveInputGain,
       setOutputDevice,
@@ -1245,9 +1216,6 @@ export function T3kPlayerContextProvider({
       startLiveInput,
       reconnectLiveInput,
       stopLiveInput,
-      clearLiveInputConfig,
-      setInputMode,
-      isLiveInputActive,
       selectLiveInputChannel,
       setLiveInputGain,
       setOutputDevice,
@@ -1299,9 +1267,6 @@ function createNoopContext(): T3kPlayerContextType {
     startLiveInput: async () => {},
     reconnectLiveInput: async () => {},
     stopLiveInput: () => {},
-    clearLiveInputConfig: () => {},
-    setInputMode: () => {},
-    isLiveInputActive: () => false,
     selectLiveInputChannel: () => {},
     setLiveInputGain: () => {},
     setOutputDevice: async () => {},
