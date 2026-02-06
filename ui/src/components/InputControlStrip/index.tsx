@@ -173,5 +173,3 @@ export function InputControlStrip({ isActive = true }: InputControlStripProps) {
     </div>
   );
 }
-
-export default InputControlStrip;

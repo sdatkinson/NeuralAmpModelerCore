@@ -6,7 +6,7 @@ import { Pause } from '../ui/Pause';
 import { LogoSm } from '../ui/LogoSm';
 import { DEFAULT_INPUTS, DEFAULT_MODELS, DEFAULT_IRS } from '../../constants';
 import { CircularLoader } from '../ui/CircularLoader';
-import { InputControlStrip } from '../ControlStrip';
+import { InputControlStrip } from '../InputControlStrip';
 import { usePlayerCore, formatTime } from '../../hooks/usePlayerCore';
 import { PlayerSettings } from './PlayerSettings';
 

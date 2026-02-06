@@ -1,1 +1,0 @@
-export { InputControlStrip } from './InputControlStrip';
