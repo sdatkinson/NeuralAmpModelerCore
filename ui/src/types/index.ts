@@ -102,6 +102,86 @@ export interface AudioOutputDeviceState {
   selectedDeviceId: string | null;  // null means system default
 }
 
+// All Web Audio API node references managed by the audio engine
+export interface AudioNodes {
+  audioContext: AudioContext | null;
+  audioElement: HTMLAudioElement | null;
+  audioWorkletNode: AudioWorkletNode | null;
+  inputGainNode: GainNode | null;
+  outputGainNode: GainNode | null;
+  bypassNode: GainNode | null;
+  irNode: ConvolverNode | null;
+  irWetGain: GainNode | null;
+  irDryGain: GainNode | null;
+  irGain: GainNode | null;
+  sourceNode: MediaElementAudioSourceNode | null;
+  // Live input nodes
+  liveSourceNode: MediaStreamAudioSourceNode | null;
+  liveInputGainNode: GainNode | null;
+  mediaStream: MediaStream | null;
+  // Metering nodes
+  inputMeterNode: AnalyserNode | null;
+  outputMeterNode: AnalyserNode | null;
+  // Channel selection (for multi-channel interfaces)
+  channelSplitterNode: ChannelSplitterNode | null;
+  channelMergerNode: ChannelMergerNode | null;
+  channel0PreviewMeter: AnalyserNode | null;
+  channel1PreviewMeter: AnalyserNode | null;
+  // Output device routing workaround (Firefox/Safari don't support AudioContext.setSinkId)
+  outputWorkaroundDestination: MediaStreamAudioDestinationNode | null;
+  outputWorkaroundElement: HTMLAudioElement | null;
+}
+
+// Explicit initialization states for visibility into the init process
+export type AudioInitState = 'uninitialized' | 'initializing' | 'ready';
+
+export interface AudioState {
+  initState: AudioInitState;
+  isPlaying: boolean;  // Whether audio is playing (preview) or monitoring (live)
+  activePlayerId: string | null;  // Which player is currently controlling playback
+  isBypassed: boolean;
+  modelUrl: string | null;
+  irUrl: string | null;
+  audioUrl: string | null;
+  // What audio source is currently active (connected to audio engine)
+  inputMode: InputMode;
+  // Configured live input settings (persists even when preview is active)
+  // This allows UI to show configured device while another player uses file playback
+  liveInputConfig: LiveInputConfig | null;
+}
+
+export interface IrConfig {
+  url: string;
+  wetAmount?: number;
+  gainAmount?: number;
+}
+
+// Default initial value for AudioNodes ref (all null)
+export const EMPTY_AUDIO_NODES: AudioNodes = {
+  audioContext: null,
+  audioElement: null,
+  audioWorkletNode: null,
+  inputGainNode: null,
+  outputGainNode: null,
+  bypassNode: null,
+  irNode: null,
+  irWetGain: null,
+  irDryGain: null,
+  irGain: null,
+  sourceNode: null,
+  liveSourceNode: null,
+  liveInputGainNode: null,
+  mediaStream: null,
+  inputMeterNode: null,
+  outputMeterNode: null,
+  channelSplitterNode: null,
+  channelMergerNode: null,
+  channel0PreviewMeter: null,
+  channel1PreviewMeter: null,
+  outputWorkaroundDestination: null,
+  outputWorkaroundElement: null,
+};
+
 // Utility type to ensure non-empty arrays
 type NonEmptyArray<T> = [T, ...T[]];
 

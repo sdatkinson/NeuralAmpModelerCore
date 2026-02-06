@@ -11,11 +11,10 @@ import React, {
 import { useModule } from '../hooks/useModule';
 import { readModel } from '../utils/readModel';
 import { DEFAULT_AUDIO_SRC, DEFAULT_MODELS } from '../constants';
-import { InputMode, LiveInputConfig, AudioInputDevice, AudioOutputDevice, MicrophonePermissionStatus, MicrophonePermissionState, AudioInputDeviceState, AudioOutputDeviceState, ChannelSelection, SettingsSnapshot, SettingsDialogState, SourceMode, Model, IR } from '../types';
+import { InputMode, AudioInputDevice, MicrophonePermissionState, AudioInputDeviceState, AudioOutputDeviceState, ChannelSelection, SettingsSnapshot, SettingsDialogState, SourceMode, Model, IR, AudioNodes, AudioState, IrConfig, EMPTY_AUDIO_NODES } from '../types';
 import { dbToLinear } from '../utils/metering';
-import { showToast } from '../hooks/useToast';
-import { isFirefox, isSafari, needsMediaStreamWorkaround } from '../utils/browser';
-import { mapDevices } from '../utils/devices';
+import { cleanupLiveInputNodes, cleanupOutputWorkaroundRouting, teardownLiveInput, applyOutputDeviceRouting } from '../utils/audioNodes';
+import { useAudioDevicesAndPermissions } from '../hooks/useAudioDevicesAndPermissions';
 
 /**
  * Audio Initialization Flow
@@ -36,60 +35,6 @@ import { mapDevices } from '../utils/devices';
  *
  * After await init(), all audio nodes are guaranteed to exist.
  */
-
-// Types
-interface AudioNodes {
-  audioContext: AudioContext | null;
-  audioElement: HTMLAudioElement | null;
-  audioWorkletNode: AudioWorkletNode | null;
-  inputGainNode: GainNode | null;
-  outputGainNode: GainNode | null;
-  bypassNode: GainNode | null;
-  irNode: ConvolverNode | null;
-  irWetGain: GainNode | null;
-  irDryGain: GainNode | null;
-  irGain: GainNode | null;
-  sourceNode: MediaElementAudioSourceNode | null;
-  // Live input nodes
-  liveSourceNode: MediaStreamAudioSourceNode | null;
-  liveInputGainNode: GainNode | null;
-  mediaStream: MediaStream | null;
-  // Metering nodes
-  inputMeterNode: AnalyserNode | null;
-  outputMeterNode: AnalyserNode | null;
-  // Channel selection (for multi-channel interfaces)
-  channelSplitterNode: ChannelSplitterNode | null;
-  channelMergerNode: ChannelMergerNode | null;
-  channel0PreviewMeter: AnalyserNode | null;
-  channel1PreviewMeter: AnalyserNode | null;
-  // Output device routing workaround (Firefox/Safari don't support AudioContext.setSinkId)
-  outputWorkaroundDestination: MediaStreamAudioDestinationNode | null;
-  outputWorkaroundElement: HTMLAudioElement | null;
-}
-
-// Explicit initialization states for visibility into the init process
-type AudioInitState = 'uninitialized' | 'initializing' | 'ready';
-
-interface AudioState {
-  initState: AudioInitState;
-  isPlaying: boolean;  // Whether audio is playing (preview) or monitoring (live)
-  activePlayerId: string | null;  // Which player is currently controlling playback
-  isBypassed: boolean;
-  modelUrl: string | null;
-  irUrl: string | null;
-  audioUrl: string | null;
-  // What audio source is currently active (connected to audio engine)
-  inputMode: InputMode;
-  // Configured live input settings (persists even when preview is active)
-  // This allows UI to show configured device while another player uses file playback
-  liveInputConfig: LiveInputConfig | null;
-}
-
-interface IrConfig {
-  url: string;
-  wetAmount?: number;
-  gainAmount?: number;
-}
 
 interface T3kPlayerContextType {
   // State
@@ -173,28 +118,6 @@ export function T3kPlayerContextProvider({
     liveInputConfig: null,
   });
 
-  // Microphone permission state (permission concerns only)
-  const [microphonePermission, setMicrophonePermission] = useState<MicrophonePermissionState>({
-    status: 'idle',
-    error: null,
-  });
-  const microphonePermissionRef = useRef(microphonePermission);
-  microphonePermissionRef.current = microphonePermission;
-
-  // Audio input device state (device concerns only)
-  const [audioInputDevices, setAudioInputDevices] = useState<AudioInputDeviceState>({
-    devices: [],
-    isLoading: false,
-    error: null,
-    preferredDeviceId: null,
-  });
-
-  // Audio output device state
-  const [audioOutputDevices, setAudioOutputDevices] = useState<AudioOutputDeviceState>({
-    devices: [],
-    selectedDeviceId: null,  // null = system default
-  });
-
   // Settings dialog state (global, single instance)
   const [settingsDialog, setSettingsDialog] = useState<SettingsDialogState>({
     isOpen: false,
@@ -208,32 +131,7 @@ export function T3kPlayerContextProvider({
   });
 
   // Refs for non-render-triggering data
-  const audioNodesRef = useRef<AudioNodes>({
-    audioContext: null,
-    audioElement: null,
-    audioWorkletNode: null,
-    inputGainNode: null,
-    outputGainNode: null,
-    bypassNode: null,
-    irNode: null,
-    irWetGain: null,
-    irDryGain: null,
-    irGain: null,
-    sourceNode: null,
-    liveSourceNode: null,
-    liveInputGainNode: null,
-    mediaStream: null,
-    // Metering nodes
-    inputMeterNode: null,
-    outputMeterNode: null,
-    // Channel selection
-    channelSplitterNode: null,
-    channelMergerNode: null,
-    channel0PreviewMeter: null,
-    channel1PreviewMeter: null,
-    outputWorkaroundDestination: null,
-    outputWorkaroundElement: null,
-  });
+  const audioNodesRef = useRef<AudioNodes>({ ...EMPTY_AUDIO_NODES });
 
   const isInitializingRef = useRef<boolean>(false);
   const isInitializedRef = useRef<boolean>(false);
@@ -252,536 +150,36 @@ export function T3kPlayerContextProvider({
     return !!(nodes.audioContext && nodes.audioWorkletNode);
   }, []);
 
-  // Helper: Clean up all live input nodes (mediaStream, source, gain, splitter, merger, meters)
-  // This is used by startLiveInput, stopLiveInput, cleanup, and event handlers
-  const cleanupLiveInputNodes = (nodes: AudioNodes): void => {
-    if (nodes.mediaStream) {
-      nodes.mediaStream.getTracks().forEach(track => track.stop());
-      nodes.mediaStream = null;
-    }
-    if (nodes.liveSourceNode) {
-      nodes.liveSourceNode.disconnect();
-      nodes.liveSourceNode = null;
-    }
-    if (nodes.liveInputGainNode) {
-      nodes.liveInputGainNode.disconnect();
-      nodes.liveInputGainNode = null;
-    }
-    if (nodes.channelSplitterNode) {
-      nodes.channelSplitterNode.disconnect();
-      nodes.channelSplitterNode = null;
-    }
-    if (nodes.channelMergerNode) {
-      nodes.channelMergerNode.disconnect();
-      nodes.channelMergerNode = null;
-    }
-    if (nodes.channel0PreviewMeter) {
-      nodes.channel0PreviewMeter.disconnect();
-      nodes.channel0PreviewMeter = null;
-    }
-    if (nodes.channel1PreviewMeter) {
-      nodes.channel1PreviewMeter.disconnect();
-      nodes.channel1PreviewMeter = null;
-    }
-  };
-
-  // Clean up output device workaround routing (Firefox/Safari) and reconnect to default destination
-  const cleanupOutputWorkaroundRouting = (nodes: AudioNodes): void => {
-    const hadWorkaroundRouting = nodes.outputWorkaroundElement !== null || nodes.outputWorkaroundDestination !== null;
-
-    if (nodes.outputWorkaroundElement) {
-      nodes.outputWorkaroundElement.pause();
-      nodes.outputWorkaroundElement.srcObject = null;
-      nodes.outputWorkaroundElement = null;
-    }
-    if (nodes.outputWorkaroundDestination) {
-      nodes.outputWorkaroundDestination.disconnect();
-      nodes.outputWorkaroundDestination = null;
-    }
-
-    if (nodes.outputMeterNode && nodes.audioContext) {
-      if (hadWorkaroundRouting) {
-        try {
-          nodes.outputMeterNode.disconnect();
-        } catch { /* no connections */ }
-        nodes.outputMeterNode.connect(nodes.audioContext.destination);
-      } else {
-        try {
-          nodes.outputMeterNode.connect(nodes.audioContext.destination);
-        } catch { /* already connected */ }
-      }
-    }
-  };
-
-  // Helper: Tear down live input audio nodes and restore the preview signal path.
-  // Used by stopLiveInput, clearLiveInputConfig, and handleLiveInputUnavailable.
-  const teardownLiveInput = (nodes: AudioNodes, options: { muteOutput: boolean }): void => {
-    cleanupLiveInputNodes(nodes);
-    cleanupOutputWorkaroundRouting(nodes);
-
-    // Reconnect file source to restore preview path
-    if (nodes.sourceNode && nodes.inputGainNode) {
-      try { nodes.sourceNode.disconnect(nodes.inputGainNode); } catch { /* not connected */ }
-      nodes.sourceNode.connect(nodes.inputGainNode);
-    }
-
-    if (options.muteOutput && nodes.outputGainNode && nodes.audioContext) {
-      nodes.outputGainNode.gain.setTargetAtTime(0, nodes.audioContext.currentTime, 0.01);
-    }
-  };
-
-  // Helper: Handle live input becoming unavailable (device disconnected or permission revoked)
-  // Cleans up audio nodes, reverts to preview mode, and sets an error message
-  type LiveInputUnavailableReason = 'device-disconnected' | 'permission-revoked';
-
-  const handleLiveInputUnavailable = useCallback((reason: LiveInputUnavailableReason): void => {
-    teardownLiveInput(audioNodesRef.current, { muteOutput: false });
-
-    // Revert to preview mode and clear live config
-    setAudioState(prev => ({
-      ...prev,
-      inputMode: { type: 'preview' },
-      liveInputConfig: null,
-      isPlaying: false,
-      activePlayerId: null,
-    }));
-
-    // Set appropriate error message (persistent, shown in live input UI)
-    const errorMessages: Record<LiveInputUnavailableReason, string> = {
-      'device-disconnected': 'Audio input device was disconnected.',
-      'permission-revoked': 'Microphone permission was revoked. Please re-enable access in your browser settings.',
-    };
-
-    setAudioInputDevices(prev => ({
-      ...prev,
-      error: errorMessages[reason],
-    }));
-
-    // Immediate feedback via toast (visible regardless of which player/mode is shown)
-    const toastMessages: Record<LiveInputUnavailableReason, string> = {
-      'device-disconnected': 'Audio input device disconnected',
-      'permission-revoked': 'Microphone permission revoked',
-    };
-    showToast(toastMessages[reason]);
-  }, []);
-
-  // Apply output device routing with browser-specific handling
-  const applyOutputDeviceRouting = async (
-    nodes: AudioNodes,
-    deviceId: string | null
-  ): Promise<void> => {
-    const { audioContext, outputMeterNode } = nodes;
-    if (!audioContext || !outputMeterNode) return;
-
-    if (needsMediaStreamWorkaround) {
-      // Route through MediaStreamDestination + HTMLAudioElement
-      if (nodes.outputWorkaroundElement) {
-        nodes.outputWorkaroundElement.pause();
-        nodes.outputWorkaroundElement.srcObject = null;
-        nodes.outputWorkaroundElement = null;
-      }
-      if (nodes.outputWorkaroundDestination) {
-        nodes.outputWorkaroundDestination.disconnect();
-        nodes.outputWorkaroundDestination = null;
-      }
-
-      try {
-        outputMeterNode.disconnect();
-      } catch { /* no connections */ }
-
-      if (deviceId) {
-        const mediaStreamDestination = audioContext.createMediaStreamDestination();
-        nodes.outputWorkaroundDestination = mediaStreamDestination;
-        outputMeterNode.connect(mediaStreamDestination);
-
-        const outputElement = new Audio();
-        outputElement.srcObject = mediaStreamDestination.stream;
-        nodes.outputWorkaroundElement = outputElement;
-
-        const elementWithSinkId = outputElement as HTMLAudioElement & { setSinkId?: (sinkId: string) => Promise<void> };
-        if (typeof elementWithSinkId.setSinkId === 'function') {
-          await elementWithSinkId.setSinkId(deviceId);
-        }
-
-        await outputElement.play();
-      } else {
-        outputMeterNode.connect(audioContext.destination);
-      }
-    } else {
-      const contextWithSinkId = audioContext as AudioContext & { setSinkId?: (sinkId: string) => Promise<void> };
-      if (typeof contextWithSinkId.setSinkId === 'function') {
-        try {
-          await contextWithSinkId.setSinkId(deviceId ?? '');
-        } catch (e) {
-          console.warn('[Audio] Failed to set AudioContext sink:', e);
-        }
-      }
-    }
-  };
-
-  // Query browser's microphone permission state
-  const queryBrowserPermission = useCallback(async (): Promise<MicrophonePermissionStatus> => {
-    try {
-      // Note: 'microphone' requires casting as it's not in all TypeScript definitions
-      const result = await navigator.permissions.query({ name: 'microphone' as PermissionName });
-      if (result.state === 'granted') return 'granted';
-      if (result.state === 'denied') return 'blocked'; // Permanently blocked in browser settings
-      return 'idle'; // 'prompt' state means user hasn't decided yet
-    } catch {
-      // Permissions API not supported for microphone (e.g., Firefox)
-      return 'idle';
-    }
-  }, []);
-
-  // Query permission state on mount and listen for changes
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    let mounted = true;
-
-    const checkPermission = async () => {
-      const status = await queryBrowserPermission();
-      if (mounted) {
-        setMicrophonePermission(prev => ({
-          ...prev,
-          status,
-          // Clear error if permission was granted
-          error: status === 'granted' ? null : prev.error,
-        }));
-      }
-    };
-
-    checkPermission();
-
-    // Listen for permission changes
-    const setupPermissionListener = async () => {
-      try {
-        const result = await navigator.permissions.query({ name: 'microphone' as PermissionName });
-
-        const handleChange = () => {
-          if (!mounted) return;
-          if (result.state === 'granted') {
-            setMicrophonePermission(prev => ({
-              ...prev,
-              status: 'granted',
-              error: null,
-            }));
-          } else if (result.state === 'denied') {
-            // Browser 'denied' state means permanently blocked
-            setMicrophonePermission(prev => ({
-              ...prev,
-              status: 'blocked',
-              error: 'Microphone access is blocked. Please enable it in your browser settings.',
-            }));
-          } else {
-            setMicrophonePermission(prev => ({
-              ...prev,
-              status: 'idle',
-            }));
-          }
-        };
-
-        result.addEventListener('change', handleChange);
-        return () => result.removeEventListener('change', handleChange);
-      } catch {
-        // Permissions API not supported
-        return undefined;
-      }
-    };
-
-    let cleanupListener: (() => void) | undefined;
-    setupPermissionListener().then(cleanup => {
-      cleanupListener = cleanup;
-    });
-
-    return () => {
-      mounted = false;
-      cleanupListener?.();
-    };
-  }, [queryBrowserPermission]);
-
-  // Request microphone permission (permission concerns only)
-  // Returns the device ID the user selected in the browser's permission dialog
-  const requestMicrophonePermission = useCallback(async (): Promise<string | null> => {
-    const previousStatus = microphonePermissionRef.current.status;
-    setMicrophonePermission({
-      status: 'pending',
-      error: null,
-    });
-
-    // Start loading devices in parallel
-    setAudioInputDevices(prev => ({
-      ...prev,
-      isLoading: true,
-      error: null,
-    }));
-
-    try {
-      // Request permission - capture stream to detect device user selected in browser
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-
-      // Get the device ID the user selected in the browser's permission dialog
-      const track = stream.getAudioTracks()[0];
-      const selectedDeviceId = track?.getSettings()?.deviceId ?? null;
-
-      // Stop the stream - we only needed it to get permission and device selection
-      // startLiveInput will create a new stream with proper settings when user saves
-      stream.getTracks().forEach(t => t.stop());
-
-      // Permission granted
-      setMicrophonePermission({
-        status: 'granted',
-        error: null,
-      });
-
-      // Enumerate devices after permission is granted
-      const allDevices = await navigator.mediaDevices.enumerateDevices();
-      const audioInputs = mapDevices(allDevices, 'audioinput');
-
-      setAudioInputDevices({
-        devices: audioInputs,
-        isLoading: false,
-        error: audioInputs.length === 0 ? 'No audio input devices found.' : null,
-        preferredDeviceId: selectedDeviceId,
-      });
-
-      return selectedDeviceId;
-    } catch (error) {
-      // Stop device loading
-      setAudioInputDevices(prev => ({
+  // Audio device management, permissions, and hot-plug detection
+  const {
+    microphonePermission,
+    audioInputDevices,
+    audioOutputDevices,
+    requestMicrophonePermission,
+    refreshAudioDevices,
+    refreshAudioOutputDevices,
+    setOutputDevice,
+    handleLiveInputUnavailable,
+  } = useAudioDevicesAndPermissions({
+    applyOutputRouting: useCallback(async (deviceId: string | null) => {
+      const nodes = audioNodesRef.current;
+      if (!nodes.audioContext || !nodes.outputMeterNode) return;
+      await applyOutputDeviceRouting(nodes, deviceId);
+    }, []),
+    teardownLiveInput: useCallback(() => {
+      teardownLiveInput(audioNodesRef.current, { muteOutput: false });
+    }, []),
+    onLiveInputLost: useCallback(() => {
+      setAudioState(prev => ({
         ...prev,
-        isLoading: false,
+        inputMode: { type: 'preview' },
+        liveInputConfig: null,
+        isPlaying: false,
+        activePlayerId: null,
       }));
-
-      // Determine if this was a permission denial or other error
-      if (error instanceof DOMException) {
-        if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-          // Check if permanently blocked via Permissions API
-          const permissionState = await queryBrowserPermission();
-          // Firefox doesn't support Permissions API for microphone, so queryBrowserPermission
-          // returns 'idle'. If we already tried once (status is 'denied') and get denied again,
-          // Firefox won't re-prompt — treat as blocked.
-          const alreadyDenied = previousStatus === 'denied';
-          if (permissionState === 'blocked' || (permissionState === 'idle' && alreadyDenied)) {
-            setMicrophonePermission({
-              status: 'blocked',
-              error: 'Microphone access is blocked. Please enable it in your browser settings.',
-            });
-          } else {
-            // First denial or Permissions API not supported - can retry once
-            setMicrophonePermission({
-              status: 'denied',
-              error: 'Microphone access was denied. Please try again.',
-            });
-          }
-        } else if (error.name === 'NotFoundError') {
-          setMicrophonePermission({
-            status: 'error',
-            error: 'No microphone or audio input device was found.',
-          });
-        } else if (error.name === 'NotReadableError') {
-          setMicrophonePermission({
-            status: 'error',
-            error: 'Your microphone is being used by another application.',
-          });
-        } else {
-          setMicrophonePermission({
-            status: 'error',
-            error: error.message,
-          });
-        }
-      } else {
-        setMicrophonePermission({
-          status: 'error',
-          error: 'An unexpected error occurred. Please try again.',
-        });
-      }
-      throw error;
-    }
-  }, []);
-
-  // Refresh audio input devices (device concerns only)
-  const refreshAudioDevices = useCallback(async (): Promise<{ inputDevices: AudioInputDevice[]; preferredDeviceId: string | null }> => {
-    // First check permission state via Permissions API
-    const permApiStatus = await queryBrowserPermission();
-
-    // If Permissions API says granted or blocked, trust it
-    if (permApiStatus === 'granted' || permApiStatus === 'blocked') {
-      setMicrophonePermission(prev => ({
-        ...prev,
-        status: permApiStatus,
-        error: permApiStatus === 'granted' ? null : prev.error,
-      }));
-
-      if (permApiStatus === 'blocked') {
-        return { inputDevices: [], preferredDeviceId: null };
-      }
-    }
-
-    // For Firefox (or when Permissions API returns 'idle'), we need to check differently:
-    // Try enumerating devices - if we get labels, we have permission
-    setAudioInputDevices(prev => ({
-      ...prev,
-      isLoading: true,
-      error: null,
-    }));
-
-    try {
-      let allDevices = await navigator.mediaDevices.enumerateDevices();
-      let audioInputs = allDevices.filter(device => device.kind === 'audioinput');
-
-      // Check if we have device labels (indicates permission was granted)
-      // Firefox returns empty labels until getUserMedia is called in this session
-      const hasLabels = audioInputs.some(device => device.label && device.label.length > 0);
-
-      if (!hasLabels) {
-        // No labels - need to call getUserMedia to get proper device info
-        // This happens on Firefox even when Permissions API says 'granted'
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-          stream.getTracks().forEach(t => t.stop());
-
-          // Re-enumerate after getting permission
-          allDevices = await navigator.mediaDevices.enumerateDevices();
-          audioInputs = allDevices.filter(device => device.kind === 'audioinput');
-
-          setMicrophonePermission({
-            status: 'granted',
-            error: null,
-          });
-        } catch (error) {
-          // getUserMedia failed - user denied or no devices
-          if (error instanceof DOMException &&
-              (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError')) {
-            setMicrophonePermission(prev => ({
-              ...prev,
-              status: 'denied',
-              error: null,
-            }));
-            setAudioInputDevices(prev => ({
-              ...prev,
-              isLoading: false,
-            }));
-            return { inputDevices: [], preferredDeviceId: null };
-          }
-          // Other error - continue with what we have
-        }
-      } else if (hasLabels) {
-        // We have labels, so permission is granted
-        setMicrophonePermission(prev => ({
-          ...prev,
-          status: 'granted',
-          error: null,
-        }));
-      }
-
-      const mappedInputDevices = mapDevices(allDevices, 'audioinput');
-
-      // Also enumerate output devices
-      const mappedOutputDevices = mapDevices(allDevices, 'audiooutput');
-
-      setAudioInputDevices(prev => ({
-        ...prev,
-        devices: mappedInputDevices,
-        isLoading: false,
-        error: mappedInputDevices.length === 0 ? 'No audio input devices found.' : null,
-      }));
-
-      setAudioOutputDevices(prev => ({
-        ...prev,
-        devices: mappedOutputDevices,
-      }));
-
-      return { inputDevices: mappedInputDevices, preferredDeviceId: audioInputDevices.preferredDeviceId };
-    } catch {
-      setAudioInputDevices(prev => ({
-        ...prev,
-        isLoading: false,
-        error: 'Failed to enumerate audio devices.',
-      }));
-      return { inputDevices: [], preferredDeviceId: null };
-    }
-  }, [queryBrowserPermission, audioInputDevices.preferredDeviceId]);
-
-  // Refresh audio output devices only (no microphone permission required)
-  // Use this when you only need output device list without triggering permission prompts
-  const refreshAudioOutputDevices = useCallback(async (): Promise<void> => {
-    try {
-      const allDevices = await navigator.mediaDevices.enumerateDevices();
-      const mappedOutputDevices = mapDevices(allDevices, 'audiooutput');
-
-      setAudioOutputDevices(prev => ({
-        ...prev,
-        devices: mappedOutputDevices,
-      }));
-    } catch (error) {
-      console.error('Error enumerating output devices:', error);
-    }
-  }, []);
-
-  // Listen for device changes (connect/disconnect)
-  useEffect(() => {
-    if (typeof window === 'undefined' || !navigator.mediaDevices) return;
-
-    const handleDeviceChange = async () => {
-      // Only refresh if we already have permission
-      if (microphonePermission.status === 'granted') {
-        try {
-          const allDevices = await navigator.mediaDevices.enumerateDevices();
-          const audioInputs = mapDevices(allDevices, 'audioinput');
-
-          // Check if configured device was disconnected
-          const configuredDeviceId = audioState.liveInputConfig?.deviceId;
-          if (configuredDeviceId) {
-            const configuredDeviceStillExists = audioInputs.some(d => d.deviceId === configuredDeviceId);
-
-            if (!configuredDeviceStillExists) {
-              console.warn('Configured audio input device was disconnected');
-              handleLiveInputUnavailable('device-disconnected');
-              // Also update the devices list
-              setAudioInputDevices(prev => ({ ...prev, devices: audioInputs }));
-              return;
-            }
-          }
-
-          setAudioInputDevices(prev => ({
-            ...prev,
-            devices: audioInputs,
-            error: audioInputs.length === 0 ? 'All audio devices have been disconnected.' : null,
-          }));
-
-          // Update output device list and check if selected was disconnected
-          const audioOutputs = mapDevices(allDevices, 'audiooutput');
-
-          const currentOutputId = audioOutputDevices.selectedDeviceId;
-          const selectedOutputStillExists = currentOutputId === null ||
-            audioOutputs.some(d => d.deviceId === currentOutputId);
-
-          setAudioOutputDevices(prev => ({
-            ...prev,
-            devices: audioOutputs,
-          }));
-
-          // If selected output was disconnected, fall back to system default
-          if (!selectedOutputStillExists) {
-            console.warn('Selected audio output device was disconnected, falling back to system default');
-            setOutputDevice(null);
-            showToast('Output switched to default');
-          }
-        } catch {
-          setAudioInputDevices(prev => ({
-            ...prev,
-            error: 'Failed to refresh device list.',
-          }));
-        }
-      }
-    };
-
-    navigator.mediaDevices.addEventListener('devicechange', handleDeviceChange);
-    return () => {
-      navigator.mediaDevices.removeEventListener('devicechange', handleDeviceChange);
-    };
-  }, [microphonePermission.status, audioState.liveInputConfig, audioOutputDevices.selectedDeviceId, handleLiveInputUnavailable]);
+    }, []),
+    liveInputConfig: audioState.liveInputConfig,
+  });
 
 
   /**
@@ -1641,32 +1039,6 @@ export function T3kPlayerContextProvider({
     });
   }, [getAudioNodes]);
 
-  // Set output device for audio playback
-  const setOutputDevice = useCallback(async (deviceId: string | null): Promise<void> => {
-    const nodes = getAudioNodes();
-    const { audioContext, outputMeterNode } = nodes;
-    const previousDeviceId = audioOutputDevices.selectedDeviceId;
-
-    // Update state optimistically
-    setAudioOutputDevices(prev => ({
-      ...prev,
-      selectedDeviceId: deviceId,
-    }));
-
-    // If no audio context or output meter node yet, just save the preference
-    if (!audioContext || !outputMeterNode) {
-      return;
-    }
-
-    // Apply output routing
-    try {
-      await applyOutputDeviceRouting(nodes, deviceId);
-    } catch (error) {
-      console.warn('[Audio] Failed to set output device, reverting:', error);
-      setAudioOutputDevices(prev => ({ ...prev, selectedDeviceId: previousDeviceId }));
-    }
-  }, [getAudioNodes, audioOutputDevices.selectedDeviceId]);
-
   // Open the global settings dialog with a snapshot of current state
   const openSettingsDialog = useCallback((config: {
     sourceMode: SourceMode;
@@ -1896,94 +1268,60 @@ export function T3kPlayerContextProvider({
   );
 }
 
-// Custom hook with SSR support
-export const useT3kPlayerContext = () => {
-  if (typeof window === 'undefined') {
-    // Return SSR-safe defaults
-    return {
-      audioState: {
-        initState: 'uninitialized' as AudioInitState,
-        isPlaying: false,
-        activePlayerId: null,
-        isBypassed: false,
-        modelUrl: null,
-        irUrl: null,
-        audioUrl: null,
-        inputMode: { type: 'preview' } as InputMode,
-        liveInputConfig: null,
-      },
-      microphonePermission: {
-        status: 'idle' as const,
-        error: null,
-      },
-      audioInputDevices: {
-        devices: [],
-        isLoading: false,
-        error: null,
-        preferredDeviceId: null,
-      },
-      audioOutputDevices: {
-        devices: [],
-        selectedDeviceId: null,
-      },
-      getAudioNodes: () => ({
-        audioContext: null,
-        audioElement: null,
-        audioWorkletNode: null,
-        inputGainNode: null,
-        outputGainNode: null,
-        bypassNode: null,
-        irNode: null,
-        irWetGain: null,
-        irDryGain: null,
-        irGain: null,
-        sourceNode: null,
-        liveSourceNode: null,
-        liveInputGainNode: null,
-        mediaStream: null,
-        inputMeterNode: null,
-        outputMeterNode: null,
-        channelSplitterNode: null,
-        channelMergerNode: null,
-        channel0PreviewMeter: null,
-        channel1PreviewMeter: null,
-        outputWorkaroundDestination: null,
-        outputWorkaroundElement: null,
-      }),
-      init: async () => {},
-      loadModel: async () => {},
-      loadAudio: async () => {},
-      loadIr: async () => {},
-      removeIr: () => {},
-      setBypass: () => {},
-      syncEngineSettings: async () => {},
-      cleanup: () => {},
-      connectVisualizerNode: () => () => {},
-      startLiveInput: async () => {},
-      reconnectLiveInput: async () => {},
-      stopLiveInput: () => {},
-      clearLiveInputConfig: () => {},
-      setInputMode: () => {},
-      isLiveInputActive: () => false,
-      selectLiveInputChannel: () => {},
-      setLiveInputGain: () => {},
-      setOutputDevice: async () => {},
-      setPlaying: (() => {}) as T3kPlayerContextType['setPlaying'],
-      requestMicrophonePermission: async () => null,
-      refreshAudioDevices: async () => ({ inputDevices: [], preferredDeviceId: null }),
-      refreshAudioOutputDevices: async () => {},
-      settingsDialog: {
-        isOpen: false,
-        sourceMode: 'preview',
-        snapshot: null,
-        hadExistingConfig: false,
-      } as SettingsDialogState,
-      openSettingsDialog: () => {},
-      closeSettingsDialog: () => {},
-    };
-  }
+// SSR-safe defaults (no-op implementations for server-side rendering)
+function createNoopContext(): T3kPlayerContextType {
+  return {
+    audioState: {
+      initState: 'uninitialized',
+      isPlaying: false,
+      activePlayerId: null,
+      isBypassed: false,
+      modelUrl: null,
+      irUrl: null,
+      audioUrl: null,
+      inputMode: { type: 'preview' },
+      liveInputConfig: null,
+    },
+    microphonePermission: { status: 'idle', error: null },
+    audioInputDevices: { devices: [], isLoading: false, error: null, preferredDeviceId: null },
+    audioOutputDevices: { devices: [], selectedDeviceId: null },
+    getAudioNodes: () => ({ ...EMPTY_AUDIO_NODES }),
+    isAudioReady: () => false,
+    init: async () => {},
+    loadModel: async () => {},
+    loadAudio: async () => {},
+    loadIr: async () => {},
+    removeIr: () => {},
+    setBypass: () => {},
+    syncEngineSettings: async () => {},
+    cleanup: () => {},
+    connectVisualizerNode: () => () => {},
+    startLiveInput: async () => {},
+    reconnectLiveInput: async () => {},
+    stopLiveInput: () => {},
+    clearLiveInputConfig: () => {},
+    setInputMode: () => {},
+    isLiveInputActive: () => false,
+    selectLiveInputChannel: () => {},
+    setLiveInputGain: () => {},
+    setOutputDevice: async () => {},
+    setPlaying: (() => {}) as T3kPlayerContextType['setPlaying'],
+    requestMicrophonePermission: async () => null,
+    refreshAudioDevices: async () => ({ inputDevices: [], preferredDeviceId: null }),
+    refreshAudioOutputDevices: async () => {},
+    settingsDialog: { isOpen: false, sourceMode: 'preview', snapshot: null, hadExistingConfig: false },
+    openSettingsDialog: () => {},
+    closeSettingsDialog: () => {},
+  };
+}
 
+// Custom hook — useContext is called unconditionally to satisfy Rules of Hooks
+export function useT3kPlayerContext(): T3kPlayerContextType {
   const context = useContext(T3kPlayerContext);
+
+  if (typeof window === 'undefined') {
+    return createNoopContext();
+  }
 
   if (!context) {
     throw new Error(
@@ -1992,4 +1330,4 @@ export const useT3kPlayerContext = () => {
   }
 
   return context;
-};
+}
