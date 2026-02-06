@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { T3kPlayer } from './components/T3kPlayer';
 import T3kAcordianPlayer from './components/Player/AcordianPlayer';
+import T3kSlimPlayer from './components/Player/SlimPlayer';
 import { T3kPlayerProvider } from './context/T3kPlayerProvider';
 import './index.css';
 import { PREVIEW_MODE } from './types';
@@ -12,6 +13,20 @@ const PreviewContent: React.FC = () => {
     <div className='neural-amp-modeler' style={{ minHeight: '100vh' }}>
       <div className='p-5 flex justify-center items-center'>
         <div className='flex flex-col gap-4 max-w-[700px] w-full'>
+          <div className='flex items-center gap-3 p-3 rounded-lg bg-zinc-900 border border-zinc-800'>
+            <T3kSlimPlayer
+              id='slim-player-1'
+              getData={async () => ({
+                model: DEFAULT_MODELS[0],
+                ir: DEFAULT_IRS[0],
+                input: DEFAULT_INPUTS[0],
+              })}
+              onPlay={({ model, input, ir }) =>
+                console.log('slim play', { model, input, ir })
+              }
+            />
+            <span className='text-sm text-zinc-400'>Slim Player — {DEFAULT_MODELS[0].name}</span>
+          </div>
           <T3kPlayer
             id='model-player'
             isLoading={false}

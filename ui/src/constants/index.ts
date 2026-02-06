@@ -246,3 +246,8 @@ export const DEFAULT_INPUTS = (isDev
 export const DEFAULT_AUDIO_SRC = isDev
   ? '/inputs/placeholder.wav'
   : githubBaseUrl + '/inputs/placeholder.wav';
+
+export const SOURCE_MODE_OPTIONS: Array<{ value: 'preview' | 'live'; label: string }> = [
+  { value: 'preview', label: 'Preview' },
+  { value: 'live', label: 'Live' },
+];

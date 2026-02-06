@@ -27,6 +27,7 @@ export function useSourceMode(options: UseSourceModeOptions = {}): UseSourceMode
     audioState,
     audioInputDevices,
     startLiveInput,
+    reconnectLiveInput,
     setPlaying,
   } = useT3kPlayerContext();
 
@@ -59,13 +60,7 @@ export function useSourceMode(options: UseSourceModeOptions = {}): UseSourceMode
 
         // If live input is already active (another player started it), just switch mode
         // If not active but we have a config, reconnect using the saved config
-        const liveAlreadyActive = audioState.inputMode.type === 'live';
-        if (!liveAlreadyActive && audioState.liveInputConfig) {
-          await startLiveInput(audioState.liveInputConfig.deviceId, {
-            initialChannel: audioState.liveInputConfig.selectedChannel,
-            initialChannelGains: audioState.liveInputConfig.channelGains,
-          });
-        }
+        await reconnectLiveInput();
       } else {
         // Switching from Live to Preview
         setShowPlaybackPausedMessage(false);
@@ -82,12 +77,10 @@ export function useSourceMode(options: UseSourceModeOptions = {}): UseSourceMode
     [
       sourceMode,
       audioState.isPlaying,
-      audioState.inputMode.type,
-      audioState.liveInputConfig,
       audioState.activePlayerId,
       playerId,
       setPlaying,
-      startLiveInput,
+      reconnectLiveInput,
       onSourceModeChange,
     ]
   );

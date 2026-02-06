@@ -1,6 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
-import { AudioInputDevice, AudioOutputDevice, ChannelSelection } from '../../../types';
+import { AudioInputDevice, AudioOutputDevice, ChannelSelection, SourceMode } from '../../../types';
 import { Button } from '../../ui/Button';
 import { Alert } from '../../ui/Alert';
 import { InlineAlert } from '../../ui/InlineAlert';
@@ -10,8 +10,7 @@ import { ClipIndicator } from '../../ui/ClipIndicator';
 import { GainControl } from '../../ui/GainControl';
 import { Select } from '../../ui/Select';
 import { useMeterAnimation } from '../../../hooks/useMeterAnimation';
-
-type SourceMode = 'preview' | 'live';
+import { isSafari, needsMediaStreamWorkaround } from '../../../utils/browser';
 
 interface DeviceChannelContentProps {
   sourceMode: SourceMode;
@@ -76,9 +75,6 @@ export const DeviceChannelContent: React.FC<DeviceChannelContentProps> = ({
 
   const hasDevices = devices.length > 0;
   const isStereo = channelCount >= 2;
-  const ua = typeof navigator !== 'undefined' ? navigator.userAgent.toLowerCase() : '';
-  const isSafari = ua.includes('safari') && !ua.includes('chrome');
-  const needsMediaStreamWorkaround = ua.includes('firefox') || isSafari;
 
   const isLiveMode = sourceMode === 'live';
 

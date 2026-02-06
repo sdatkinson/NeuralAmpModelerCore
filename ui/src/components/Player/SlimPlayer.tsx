@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useEffect, useState } from 'react';
+import React, { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { useT3kPlayerContext } from '../../context/T3kPlayerContext';
 import { T3kSlimPlayerProps } from '../../types';
 import { Play } from '../ui/Play';
@@ -15,114 +15,99 @@ const SlimPlayerFC: React.FC<T3kSlimPlayerProps> = ({
     audioState,
     getAudioNodes,
     init,
-    loadModel,
     loadAudio,
-    loadIr,
-    removeIr,
-    cleanup,
+    syncEngineSettings,
+    setPlaying,
+    stopLiveInput,
   } = useT3kPlayerContext();
 
-  // State
-  const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Setup unload effect to cleanup audio context
-  useEffect(() => {
-    return () => {
-      cleanup();
-    };
-  }, [cleanup]);
-
-  // Setup play event listener
-  useEffect(() => {
-    if (!id) return;
-    const handlePlay = (event: Event) => {
-      if ((event as CustomEvent).detail.id !== id) {
-        setIsPlaying(false);
-      }
-    };
-    window.addEventListener('t3k-player-play', handlePlay);
-    return () => window.removeEventListener('t3k-player-play', handlePlay);
-  }, [id]);
-
-  // Event handlers
-  const togglePlay = useCallback(async () => {
-    setIsLoading(true);
-    const { model, ir, input } = await getData();
-    if (!model || !ir || !input) {
-      console.error('Error getting data:');
-      setIsLoading(false);
-      return;
+  // Cache getData result so we don't re-fetch on every toggle
+  const dataRef = useRef<Awaited<ReturnType<typeof getData>> | null>(null);
+  const getDataCached = useCallback(async () => {
+    if (!dataRef.current) {
+      dataRef.current = await getData();
     }
-    if (audioState.initState !== 'ready') await init({ audioUrl: input.url });
-    const nodes = getAudioNodes();
-    const { audioElement, audioContext } = nodes;
+    return dataRef.current;
+  }, [getData]);
+
+  const isThisPlayerActive = audioState.activePlayerId === id;
+
+  // Listen for audio ended — reset playback when this player is active
+  useEffect(() => {
+    if (!isThisPlayerActive) return;
+
+    const audioElement = getAudioNodes().audioElement;
+    if (!audioElement) return;
+
+    const handleEnded = () => setPlaying(false);
+
+    audioElement.addEventListener('ended', handleEnded);
+    return () => {
+      audioElement.removeEventListener('ended', handleEnded);
+    };
+  }, [getAudioNodes, isThisPlayerActive, setPlaying]);
+
+  const togglePlay = useCallback(async () => {
+    if (!id) return;
+
+    // Stop live input if engine is in live mode
+    const { mediaStream } = getAudioNodes();
+    if (mediaStream?.active) {
+      stopLiveInput();
+    }
+
+    setIsLoading(true);
 
     try {
-      if (isPlaying) {
-        if (audioElement) audioElement.pause();
-        setIsPlaying(false);
-      } else {
-        // Ensure audio context is running
-        if (audioContext) {
-          await audioContext.resume();
-        }
+      const { model, ir, input } = await getDataCached();
+      if (!model || !ir || !input) {
+        console.error('SlimPlayer: getData returned incomplete data');
+        return;
+      }
 
+      if (audioState.initState !== 'ready') {
+        await init({ audioUrl: input.url });
+      }
+
+      if (isThisPlayerActive) {
+        setPlaying(false);
+      } else {
         // Load audio if needed
         if (!audioState.audioUrl || audioState.audioUrl !== input.url) {
           await loadAudio(input.url);
         }
 
-        // Load model if needed
-        if (!audioState.modelUrl || audioState.modelUrl !== model.url) {
-          await loadModel(model.url);
-        }
-
-        // Handle IR loading
-        if (ir.url) {
-          if (!audioState.irUrl || audioState.irUrl !== ir.url) {
-            await loadIr({
-              url: ir.url,
-              wetAmount: ir.mix,
-              gainAmount: ir.gain,
-            });
-          }
-        } else {
-          removeIr();
-        }
-
-        if (audioElement) await audioElement.play();
-        setIsPlaying(true);
-        if (id) {
-          try {
-            // Emit play event to window
-            window.dispatchEvent(
-              new CustomEvent('t3k-player-play', { detail: { id } })
-            );
-          } catch (error) {
-            console.error('Error emitting play event:', error);
-          }
-        }
-        onPlay?.({
-          model: model,
-          ir: ir,
-          input: input,
+        // Sync engine settings (model, IR, bypass)
+        await syncEngineSettings({
+          modelUrl: model.url,
+          ir: { url: ir.url, mix: ir.mix, gain: ir.gain },
+          bypassed: false,
         });
+
+        setPlaying(true, id);
+
+        onPlay?.({ model, ir, input });
       }
     } catch (error) {
       console.error('Error in togglePlay:', error);
-      setIsPlaying(false);
+      setPlaying(false);
     } finally {
       setIsLoading(false);
     }
   }, [
-    isPlaying,
+    id,
     getAudioNodes,
-    audioState,
+    stopLiveInput,
+    getDataCached,
+    audioState.initState,
+    audioState.audioUrl,
+    isThisPlayerActive,
+    init,
     loadAudio,
-    loadModel,
-    loadIr,
-    removeIr,
+    syncEngineSettings,
+    setPlaying,
     onPlay,
   ]);
 
@@ -130,9 +115,9 @@ const SlimPlayerFC: React.FC<T3kSlimPlayerProps> = ({
     <button
       onClick={togglePlay}
       className='p-0 focus:outline-none'
-      aria-label={isPlaying ? 'Pause' : 'Play'}
+      aria-label={isThisPlayerActive ? 'Pause' : 'Play'}
     >
-      {isPlaying ? (
+      {isThisPlayerActive ? (
         <Pause size={size} />
       ) : isLoading ? (
         <CircularLoader size={size} />
@@ -148,7 +133,7 @@ const T3kSlimPlayer = memo(
     return <SlimPlayerFC {...props} />;
   },
   (prevProps, nextProps) => {
-    return JSON.stringify(prevProps.id) === JSON.stringify(nextProps.id);
+    return prevProps.id === nextProps.id;
   }
 );
 

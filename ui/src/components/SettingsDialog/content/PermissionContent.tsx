@@ -2,9 +2,7 @@ import React from 'react';
 import { Mic, Loader2 } from 'lucide-react';
 import { Button } from '../../ui/Button';
 import { Alert } from '../../ui/Alert';
-import { MicrophonePermissionStatus } from '../../../types';
-
-type SourceMode = 'preview' | 'live';
+import { MicrophonePermissionStatus, SourceMode } from '../../../types';
 
 interface PermissionContentProps {
   status: MicrophonePermissionStatus;

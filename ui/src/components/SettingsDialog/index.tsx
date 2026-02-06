@@ -1,11 +1,11 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { Dialog } from '../ui/Dialog';
 import { Button } from '../ui/Button';
 import { PermissionContent } from './content/PermissionContent';
 import { DeviceChannelContent } from './content/DeviceChannelContent';
 import { useT3kPlayerContext } from '../../context/T3kPlayerContext';
-import { ChannelSelection, Model, IR, SourceMode } from '../../types';
+import { Model, IR, SourceMode } from '../../types';
 
 interface SettingsDialogProps {
   isOpen: boolean;
@@ -37,6 +37,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
     requestMicrophonePermission,
     refreshAudioDevices,
     startLiveInput,
+    reconnectLiveInput,
     selectLiveInputChannel,
     setLiveInputGain,
     syncEngineSettings,
@@ -101,32 +102,30 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
     initAndStartLiveInput(deviceId);
   }, [initAndStartLiveInput]);
 
-  const handleChannelChange = useCallback((channel: ChannelSelection) => {
-    selectLiveInputChannel(channel);
-  }, [selectLiveInputChannel]);
-
   const handleMonitoringChange = useCallback(async (enabled: boolean) => {
-    if (enabled && audioState.initState === 'ready') {
-      await syncEngineSettings({
-        modelUrl: selectedModel.url,
-        ir: { url: selectedIr.url, mix: selectedIr.mix ?? 1, gain: selectedIr.gain ?? 1 },
-        bypassed: audioState.isBypassed,
-      });
+    if (enabled) {
+      // Reconnect live input if it was torn down (e.g. another player was previewing)
+      await reconnectLiveInput();
+
+      if (audioState.initState === 'ready') {
+        await syncEngineSettings({
+          modelUrl: selectedModel.url,
+          ir: { url: selectedIr.url, mix: selectedIr.mix ?? 1, gain: selectedIr.gain ?? 1 },
+          bypassed: audioState.isBypassed,
+        });
+      }
+
+      if (playerId) {
+        setPlaying(true, playerId);
+      }
+    } else {
+      setPlaying(false);
     }
-    setPlaying(enabled, playerId);
-  }, [setPlaying, syncEngineSettings, audioState.initState, audioState.isBypassed, selectedModel, selectedIr, playerId]);
+  }, [reconnectLiveInput, setPlaying, syncEngineSettings, audioState.initState, audioState.isBypassed, selectedModel, selectedIr, playerId]);
 
   const handleWetSignalToggle = useCallback(() => {
     setBypass(!audioState.isBypassed);
   }, [setBypass, audioState.isBypassed]);
-
-  const handleInputGainChange = useCallback((gainDb: number) => {
-    setLiveInputGain(gainDb);
-  }, [setLiveInputGain]);
-
-  const handleOutputDeviceChange = useCallback((deviceId: string | null) => {
-    setOutputDevice(deviceId);
-  }, [setOutputDevice]);
 
   const handleRequestPermission = useCallback(async () => {
     try {
@@ -213,14 +212,14 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
           selectedDeviceId={currentDeviceId ?? ''}
           selectedChannel={currentChannel}
           channelCount={channelCount}
-          isMonitoring={audioState.isPlaying}
+          isMonitoring={audioState.isPlaying && audioState.activePlayerId === playerId}
           isWetSignalEnabled={!audioState.isBypassed}
           inputGain={currentInputGain}
           onDeviceChange={handleDeviceChange}
-          onChannelChange={handleChannelChange}
+          onChannelChange={selectLiveInputChannel}
           onMonitoringChange={handleMonitoringChange}
           onWetSignalToggle={handleWetSignalToggle}
-          onInputGainChange={handleInputGainChange}
+          onInputGainChange={setLiveInputGain}
           isLoading={audioInputDevices.isLoading}
           isConnecting={audioState.inputMode.type === 'connecting'}
           error={audioInputDevices.error}
@@ -229,7 +228,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
           channel1Meter={getAudioNodes().channel1PreviewMeter}
           outputDevices={audioOutputDevices.devices}
           selectedOutputDeviceId={audioOutputDevices.selectedDeviceId}
-          onOutputDeviceChange={handleOutputDeviceChange}
+          onOutputDeviceChange={setOutputDevice}
         />
       )}
     </Dialog>

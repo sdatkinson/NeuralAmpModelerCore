@@ -1,4 +1,4 @@
-import React, { useRef, useCallback, useEffect } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { useT3kPlayerContext } from '../../context/T3kPlayerContext';
 import { useMeterAnimation } from '../../hooks/useMeterAnimation';
 import { LevelMeter } from '../ui/LevelMeter';
@@ -40,16 +40,6 @@ export function InputControlStrip({ isActive = true }: InputControlStripProps) {
   const channelCount = liveInputConfig?.channelCount ?? 1;
   const inputGain = liveInputConfig?.channelGains?.[currentChannel] ?? 0;
   const isStereo = channelCount >= 2;
-
-  // Handle channel change
-  const handleChannelChange = useCallback((channel: ChannelSelection) => {
-    selectLiveInputChannel(channel);
-  }, [selectLiveInputChannel]);
-
-  // Handle gain change - use context's setLiveInputGain
-  const handleGainChange = useCallback((gainDb: number) => {
-    setLiveInputGain(gainDb);
-  }, [setLiveInputGain]);
 
   // Refs for meter DOM elements (used by animation hook)
   const inputMeterRef = useRef<HTMLDivElement>(null);
@@ -105,7 +95,7 @@ export function InputControlStrip({ isActive = true }: InputControlStripProps) {
               <SegmentedControl
                 options={channelOptions}
                 value={currentChannel}
-                onChange={handleChannelChange}
+                onChange={selectLiveInputChannel}
                 size='sm'
               />
             </div>
@@ -115,7 +105,7 @@ export function InputControlStrip({ isActive = true }: InputControlStripProps) {
           <div className='flex flex-col items-center'>
             <GainControl
               value={inputGain}
-              onChange={handleGainChange}
+              onChange={setLiveInputGain}
               min={-20}
               max={20}
               step={0.5}
