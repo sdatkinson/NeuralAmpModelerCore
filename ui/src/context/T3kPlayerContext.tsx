@@ -259,7 +259,7 @@ export function T3kPlayerContextProvider({
             nodes.bypassNode = new GainNode(context, { gain: 0 });
 
             // Create metering nodes
-            const meterConfig = { fftSize: 128, smoothingTimeConstant: 0.3 };
+            const meterConfig = { fftSize: 2048 };
             nodes.inputMeterNode = new AnalyserNode(context, meterConfig);
             nodes.outputMeterNode = new AnalyserNode(context, meterConfig);
 
@@ -843,7 +843,7 @@ export function T3kPlayerContextProvider({
       nodes.channelMergerNode = audioContext.createChannelMerger(1);
 
       // Create per-channel meters (post-gain, since gain is applied before splitting)
-      const meterConfig = { fftSize: 128, smoothingTimeConstant: 0.3 };
+      const meterConfig = { fftSize: 2048 };
       nodes.channel0PreviewMeter = new AnalyserNode(audioContext, meterConfig);
       nodes.channel1PreviewMeter = new AnalyserNode(audioContext, meterConfig);
 

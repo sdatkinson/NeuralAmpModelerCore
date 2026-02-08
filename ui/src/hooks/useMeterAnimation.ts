@@ -63,8 +63,8 @@ export function useMeterAnimation(
   outputConfig: MeterConfig | null,
   enabled: boolean = true
 ) {
-  // Reusable buffer for reading analyser data (128 = fftSize)
-  const bufferRef = useRef<Float32Array>(new Float32Array(128));
+  // Reusable buffer for reading analyser data (must match fftSize of AnalyserNodes)
+  const bufferRef = useRef<Float32Array>(new Float32Array(2048));
 
   // Track current levels (for external access if needed)
   const levelsRef = useRef<{ input: MeterLevels; output: MeterLevels }>({
