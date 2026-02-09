@@ -12,6 +12,7 @@ include_directories(tools ${NAM_DEPS_PATH}/nlohmann)
 
 add_executable(loadmodel loadmodel.cpp ${NAM_SOURCES})
 add_executable(benchmodel benchmodel.cpp ${NAM_SOURCES})
+add_executable(memory_usage memory_usage.cpp)
 add_executable(run_tests run_tests.cpp test/allocation_tracking.cpp ${NAM_SOURCES})
 # Compile run_tests without optimizations to ensure allocation tracking works correctly
 # Also ensure assertions are enabled (NDEBUG is not defined) so tests actually run
@@ -34,6 +35,7 @@ endif()
 source_group(NAM ${CMAKE_CURRENT_SOURCE_DIR} FILES ${NAM_SOURCES})
 
 target_compile_features(${TOOLS} PUBLIC cxx_std_20)
+target_compile_features(memory_usage PUBLIC cxx_std_20)
 
 set_target_properties(${TOOLS}
 	PROPERTIES
