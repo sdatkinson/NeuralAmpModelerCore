@@ -2,6 +2,7 @@
 #include <filesystem>
 #include "NAM/dsp.h"
 #include "NAM/get_dsp.h"
+#include "NAM/get_dsp_namb.h"
 
 int main(int argc, char* argv[])
 {
@@ -11,7 +12,12 @@ int main(int argc, char* argv[])
 
     fprintf(stderr, "Loading model [%s]\n", modelPath);
 
-    auto model = nam::get_dsp(std::filesystem::path(modelPath));
+    std::filesystem::path path(modelPath);
+    std::unique_ptr<nam::DSP> model;
+    if (path.extension() == ".namb")
+      model = nam::get_dsp_namb(path);
+    else
+      model = nam::get_dsp(path);
 
     if (model != nullptr)
     {

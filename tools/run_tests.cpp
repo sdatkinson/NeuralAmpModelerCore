@@ -25,6 +25,7 @@
 #include "test/test_input_buffer_verification.cpp"
 #include "test/test_lstm.cpp"
 #include "test/test_wavenet_configurable_gating.cpp"
+#include "test/test_namb.cpp"
 
 int main()
 {
@@ -242,6 +243,15 @@ int main()
   test_get_dsp::test_version_patch_one_beyond_supported();
   test_get_dsp::test_version_minor_one_beyond_supported();
   test_get_dsp::test_version_too_early();
+
+  // Binary format (.namb) tests
+  test_namb::test_crc32();
+  test_namb::test_bad_magic();
+  test_namb::test_truncated_file();
+  test_namb::test_wrong_version();
+  test_namb::test_bad_checksum();
+  test_namb::test_roundtrip();
+  test_namb::test_size_reduction();
 
   // Finally, some end-to-end tests.
   test_get_dsp::test_load_and_process_nam_files();
