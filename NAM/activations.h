@@ -150,7 +150,7 @@ public:
   {
     apply(block.data(), block.rows() * block.cols());
   }
-  virtual void apply(float* data, long size) {}
+  virtual void apply(float* data, long size) = 0;
 
   static Ptr get_activation(const std::string name);
   static Ptr get_activation(const ActivationConfig& config);
@@ -165,13 +165,13 @@ protected:
   static std::unordered_map<std::string, Ptr> _activations;
 };
 
-// identity function activation
+// identity function activation--"do nothing"
 class ActivationIdentity : public nam::activations::Activation
 {
 public:
   ActivationIdentity() = default;
   ~ActivationIdentity() = default;
-  // Inherit the default apply methods which do nothing
+  virtual void apply(float* data, long size) override {};
 };
 
 class ActivationTanh : public Activation
@@ -285,7 +285,9 @@ public:
     std::vector<float> slopes_for_channels = negative_slopes;
 
     // Fail loudly if input has more channels than activation
-    assert(actual_channels == negative_slopes.size());
+    assert(actual_channels == negative_slopes.size()
+           && ("Received input with " + std::to_string(actual_channels) + " channels, but activation has "
+               + std::to_string(negative_slopes.size()) + " channels"));
 
     // Apply each negative slope to its corresponding channel
     for (unsigned long channel = 0; channel < actual_channels; channel++)
