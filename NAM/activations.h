@@ -2,6 +2,7 @@
 
 #include <cassert>
 #include <cmath> // expf
+#include <iostream> // std::cerr
 #include <functional>
 #include <memory>
 #include <optional>
@@ -276,6 +277,25 @@ public:
   }
   ActivationPReLU(std::vector<float> ns) { negative_slopes = ns; }
 
+  void apply(float* data, long size) override
+  {
+    // Assume column-major (this is brittle)
+#ifndef NDEBUG
+    if (size % negative_slopes.size() != 0)
+    {
+      std::cerr << "PReLU.apply(*data, size) was given an array of size " << size
+                << " but the activation has " << negative_slopes.size()
+                << " channels, which doesn't divide evenly.\n";
+      assert(false);
+    }
+#endif
+    for (long pos = 0; pos < size; pos++)
+    {
+      const float negative_slope = negative_slopes[pos % negative_slopes.size()];
+      data[pos] = leaky_relu(data[pos], negative_slope);
+    }
+  }
+
   void apply(Eigen::MatrixXf& matrix) override
   {
     // Matrix is organized as (channels, time_steps)
@@ -285,9 +305,14 @@ public:
     std::vector<float> slopes_for_channels = negative_slopes;
 
     // Fail loudly if input has more channels than activation
-    assert(actual_channels == negative_slopes.size()
-           && ("Received input with " + std::to_string(actual_channels) + " channels, but activation has "
-               + std::to_string(negative_slopes.size()) + " channels"));
+#ifndef NDEBUG
+    if (actual_channels != negative_slopes.size())
+    {
+      std::cerr << "PReLU: Received " << actual_channels << " channels, but activation has "
+                << negative_slopes.size() << " channels\n";
+      assert(false);
+    }
+#endif
 
     // Apply each negative slope to its corresponding channel
     for (unsigned long channel = 0; channel < actual_channels; channel++)
