@@ -156,6 +156,11 @@ std::unique_ptr<DSP> get_dsp(dspData& conf)
 {
   verify_config_version(conf.version);
 
+  // Explicit registration avoids missing factories when NAM is linked as a static library.
+  nam::lstm::RegisterFactory();
+  nam::convnet::RegisterFactory();
+  nam::wavenet::RegisterFactory();
+
   auto& architecture = conf.architecture;
   nlohmann::json& config = conf.config;
   std::vector<float>& weights = conf.weights;

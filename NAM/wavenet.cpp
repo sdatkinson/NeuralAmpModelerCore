@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <iostream>
 #include <math.h>
+#include <mutex>
 #include <sstream>
 
 #include <Eigen/Dense>
@@ -834,8 +835,10 @@ std::unique_ptr<nam::DSP> nam::wavenet::Factory(const nlohmann::json& config, st
     in_channels, layer_array_params, head_scale, with_head, weights, std::move(condition_dsp), expectedSampleRate);
 }
 
-// Register the factory
-namespace
+void nam::wavenet::RegisterFactory()
 {
-static nam::factory::Helper _register_WaveNet("WaveNet", nam::wavenet::Factory);
+  static std::once_flag once;
+  std::call_once(once, []() {
+    nam::factory::FactoryRegistry::instance().registerFactory("WaveNet", nam::wavenet::Factory);
+  });
 }

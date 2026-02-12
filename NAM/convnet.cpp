@@ -1,6 +1,7 @@
 #include <algorithm> // std::max_element
 #include <algorithm>
 #include <cmath> // pow, tanh, expf
+#include <mutex>
 #include <filesystem>
 #include <fstream>
 #include <string>
@@ -340,7 +341,10 @@ std::unique_ptr<nam::DSP> nam::convnet::Factory(const nlohmann::json& config, st
     in_channels, out_channels, channels, dilations, batchnorm, activation_config, weights, expectedSampleRate, groups);
 }
 
-namespace
+void nam::convnet::RegisterFactory()
 {
-static nam::factory::Helper _register_ConvNet("ConvNet", nam::convnet::Factory);
+  static std::once_flag once;
+  std::call_once(once, []() {
+    nam::factory::FactoryRegistry::instance().registerFactory("ConvNet", nam::convnet::Factory);
+  });
 }
