@@ -2,7 +2,8 @@
 
 #include <cassert>
 #include <cmath> // expf
-#include <iostream> // std::cerr
+#include <iostream> // std::cerr (kept for potential debug use)
+#include <stdexcept> // std::invalid_argument
 #include <functional>
 #include <memory>
 #include <optional>
@@ -283,10 +284,9 @@ public:
 #ifndef NDEBUG
     if (size % negative_slopes.size() != 0)
     {
-      std::cerr << "PReLU.apply(*data, size) was given an array of size " << size
-                << " but the activation has " << negative_slopes.size()
-                << " channels, which doesn't divide evenly.\n";
-      assert(false);
+      throw std::invalid_argument("PReLU.apply(*data, size) was given an array of size " + std::to_string(size)
+                                  + " but the activation has " + std::to_string(negative_slopes.size())
+                                  + " channels, which doesn't divide evenly.");
     }
 #endif
     for (long pos = 0; pos < size; pos++)
@@ -308,9 +308,9 @@ public:
 #ifndef NDEBUG
     if (actual_channels != negative_slopes.size())
     {
-      std::cerr << "PReLU: Received " << actual_channels << " channels, but activation has "
-                << negative_slopes.size() << " channels\n";
-      assert(false);
+      throw std::invalid_argument("PReLU: Received " + std::to_string(actual_channels)
+                                  + " channels, but activation has " + std::to_string(negative_slopes.size())
+                                  + " channels");
     }
 #endif
 

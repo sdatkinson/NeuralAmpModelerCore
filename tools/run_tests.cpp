@@ -48,8 +48,9 @@ int main()
 
   test_activations::TestPReLU::test_core_function();
   test_activations::TestPReLU::test_per_channel_behavior();
-  // This is enforced by an assert so it doesn't need to be tested
-  // test_activations::TestPReLU::test_wrong_number_of_channels();
+  test_activations::TestPReLU::test_wrong_number_of_channels_matrix();
+  test_activations::TestPReLU::test_wrong_size_array();
+  test_activations::TestPReLU::test_valid_array_size();
 
   // Typed ActivationConfig tests
   test_activations::TestTypedActivationConfig::test_simple_config();
