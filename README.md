@@ -6,6 +6,40 @@ Core C++ DSP library for NAM plugins.
 
 For an example how to use, see [NeuralAmpModelerPlugin](https://github.com/sdatkinson/NeuralAmpModelerPlugin).
 
+## Compiling
+
+Configure and build:
+
+- `cmake -S . -B build`
+- `cmake --build build`
+
+Release builds:
+
+- Single-config generators (Unix Makefiles, Ninja):
+  - `cmake -S . -B build-release -DCMAKE_BUILD_TYPE=Release`
+  - `cmake --build build-release --target nam_static nam_shared tools`
+- Multi-config generators (Visual Studio, Xcode):
+  - `cmake -S . -B build`
+  - `cmake --build build --config Release --target nam_static nam_shared tools`
+
+Build only the NAM libraries:
+
+- `cmake --build build --target nam_static`
+- `cmake --build build --target nam_shared`
+
+The public C API for external projects is exposed by:
+
+- `NAM/nam_c_api.h`
+
+Simple example using the C API (linked against the static library):
+
+- build target: `cmake --build build --target c_api_example`
+- run: `./build/tools/c_api_example example_models/wavenet.nam`
+
+You can also install libraries + C API header with:
+
+- `cmake --install build`
+
 ## Testing
 A workflow for testing the library is provided in `.github/workflows/build.yml`.
 You should be able to run it locally to test if you'd like.
