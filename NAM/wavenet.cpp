@@ -596,7 +596,7 @@ std::unique_ptr<nam::DSP> nam::wavenet::Factory(const nlohmann::json& config, st
                                                 const double expectedSampleRate)
 {
   std::unique_ptr<nam::DSP> condition_dsp = nullptr;
-  if (config.find("condition_dsp") != config.end())
+  if (config.find("condition_dsp") != config.end() && !config["condition_dsp"].is_null())
   {
     const nlohmann::json& condition_dsp_json = config["condition_dsp"];
     condition_dsp = nam::get_dsp(condition_dsp_json);
