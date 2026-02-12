@@ -64,11 +64,11 @@ public:
     assert(output.cols() == input.cols());
 
     const int num_samples = input.cols();
-    const int input_rows = input.rows();  // 2 * num_channels
 
 #ifdef NAM_USE_INLINE_GEMM
     // Optimized path: direct memory access with activation applied per-element
     // Note: output may be a block expression with outer stride != num_channels
+    const int input_rows = input.rows();  // 2 * num_channels
     const float* __restrict__ input_ptr = input.derived().data();
     float* __restrict__ output_ptr = output.derived().data();
     const int output_stride = (int)output.outerStride();  // Column stride for output
@@ -169,11 +169,11 @@ public:
     assert(output.cols() == input.cols());
 
     const int num_samples = input.cols();
-    const int input_rows = input.rows();  // 2 * num_channels
 
 #ifdef NAM_USE_INLINE_GEMM
     // Optimized path: direct memory access
     // Note: output may be a block expression with outer stride != num_channels
+    const int input_rows = input.rows();  // 2 * num_channels
     const float* __restrict__ input_ptr = input.derived().data();
     float* __restrict__ output_ptr = output.derived().data();
     const int output_stride = (int)output.outerStride();  // Column stride for output
