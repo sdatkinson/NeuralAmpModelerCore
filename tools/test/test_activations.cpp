@@ -220,9 +220,10 @@ public:
     assert(fabs(data(1, 2) - 0.0f) < 1e-6); // 0.0 (unchanged)
   }
 
-  static void test_wrong_number_of_channels()
+  static void test_wrong_number_of_channels_matrix()
   {
-    // Test that we fail when we have more channels than slopes
+    // Test that we fail when matrix has more channels than slopes
+    // Note: This validation only runs in debug builds (#ifndef NDEBUG)
     Eigen::MatrixXf data(3, 2); // 3 channels, 2 time steps
 
     // Initialize with test data
@@ -232,21 +233,69 @@ public:
     std::vector<float> slopes = {0.01f, 0.05f};
     nam::activations::ActivationPReLU prelu(slopes);
 
-    // Apply the activation
+#ifndef NDEBUG
+    // In debug mode, this should throw std::invalid_argument
     bool caught = false;
     try
     {
       prelu.apply(data);
     }
-    catch (const std::runtime_error& e)
+    catch (const std::invalid_argument& e)
     {
       caught = true;
     }
-    catch (...)
-    {
-    }
+    assert(caught && "Expected std::invalid_argument for channel count mismatch");
+#endif
+  }
 
-    assert(caught);
+  static void test_wrong_size_array()
+  {
+    // Test that we fail when array size doesn't divide evenly by channel count
+    // Note: This validation only runs in debug builds (#ifndef NDEBUG)
+
+    // Create PReLU with 2 channels
+    std::vector<float> slopes = {0.01f, 0.05f};
+    nam::activations::ActivationPReLU prelu(slopes);
+
+    // Array of size 5 doesn't divide evenly by 2 channels
+    std::vector<float> data = {-1.0f, -2.0f, 0.5f, 1.0f, -0.5f};
+
+#ifndef NDEBUG
+    // In debug mode, this should throw std::invalid_argument
+    bool caught = false;
+    try
+    {
+      prelu.apply(data.data(), (long)data.size());
+    }
+    catch (const std::invalid_argument& e)
+    {
+      caught = true;
+    }
+    assert(caught && "Expected std::invalid_argument for array size mismatch");
+#endif
+  }
+
+  static void test_valid_array_size()
+  {
+    // Test that valid array sizes work correctly
+
+    // Create PReLU with 2 channels
+    std::vector<float> slopes = {0.1f, 0.2f};
+    nam::activations::ActivationPReLU prelu(slopes);
+
+    // Array of size 6 divides evenly by 2 channels (3 time steps per channel)
+    std::vector<float> data = {-1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f};
+
+    // Should not throw
+    prelu.apply(data.data(), (long)data.size());
+
+    // Verify results: alternating between slope 0.1 and 0.2
+    assert(fabs(data[0] - (-0.1f)) < 1e-6); // channel 0, slope 0.1
+    assert(fabs(data[1] - (-0.2f)) < 1e-6); // channel 1, slope 0.2
+    assert(fabs(data[2] - (-0.1f)) < 1e-6); // channel 0, slope 0.1
+    assert(fabs(data[3] - (-0.2f)) < 1e-6); // channel 1, slope 0.2
+    assert(fabs(data[4] - (-0.1f)) < 1e-6); // channel 0, slope 0.1
+    assert(fabs(data[5] - (-0.2f)) < 1e-6); // channel 1, slope 0.2
   }
 };
 
