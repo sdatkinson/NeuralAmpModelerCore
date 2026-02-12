@@ -4,7 +4,6 @@
 // - Size verification: NAMB < NAM for all example models
 
 #include <cassert>
-#include <cmath>
 #include <cstdint>
 #include <cstring>
 #include <filesystem>
@@ -106,12 +105,7 @@ static void test_roundtrip_for_file(const std::string& nam_path)
 {
   std::filesystem::path model_path(nam_path);
   if (!std::filesystem::exists(model_path))
-  {
-    std::cerr << "  Skipping (not found): " << nam_path << std::endl;
     return;
-  }
-
-  std::cout << "  Testing round-trip: " << model_path.filename().string() << std::endl;
 
   // Load JSON model
   std::unique_ptr<nam::DSP> json_model = nam::get_dsp(model_path);
@@ -130,12 +124,12 @@ static void test_roundtrip_for_file(const std::string& nam_path)
   // Use the nam2namb tool to create the .namb file
   // Since we can't easily call the tool's function, we'll use system() or
   // construct the binary ourselves. For the test, let's shell out.
-  std::string cmd = "./build/tools/nam2namb " + model_path.string() + " " + namb_path.string() + " 2>&1";
+  std::string cmd = "./build/tools/nam2namb " + model_path.string() + " " + namb_path.string() + " > /dev/null 2>&1";
   int ret = system(cmd.c_str());
   if (ret != 0)
   {
     // Try relative path from where tests might be run
-    cmd = "nam2namb " + model_path.string() + " " + namb_path.string() + " 2>&1";
+    cmd = "nam2namb " + model_path.string() + " " + namb_path.string() + " > /dev/null 2>&1";
     ret = system(cmd.c_str());
   }
   assert(ret == 0);
@@ -177,14 +171,10 @@ static void test_roundtrip_for_file(const std::string& nam_path)
 
   // Clean up temp file
   std::filesystem::remove(namb_path);
-
-  std::cout << "    PASS" << std::endl;
 }
 
 void test_roundtrip()
 {
-  std::cout << "test_namb::test_roundtrip" << std::endl;
-
   // Test all available example models
   const std::vector<std::string> models = {"example_models/wavenet.nam", "example_models/lstm.nam",
                                            "example_models/wavenet_condition_dsp.nam",
@@ -202,8 +192,6 @@ void test_roundtrip()
 
 void test_bad_magic()
 {
-  std::cout << "test_namb::test_bad_magic" << std::endl;
-
   // Create minimal data with wrong magic
   std::vector<uint8_t> data(128, 0);
   data[0] = 'X'; // Wrong magic
@@ -219,13 +207,10 @@ void test_bad_magic()
     assert(std::string(e.what()).find("magic") != std::string::npos);
   }
   assert(threw);
-  std::cout << "  PASS" << std::endl;
 }
 
 void test_truncated_file()
 {
-  std::cout << "test_namb::test_truncated_file" << std::endl;
-
   // File too small for header
   std::vector<uint8_t> data(16, 0);
   // Set magic correctly
@@ -242,13 +227,10 @@ void test_truncated_file()
     threw = true;
   }
   assert(threw);
-  std::cout << "  PASS" << std::endl;
 }
 
 void test_wrong_version()
 {
-  std::cout << "test_namb::test_wrong_version" << std::endl;
-
   // Create data with wrong format version
   std::vector<uint8_t> data(128, 0);
   uint32_t magic = nam::namb::MAGIC;
@@ -267,29 +249,20 @@ void test_wrong_version()
     assert(std::string(e.what()).find("version") != std::string::npos);
   }
   assert(threw);
-  std::cout << "  PASS" << std::endl;
 }
 
 void test_bad_checksum()
 {
-  std::cout << "test_namb::test_bad_checksum" << std::endl;
-
   // First create a valid .namb file, then corrupt it
   std::filesystem::path nam_path("example_models/lstm.nam");
   if (!std::filesystem::exists(nam_path))
-  {
-    std::cerr << "  Skipping (lstm.nam not found)" << std::endl;
     return;
-  }
 
   std::filesystem::path namb_path("example_models/lstm_test_bad_crc.namb");
-  std::string cmd = "./build/tools/nam2namb " + nam_path.string() + " " + namb_path.string() + " 2>&1";
+  std::string cmd = "./build/tools/nam2namb " + nam_path.string() + " " + namb_path.string() + " > /dev/null 2>&1";
   int ret = system(cmd.c_str());
   if (ret != 0)
-  {
-    std::cerr << "  Skipping (nam2namb not available)" << std::endl;
     return;
-  }
 
   // Read the .namb file
   auto data = read_file_bytes(namb_path);
@@ -313,7 +286,6 @@ void test_bad_checksum()
   assert(threw);
 
   std::filesystem::remove(namb_path);
-  std::cout << "  PASS" << std::endl;
 }
 
 // =============================================================================
@@ -322,8 +294,6 @@ void test_bad_checksum()
 
 void test_size_reduction()
 {
-  std::cout << "test_namb::test_size_reduction" << std::endl;
-
   const std::vector<std::string> models = {"example_models/wavenet.nam", "example_models/lstm.nam",
                                            "example_models/wavenet_condition_dsp.nam",
                                            "example_models/wavenet_a2_max.nam"};
@@ -337,7 +307,7 @@ void test_size_reduction()
     std::filesystem::path namb_path = nam_path;
     namb_path.replace_extension(".namb");
 
-    std::string cmd = "./build/tools/nam2namb " + nam_path.string() + " " + namb_path.string() + " 2>&1";
+    std::string cmd = "./build/tools/nam2namb " + nam_path.string() + " " + namb_path.string() + " > /dev/null 2>&1";
     int ret = system(cmd.c_str());
     if (ret != 0)
       continue;
@@ -345,9 +315,6 @@ void test_size_reduction()
     size_t nam_size = std::filesystem::file_size(nam_path);
     size_t namb_size = std::filesystem::file_size(namb_path);
     double reduction = 100.0 * (1.0 - (double)namb_size / (double)nam_size);
-
-    std::cout << "  " << nam_path.filename().string() << ": " << nam_size << " -> " << namb_size << " ("
-              << std::fixed << std::setprecision(1) << reduction << "% reduction)" << std::endl;
 
     // .namb should always be smaller than .nam
     assert(namb_size < nam_size);
@@ -357,7 +324,6 @@ void test_size_reduction()
 
     std::filesystem::remove(namb_path);
   }
-  std::cout << "  PASS" << std::endl;
 }
 
 // =============================================================================
@@ -366,8 +332,6 @@ void test_size_reduction()
 
 void test_crc32()
 {
-  std::cout << "test_namb::test_crc32" << std::endl;
-
   // Test known CRC32 values
   const uint8_t test1[] = "123456789";
   uint32_t crc1 = nam::namb::crc32(test1, 9);
@@ -377,8 +341,6 @@ void test_crc32()
   // Empty data
   uint32_t crc_empty = nam::namb::crc32(nullptr, 0);
   assert(crc_empty == 0x00000000u);
-
-  std::cout << "  PASS" << std::endl;
 }
 
 }; // namespace test_namb

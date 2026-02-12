@@ -300,16 +300,30 @@ void nam::Linear::process(NAM_SAMPLE** input, NAM_SAMPLE** output, const int num
   nam::Buffer::_advance_input_buffer_(num_frames);
 }
 
+// Config parser
+nam::linear::LinearConfig nam::linear::parse_config_json(const nlohmann::json& config)
+{
+  LinearConfig c;
+  c.receptive_field = config["receptive_field"];
+  c.bias = config["bias"];
+  c.in_channels = config.value("in_channels", 1);
+  c.out_channels = config.value("out_channels", 1);
+  return c;
+}
+
 // Factory
 std::unique_ptr<nam::DSP> nam::linear::Factory(const nlohmann::json& config, std::vector<float>& weights,
                                                const double expectedSampleRate)
 {
-  const int receptive_field = config["receptive_field"];
-  const bool bias = config["bias"];
-  // Default to 1 channel in/out for backward compatibility
-  const int in_channels = config.value("in_channels", 1);
-  const int out_channels = config.value("out_channels", 1);
-  return std::make_unique<nam::Linear>(in_channels, out_channels, receptive_field, bias, weights, expectedSampleRate);
+  auto c = parse_config_json(config);
+  return std::make_unique<nam::Linear>(c.in_channels, c.out_channels, c.receptive_field, c.bias, weights,
+                                       expectedSampleRate);
+}
+
+// Register the factory
+namespace
+{
+static nam::factory::Helper _register_Linear("Linear", nam::linear::Factory);
 }
 
 // NN modules =================================================================

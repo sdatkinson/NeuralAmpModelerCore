@@ -258,6 +258,21 @@ protected:
 
 namespace linear
 {
+
+/// \brief Configuration for a Linear model
+struct LinearConfig
+{
+  int receptive_field;
+  bool bias;
+  int in_channels;
+  int out_channels;
+};
+
+/// \brief Parse Linear configuration from JSON
+/// \param config JSON configuration object
+/// \return LinearConfig
+LinearConfig parse_config_json(const nlohmann::json& config);
+
 /// \brief Factory function to instantiate Linear model from JSON
 /// \param config JSON configuration object
 /// \param weights Model weights vector
