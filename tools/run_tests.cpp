@@ -19,6 +19,7 @@
 #include "test/test_wavenet/test_condition_processing.cpp"
 #include "test/test_wavenet/test_head1x1.cpp"
 #include "test/test_wavenet/test_layer1x1.cpp"
+#include "test/test_wavenet/test_factory.cpp"
 #include "test/test_gating_activations.cpp"
 #include "test/test_wavenet_gating_compatibility.cpp"
 #include "test/test_blending_detailed.cpp"
@@ -169,6 +170,7 @@ int main()
   test_wavenet::test_layer1x1::test_layer1x1_post_film_inactive_with_layer1x1_inactive();
   test_wavenet::test_layer1x1::test_layer1x1_gated();
   test_wavenet::test_layer1x1::test_layer1x1_groups();
+  test_wavenet::test_factory::test_factory_without_head_key();
   test_wavenet::test_allocation_tracking_pass();
   test_wavenet::test_allocation_tracking_fail();
   test_wavenet::test_conv1d_process_realtime_safe();
