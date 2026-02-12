@@ -575,7 +575,7 @@ nam::wavenet::WaveNetConfig nam::wavenet::parse_config_json(const nlohmann::json
   WaveNetConfig wc;
 
   // Condition DSP (eagerly built via get_dsp)
-  if (config.find("condition_dsp") != config.end()) && !config["condition_dsp"].is_null())
+  if ((config.find("condition_dsp") != config.end()) && !config["condition_dsp"].is_null())
   {
     const nlohmann::json& condition_dsp_json = config["condition_dsp"];
     wc.condition_dsp = nam::get_dsp(condition_dsp_json);
