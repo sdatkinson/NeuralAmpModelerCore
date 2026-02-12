@@ -98,15 +98,27 @@ install(TARGETS nam_static nam_shared EXPORT NAMTargets
 	ARCHIVE DESTINATION lib
 	LIBRARY DESTINATION lib
 	RUNTIME DESTINATION bin
+	COMPONENT nam
 )
-install(FILES NAM/nam_c_api.h DESTINATION include/NAM)
+install(FILES NAM/nam_c_api.h DESTINATION include/NAM COMPONENT nam)
 install(EXPORT NAMTargets
 	FILE NAMTargets.cmake
 	NAMESPACE nam::
 	DESTINATION lib/cmake/NAM
+	COMPONENT nam
 )
 
 add_subdirectory(tools)
+
+add_custom_target(install_nam
+	COMMAND ${CMAKE_COMMAND} --install ${CMAKE_BINARY_DIR} --config $<CONFIG> --component nam
+	COMMENT "Install NAM libraries and C API"
+)
+
+add_custom_target(install_tools
+	COMMAND ${CMAKE_COMMAND} --install ${CMAKE_BINARY_DIR} --config $<CONFIG> --component tools
+	COMMENT "Install NAM tool binaries"
+)
 
 #file(MAKE_DIRECTORY build/tools)
 

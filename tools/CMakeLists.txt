@@ -60,3 +60,8 @@ foreach(target ${TOOLS})
 		)
 	endif()
 endforeach()
+
+install(TARGETS ${TOOLS}
+	RUNTIME DESTINATION bin
+	COMPONENT tools
+)

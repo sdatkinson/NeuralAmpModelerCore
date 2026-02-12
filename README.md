@@ -40,6 +40,19 @@ You can also install libraries + C API header with:
 
 - `cmake --install build`
 
+Installation targets:
+
+- `cmake --build build --target install`: install everything (libs, C API, tools)
+- `cmake --build build --target install_nam`: install NAM libraries + C API only
+- `cmake --build build --target install_tools`: install tool binaries only
+
+Component-based install commands:
+
+- `cmake --install build --component nam`
+- `cmake --install build --component tools`
+
+For multi-config generators, add `--config Release` to build/install commands.
+
 ## Testing
 A workflow for testing the library is provided in `.github/workflows/build.yml`.
 You should be able to run it locally to test if you'd like.
