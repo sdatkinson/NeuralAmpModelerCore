@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <mutex>
 #include <string>
 #include <vector>
 #include <memory>
@@ -177,8 +178,10 @@ std::unique_ptr<nam::DSP> nam::lstm::Factory(const nlohmann::json& config, std::
     in_channels, out_channels, num_layers, input_size, hidden_size, weights, expectedSampleRate);
 }
 
-// Register the factory
-namespace
+void nam::lstm::RegisterFactory()
 {
-static nam::factory::Helper _register_LSTM("LSTM", nam::lstm::Factory);
+  static std::once_flag once;
+  std::call_once(once, []() {
+    nam::factory::FactoryRegistry::instance().registerFactory("LSTM", nam::lstm::Factory);
+  });
 }

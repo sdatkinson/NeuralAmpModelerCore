@@ -720,5 +720,8 @@ private:
 /// \return Unique pointer to a DSP object (WaveNet instance)
 std::unique_ptr<DSP> Factory(const nlohmann::json& config, std::vector<float>& weights,
                              const double expectedSampleRate);
+
+/// \brief Register WaveNet factory in the global registry
+void RegisterFactory();
 }; // namespace wavenet
 }; // namespace nam

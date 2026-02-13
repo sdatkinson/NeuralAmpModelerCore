@@ -173,5 +173,8 @@ protected:
 std::unique_ptr<DSP> Factory(const nlohmann::json& config, std::vector<float>& weights,
                              const double expectedSampleRate);
 
+/// \brief Register ConvNet factory in the global registry
+void RegisterFactory();
+
 }; // namespace convnet
 }; // namespace nam
