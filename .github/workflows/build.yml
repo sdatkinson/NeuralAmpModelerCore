@@ -41,3 +41,26 @@ jobs:
         ./build/tools/run_tests
         ./build/tools/benchmodel ./example_models/wavenet.nam
         ./build/tools/benchmodel ./example_models/lstm.nam
+
+  build-ubuntu-inline-gemm:
+    name: Build Ubuntu (Inline GEMM)
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3.3.0
+      with:
+        submodules: recursive
+
+    - name: Build Tools
+      working-directory: ${{github.workspace}}/build
+      env:
+        CXX: clang++
+      run: |
+        cmake .. -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS="-DNAM_USE_INLINE_GEMM"
+        cmake --build . -j4
+
+    - name: Run tests
+      working-directory: ${{github.workspace}}
+      run: |
+        ./build/tools/run_tests
+        ./build/tools/benchmodel ./example_models/wavenet.nam
+        ./build/tools/benchmodel ./example_models/lstm.nam
