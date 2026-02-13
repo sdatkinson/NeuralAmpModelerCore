@@ -807,8 +807,6 @@ nam::wavenet::WaveNetConfig nam::wavenet::parse_config_json(const nlohmann::json
       input_mixin_pre_film_params, input_mixin_post_film_params, activation_pre_film_params,
       activation_post_film_params, _layer1x1_post_film_params, head1x1_post_film_params));
   }
-  const bool with_head = config.find("head") != config.end() && !config["head"].is_null();
-  const float head_scale = config["head_scale"];
 
   wc.with_head = !config["head"].is_null();
   wc.head_scale = config["head_scale"];
