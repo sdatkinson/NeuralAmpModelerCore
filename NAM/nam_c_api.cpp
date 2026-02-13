@@ -6,6 +6,7 @@
 #include <string>
 #include <utility>
 
+#include "activations.h"
 #include "get_dsp.h"
 
 struct nam_model
@@ -130,6 +131,79 @@ double nam_expected_sample_rate(const nam_model_t* model)
   if (model == nullptr || model->dsp == nullptr)
     return -1.0;
   return model->dsp->GetExpectedSampleRate();
+}
+
+nam_status_t nam_enable_fast_tanh(void)
+{
+  try
+  {
+    nam::activations::Activation::enable_fast_tanh();
+    g_last_error.clear();
+    return NAM_STATUS_OK;
+  }
+  catch (...)
+  {
+    return handle_exception();
+  }
+}
+
+nam_status_t nam_disable_fast_tanh(void)
+{
+  try
+  {
+    nam::activations::Activation::disable_fast_tanh();
+    g_last_error.clear();
+    return NAM_STATUS_OK;
+  }
+  catch (...)
+  {
+    return handle_exception();
+  }
+}
+
+int nam_is_fast_tanh_enabled(void)
+{
+  return nam::activations::Activation::using_fast_tanh ? 1 : 0;
+}
+
+nam_status_t nam_enable_lut(const char* function_name, float min, float max, int n_points)
+{
+  if (function_name == nullptr || n_points <= 1 || !(min < max))
+  {
+    set_error("Invalid argument: function_name must be non-null, min < max, and n_points > 1.");
+    return NAM_STATUS_INVALID_ARGUMENT;
+  }
+
+  try
+  {
+    nam::activations::Activation::enable_lut(function_name, min, max, static_cast<std::size_t>(n_points));
+    g_last_error.clear();
+    return NAM_STATUS_OK;
+  }
+  catch (...)
+  {
+    return handle_exception();
+  }
+}
+
+nam_status_t nam_disable_lut(const char* function_name)
+{
+  if (function_name == nullptr)
+  {
+    set_error("Invalid argument: function_name must be non-null.");
+    return NAM_STATUS_INVALID_ARGUMENT;
+  }
+
+  try
+  {
+    nam::activations::Activation::disable_lut(function_name);
+    g_last_error.clear();
+    return NAM_STATUS_OK;
+  }
+  catch (...)
+  {
+    return handle_exception();
+  }
 }
 
 const char* nam_get_last_error(void)

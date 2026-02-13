@@ -12,8 +12,30 @@ int main(int argc, char* argv[])
     return 1;
   }
 
+  // Optional global runtime options.
+  nam_status_t status = nam_enable_fast_tanh();
+  if (status != NAM_STATUS_OK)
+  {
+    std::fprintf(stderr, "nam_enable_fast_tanh failed: %s\n", nam_get_last_error());
+    return 1;
+  }
+
+  status = nam_enable_lut("Tanh", -4.0f, 4.0f, 4096);
+  if (status != NAM_STATUS_OK)
+  {
+    std::fprintf(stderr, "nam_enable_lut(Tanh) failed: %s\n", nam_get_last_error());
+    return 1;
+  }
+
+  status = nam_enable_lut("Sigmoid", -8.0f, 8.0f, 4096);
+  if (status != NAM_STATUS_OK)
+  {
+    std::fprintf(stderr, "nam_enable_lut(Sigmoid) failed: %s\n", nam_get_last_error());
+    return 1;
+  }
+
   nam_model_t* model = nullptr;
-  nam_status_t status = nam_create_model_from_file(argv[1], &model);
+  status = nam_create_model_from_file(argv[1], &model);
   if (status != NAM_STATUS_OK || model == nullptr)
   {
     std::fprintf(stderr, "Failed to load model: %s\n", nam_get_last_error());
@@ -56,5 +78,9 @@ int main(int argc, char* argv[])
   std::printf("Processed %d frames. First output sample: %f\n", block_size, static_cast<double>(output[0][0]));
 
   nam_destroy_model(model);
+  // Restore defaults for caller processes that keep running.
+  (void)nam_disable_lut("Sigmoid");
+  (void)nam_disable_lut("Tanh");
+  (void)nam_disable_fast_tanh();
   return 0;
 }

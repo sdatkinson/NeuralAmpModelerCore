@@ -50,6 +50,13 @@ NAM_API int nam_num_input_channels(const nam_model_t* model);
 NAM_API int nam_num_output_channels(const nam_model_t* model);
 NAM_API double nam_expected_sample_rate(const nam_model_t* model);
 
+// Enables/disables fast tanh approximation globally for NAM activations.
+NAM_API nam_status_t nam_enable_fast_tanh(void);
+NAM_API nam_status_t nam_disable_fast_tanh(void);
+NAM_API int nam_is_fast_tanh_enabled(void);
+NAM_API nam_status_t nam_enable_lut(const char* function_name, float min, float max, int n_points);
+NAM_API nam_status_t nam_disable_lut(const char* function_name);
+
 // Thread-local error message set when a NAM_STATUS_EXCEPTION is returned.
 NAM_API const char* nam_get_last_error(void);
 

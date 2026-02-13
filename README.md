@@ -36,6 +36,26 @@ Simple example using the C API (linked against the static library):
 - build target: `cmake --build build --target c_api_example`
 - run: `./build/tools/c_api_example example_models/wavenet.nam`
 
+C API runtime options (global activation behavior):
+
+```c
+// Enable fast tanh approximation
+nam_enable_fast_tanh();
+
+// Enable LUT approximations (valid names: "Tanh", "Sigmoid")
+nam_enable_lut("Tanh", -4.0f, 4.0f, 4096);
+nam_enable_lut("Sigmoid", -8.0f, 8.0f, 4096);
+
+// ... process ...
+
+// Optional cleanup / restore defaults
+nam_disable_lut("Sigmoid");
+nam_disable_lut("Tanh");
+nam_disable_fast_tanh();
+```
+
+These settings are process-global and affect subsequently created/used NAM models.
+
 You can also install libraries + C API header with:
 
 - `cmake --install build`
