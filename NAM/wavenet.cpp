@@ -6,8 +6,19 @@
 #include <Eigen/Dense>
 
 #include "get_dsp.h"
+#include "profiling.h"
 #include "registry.h"
 #include "wavenet.h"
+
+#ifdef NAM_PROFILING
+static int PROF_CONV1D      = nam::profiling::register_type("Conv1D");
+static int PROF_INPUT_MIXIN = nam::profiling::register_type("InputMixin");
+static int PROF_LAYER1X1    = nam::profiling::register_type("Layer1x1");
+static int PROF_HEAD1X1     = nam::profiling::register_type("Head1x1");
+static int PROF_RECHANNEL   = nam::profiling::register_type("Rechannel");
+static int PROF_ACTIVATION  = nam::profiling::register_type("Activation");
+static int PROF_COPIES      = nam::profiling::register_type("Copies");
+#endif
 
 // Layer ======================================================================
 
@@ -89,6 +100,8 @@ void nam::wavenet::_Layer::set_weights_(std::vector<float>::iterator& weights)
 
 void nam::wavenet::_Layer::Process(const Eigen::MatrixXf& input, const Eigen::MatrixXf& condition, const int num_frames)
 {
+  NAM_PROFILE_START();
+
   const long bottleneck = this->_bottleneck; // Use the actual bottleneck value, not the doubled output channels
 
   // Step 1: input convolutions
@@ -107,6 +120,7 @@ void nam::wavenet::_Layer::Process(const Eigen::MatrixXf& input, const Eigen::Ma
     Eigen::MatrixXf& conv_output = this->_conv.GetOutput();
     this->_conv_post_film->Process_(conv_output, condition, num_frames);
   }
+  NAM_PROFILE_ADD(PROF_CONV1D);
 
   if (this->_input_mixin_pre_film)
   {
@@ -123,8 +137,12 @@ void nam::wavenet::_Layer::Process(const Eigen::MatrixXf& input, const Eigen::Ma
     Eigen::MatrixXf& input_mixin_output = this->_input_mixin.GetOutput();
     this->_input_mixin_post_film->Process_(input_mixin_output, condition, num_frames);
   }
+  NAM_PROFILE_ADD(PROF_INPUT_MIXIN);
+
   this->_z.leftCols(num_frames).noalias() =
     _conv.GetOutput().leftCols(num_frames) + _input_mixin.GetOutput().leftCols(num_frames);
+  NAM_PROFILE_ADD(PROF_COPIES);
+
   if (this->_activation_pre_film)
   {
     this->_activation_pre_film->Process_(this->_z, condition, num_frames);
@@ -139,6 +157,7 @@ void nam::wavenet::_Layer::Process(const Eigen::MatrixXf& input, const Eigen::Ma
   if (this->_gating_mode == GatingMode::NONE)
   {
     this->_activation->apply(this->_z.leftCols(num_frames));
+    NAM_PROFILE_ADD(PROF_ACTIVATION);
     if (this->_activation_post_film)
     {
       this->_activation_post_film->Process_(this->_z, condition, num_frames);
@@ -146,6 +165,7 @@ void nam::wavenet::_Layer::Process(const Eigen::MatrixXf& input, const Eigen::Ma
     if (this->_layer1x1)
     {
       this->_layer1x1->process_(this->_z, num_frames);
+      NAM_PROFILE_ADD(PROF_LAYER1X1);
     }
   }
   else if (this->_gating_mode == GatingMode::GATED)
@@ -155,6 +175,7 @@ void nam::wavenet::_Layer::Process(const Eigen::MatrixXf& input, const Eigen::Ma
     auto input_block = this->_z.leftCols(num_frames);
     auto output_block = this->_z.topRows(bottleneck).leftCols(num_frames);
     this->_gating_activation->apply(input_block, output_block);
+    NAM_PROFILE_ADD(PROF_ACTIVATION);
     if (this->_activation_post_film)
     {
       // Use Process() for blocks and copy result back
@@ -165,6 +186,7 @@ void nam::wavenet::_Layer::Process(const Eigen::MatrixXf& input, const Eigen::Ma
     if (this->_layer1x1)
     {
       this->_layer1x1->process_(this->_z.topRows(bottleneck), num_frames);
+      NAM_PROFILE_ADD(PROF_LAYER1X1);
     }
   }
   else if (this->_gating_mode == GatingMode::BLENDED)
@@ -174,6 +196,7 @@ void nam::wavenet::_Layer::Process(const Eigen::MatrixXf& input, const Eigen::Ma
     auto input_block = this->_z.leftCols(num_frames);
     auto output_block = this->_z.topRows(bottleneck).leftCols(num_frames);
     this->_blending_activation->apply(input_block, output_block);
+    NAM_PROFILE_ADD(PROF_ACTIVATION);
     if (this->_activation_post_film)
     {
       // Use Process() for blocks and copy result back
@@ -184,6 +207,7 @@ void nam::wavenet::_Layer::Process(const Eigen::MatrixXf& input, const Eigen::Ma
     if (this->_layer1x1)
     {
       this->_layer1x1->process_(this->_z.topRows(bottleneck), num_frames);
+      NAM_PROFILE_ADD(PROF_LAYER1X1);
       if (this->_layer1x1_post_film)
       {
         Eigen::MatrixXf& layer1x1_output = this->_layer1x1->GetOutput();
@@ -207,6 +231,7 @@ void nam::wavenet::_Layer::Process(const Eigen::MatrixXf& input, const Eigen::Ma
       Eigen::MatrixXf& head1x1_output = this->_head1x1->GetOutput();
       this->_head1x1_post_film->Process_(head1x1_output, condition, num_frames);
     }
+    NAM_PROFILE_ADD(PROF_HEAD1X1);
     this->_output_head.leftCols(num_frames).noalias() = this->_head1x1->GetOutput().leftCols(num_frames);
   }
   else // No head 1x1
@@ -230,6 +255,7 @@ void nam::wavenet::_Layer::Process(const Eigen::MatrixXf& input, const Eigen::Ma
     // If layer1x1 is inactive, residual connection is just the input (identity)
     this->_output_next_layer.leftCols(num_frames).noalias() = input.leftCols(num_frames);
   }
+  NAM_PROFILE_ADD(PROF_COPIES);
 }
 
 // LayerArray =================================================================
@@ -298,9 +324,12 @@ void nam::wavenet::_LayerArray::Process(const Eigen::MatrixXf& layer_inputs, con
 void nam::wavenet::_LayerArray::ProcessInner(const Eigen::MatrixXf& layer_inputs, const Eigen::MatrixXf& condition,
                                              const int num_frames)
 {
+  NAM_PROFILE_START();
+
   // Process rechannel and get output
   this->_rechannel.process_(layer_inputs, num_frames);
   Eigen::MatrixXf& rechannel_output = _rechannel.GetOutput();
+  NAM_PROFILE_ADD(PROF_RECHANNEL);
 
   // Process layers
   for (size_t i = 0; i < this->_layers.size(); i++)
@@ -329,7 +358,9 @@ void nam::wavenet::_LayerArray::ProcessInner(const Eigen::MatrixXf& layer_inputs
     this->_layers[last_layer].GetOutputNextLayer().leftCols(num_frames);
 
   // Process head rechannel
+  NAM_PROFILE_RESTART();
   _head_rechannel.process_(this->_head_inputs, num_frames);
+  NAM_PROFILE_ADD(PROF_RECHANNEL);
 }
 
 

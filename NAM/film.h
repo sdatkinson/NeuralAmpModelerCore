@@ -81,8 +81,12 @@ public:
     assert(num_frames <= condition.cols());
     assert(num_frames <= _output.cols());
 
+    // Conv1x1 to compute scale/shift from condition
     _cond_to_scale_shift.process_(condition, num_frames);
     const auto& scale_shift = _cond_to_scale_shift.GetOutput();
+
+    // Note: FiLM time is included in the caller's profiling category (e.g., conv1d, input_mixin)
+    // rather than tracked separately, to avoid double-counting.
 
     const auto scale = scale_shift.topRows(get_input_dim()).leftCols(num_frames);
     if (_do_shift)

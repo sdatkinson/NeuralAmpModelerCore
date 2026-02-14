@@ -4,6 +4,7 @@
 
 #include "NAM/dsp.h"
 #include "NAM/get_dsp.h"
+#include "NAM/profiling.h"
 
 using std::chrono::duration;
 using std::chrono::duration_cast;
@@ -62,6 +63,9 @@ int main(int argc, char* argv[])
       outputPtrs[ch] = outputBuffers[ch].data();
     }
 
+    // Reset profiling counters before benchmark
+    nam::profiling::reset();
+
     std::cout << "Running benchmark\n";
     auto t1 = high_resolution_clock::now();
     for (size_t i = 0; i < numBuffers; i++)
@@ -80,6 +84,9 @@ int main(int argc, char* argv[])
 
     std::cout << ms_int.count() << "ms\n";
     std::cout << ms_double.count() << "ms\n";
+
+    // Print profiling breakdown if enabled
+    nam::profiling::print_results();
   }
   else
   {

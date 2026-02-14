@@ -8,6 +8,7 @@
 #include <unordered_set>
 
 #include "dsp.h"
+#include "profiling.h"
 #include "registry.h"
 
 #define tanh_impl_ std::tanh
@@ -443,6 +444,9 @@ Eigen::MatrixXf nam::Conv1x1::process(const Eigen::MatrixXf& input, const int nu
 
 void nam::Conv1x1::process_(const Eigen::Ref<const Eigen::MatrixXf>& input, const int num_frames)
 {
+  // Note: Profiling is done at the caller level (e.g., _Layer::Process in wavenet.cpp)
+  // to provide meaningful categories (input_mixin, layer1x1, head1x1, rechannel)
+  // rather than generic conv1x1.
   assert(num_frames <= _output.cols());
 
   if (this->_is_depthwise)
