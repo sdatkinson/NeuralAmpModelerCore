@@ -165,6 +165,23 @@ protected:
   int PrewarmSamples() override { return mPrewarmSamples; };
 };
 
+/// \brief Configuration for a ConvNet model
+struct ConvNetConfig
+{
+  int channels;
+  std::vector<int> dilations;
+  bool batchnorm;
+  activations::ActivationConfig activation;
+  int groups;
+  int in_channels;
+  int out_channels;
+};
+
+/// \brief Parse ConvNet configuration from JSON
+/// \param config JSON configuration object
+/// \return ConvNetConfig
+ConvNetConfig parse_config_json(const nlohmann::json& config);
+
 /// \brief Factory function to instantiate ConvNet from JSON
 /// \param config JSON configuration object
 /// \param weights Model weights vector

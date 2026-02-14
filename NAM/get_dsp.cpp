@@ -3,6 +3,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <unordered_set>
+#include <variant>
 
 #include "dsp.h"
 #include "registry.h"
@@ -11,6 +12,7 @@
 #include "convnet.h"
 #include "wavenet.h"
 #include "get_dsp.h"
+#include "model_config.h"
 
 namespace nam
 {
@@ -146,62 +148,102 @@ std::unique_ptr<DSP> get_dsp(const nlohmann::json& config, dspData& returnedConf
   return get_dsp(conf);
 }
 
-struct OptionalValue
+// =============================================================================
+// Unified construction path
+// =============================================================================
+
+ModelConfig parse_model_config_json(const std::string& architecture, const nlohmann::json& config, double sample_rate)
 {
-  bool have = false;
-  double value = 0.0;
-};
+  if (architecture == "Linear")
+    return linear::parse_config_json(config);
+  else if (architecture == "LSTM")
+    return lstm::parse_config_json(config);
+  else if (architecture == "ConvNet")
+    return convnet::parse_config_json(config);
+  else if (architecture == "WaveNet")
+    return wavenet::parse_config_json(config, sample_rate);
+  else
+    throw std::runtime_error("Unknown architecture: " + architecture);
+}
+
+namespace
+{
+
+void apply_metadata(DSP& dsp, const ModelMetadata& metadata)
+{
+  if (metadata.loudness.has_value())
+    dsp.SetLoudness(metadata.loudness.value());
+  if (metadata.input_level.has_value())
+    dsp.SetInputLevel(metadata.input_level.value());
+  if (metadata.output_level.has_value())
+    dsp.SetOutputLevel(metadata.output_level.value());
+}
+
+} // anonymous namespace
+
+std::unique_ptr<DSP> create_dsp(ModelConfig config, std::vector<float> weights, const ModelMetadata& metadata)
+{
+  const double sample_rate = metadata.sample_rate;
+
+  std::unique_ptr<DSP> out = std::visit(
+    [&](auto&& cfg) -> std::unique_ptr<DSP> {
+      using T = std::decay_t<decltype(cfg)>;
+      if constexpr (std::is_same_v<T, linear::LinearConfig>)
+      {
+        return std::make_unique<Linear>(cfg.in_channels, cfg.out_channels, cfg.receptive_field, cfg.bias, weights,
+                                        sample_rate);
+      }
+      else if constexpr (std::is_same_v<T, lstm::LSTMConfig>)
+      {
+        return std::make_unique<lstm::LSTM>(cfg.in_channels, cfg.out_channels, cfg.num_layers, cfg.input_size,
+                                            cfg.hidden_size, weights, sample_rate);
+      }
+      else if constexpr (std::is_same_v<T, convnet::ConvNetConfig>)
+      {
+        return std::make_unique<convnet::ConvNet>(cfg.in_channels, cfg.out_channels, cfg.channels, cfg.dilations,
+                                                  cfg.batchnorm, cfg.activation, weights, sample_rate, cfg.groups);
+      }
+      else if constexpr (std::is_same_v<T, wavenet::WaveNetConfig>)
+      {
+        return std::make_unique<wavenet::WaveNet>(cfg.in_channels, cfg.layer_array_params, cfg.head_scale,
+                                                  cfg.with_head, std::move(weights), std::move(cfg.condition_dsp),
+                                                  sample_rate);
+      }
+    },
+    std::move(config));
+
+  apply_metadata(*out, metadata);
+  out->prewarm();
+  return out;
+}
+
+// =============================================================================
+// get_dsp(dspData&) — now uses unified path
+// =============================================================================
 
 std::unique_ptr<DSP> get_dsp(dspData& conf)
 {
   verify_config_version(conf.version);
 
-  auto& architecture = conf.architecture;
-  nlohmann::json& config = conf.config;
-  std::vector<float>& weights = conf.weights;
-  OptionalValue loudness, inputLevel, outputLevel;
-
-  auto AssignOptional = [&conf](const std::string key, OptionalValue& v) {
-    if (conf.metadata.find(key) != conf.metadata.end())
-    {
-      if (!conf.metadata[key].is_null())
-      {
-        v.value = conf.metadata[key];
-        v.have = true;
-      }
-    }
-  };
+  // Extract metadata from JSON
+  ModelMetadata metadata;
+  metadata.version = conf.version;
+  metadata.sample_rate = conf.expected_sample_rate;
 
   if (!conf.metadata.is_null())
   {
-    AssignOptional("loudness", loudness);
-    AssignOptional("input_level_dbu", inputLevel);
-    AssignOptional("output_level_dbu", outputLevel);
-  }
-  const double expectedSampleRate = conf.expected_sample_rate;
-
-  // Initialize using registry-based factory
-  std::unique_ptr<DSP> out =
-    nam::factory::FactoryRegistry::instance().create(architecture, config, weights, expectedSampleRate);
-
-  if (loudness.have)
-  {
-    out->SetLoudness(loudness.value);
-  }
-  if (inputLevel.have)
-  {
-    out->SetInputLevel(inputLevel.value);
-  }
-  if (outputLevel.have)
-  {
-    out->SetOutputLevel(outputLevel.value);
+    auto extract = [&conf](const std::string& key) -> std::optional<double> {
+      if (conf.metadata.find(key) != conf.metadata.end() && !conf.metadata[key].is_null())
+        return conf.metadata[key].get<double>();
+      return std::nullopt;
+    };
+    metadata.loudness = extract("loudness");
+    metadata.input_level = extract("input_level_dbu");
+    metadata.output_level = extract("output_level_dbu");
   }
 
-  // "pre-warm" the model to settle initial conditions
-  // Can this be removed now that it's part of Reset()?
-  out->prewarm();
-
-  return out;
+  ModelConfig model_config = parse_model_config_json(conf.architecture, conf.config, conf.expected_sample_rate);
+  return create_dsp(std::move(model_config), std::move(conf.weights), metadata);
 }
 
 double get_sample_rate_from_nam_file(const nlohmann::json& j)

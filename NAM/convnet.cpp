@@ -322,22 +322,27 @@ void nam::convnet::ConvNet::_rewind_buffers_()
   this->Buffer::_rewind_buffers_();
 }
 
+// Config parser
+nam::convnet::ConvNetConfig nam::convnet::parse_config_json(const nlohmann::json& config)
+{
+  ConvNetConfig c;
+  c.channels = config["channels"];
+  c.dilations = config["dilations"].get<std::vector<int>>();
+  c.batchnorm = config["batchnorm"];
+  c.activation = activations::ActivationConfig::from_json(config["activation"]);
+  c.groups = config.value("groups", 1);
+  c.in_channels = config.value("in_channels", 1);
+  c.out_channels = config.value("out_channels", 1);
+  return c;
+}
+
 // Factory
 std::unique_ptr<nam::DSP> nam::convnet::Factory(const nlohmann::json& config, std::vector<float>& weights,
                                                 const double expectedSampleRate)
 {
-  const int channels = config["channels"];
-  const std::vector<int> dilations = config["dilations"];
-  const bool batchnorm = config["batchnorm"];
-  // Parse JSON into typed ActivationConfig at model loading boundary
-  const activations::ActivationConfig activation_config =
-    activations::ActivationConfig::from_json(config["activation"]);
-  const int groups = config.value("groups", 1); // defaults to 1
-  // Default to 1 channel in/out for backward compatibility
-  const int in_channels = config.value("in_channels", 1);
-  const int out_channels = config.value("out_channels", 1);
-  return std::make_unique<nam::convnet::ConvNet>(
-    in_channels, out_channels, channels, dilations, batchnorm, activation_config, weights, expectedSampleRate, groups);
+  auto c = parse_config_json(config);
+  return std::make_unique<nam::convnet::ConvNet>(c.in_channels, c.out_channels, c.channels, c.dilations, c.batchnorm,
+                                                 c.activation, weights, expectedSampleRate, c.groups);
 }
 
 namespace

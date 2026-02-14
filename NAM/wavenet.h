@@ -713,6 +713,29 @@ private:
   int PrewarmSamples() override { return mPrewarmSamples; };
 };
 
+/// \brief Configuration for a WaveNet model
+struct WaveNetConfig
+{
+  int in_channels;
+  std::vector<LayerArrayParams> layer_array_params;
+  float head_scale;
+  bool with_head;
+  std::unique_ptr<DSP> condition_dsp;
+
+  // Move-only due to unique_ptr
+  WaveNetConfig() = default;
+  WaveNetConfig(WaveNetConfig&&) = default;
+  WaveNetConfig& operator=(WaveNetConfig&&) = default;
+  WaveNetConfig(const WaveNetConfig&) = delete;
+  WaveNetConfig& operator=(const WaveNetConfig&) = delete;
+};
+
+/// \brief Parse WaveNet configuration from JSON
+/// \param config JSON configuration object
+/// \param expectedSampleRate Expected sample rate in Hz (-1.0 if unknown)
+/// \return WaveNetConfig
+WaveNetConfig parse_config_json(const nlohmann::json& config, const double expectedSampleRate);
+
 /// \brief Factory function to instantiate WaveNet from JSON configuration
 /// \param config JSON configuration object
 /// \param weights Model weights vector

@@ -95,6 +95,21 @@ protected:
   Eigen::VectorXf _output;
 };
 
+/// \brief Configuration for an LSTM model
+struct LSTMConfig
+{
+  int num_layers;
+  int input_size;
+  int hidden_size;
+  int in_channels;
+  int out_channels;
+};
+
+/// \brief Parse LSTM configuration from JSON
+/// \param config JSON configuration object
+/// \return LSTMConfig
+LSTMConfig parse_config_json(const nlohmann::json& config);
+
 /// \brief Factory function to instantiate LSTM from JSON
 /// \param config JSON configuration object
 /// \param weights Model weights vector
