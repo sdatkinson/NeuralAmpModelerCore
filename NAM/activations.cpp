@@ -37,6 +37,7 @@ std::unordered_map<std::string, nam::activations::Activation::Ptr> nam::activati
 
 nam::activations::Activation::Ptr tanh_bak = nullptr;
 nam::activations::Activation::Ptr sigmoid_bak = nullptr;
+nam::activations::Activation::Ptr silu_bak = nullptr;
 
 nam::activations::Activation::Ptr nam::activations::Activation::get_activation(const std::string name)
 {
@@ -197,9 +198,14 @@ void nam::activations::Activation::enable_lut(std::string function_name, float m
     fn = sigmoid;
     sigmoid_bak = _activations["Sigmoid"];
   }
+  else if (function_name == "SiLU")
+  {
+    fn = swish;
+    silu_bak = _activations["SiLU"];
+  }
   else
   {
-    throw std::runtime_error("Tried to enable LUT for a function other than Tanh or Sigmoid");
+    throw std::runtime_error("Tried to enable LUT for a function other than Tanh, Sigmoid, or SiLU");
   }
   _activations[function_name] = std::make_shared<FastLUTActivation>(min, max, n_points, fn);
 }
@@ -214,8 +220,12 @@ void nam::activations::Activation::disable_lut(std::string function_name)
   {
     _activations["Sigmoid"] = sigmoid_bak;
   }
+  else if (function_name == "SiLU")
+  {
+    _activations["SiLU"] = silu_bak;
+  }
   else
   {
-    throw std::runtime_error("Tried to disable LUT for a function other than Tanh or Sigmoid");
+    throw std::runtime_error("Tried to disable LUT for a function other than Tanh, Sigmoid, or SiLU");
   }
 }

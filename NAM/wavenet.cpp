@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cstring>
 #include <iostream>
 #include <math.h>
 #include <sstream>
@@ -123,8 +124,34 @@ void nam::wavenet::_Layer::Process(const Eigen::MatrixXf& input, const Eigen::Ma
     Eigen::MatrixXf& input_mixin_output = this->_input_mixin.GetOutput();
     this->_input_mixin_post_film->Process_(input_mixin_output, condition, num_frames);
   }
+#ifdef NAM_USE_INLINE_GEMM
+  // Optimized matrix addition for small channel counts
+  {
+    const int channels = (int)_conv.get_out_channels();
+    const float* __restrict__ conv_ptr = _conv.GetOutput().data();
+    const float* __restrict__ mixin_ptr = _input_mixin.GetOutput().data();
+    float* __restrict__ z_ptr = this->_z.data();
+    const int total = channels * num_frames;
+
+    // Unrolled addition
+    int i = 0;
+    for (; i + 3 < total; i += 4)
+    {
+      z_ptr[i] = conv_ptr[i] + mixin_ptr[i];
+      z_ptr[i + 1] = conv_ptr[i + 1] + mixin_ptr[i + 1];
+      z_ptr[i + 2] = conv_ptr[i + 2] + mixin_ptr[i + 2];
+      z_ptr[i + 3] = conv_ptr[i + 3] + mixin_ptr[i + 3];
+    }
+    for (; i < total; i++)
+    {
+      z_ptr[i] = conv_ptr[i] + mixin_ptr[i];
+    }
+  }
+#else
   this->_z.leftCols(num_frames).noalias() =
     _conv.GetOutput().leftCols(num_frames) + _input_mixin.GetOutput().leftCols(num_frames);
+#endif
+
   if (this->_activation_pre_film)
   {
     this->_activation_pre_film->Process_(this->_z, condition, num_frames);
@@ -207,28 +234,89 @@ void nam::wavenet::_Layer::Process(const Eigen::MatrixXf& input, const Eigen::Ma
       Eigen::MatrixXf& head1x1_output = this->_head1x1->GetOutput();
       this->_head1x1_post_film->Process_(head1x1_output, condition, num_frames);
     }
+#ifdef NAM_USE_INLINE_GEMM
+    {
+      // Pure copy - use memcpy
+      const int total = (int)this->_head1x1->get_out_channels() * num_frames;
+      std::memcpy(this->_output_head.data(), this->_head1x1->GetOutput().data(), total * sizeof(float));
+    }
+#else
     this->_output_head.leftCols(num_frames).noalias() = this->_head1x1->GetOutput().leftCols(num_frames);
+#endif
   }
   else // No head 1x1
   {
     // (No FiLM)
     // Store output to head (skip connection: activated conv output)
+#ifdef NAM_USE_INLINE_GEMM
+    if (this->_gating_mode == GatingMode::NONE)
+    {
+      // _z has bottleneck rows, data is contiguous - use memcpy
+      const int total = (int)bottleneck * num_frames;
+      std::memcpy(this->_output_head.data(), this->_z.data(), total * sizeof(float));
+    }
+    else
+    {
+      // _z has 2*bottleneck rows but we only want top bottleneck rows
+      // Column-major: need to copy column by column with stride
+      const int out_rows = (int)bottleneck;
+      const int z_rows = (int)this->_z.rows(); // 2*bottleneck for gated
+      const float* __restrict__ src = this->_z.data();
+      float* __restrict__ dst = this->_output_head.data();
+      for (int f = 0; f < num_frames; f++)
+      {
+        const float* __restrict__ src_col = src + f * z_rows;
+        float* __restrict__ dst_col = dst + f * out_rows;
+        for (int r = 0; r < out_rows; r++)
+          dst_col[r] = src_col[r];
+      }
+    }
+#else
     if (this->_gating_mode == GatingMode::NONE)
       this->_output_head.leftCols(num_frames).noalias() = this->_z.leftCols(num_frames);
     else
       this->_output_head.leftCols(num_frames).noalias() = this->_z.topRows(bottleneck).leftCols(num_frames);
+#endif
   }
 
   // Store output to next layer (residual connection: input + layer1x1 output, or just input if layer1x1 inactive)
   if (this->_layer1x1)
   {
+#ifdef NAM_USE_INLINE_GEMM
+    {
+      const int channels = (int)this->get_channels();
+      const int total = channels * num_frames;
+      const float* __restrict__ in_ptr = input.data();
+      const float* __restrict__ layer_ptr = this->_layer1x1->GetOutput().data();
+      float* __restrict__ dst = this->_output_next_layer.data();
+      int i = 0;
+      for (; i + 3 < total; i += 4)
+      {
+        dst[i] = in_ptr[i] + layer_ptr[i];
+        dst[i + 1] = in_ptr[i + 1] + layer_ptr[i + 1];
+        dst[i + 2] = in_ptr[i + 2] + layer_ptr[i + 2];
+        dst[i + 3] = in_ptr[i + 3] + layer_ptr[i + 3];
+      }
+      for (; i < total; i++)
+        dst[i] = in_ptr[i] + layer_ptr[i];
+    }
+#else
     this->_output_next_layer.leftCols(num_frames).noalias() =
       input.leftCols(num_frames) + this->_layer1x1->GetOutput().leftCols(num_frames);
+#endif
   }
   else
   {
     // If layer1x1 is inactive, residual connection is just the input (identity)
+#ifdef NAM_USE_INLINE_GEMM
+    {
+      // Pure copy - use memcpy
+      const int total = (int)this->get_channels() * num_frames;
+      std::memcpy(this->_output_next_layer.data(), input.data(), total * sizeof(float));
+    }
+#else
     this->_output_next_layer.leftCols(num_frames).noalias() = input.leftCols(num_frames);
+#endif
   }
 }
 
@@ -290,8 +378,15 @@ void nam::wavenet::_LayerArray::Process(const Eigen::MatrixXf& layer_inputs, con
 void nam::wavenet::_LayerArray::Process(const Eigen::MatrixXf& layer_inputs, const Eigen::MatrixXf& condition,
                                         const Eigen::MatrixXf& head_inputs, const int num_frames)
 {
-  // Copy head inputs from previous layer array
+  // Copy head inputs from previous layer array - use memcpy for pure copy
+#ifdef NAM_USE_INLINE_GEMM
+  {
+    const int total = (int)this->_head_output_size * num_frames;
+    std::memcpy(this->_head_inputs.data(), head_inputs.data(), total * sizeof(float));
+  }
+#else
   this->_head_inputs.leftCols(num_frames).noalias() = head_inputs.leftCols(num_frames);
+#endif
   ProcessInner(layer_inputs, condition, num_frames);
 }
 
@@ -320,13 +415,40 @@ void nam::wavenet::_LayerArray::ProcessInner(const Eigen::MatrixXf& layer_inputs
     }
 
     // Accumulate head output from this layer
+#ifdef NAM_USE_INLINE_GEMM
+    {
+      const int channels = (int)this->_head_output_size;
+      const int total = channels * num_frames;
+      const float* __restrict__ src = this->_layers[i].GetOutputHead().data();
+      float* __restrict__ dst = this->_head_inputs.data();
+      int j = 0;
+      for (; j + 3 < total; j += 4)
+      {
+        dst[j] += src[j];
+        dst[j + 1] += src[j + 1];
+        dst[j + 2] += src[j + 2];
+        dst[j + 3] += src[j + 3];
+      }
+      for (; j < total; j++)
+        dst[j] += src[j];
+    }
+#else
     this->_head_inputs.leftCols(num_frames).noalias() += this->_layers[i].GetOutputHead().leftCols(num_frames);
+#endif
   }
 
-  // Store output from last layer
+  // Store output from last layer - use memcpy for pure copy
   const size_t last_layer = this->_layers.size() - 1;
+#ifdef NAM_USE_INLINE_GEMM
+  {
+    const int total = (int)this->_get_channels() * num_frames;
+    std::memcpy(this->_layer_outputs.data(), this->_layers[last_layer].GetOutputNextLayer().data(),
+                total * sizeof(float));
+  }
+#else
   this->_layer_outputs.leftCols(num_frames).noalias() =
     this->_layers[last_layer].GetOutputNextLayer().leftCols(num_frames);
+#endif
 
   // Process head rechannel
   _head_rechannel.process_(this->_head_inputs, num_frames);
@@ -558,12 +680,27 @@ void nam::wavenet::WaveNet::process(NAM_SAMPLE** input, NAM_SAMPLE** output, con
   auto& final_head_outputs = this->_layer_arrays.back().GetHeadOutputs();
   assert(final_head_outputs.rows() == out_channels);
 
-  for (int ch = 0; ch < out_channels; ch++)
+  // Optimized output copy with head_scale multiplication
+  if (out_channels == 1)
   {
+    // Single channel: data is contiguous
+    const float scale = this->_head_scale;
+    const float* __restrict__ src = final_head_outputs.data();
+    NAM_SAMPLE* __restrict__ dst = output[0];
     for (int s = 0; s < num_frames; s++)
     {
-      const float out = this->_head_scale * final_head_outputs(ch, s);
-      output[ch][s] = out;
+      dst[s] = scale * src[s];
+    }
+  }
+  else
+  {
+    // Multi-channel: rows are not contiguous in column-major
+    for (int ch = 0; ch < out_channels; ch++)
+    {
+      for (int s = 0; s < num_frames; s++)
+      {
+        output[ch][s] = this->_head_scale * final_head_outputs(ch, s);
+      }
     }
   }
 }
