@@ -1,7 +1,8 @@
 #include <iostream>
 #include <chrono>
-#include <filesystem>
 #include <cstdlib>
+#include <cstring>
+#include <filesystem>
 
 #include "NAM/dsp.h"
 #include "NAM/get_dsp.h"
@@ -11,17 +12,30 @@ using std::chrono::duration_cast;
 using std::chrono::high_resolution_clock;
 using std::chrono::microseconds;
 
+/* A version of benchmodel that accepts an arbitrary buffer size between 1 and 4096.
+ * Useful for testing the effect of smaller/larger buffers on performance.
+ */
+
 int main(int argc, char* argv[])
 {
   if (argc < 3)
   {
-    std::cerr << "Usage: benchmodel_bufsize <model_path> <buffer_size> [num_iterations]\n";
+    std::cerr << "Usage: benchmodel_bufsize <model_path> <buffer_size> [num_iterations] [--no-fast-tanh]\n";
     exit(1);
   }
 
   const char* modelPath = argv[1];
   const int bufferSize = std::atoi(argv[2]);
-  const int numIterations = (argc > 3) ? std::atoi(argv[3]) : 5;
+  int numIterations = 5;
+  bool useFastTanh = true;
+
+  for (int i = 3; i < argc; i++)
+  {
+    if (std::strcmp(argv[i], "--no-fast-tanh") == 0)
+      useFastTanh = false;
+    else
+      numIterations = std::atoi(argv[i]);
+  }
 
   if (bufferSize <= 0 || bufferSize > 4096)
   {
@@ -29,8 +43,10 @@ int main(int argc, char* argv[])
     exit(1);
   }
 
-  // Turn on fast tanh approximation
-  nam::activations::Activation::enable_fast_tanh();
+  if (useFastTanh)
+    nam::activations::Activation::enable_fast_tanh();
+  else
+    nam::activations::Activation::disable_fast_tanh();
 
   std::unique_ptr<nam::DSP> model;
   model = nam::get_dsp(std::filesystem::path(modelPath));
