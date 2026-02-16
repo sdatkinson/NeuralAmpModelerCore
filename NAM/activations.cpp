@@ -35,6 +35,7 @@ std::unordered_map<std::string, nam::activations::Activation::Ptr> nam::activati
   {"PReLU", make_singleton_ptr(_PRELU)},
   {"Softsign", make_singleton_ptr(_SOFTSIGN)}};
 
+// Variables to hold previous instances of activations when we replace them with fast or LUT implementations
 nam::activations::Activation::Ptr tanh_bak = nullptr;
 nam::activations::Activation::Ptr sigmoid_bak = nullptr;
 nam::activations::Activation::Ptr silu_bak = nullptr;

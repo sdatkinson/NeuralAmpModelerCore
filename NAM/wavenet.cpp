@@ -124,33 +124,8 @@ void nam::wavenet::_Layer::Process(const Eigen::MatrixXf& input, const Eigen::Ma
     Eigen::MatrixXf& input_mixin_output = this->_input_mixin.GetOutput();
     this->_input_mixin_post_film->Process_(input_mixin_output, condition, num_frames);
   }
-#ifdef NAM_USE_INLINE_GEMM
-  // Optimized matrix addition for small channel counts
-  {
-    const int channels = (int)_conv.get_out_channels();
-    const float* __restrict__ conv_ptr = _conv.GetOutput().data();
-    const float* __restrict__ mixin_ptr = _input_mixin.GetOutput().data();
-    float* __restrict__ z_ptr = this->_z.data();
-    const int total = channels * num_frames;
-
-    // Unrolled addition
-    int i = 0;
-    for (; i + 3 < total; i += 4)
-    {
-      z_ptr[i] = conv_ptr[i] + mixin_ptr[i];
-      z_ptr[i + 1] = conv_ptr[i + 1] + mixin_ptr[i + 1];
-      z_ptr[i + 2] = conv_ptr[i + 2] + mixin_ptr[i + 2];
-      z_ptr[i + 3] = conv_ptr[i + 3] + mixin_ptr[i + 3];
-    }
-    for (; i < total; i++)
-    {
-      z_ptr[i] = conv_ptr[i] + mixin_ptr[i];
-    }
-  }
-#else
   this->_z.leftCols(num_frames).noalias() =
     _conv.GetOutput().leftCols(num_frames) + _input_mixin.GetOutput().leftCols(num_frames);
-#endif
 
   if (this->_activation_pre_film)
   {
@@ -282,28 +257,8 @@ void nam::wavenet::_Layer::Process(const Eigen::MatrixXf& input, const Eigen::Ma
   // Store output to next layer (residual connection: input + layer1x1 output, or just input if layer1x1 inactive)
   if (this->_layer1x1)
   {
-#ifdef NAM_USE_INLINE_GEMM
-    {
-      const int channels = (int)this->get_channels();
-      const int total = channels * num_frames;
-      const float* __restrict__ in_ptr = input.data();
-      const float* __restrict__ layer_ptr = this->_layer1x1->GetOutput().data();
-      float* __restrict__ dst = this->_output_next_layer.data();
-      int i = 0;
-      for (; i + 3 < total; i += 4)
-      {
-        dst[i] = in_ptr[i] + layer_ptr[i];
-        dst[i + 1] = in_ptr[i + 1] + layer_ptr[i + 1];
-        dst[i + 2] = in_ptr[i + 2] + layer_ptr[i + 2];
-        dst[i + 3] = in_ptr[i + 3] + layer_ptr[i + 3];
-      }
-      for (; i < total; i++)
-        dst[i] = in_ptr[i] + layer_ptr[i];
-    }
-#else
     this->_output_next_layer.leftCols(num_frames).noalias() =
       input.leftCols(num_frames) + this->_layer1x1->GetOutput().leftCols(num_frames);
-#endif
   }
   else
   {
@@ -415,26 +370,7 @@ void nam::wavenet::_LayerArray::ProcessInner(const Eigen::MatrixXf& layer_inputs
     }
 
     // Accumulate head output from this layer
-#ifdef NAM_USE_INLINE_GEMM
-    {
-      const int channels = (int)this->_head_output_size;
-      const int total = channels * num_frames;
-      const float* __restrict__ src = this->_layers[i].GetOutputHead().data();
-      float* __restrict__ dst = this->_head_inputs.data();
-      int j = 0;
-      for (; j + 3 < total; j += 4)
-      {
-        dst[j] += src[j];
-        dst[j + 1] += src[j + 1];
-        dst[j + 2] += src[j + 2];
-        dst[j + 3] += src[j + 3];
-      }
-      for (; j < total; j++)
-        dst[j] += src[j];
-    }
-#else
     this->_head_inputs.leftCols(num_frames).noalias() += this->_layers[i].GetOutputHead().leftCols(num_frames);
-#endif
   }
 
   // Store output from last layer - use memcpy for pure copy
