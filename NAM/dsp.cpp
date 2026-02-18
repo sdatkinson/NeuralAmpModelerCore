@@ -311,19 +311,26 @@ nam::linear::LinearConfig nam::linear::parse_config_json(const nlohmann::json& c
   return c;
 }
 
-// Factory
-std::unique_ptr<nam::DSP> nam::linear::Factory(const nlohmann::json& config, std::vector<float>& weights,
-                                               const double expectedSampleRate)
+// LinearConfig::create()
+std::unique_ptr<nam::DSP> nam::linear::LinearConfig::create(std::vector<float> weights, double sampleRate)
 {
-  auto c = parse_config_json(config);
-  return std::make_unique<nam::Linear>(c.in_channels, c.out_channels, c.receptive_field, c.bias, weights,
-                                       expectedSampleRate);
+  return std::make_unique<nam::Linear>(in_channels, out_channels, receptive_field, bias, weights, sampleRate);
 }
 
-// Register the factory
+// Config parser for ConfigParserRegistry
+std::unique_ptr<nam::ModelConfig> nam::linear::create_config(const nlohmann::json& config, double sampleRate)
+{
+  (void)sampleRate;
+  auto c = std::make_unique<LinearConfig>();
+  auto parsed = parse_config_json(config);
+  *c = parsed;
+  return c;
+}
+
+// Register the config parser
 namespace
 {
-static nam::factory::Helper _register_Linear("Linear", nam::linear::Factory);
+static nam::ConfigParserHelper _register_Linear("Linear", nam::linear::create_config);
 }
 
 // NN modules =================================================================

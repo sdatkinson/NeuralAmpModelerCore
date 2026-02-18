@@ -166,7 +166,7 @@ protected:
 };
 
 /// \brief Configuration for a ConvNet model
-struct ConvNetConfig
+struct ConvNetConfig : public ModelConfig
 {
   int channels;
   std::vector<int> dilations;
@@ -175,6 +175,8 @@ struct ConvNetConfig
   int groups;
   int in_channels;
   int out_channels;
+
+  std::unique_ptr<DSP> create(std::vector<float> weights, double sampleRate) override;
 };
 
 /// \brief Parse ConvNet configuration from JSON
@@ -182,13 +184,8 @@ struct ConvNetConfig
 /// \return ConvNetConfig
 ConvNetConfig parse_config_json(const nlohmann::json& config);
 
-/// \brief Factory function to instantiate ConvNet from JSON
-/// \param config JSON configuration object
-/// \param weights Model weights vector
-/// \param expectedSampleRate Expected sample rate in Hz (-1.0 if unknown)
-/// \return Unique pointer to a DSP object (ConvNet instance)
-std::unique_ptr<DSP> Factory(const nlohmann::json& config, std::vector<float>& weights,
-                             const double expectedSampleRate);
+/// \brief Config parser for ConfigParserRegistry
+std::unique_ptr<ModelConfig> create_config(const nlohmann::json& config, double sampleRate);
 
 }; // namespace convnet
 }; // namespace nam

@@ -175,17 +175,25 @@ nam::lstm::LSTMConfig nam::lstm::parse_config_json(const nlohmann::json& config)
   return c;
 }
 
-// Factory to instantiate from nlohmann json
-std::unique_ptr<nam::DSP> nam::lstm::Factory(const nlohmann::json& config, std::vector<float>& weights,
-                                             const double expectedSampleRate)
+// LSTMConfig::create()
+std::unique_ptr<nam::DSP> nam::lstm::LSTMConfig::create(std::vector<float> weights, double sampleRate)
 {
-  auto c = parse_config_json(config);
-  return std::make_unique<nam::lstm::LSTM>(c.in_channels, c.out_channels, c.num_layers, c.input_size, c.hidden_size,
-                                           weights, expectedSampleRate);
+  return std::make_unique<nam::lstm::LSTM>(in_channels, out_channels, num_layers, input_size, hidden_size, weights,
+                                           sampleRate);
 }
 
-// Register the factory
+// Config parser for ConfigParserRegistry
+std::unique_ptr<nam::ModelConfig> nam::lstm::create_config(const nlohmann::json& config, double sampleRate)
+{
+  (void)sampleRate;
+  auto c = std::make_unique<LSTMConfig>();
+  auto parsed = parse_config_json(config);
+  *c = parsed;
+  return c;
+}
+
+// Register the config parser
 namespace
 {
-static nam::factory::Helper _register_LSTM("LSTM", nam::lstm::Factory);
+static nam::ConfigParserHelper _register_LSTM("LSTM", nam::lstm::create_config);
 }

@@ -714,7 +714,7 @@ private:
 };
 
 /// \brief Configuration for a WaveNet model
-struct WaveNetConfig
+struct WaveNetConfig : public ModelConfig
 {
   int in_channels;
   std::vector<LayerArrayParams> layer_array_params;
@@ -728,6 +728,8 @@ struct WaveNetConfig
   WaveNetConfig& operator=(WaveNetConfig&&) = default;
   WaveNetConfig(const WaveNetConfig&) = delete;
   WaveNetConfig& operator=(const WaveNetConfig&) = delete;
+
+  std::unique_ptr<DSP> create(std::vector<float> weights, double sampleRate) override;
 };
 
 /// \brief Parse WaveNet configuration from JSON
@@ -736,12 +738,7 @@ struct WaveNetConfig
 /// \return WaveNetConfig
 WaveNetConfig parse_config_json(const nlohmann::json& config, const double expectedSampleRate);
 
-/// \brief Factory function to instantiate WaveNet from JSON configuration
-/// \param config JSON configuration object
-/// \param weights Model weights vector
-/// \param expectedSampleRate Expected sample rate in Hz (-1.0 if unknown)
-/// \return Unique pointer to a DSP object (WaveNet instance)
-std::unique_ptr<DSP> Factory(const nlohmann::json& config, std::vector<float>& weights,
-                             const double expectedSampleRate);
+/// \brief Config parser for ConfigParserRegistry
+std::unique_ptr<ModelConfig> create_config(const nlohmann::json& config, double sampleRate);
 }; // namespace wavenet
 }; // namespace nam

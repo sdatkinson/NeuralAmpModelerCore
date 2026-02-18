@@ -336,16 +336,24 @@ nam::convnet::ConvNetConfig nam::convnet::parse_config_json(const nlohmann::json
   return c;
 }
 
-// Factory
-std::unique_ptr<nam::DSP> nam::convnet::Factory(const nlohmann::json& config, std::vector<float>& weights,
-                                                const double expectedSampleRate)
+// ConvNetConfig::create()
+std::unique_ptr<nam::DSP> nam::convnet::ConvNetConfig::create(std::vector<float> weights, double sampleRate)
 {
-  auto c = parse_config_json(config);
-  return std::make_unique<nam::convnet::ConvNet>(c.in_channels, c.out_channels, c.channels, c.dilations, c.batchnorm,
-                                                 c.activation, weights, expectedSampleRate, c.groups);
+  return std::make_unique<nam::convnet::ConvNet>(in_channels, out_channels, channels, dilations, batchnorm, activation,
+                                                 weights, sampleRate, groups);
+}
+
+// Config parser for ConfigParserRegistry
+std::unique_ptr<nam::ModelConfig> nam::convnet::create_config(const nlohmann::json& config, double sampleRate)
+{
+  (void)sampleRate;
+  auto c = std::make_unique<ConvNetConfig>();
+  auto parsed = parse_config_json(config);
+  *c = parsed;
+  return c;
 }
 
 namespace
 {
-static nam::factory::Helper _register_ConvNet("ConvNet", nam::convnet::Factory);
+static nam::ConfigParserHelper _register_ConvNet("ConvNet", nam::convnet::create_config);
 }

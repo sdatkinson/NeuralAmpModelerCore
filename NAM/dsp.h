@@ -11,6 +11,7 @@
 
 #include "activations.h"
 #include "json.hpp"
+#include "model_config.h"
 
 #ifdef NAM_SAMPLE_FLOAT
   #define NAM_SAMPLE float
@@ -260,12 +261,14 @@ namespace linear
 {
 
 /// \brief Configuration for a Linear model
-struct LinearConfig
+struct LinearConfig : public ModelConfig
 {
   int receptive_field;
   bool bias;
   int in_channels;
   int out_channels;
+
+  std::unique_ptr<DSP> create(std::vector<float> weights, double sampleRate) override;
 };
 
 /// \brief Parse Linear configuration from JSON
@@ -273,13 +276,11 @@ struct LinearConfig
 /// \return LinearConfig
 LinearConfig parse_config_json(const nlohmann::json& config);
 
-/// \brief Factory function to instantiate Linear model from JSON
+/// \brief Config parser for ConfigParserRegistry
 /// \param config JSON configuration object
-/// \param weights Model weights vector
-/// \param expectedSampleRate Expected sample rate in Hz (-1.0 if unknown)
-/// \return Unique pointer to a DSP object (Linear instance)
-std::unique_ptr<DSP> Factory(const nlohmann::json& config, std::vector<float>& weights,
-                             const double expectedSampleRate);
+/// \param sampleRate Expected sample rate in Hz
+/// \return unique_ptr<ModelConfig> wrapping a LinearConfig
+std::unique_ptr<ModelConfig> create_config(const nlohmann::json& config, double sampleRate);
 } // namespace linear
 
 // NN modules =================================================================

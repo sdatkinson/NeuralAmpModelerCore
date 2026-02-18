@@ -2,15 +2,10 @@
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
-#include <unordered_set>
-#include <variant>
 
 #include "dsp.h"
 #include "registry.h"
 #include "json.hpp"
-#include "lstm.h"
-#include "convnet.h"
-#include "wavenet.h"
 #include "get_dsp.h"
 #include "model_config.h"
 
@@ -152,18 +147,10 @@ std::unique_ptr<DSP> get_dsp(const nlohmann::json& config, dspData& returnedConf
 // Unified construction path
 // =============================================================================
 
-ModelConfig parse_model_config_json(const std::string& architecture, const nlohmann::json& config, double sample_rate)
+std::unique_ptr<ModelConfig> parse_model_config_json(const std::string& architecture, const nlohmann::json& config,
+                                                     double sample_rate)
 {
-  if (architecture == "Linear")
-    return linear::parse_config_json(config);
-  else if (architecture == "LSTM")
-    return lstm::parse_config_json(config);
-  else if (architecture == "ConvNet")
-    return convnet::parse_config_json(config);
-  else if (architecture == "WaveNet")
-    return wavenet::parse_config_json(config, sample_rate);
-  else
-    throw std::runtime_error("Unknown architecture: " + architecture);
+  return ConfigParserRegistry::instance().parse(architecture, config, sample_rate);
 }
 
 namespace
@@ -181,37 +168,10 @@ void apply_metadata(DSP& dsp, const ModelMetadata& metadata)
 
 } // anonymous namespace
 
-std::unique_ptr<DSP> create_dsp(ModelConfig config, std::vector<float> weights, const ModelMetadata& metadata)
+std::unique_ptr<DSP> create_dsp(std::unique_ptr<ModelConfig> config, std::vector<float> weights,
+                                const ModelMetadata& metadata)
 {
-  const double sample_rate = metadata.sample_rate;
-
-  std::unique_ptr<DSP> out = std::visit(
-    [&](auto&& cfg) -> std::unique_ptr<DSP> {
-      using T = std::decay_t<decltype(cfg)>;
-      if constexpr (std::is_same_v<T, linear::LinearConfig>)
-      {
-        return std::make_unique<Linear>(cfg.in_channels, cfg.out_channels, cfg.receptive_field, cfg.bias, weights,
-                                        sample_rate);
-      }
-      else if constexpr (std::is_same_v<T, lstm::LSTMConfig>)
-      {
-        return std::make_unique<lstm::LSTM>(cfg.in_channels, cfg.out_channels, cfg.num_layers, cfg.input_size,
-                                            cfg.hidden_size, weights, sample_rate);
-      }
-      else if constexpr (std::is_same_v<T, convnet::ConvNetConfig>)
-      {
-        return std::make_unique<convnet::ConvNet>(cfg.in_channels, cfg.out_channels, cfg.channels, cfg.dilations,
-                                                  cfg.batchnorm, cfg.activation, weights, sample_rate, cfg.groups);
-      }
-      else if constexpr (std::is_same_v<T, wavenet::WaveNetConfig>)
-      {
-        return std::make_unique<wavenet::WaveNet>(cfg.in_channels, cfg.layer_array_params, cfg.head_scale,
-                                                  cfg.with_head, std::move(weights), std::move(cfg.condition_dsp),
-                                                  sample_rate);
-      }
-    },
-    std::move(config));
-
+  auto out = config->create(std::move(weights), metadata.sample_rate);
   apply_metadata(*out, metadata);
   out->prewarm();
   return out;
@@ -242,7 +202,7 @@ std::unique_ptr<DSP> get_dsp(dspData& conf)
     metadata.output_level = extract("output_level_dbu");
   }
 
-  ModelConfig model_config = parse_model_config_json(conf.architecture, conf.config, conf.expected_sample_rate);
+  auto model_config = ConfigParserRegistry::instance().parse(conf.architecture, conf.config, conf.expected_sample_rate);
   return create_dsp(std::move(model_config), std::move(conf.weights), metadata);
 }
 

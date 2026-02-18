@@ -818,17 +818,24 @@ nam::wavenet::WaveNetConfig nam::wavenet::parse_config_json(const nlohmann::json
   return wc;
 }
 
-// Factory to instantiate from nlohmann json
-std::unique_ptr<nam::DSP> nam::wavenet::Factory(const nlohmann::json& config, std::vector<float>& weights,
-                                                const double expectedSampleRate)
+// WaveNetConfig::create()
+std::unique_ptr<nam::DSP> nam::wavenet::WaveNetConfig::create(std::vector<float> weights, double sampleRate)
 {
-  auto wc = parse_config_json(config, expectedSampleRate);
-  return std::make_unique<nam::wavenet::WaveNet>(wc.in_channels, wc.layer_array_params, wc.head_scale, wc.with_head,
-                                                 weights, std::move(wc.condition_dsp), expectedSampleRate);
+  return std::make_unique<nam::wavenet::WaveNet>(in_channels, layer_array_params, head_scale, with_head,
+                                                 std::move(weights), std::move(condition_dsp), sampleRate);
 }
 
-// Register the factory
+// Config parser for ConfigParserRegistry
+std::unique_ptr<nam::ModelConfig> nam::wavenet::create_config(const nlohmann::json& config, double sampleRate)
+{
+  auto wc = std::make_unique<WaveNetConfig>();
+  auto parsed = parse_config_json(config, sampleRate);
+  *wc = std::move(parsed);
+  return wc;
+}
+
+// Register the config parser
 namespace
 {
-static nam::factory::Helper _register_WaveNet("WaveNet", nam::wavenet::Factory);
+static nam::ConfigParserHelper _register_WaveNet("WaveNet", nam::wavenet::create_config);
 }
