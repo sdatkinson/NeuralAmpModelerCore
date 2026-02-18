@@ -26,6 +26,7 @@
 #include "test/test_input_buffer_verification.cpp"
 #include "test/test_lstm.cpp"
 #include "test/test_wavenet_configurable_gating.cpp"
+#include "test/test_extensible.cpp"
 
 int main()
 {
@@ -248,6 +249,9 @@ int main()
 
   // Finally, some end-to-end tests.
   test_get_dsp::test_load_and_process_nam_files();
+
+  // Extensibility: external architecture registration and get_dsp (issue #230)
+  test_extensible::run_extensibility_tests();
 
   std::cout << "Success!" << std::endl;
 #ifdef ADDASSERT
