@@ -91,14 +91,16 @@ public:
     const float* __restrict__ scale_shift_ptr = scale_shift.data();
     float* __restrict__ output_ptr = _output.data();
     const int scale_shift_rows = (int)scale_shift.rows();
-    const int input_rows = (int)input.rows();
+    // Use outerStride() instead of rows() to correctly handle non-contiguous
+    // block expressions (e.g. topRows()) where outerStride > rows
+    const int input_stride = (int)input.outerStride();
 
     if (_do_shift)
     {
       // scale = top input_dim rows, shift = bottom input_dim rows
       for (int f = 0; f < num_frames; f++)
       {
-        const float* __restrict__ in_col = input_ptr + f * input_rows;
+        const float* __restrict__ in_col = input_ptr + f * input_stride;
         const float* __restrict__ scale_col = scale_shift_ptr + f * scale_shift_rows;
         const float* __restrict__ shift_col = scale_col + input_dim;
         float* __restrict__ out_col = output_ptr + f * input_dim;
@@ -122,7 +124,7 @@ public:
       // scale only
       for (int f = 0; f < num_frames; f++)
       {
-        const float* __restrict__ in_col = input_ptr + f * input_rows;
+        const float* __restrict__ in_col = input_ptr + f * input_stride;
         const float* __restrict__ scale_col = scale_shift_ptr + f * scale_shift_rows;
         float* __restrict__ out_col = output_ptr + f * input_dim;
 
