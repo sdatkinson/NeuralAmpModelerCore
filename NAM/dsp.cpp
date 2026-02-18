@@ -462,6 +462,9 @@ void nam::Conv1x1::process_(const Eigen::Ref<const Eigen::MatrixXf>& input, cons
     const float* __restrict__ input_ptr = input.data();
     const float* __restrict__ weight_ptr = this->_weight.data();
     float* __restrict__ output_ptr = _output.data();
+    // Use outerStride() instead of in_ch to correctly handle non-contiguous
+    // block expressions (e.g. topRows()) where outerStride > rows
+    const int in_stride = (int)input.outerStride();
 
     // Specialized paths for common small sizes
     if (out_ch == 2 && in_ch == 1)
@@ -469,7 +472,7 @@ void nam::Conv1x1::process_(const Eigen::Ref<const Eigen::MatrixXf>& input, cons
       const float w0 = weight_ptr[0], w1 = weight_ptr[1];
       for (int f = 0; f < num_frames; f++)
       {
-        const float in_val = input_ptr[f];
+        const float in_val = input_ptr[f * in_stride];
         output_ptr[f * 2]     = w0 * in_val;
         output_ptr[f * 2 + 1] = w1 * in_val;
       }
@@ -480,7 +483,7 @@ void nam::Conv1x1::process_(const Eigen::Ref<const Eigen::MatrixXf>& input, cons
       const float w2 = weight_ptr[2], w3 = weight_ptr[3];
       for (int f = 0; f < num_frames; f++)
       {
-        const float in_val = input_ptr[f];
+        const float in_val = input_ptr[f * in_stride];
         output_ptr[f * 4]     = w0 * in_val;
         output_ptr[f * 4 + 1] = w1 * in_val;
         output_ptr[f * 4 + 2] = w2 * in_val;
@@ -492,7 +495,8 @@ void nam::Conv1x1::process_(const Eigen::Ref<const Eigen::MatrixXf>& input, cons
       const float w0 = weight_ptr[0], w1 = weight_ptr[1];
       for (int f = 0; f < num_frames; f++)
       {
-        output_ptr[f] = w0 * input_ptr[f * 2] + w1 * input_ptr[f * 2 + 1];
+        const float* __restrict__ in_col = input_ptr + f * in_stride;
+        output_ptr[f] = w0 * in_col[0] + w1 * in_col[1];
       }
     }
     else if (out_ch == 2 && in_ch == 2)
@@ -502,11 +506,11 @@ void nam::Conv1x1::process_(const Eigen::Ref<const Eigen::MatrixXf>& input, cons
       const float w01 = weight_ptr[2], w11 = weight_ptr[3];
       for (int f = 0; f < num_frames; f++)
       {
-        const int off = f * 2;
-        const float i0 = input_ptr[off];
-        const float i1 = input_ptr[off + 1];
-        output_ptr[off]     = w00 * i0 + w01 * i1;
-        output_ptr[off + 1] = w10 * i0 + w11 * i1;
+        const float* __restrict__ in_col = input_ptr + f * in_stride;
+        const float i0 = in_col[0];
+        const float i1 = in_col[1];
+        output_ptr[f * 2]     = w00 * i0 + w01 * i1;
+        output_ptr[f * 2 + 1] = w10 * i0 + w11 * i1;
       }
     }
     else if (out_ch == 2 && in_ch == 4)
@@ -517,10 +521,11 @@ void nam::Conv1x1::process_(const Eigen::Ref<const Eigen::MatrixXf>& input, cons
       const float w03 = weight_ptr[6], w13 = weight_ptr[7];
       for (int f = 0; f < num_frames; f++)
       {
-        const float i0 = input_ptr[f * 4];
-        const float i1 = input_ptr[f * 4 + 1];
-        const float i2 = input_ptr[f * 4 + 2];
-        const float i3 = input_ptr[f * 4 + 3];
+        const float* __restrict__ in_col = input_ptr + f * in_stride;
+        const float i0 = in_col[0];
+        const float i1 = in_col[1];
+        const float i2 = in_col[2];
+        const float i3 = in_col[3];
         output_ptr[f * 2]     = w00 * i0 + w01 * i1 + w02 * i2 + w03 * i3;
         output_ptr[f * 2 + 1] = w10 * i0 + w11 * i1 + w12 * i2 + w13 * i3;
       }
@@ -531,9 +536,9 @@ void nam::Conv1x1::process_(const Eigen::Ref<const Eigen::MatrixXf>& input, cons
       const float w2 = weight_ptr[2], w3 = weight_ptr[3];
       for (int f = 0; f < num_frames; f++)
       {
-        const int off = f * 4;
-        output_ptr[f] = w0 * input_ptr[off] + w1 * input_ptr[off + 1]
-                      + w2 * input_ptr[off + 2] + w3 * input_ptr[off + 3];
+        const float* __restrict__ in_col = input_ptr + f * in_stride;
+        output_ptr[f] = w0 * in_col[0] + w1 * in_col[1]
+                      + w2 * in_col[2] + w3 * in_col[3];
       }
     }
     else if (out_ch == 4 && in_ch == 2)
@@ -542,8 +547,9 @@ void nam::Conv1x1::process_(const Eigen::Ref<const Eigen::MatrixXf>& input, cons
       const float w01 = weight_ptr[4], w11 = weight_ptr[5], w21 = weight_ptr[6], w31 = weight_ptr[7];
       for (int f = 0; f < num_frames; f++)
       {
-        const float i0 = input_ptr[f * 2];
-        const float i1 = input_ptr[f * 2 + 1];
+        const float* __restrict__ in_col = input_ptr + f * in_stride;
+        const float i0 = in_col[0];
+        const float i1 = in_col[1];
         output_ptr[f * 4]     = w00 * i0 + w01 * i1;
         output_ptr[f * 4 + 1] = w10 * i0 + w11 * i1;
         output_ptr[f * 4 + 2] = w20 * i0 + w21 * i1;
@@ -557,13 +563,13 @@ void nam::Conv1x1::process_(const Eigen::Ref<const Eigen::MatrixXf>& input, cons
       const float w02 = weight_ptr[6], w12 = weight_ptr[7], w22 = weight_ptr[8];
       for (int f = 0; f < num_frames; f++)
       {
-        const int off = f * 3;
-        const float i0 = input_ptr[off];
-        const float i1 = input_ptr[off + 1];
-        const float i2 = input_ptr[off + 2];
-        output_ptr[off]     = w00 * i0 + w01 * i1 + w02 * i2;
-        output_ptr[off + 1] = w10 * i0 + w11 * i1 + w12 * i2;
-        output_ptr[off + 2] = w20 * i0 + w21 * i1 + w22 * i2;
+        const float* __restrict__ in_col = input_ptr + f * in_stride;
+        const float i0 = in_col[0];
+        const float i1 = in_col[1];
+        const float i2 = in_col[2];
+        output_ptr[f * 3]     = w00 * i0 + w01 * i1 + w02 * i2;
+        output_ptr[f * 3 + 1] = w10 * i0 + w11 * i1 + w12 * i2;
+        output_ptr[f * 3 + 2] = w20 * i0 + w21 * i1 + w22 * i2;
       }
     }
     else if (out_ch == 4 && in_ch == 4)
@@ -574,22 +580,22 @@ void nam::Conv1x1::process_(const Eigen::Ref<const Eigen::MatrixXf>& input, cons
       const float w03 = weight_ptr[12], w13 = weight_ptr[13], w23 = weight_ptr[14], w33 = weight_ptr[15];
       for (int f = 0; f < num_frames; f++)
       {
-        const int off = f * 4;
-        const float i0 = input_ptr[off];
-        const float i1 = input_ptr[off + 1];
-        const float i2 = input_ptr[off + 2];
-        const float i3 = input_ptr[off + 3];
-        output_ptr[off]     = w00 * i0 + w01 * i1 + w02 * i2 + w03 * i3;
-        output_ptr[off + 1] = w10 * i0 + w11 * i1 + w12 * i2 + w13 * i3;
-        output_ptr[off + 2] = w20 * i0 + w21 * i1 + w22 * i2 + w23 * i3;
-        output_ptr[off + 3] = w30 * i0 + w31 * i1 + w32 * i2 + w33 * i3;
+        const float* __restrict__ in_col = input_ptr + f * in_stride;
+        const float i0 = in_col[0];
+        const float i1 = in_col[1];
+        const float i2 = in_col[2];
+        const float i3 = in_col[3];
+        output_ptr[f * 4]     = w00 * i0 + w01 * i1 + w02 * i2 + w03 * i3;
+        output_ptr[f * 4 + 1] = w10 * i0 + w11 * i1 + w12 * i2 + w13 * i3;
+        output_ptr[f * 4 + 2] = w20 * i0 + w21 * i1 + w22 * i2 + w23 * i3;
+        output_ptr[f * 4 + 3] = w30 * i0 + w31 * i1 + w32 * i2 + w33 * i3;
       }
     }
     else if (out_ch == 6 && in_ch == 6)
     {
       for (int f = 0; f < num_frames; f++)
       {
-        const float* __restrict__ in_col = input_ptr + f * 6;
+        const float* __restrict__ in_col = input_ptr + f * in_stride;
         float* __restrict__ out_col = output_ptr + f * 6;
         const float i0 = in_col[0], i1 = in_col[1], i2 = in_col[2];
         const float i3 = in_col[3], i4 = in_col[4], i5 = in_col[5];
@@ -604,7 +610,7 @@ void nam::Conv1x1::process_(const Eigen::Ref<const Eigen::MatrixXf>& input, cons
     {
       for (int f = 0; f < num_frames; f++)
       {
-        const float* __restrict__ in_col = input_ptr + f * 8;
+        const float* __restrict__ in_col = input_ptr + f * in_stride;
         float* __restrict__ out_col = output_ptr + f * 8;
         const float i0 = in_col[0], i1 = in_col[1], i2 = in_col[2], i3 = in_col[3];
         const float i4 = in_col[4], i5 = in_col[5], i6 = in_col[6], i7 = in_col[7];
@@ -619,7 +625,7 @@ void nam::Conv1x1::process_(const Eigen::Ref<const Eigen::MatrixXf>& input, cons
     {
       for (int f = 0; f < num_frames; f++)
       {
-        const float* __restrict__ in_col = input_ptr + f * 8;
+        const float* __restrict__ in_col = input_ptr + f * in_stride;
         float* __restrict__ out_col = output_ptr + f * 4;
         const float i0 = in_col[0], i1 = in_col[1], i2 = in_col[2], i3 = in_col[3];
         const float i4 = in_col[4], i5 = in_col[5], i6 = in_col[6], i7 = in_col[7];
@@ -634,7 +640,7 @@ void nam::Conv1x1::process_(const Eigen::Ref<const Eigen::MatrixXf>& input, cons
     {
       for (int f = 0; f < num_frames; f++)
       {
-        const float* __restrict__ in_col = input_ptr + f * 4;
+        const float* __restrict__ in_col = input_ptr + f * in_stride;
         float* __restrict__ out_col = output_ptr + f * 8;
         const float i0 = in_col[0], i1 = in_col[1], i2 = in_col[2], i3 = in_col[3];
         for (int o = 0; o < 8; o++)

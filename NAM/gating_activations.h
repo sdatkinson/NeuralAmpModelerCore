@@ -67,15 +67,16 @@ public:
 
 #ifdef NAM_USE_INLINE_GEMM
     // Optimized path: direct memory access with activation applied per-element
-    // Note: output may be a block expression with outer stride != num_channels
-    const int input_rows = input.rows();  // 2 * num_channels
+    // Use outerStride() instead of rows() to correctly handle non-contiguous
+    // block expressions (e.g. topRows()) where outerStride > rows
+    const int input_stride = (int)input.outerStride();
     const float* __restrict__ input_ptr = input.derived().data();
     float* __restrict__ output_ptr = output.derived().data();
     const int output_stride = (int)output.outerStride();  // Column stride for output
 
     for (int f = 0; f < num_samples; f++)
     {
-      const float* __restrict__ in_col = input_ptr + f * input_rows;
+      const float* __restrict__ in_col = input_ptr + f * input_stride;
       float* __restrict__ out_col = output_ptr + f * output_stride;
 
       // Copy input and gating channels to buffers, apply activations, multiply
@@ -172,15 +173,16 @@ public:
 
 #ifdef NAM_USE_INLINE_GEMM
     // Optimized path: direct memory access
-    // Note: output may be a block expression with outer stride != num_channels
-    const int input_rows = input.rows();  // 2 * num_channels
+    // Use outerStride() instead of rows() to correctly handle non-contiguous
+    // block expressions (e.g. topRows()) where outerStride > rows
+    const int input_stride = (int)input.outerStride();
     const float* __restrict__ input_ptr = input.derived().data();
     float* __restrict__ output_ptr = output.derived().data();
     const int output_stride = (int)output.outerStride();  // Column stride for output
 
     for (int f = 0; f < num_samples; f++)
     {
-      const float* __restrict__ in_col = input_ptr + f * input_rows;
+      const float* __restrict__ in_col = input_ptr + f * input_stride;
       float* __restrict__ out_col = output_ptr + f * output_stride;
 
       // Copy channels to buffers

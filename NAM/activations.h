@@ -139,9 +139,18 @@ public:
   Activation() = default;
   virtual ~Activation() = default;
   virtual void apply(Eigen::MatrixXf& matrix) { apply(matrix.data(), matrix.rows() * matrix.cols()); }
-  virtual void apply(Eigen::Block<Eigen::MatrixXf> block) { apply(block.data(), block.rows() * block.cols()); }
+  virtual void apply(Eigen::Block<Eigen::MatrixXf> block)
+  {
+    // Block must be contiguous in memory (outerStride == rows) for flat data() access.
+    // Non-contiguous blocks (e.g. topRows() of a wider matrix) would read/write wrong elements.
+    assert(block.outerStride() == block.rows());
+    apply(block.data(), block.rows() * block.cols());
+  }
   virtual void apply(Eigen::Block<Eigen::MatrixXf, -1, -1, true> block)
   {
+    // Inner-panel blocks (e.g. leftCols()) are always contiguous for column-major matrices,
+    // but assert anyway for safety.
+    assert(block.outerStride() == block.rows());
     apply(block.data(), block.rows() * block.cols());
   }
   virtual void apply(float* data, long size) {}
