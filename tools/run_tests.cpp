@@ -1,5 +1,5 @@
 // Entry point for tests
-// See the GitHub Action for a demo how to build and run tests.
+// See the GitHub Action for a demo of how to build and run tests.
 
 #include <iostream>
 #include "test/test_activations.cpp"
@@ -19,6 +19,7 @@
 #include "test/test_wavenet/test_condition_processing.cpp"
 #include "test/test_wavenet/test_head1x1.cpp"
 #include "test/test_wavenet/test_layer1x1.cpp"
+#include "test/test_wavenet/test_factory.cpp"
 #include "test/test_gating_activations.cpp"
 #include "test/test_wavenet_gating_compatibility.cpp"
 #include "test/test_blending_detailed.cpp"
@@ -26,6 +27,7 @@
 #include "test/test_lstm.cpp"
 #include "test/test_wavenet_configurable_gating.cpp"
 #include "test/test_noncontiguous_blocks.cpp"
+#include "test/test_extensible.cpp"
 
 int main()
 {
@@ -49,8 +51,9 @@ int main()
 
   test_activations::TestPReLU::test_core_function();
   test_activations::TestPReLU::test_per_channel_behavior();
-  // This is enforced by an assert so it doesn't need to be tested
-  // test_activations::TestPReLU::test_wrong_number_of_channels();
+  test_activations::TestPReLU::test_wrong_number_of_channels_matrix();
+  test_activations::TestPReLU::test_wrong_size_array();
+  test_activations::TestPReLU::test_valid_array_size();
 
   // Typed ActivationConfig tests
   test_activations::TestTypedActivationConfig::test_simple_config();
@@ -169,6 +172,7 @@ int main()
   test_wavenet::test_layer1x1::test_layer1x1_post_film_inactive_with_layer1x1_inactive();
   test_wavenet::test_layer1x1::test_layer1x1_gated();
   test_wavenet::test_layer1x1::test_layer1x1_groups();
+  test_wavenet::test_factory::test_factory_without_head_key();
   test_wavenet::test_allocation_tracking_pass();
   test_wavenet::test_allocation_tracking_fail();
   test_wavenet::test_conv1d_process_realtime_safe();
@@ -260,6 +264,9 @@ int main()
 
   // Finally, some end-to-end tests.
   test_get_dsp::test_load_and_process_nam_files();
+
+  // Extensibility: external architecture registration and get_dsp (issue #230)
+  test_extensible::run_extensibility_tests();
 
   std::cout << "Success!" << std::endl;
 #ifdef ADDASSERT

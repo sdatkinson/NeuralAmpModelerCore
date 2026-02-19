@@ -646,7 +646,7 @@ std::unique_ptr<nam::DSP> nam::wavenet::Factory(const nlohmann::json& config, st
                                                 const double expectedSampleRate)
 {
   std::unique_ptr<nam::DSP> condition_dsp = nullptr;
-  if (config.find("condition_dsp") != config.end())
+  if (config.find("condition_dsp") != config.end() && !config["condition_dsp"].is_null())
   {
     const nlohmann::json& condition_dsp_json = config["condition_dsp"];
     condition_dsp = nam::get_dsp(condition_dsp_json);
@@ -893,7 +893,7 @@ std::unique_ptr<nam::DSP> nam::wavenet::Factory(const nlohmann::json& config, st
       input_mixin_pre_film_params, input_mixin_post_film_params, activation_pre_film_params,
       activation_post_film_params, _layer1x1_post_film_params, head1x1_post_film_params));
   }
-  const bool with_head = !config["head"].is_null();
+  const bool with_head = config.find("head") != config.end() && !config["head"].is_null();
   const float head_scale = config["head_scale"];
 
   if (layer_array_params.empty())
