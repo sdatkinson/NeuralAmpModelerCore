@@ -35,22 +35,10 @@ void RingBuffer::Write(const Eigen::MatrixXf& input, const int num_frames)
   if (NeedsRewind(num_frames))
     Rewind();
 
-  // Write the input data at the write position
-  // NOTE: This function assumes that `input` is a full, pre-allocated MatrixXf
-  //       covering the entire valid buffer range. Callers should not pass Block
-  //       expressions across the API boundary; instead, pass the full buffer and
-  //       slice inside the callee. This avoids Eigen evaluating Blocks into
-  //       temporaries (which would allocate) when binding to MatrixXf.
-  const int channels = _storage.rows();
-  const int copy_cols = num_frames;
-
-  for (int col = 0; col < copy_cols; ++col)
-  {
-    for (int row = 0; row < channels; ++row)
-    {
-      _storage(row, _write_pos + col) = input(row, col);
-    }
-  }
+  // Write the input data at the write position using Eigen block operations
+  // This is more efficient than element-by-element copy as it allows
+  // the compiler to vectorize the operation.
+  _storage.middleCols(_write_pos, num_frames).noalias() = input.leftCols(num_frames);
 }
 
 Eigen::Block<Eigen::MatrixXf> RingBuffer::Read(const int num_frames, const long lookback)
