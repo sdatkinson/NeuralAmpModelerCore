@@ -1,5 +1,5 @@
 // Entry point for tests
-// See the GitHub Action for a demo how to build and run tests.
+// See the GitHub Action for a demo of how to build and run tests.
 
 #include <iostream>
 #include "test/test_activations.cpp"
