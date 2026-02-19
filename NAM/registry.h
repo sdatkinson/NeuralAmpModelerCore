@@ -54,6 +54,8 @@ private:
 /// automatically register a factory when the program starts.
 struct Helper
 {
+  /// \param name Architecture name
+  /// \param factory Factory function
   Helper(const std::string& name, FactoryFunction factory)
   {
     // Capture factory by value in the lambda

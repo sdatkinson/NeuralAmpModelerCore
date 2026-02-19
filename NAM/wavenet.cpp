@@ -592,11 +592,11 @@ nam::wavenet::WaveNetConfig nam::wavenet::parse_config_json(const nlohmann::json
   {
     nlohmann::json layer_config = config["layers"][i];
 
-    const int groups = layer_config.value("groups_input", 1);
-    const int groups_input_mixin = layer_config.value("groups_input_mixin", 1);
+    const int groups = layer_config.value("groups_input", 1); // defaults to 1
+    const int groups_input_mixin = layer_config.value("groups_input_mixin", 1); // defaults to 1
 
     const int channels = layer_config["channels"];
-    const int bottleneck = layer_config.value("bottleneck", channels);
+    const int bottleneck = layer_config.value("bottleneck", channels); // defaults to channels if not present
 
     // Parse layer1x1 parameters
     bool layer1x1_active = true;
@@ -633,12 +633,13 @@ nam::wavenet::WaveNetConfig nam::wavenet::parse_config_json(const nlohmann::json
     }
     else
     {
+      // Single activation config - duplicate it for all layers
       const activations::ActivationConfig activation_config =
         activations::ActivationConfig::from_json(layer_config["activation"]);
       activation_configs.resize(num_layers, activation_config);
     }
 
-    // Parse gating mode(s)
+    // Parse gating mode(s) - support both single value and array, and old "gated" boolean
     std::vector<GatingMode> gating_modes;
     std::vector<activations::ActivationConfig> secondary_activation_configs;
 
@@ -663,6 +664,7 @@ nam::wavenet::WaveNetConfig nam::wavenet::parse_config_json(const nlohmann::json
           GatingMode mode = parse_gating_mode_str(gating_mode_str);
           gating_modes.push_back(mode);
 
+          // Parse corresponding secondary activation if gating is enabled
           if (mode != GatingMode::NONE)
           {
             if (layer_config.find("secondary_activation") != layer_config.end())
@@ -680,12 +682,14 @@ nam::wavenet::WaveNetConfig nam::wavenet::parse_config_json(const nlohmann::json
               }
               else
               {
+                // Single secondary activation - use for all gated layers
                 secondary_activation_configs.push_back(
                   activations::ActivationConfig::from_json(layer_config["secondary_activation"]));
               }
             }
             else
             {
+              // Default to Sigmoid for backward compatibility
               secondary_activation_configs.push_back(
                 activations::ActivationConfig::simple(activations::ActivationType::Sigmoid));
             }
@@ -701,6 +705,7 @@ nam::wavenet::WaveNetConfig nam::wavenet::parse_config_json(const nlohmann::json
                                    + std::to_string(gating_modes.size()) + ") must match dilations size ("
                                    + std::to_string(num_layers) + ")");
         }
+        // Validate secondary_activation array size if it's an array
         if (layer_config.find("secondary_activation") != layer_config.end()
             && layer_config["secondary_activation"].is_array())
         {
@@ -714,6 +719,7 @@ nam::wavenet::WaveNetConfig nam::wavenet::parse_config_json(const nlohmann::json
       }
       else
       {
+        // Single gating mode - duplicate for all layers
         std::string gating_mode_str = layer_config["gating_mode"].get<std::string>();
         GatingMode gating_mode = parse_gating_mode_str(gating_mode_str);
         gating_modes.resize(num_layers, gating_mode);
@@ -728,12 +734,14 @@ nam::wavenet::WaveNetConfig nam::wavenet::parse_config_json(const nlohmann::json
           }
           else
           {
+            // Default to Sigmoid for backward compatibility
             secondary_activation_config = activations::ActivationConfig::simple(activations::ActivationType::Sigmoid);
           }
         }
         secondary_activation_configs.resize(num_layers, secondary_activation_config);
       }
     }
+    // Backward compatibility: convert old "gated" boolean to new enum
     else if (layer_config.find("gated") != layer_config.end())
     {
       bool gated = layer_config["gated"];
@@ -753,6 +761,7 @@ nam::wavenet::WaveNetConfig nam::wavenet::parse_config_json(const nlohmann::json
     }
     else
     {
+      // Default to NONE for all layers
       gating_modes.resize(num_layers, GatingMode::NONE);
       secondary_activation_configs.resize(num_layers, activations::ActivationConfig{});
     }
@@ -785,6 +794,7 @@ nam::wavenet::WaveNetConfig nam::wavenet::parse_config_json(const nlohmann::json
       return nam::wavenet::_FiLMParams(active, shift, film_groups);
     };
 
+    // Parse FiLM parameters
     nam::wavenet::_FiLMParams conv_pre_film_params = parse_film_params("conv_pre_film");
     nam::wavenet::_FiLMParams conv_post_film_params = parse_film_params("conv_post_film");
     nam::wavenet::_FiLMParams input_mixin_pre_film_params = parse_film_params("input_mixin_pre_film");
@@ -794,6 +804,7 @@ nam::wavenet::WaveNetConfig nam::wavenet::parse_config_json(const nlohmann::json
     nam::wavenet::_FiLMParams _layer1x1_post_film_params = parse_film_params("layer1x1_post_film");
     nam::wavenet::_FiLMParams head1x1_post_film_params = parse_film_params("head1x1_post_film");
 
+    // Validation: if layer1x1_post_film is active, layer1x1 must also be active
     if (_layer1x1_post_film_params.active && !layer1x1_active)
     {
       throw std::runtime_error("Layer array " + std::to_string(i)

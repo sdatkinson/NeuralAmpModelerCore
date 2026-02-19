@@ -306,6 +306,7 @@ nam::linear::LinearConfig nam::linear::parse_config_json(const nlohmann::json& c
   LinearConfig c;
   c.receptive_field = config["receptive_field"];
   c.bias = config["bias"];
+  // Default to 1 channel in/out for backward compatibility
   c.in_channels = config.value("in_channels", 1);
   c.out_channels = config.value("out_channels", 1);
   return c;

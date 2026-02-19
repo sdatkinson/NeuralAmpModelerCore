@@ -329,8 +329,10 @@ nam::convnet::ConvNetConfig nam::convnet::parse_config_json(const nlohmann::json
   c.channels = config["channels"];
   c.dilations = config["dilations"].get<std::vector<int>>();
   c.batchnorm = config["batchnorm"];
+  // Parse JSON into typed ActivationConfig at model loading boundary
   c.activation = activations::ActivationConfig::from_json(config["activation"]);
-  c.groups = config.value("groups", 1);
+  c.groups = config.value("groups", 1); // defaults to 1
+  // Default to 1 channel in/out for backward compatibility
   c.in_channels = config.value("in_channels", 1);
   c.out_channels = config.value("out_channels", 1);
   return c;
