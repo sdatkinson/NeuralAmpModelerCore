@@ -8,7 +8,7 @@ For an example how to use, see [NeuralAmpModelerPlugin](https://github.com/sdatk
 
 ## Included Tools
 
-There are a couple tools that exist to help you use this repo. 
+This repo includes a few helpful tools.
 For guidance on building them, have a look at the workflow provided in `.github/workflows/build.yml`.
 
 * [`run_tests`](https://github.com/sdatkinson/NeuralAmpModelerCore/blob/761fa968766bcf67d3035320c195969d9ba41fa1/tools/CMakeLists.txt#L15), which runs a suite of unit tests.
