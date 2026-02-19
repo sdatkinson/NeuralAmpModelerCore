@@ -1,7 +1,7 @@
 // Tests for activation functions
 //
-// Things you want ot test for:
-// 1. That the core elementwise funciton is snapshot-correct.
+// Things you want to test for:
+// 1. That the core elementwise function is snapshot-correct.
 // 2. The class that wraps the core function for an array of data
 // 3. .cpp: that you have the singleton defined, and that it's in the unordered map to get by string
 
