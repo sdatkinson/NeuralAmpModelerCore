@@ -35,3 +35,5 @@
 
 docs/_build/
 *.DS_Store
+
+example_audio/output.wav
