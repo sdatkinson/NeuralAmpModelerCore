@@ -11,13 +11,13 @@
 #include "wavenet.h"
 
 #ifdef NAM_PROFILING
-static int PROF_CONV1D      = nam::profiling::register_type("Conv1D");
+static int PROF_CONV1D = nam::profiling::register_type("Conv1D");
 static int PROF_INPUT_MIXIN = nam::profiling::register_type("InputMixin");
-static int PROF_LAYER1X1    = nam::profiling::register_type("Layer1x1");
-static int PROF_HEAD1X1     = nam::profiling::register_type("Head1x1");
-static int PROF_RECHANNEL   = nam::profiling::register_type("Rechannel");
-static int PROF_ACTIVATION  = nam::profiling::register_type("Activation");
-static int PROF_COPIES      = nam::profiling::register_type("Copies");
+static int PROF_LAYER1X1 = nam::profiling::register_type("Layer1x1");
+static int PROF_HEAD1X1 = nam::profiling::register_type("Head1x1");
+static int PROF_RECHANNEL = nam::profiling::register_type("Rechannel");
+static int PROF_ACTIVATION = nam::profiling::register_type("Activation");
+static int PROF_COPIES = nam::profiling::register_type("Copies");
 #endif
 
 // Layer ======================================================================

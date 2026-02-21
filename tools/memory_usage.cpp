@@ -290,16 +290,14 @@ static std::vector<GatingMode> parse_gating_modes(const json& layer_config, size
 }
 
 // WaveNet _Layer memory
-static MemoryResult wavenet_layer_memory(int condition_size, int channels, int bottleneck, int kernel_size, int dilation,
-                                         GatingMode gating_mode, int groups_input, int groups_input_mixin,
+static MemoryResult wavenet_layer_memory(int condition_size, int channels, int bottleneck, int kernel_size,
+                                         int dilation, GatingMode gating_mode, int groups_input, int groups_input_mixin,
                                          bool layer1x1_active, int layer1x1_groups, bool head1x1_active,
                                          int head1x1_out_channels, int head1x1_groups, const FiLMParams& conv_pre_film,
                                          const FiLMParams& conv_post_film, const FiLMParams& input_mixin_pre_film,
-                                         const FiLMParams& input_mixin_post_film,
-                                         const FiLMParams& activation_pre_film,
-                                         const FiLMParams& activation_post_film,
-                                         const FiLMParams& layer1x1_post_film, const FiLMParams& head1x1_post_film,
-                                         int M)
+                                         const FiLMParams& input_mixin_post_film, const FiLMParams& activation_pre_film,
+                                         const FiLMParams& activation_post_film, const FiLMParams& layer1x1_post_film,
+                                         const FiLMParams& head1x1_post_film, int M)
 {
   MemoryResult r;
   bool gated = (gating_mode != GatingMode::NONE);

@@ -4,15 +4,43 @@ file(GLOB_RECURSE NAM_SOURCES ../NAM/*.cpp ../NAM/*.c ../NAM*.h)
 set(TOOLS benchmodel)
 
 add_custom_target(tools ALL
-	DEPENDS ${TOOLS})
+	DEPENDS ${TOOLS} render)
+
+set(AUDIO_DSP_TOOLS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../Dependencies/AudioDSPTools")
+set(AUDIO_DSP_TOOLS_WAV_SOURCES "${AUDIO_DSP_TOOLS_DIR}/dsp/wav.cpp")
 
 include_directories(tools ..)
 include_directories(tools ${NAM_DEPS_PATH}/eigen)
 include_directories(tools ${NAM_DEPS_PATH}/nlohmann)
+include_directories(tools ${AUDIO_DSP_TOOLS_DIR}/dsp)
 
 add_executable(loadmodel loadmodel.cpp ${NAM_SOURCES})
 add_executable(benchmodel benchmodel.cpp ${NAM_SOURCES})
 add_executable(memory_usage memory_usage.cpp)
+add_executable(render render.cpp ${NAM_SOURCES} ${AUDIO_DSP_TOOLS_WAV_SOURCES})
+target_compile_features(render PUBLIC cxx_std_20)
+# AudioDSPTools wav.cpp has sign-compare issues; don't fail build
+set_source_files_properties(${AUDIO_DSP_TOOLS_WAV_SOURCES} PROPERTIES COMPILE_FLAGS "-Wno-error")
+set_target_properties(render PROPERTIES
+	CXX_VISIBILITY_PRESET hidden
+	INTERPROCEDURAL_OPTIMIZATION TRUE
+	PREFIX ""
+)
+if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
+	target_compile_definitions(render PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
+endif()
+if (MSVC)
+	target_compile_options(render PRIVATE
+		"$<$<CONFIG:DEBUG>:/W4>"
+		"$<$<CONFIG:RELEASE>:/O2>"
+	)
+else()
+	target_compile_options(render PRIVATE
+		-Wall -Wextra -Wpedantic -Wstrict-aliasing -Wunreachable-code -Weffc++ -Wno-unused-parameter
+		"$<$<CONFIG:DEBUG>:-Og;-ggdb;-Werror>"
+		"$<$<CONFIG:RELEASE>:-Ofast>"
+	)
+endif()
 add_executable(run_tests run_tests.cpp test/allocation_tracking.cpp ${NAM_SOURCES})
 # Compile run_tests without optimizations to ensure allocation tracking works correctly
 # Also ensure assertions are enabled (NDEBUG is not defined) so tests actually run
