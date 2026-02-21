@@ -41,3 +41,4 @@ jobs:
         ./build/tools/run_tests
         ./build/tools/benchmodel ./example_models/wavenet.nam
         ./build/tools/benchmodel ./example_models/lstm.nam
+        ./build/tools/render ./example_models/wavenet.nam ./example_models/wavenet.nam
