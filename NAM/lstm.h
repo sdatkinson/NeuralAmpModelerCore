@@ -95,13 +95,25 @@ protected:
   Eigen::VectorXf _output;
 };
 
-/// \brief Factory function to instantiate LSTM from JSON
+/// \brief Configuration for an LSTM model
+struct LSTMConfig : public ModelConfig
+{
+  int num_layers;
+  int input_size;
+  int hidden_size;
+  int in_channels;
+  int out_channels;
+
+  std::unique_ptr<DSP> create(std::vector<float> weights, double sampleRate) override;
+};
+
+/// \brief Parse LSTM configuration from JSON
 /// \param config JSON configuration object
-/// \param weights Model weights vector
-/// \param expectedSampleRate Expected sample rate in Hz (-1.0 if unknown)
-/// \return Unique pointer to a DSP object (LSTM instance)
-std::unique_ptr<DSP> Factory(const nlohmann::json& config, std::vector<float>& weights,
-                             const double expectedSampleRate);
+/// \return LSTMConfig
+LSTMConfig parse_config_json(const nlohmann::json& config);
+
+/// \brief Config parser for ConfigParserRegistry
+std::unique_ptr<ModelConfig> create_config(const nlohmann::json& config, double sampleRate);
 
 }; // namespace lstm
 }; // namespace nam

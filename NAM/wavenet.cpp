@@ -568,24 +568,26 @@ void nam::wavenet::WaveNet::process(NAM_SAMPLE** input, NAM_SAMPLE** output, con
   }
 }
 
-// Factory to instantiate from nlohmann json
-std::unique_ptr<nam::DSP> nam::wavenet::Factory(const nlohmann::json& config, std::vector<float>& weights,
-                                                const double expectedSampleRate)
+// Config parser - extracts all configuration from JSON without constructing the DSP
+nam::wavenet::WaveNetConfig nam::wavenet::parse_config_json(const nlohmann::json& config,
+                                                            const double expectedSampleRate)
 {
-  std::unique_ptr<nam::DSP> condition_dsp = nullptr;
-  if (config.find("condition_dsp") != config.end() && !config["condition_dsp"].is_null())
+  WaveNetConfig wc;
+
+  // Condition DSP (eagerly built via get_dsp)
+  if ((config.find("condition_dsp") != config.end()) && !config["condition_dsp"].is_null())
   {
     const nlohmann::json& condition_dsp_json = config["condition_dsp"];
-    condition_dsp = nam::get_dsp(condition_dsp_json);
-    if (condition_dsp->GetExpectedSampleRate() != expectedSampleRate)
+    wc.condition_dsp = nam::get_dsp(condition_dsp_json);
+    if (wc.condition_dsp->GetExpectedSampleRate() != expectedSampleRate)
     {
       std::stringstream ss;
-      ss << "Condition DSP expected sample rate (" << condition_dsp->GetExpectedSampleRate()
+      ss << "Condition DSP expected sample rate (" << wc.condition_dsp->GetExpectedSampleRate()
          << ") doesn't match WaveNet expected sample rate (" << expectedSampleRate << "!\n";
       throw std::runtime_error(ss.str().c_str());
     }
   }
-  std::vector<nam::wavenet::LayerArrayParams> layer_array_params;
+
   for (size_t i = 0; i < config["layers"].size(); i++)
   {
     nlohmann::json layer_config = config["layers"][i];
@@ -597,12 +599,12 @@ std::unique_ptr<nam::DSP> nam::wavenet::Factory(const nlohmann::json& config, st
     const int bottleneck = layer_config.value("bottleneck", channels); // defaults to channels if not present
 
     // Parse layer1x1 parameters
-    bool layer1x1_active = true; // default to active if not present
+    bool layer1x1_active = true;
     int layer1x1_groups = 1;
     if (layer_config.find("layer1x1") != layer_config.end())
     {
       const auto& layer1x1_config = layer_config["layer1x1"];
-      layer1x1_active = layer1x1_config["active"]; // default to active
+      layer1x1_active = layer1x1_config["active"];
       layer1x1_groups = layer1x1_config["groups"];
     }
     nam::wavenet::Layer1x1Params layer1x1_params(layer1x1_active, layer1x1_groups);
@@ -618,7 +620,6 @@ std::unique_ptr<nam::DSP> nam::wavenet::Factory(const nlohmann::json& config, st
     std::vector<activations::ActivationConfig> activation_configs;
     if (layer_config["activation"].is_array())
     {
-      // Array of activation configs
       for (const auto& activation_json : layer_config["activation"])
       {
         activation_configs.push_back(activations::ActivationConfig::from_json(activation_json));
@@ -637,6 +638,7 @@ std::unique_ptr<nam::DSP> nam::wavenet::Factory(const nlohmann::json& config, st
         activations::ActivationConfig::from_json(layer_config["activation"]);
       activation_configs.resize(num_layers, activation_config);
     }
+
     // Parse gating mode(s) - support both single value and array, and old "gated" boolean
     std::vector<GatingMode> gating_modes;
     std::vector<activations::ActivationConfig> secondary_activation_configs;
@@ -656,7 +658,6 @@ std::unique_ptr<nam::DSP> nam::wavenet::Factory(const nlohmann::json& config, st
     {
       if (layer_config["gating_mode"].is_array())
       {
-        // Array of gating modes
         for (const auto& gating_mode_json : layer_config["gating_mode"])
         {
           std::string gating_mode_str = gating_mode_json.get<std::string>();
@@ -670,7 +671,6 @@ std::unique_ptr<nam::DSP> nam::wavenet::Factory(const nlohmann::json& config, st
             {
               if (layer_config["secondary_activation"].is_array())
               {
-                // Array of secondary activations - use corresponding index
                 if (gating_modes.size() > layer_config["secondary_activation"].size())
                 {
                   throw std::runtime_error("Layer array " + std::to_string(i)
@@ -696,7 +696,6 @@ std::unique_ptr<nam::DSP> nam::wavenet::Factory(const nlohmann::json& config, st
           }
           else
           {
-            // NONE mode - use empty config
             secondary_activation_configs.push_back(activations::ActivationConfig{});
           }
         }
@@ -725,7 +724,6 @@ std::unique_ptr<nam::DSP> nam::wavenet::Factory(const nlohmann::json& config, st
         GatingMode gating_mode = parse_gating_mode_str(gating_mode_str);
         gating_modes.resize(num_layers, gating_mode);
 
-        // Parse secondary activation
         activations::ActivationConfig secondary_activation_config;
         if (gating_mode != GatingMode::NONE)
         {
@@ -743,9 +741,9 @@ std::unique_ptr<nam::DSP> nam::wavenet::Factory(const nlohmann::json& config, st
         secondary_activation_configs.resize(num_layers, secondary_activation_config);
       }
     }
+    // Backward compatibility: convert old "gated" boolean to new enum
     else if (layer_config.find("gated") != layer_config.end())
     {
-      // Backward compatibility: convert old "gated" boolean to new enum
       bool gated = layer_config["gated"];
       GatingMode gating_mode = gated ? GatingMode::GATED : GatingMode::NONE;
       gating_modes.resize(num_layers, gating_mode);
@@ -792,8 +790,8 @@ std::unique_ptr<nam::DSP> nam::wavenet::Factory(const nlohmann::json& config, st
       const nlohmann::json& film_config = layer_config[key];
       bool active = film_config.value("active", true);
       bool shift = film_config.value("shift", true);
-      int groups = film_config.value("groups", 1);
-      return nam::wavenet::_FiLMParams(active, shift, groups);
+      int film_groups = film_config.value("groups", 1);
+      return nam::wavenet::_FiLMParams(active, shift, film_groups);
     };
 
     // Parse FiLM parameters
@@ -813,29 +811,42 @@ std::unique_ptr<nam::DSP> nam::wavenet::Factory(const nlohmann::json& config, st
                                + ": layer1x1_post_film cannot be active when layer1x1.active is false");
     }
 
-    layer_array_params.push_back(nam::wavenet::LayerArrayParams(
+    wc.layer_array_params.push_back(nam::wavenet::LayerArrayParams(
       input_size, condition_size, head_size, channels, bottleneck, kernel_size, dilations,
       std::move(activation_configs), std::move(gating_modes), head_bias, groups, groups_input_mixin, layer1x1_params,
       head1x1_params, std::move(secondary_activation_configs), conv_pre_film_params, conv_post_film_params,
       input_mixin_pre_film_params, input_mixin_post_film_params, activation_pre_film_params,
       activation_post_film_params, _layer1x1_post_film_params, head1x1_post_film_params));
   }
-  const bool with_head = config.find("head") != config.end() && !config["head"].is_null();
-  const float head_scale = config["head_scale"];
 
-  if (layer_array_params.empty())
+  wc.with_head = config.find("head") != config.end() && !config["head"].is_null();
+  wc.head_scale = config["head_scale"];
+  wc.in_channels = config.value("in_channels", 1);
+
+  if (wc.layer_array_params.empty())
     throw std::runtime_error("WaveNet config requires at least one layer array");
 
-  // Backward compatibility: assume 1 input channel
-  const int in_channels = config.value("in_channels", 1);
-
-  // out_channels is determined from last layer array's head_size
-  return std::make_unique<nam::wavenet::WaveNet>(
-    in_channels, layer_array_params, head_scale, with_head, weights, std::move(condition_dsp), expectedSampleRate);
+  return wc;
 }
 
-// Register the factory
+// WaveNetConfig::create()
+std::unique_ptr<nam::DSP> nam::wavenet::WaveNetConfig::create(std::vector<float> weights, double sampleRate)
+{
+  return std::make_unique<nam::wavenet::WaveNet>(in_channels, layer_array_params, head_scale, with_head,
+                                                 std::move(weights), std::move(condition_dsp), sampleRate);
+}
+
+// Config parser for ConfigParserRegistry
+std::unique_ptr<nam::ModelConfig> nam::wavenet::create_config(const nlohmann::json& config, double sampleRate)
+{
+  auto wc = std::make_unique<WaveNetConfig>();
+  auto parsed = parse_config_json(config, sampleRate);
+  *wc = std::move(parsed);
+  return wc;
+}
+
+// Register the config parser
 namespace
 {
-static nam::factory::Helper _register_WaveNet("WaveNet", nam::wavenet::Factory);
+static nam::ConfigParserHelper _register_WaveNet("WaveNet", nam::wavenet::create_config);
 }

@@ -300,16 +300,38 @@ void nam::Linear::process(NAM_SAMPLE** input, NAM_SAMPLE** output, const int num
   nam::Buffer::_advance_input_buffer_(num_frames);
 }
 
-// Factory
-std::unique_ptr<nam::DSP> nam::linear::Factory(const nlohmann::json& config, std::vector<float>& weights,
-                                               const double expectedSampleRate)
+// Config parser
+nam::linear::LinearConfig nam::linear::parse_config_json(const nlohmann::json& config)
 {
-  const int receptive_field = config["receptive_field"];
-  const bool bias = config["bias"];
+  LinearConfig c;
+  c.receptive_field = config["receptive_field"];
+  c.bias = config["bias"];
   // Default to 1 channel in/out for backward compatibility
-  const int in_channels = config.value("in_channels", 1);
-  const int out_channels = config.value("out_channels", 1);
-  return std::make_unique<nam::Linear>(in_channels, out_channels, receptive_field, bias, weights, expectedSampleRate);
+  c.in_channels = config.value("in_channels", 1);
+  c.out_channels = config.value("out_channels", 1);
+  return c;
+}
+
+// LinearConfig::create()
+std::unique_ptr<nam::DSP> nam::linear::LinearConfig::create(std::vector<float> weights, double sampleRate)
+{
+  return std::make_unique<nam::Linear>(in_channels, out_channels, receptive_field, bias, weights, sampleRate);
+}
+
+// Config parser for ConfigParserRegistry
+std::unique_ptr<nam::ModelConfig> nam::linear::create_config(const nlohmann::json& config, double sampleRate)
+{
+  (void)sampleRate;
+  auto c = std::make_unique<LinearConfig>();
+  auto parsed = parse_config_json(config);
+  *c = parsed;
+  return c;
+}
+
+// Register the config parser
+namespace
+{
+static nam::ConfigParserHelper _register_Linear("Linear", nam::linear::create_config);
 }
 
 // NN modules =================================================================
