@@ -223,8 +223,11 @@ export function T3kPlayerContextProvider({
         }
 
         // Allocate memory and load model
-        const ptr = module._malloc(jsonStr.length + 1);
-        module.stringToUTF8(jsonStr, ptr, jsonStr.length + 1);
+        // Use UTF-8 byte length: jsonStr.length counts characters, but stringToUTF8 writes
+        // UTF-8 bytes. Special chars (e.g. "ö") need 2+ bytes, so we must size correctly.
+        const byteLength = new TextEncoder().encode(jsonStr).length + 1;
+        const ptr = module._malloc(byteLength);
+        module.stringToUTF8(jsonStr, ptr, byteLength);
 
         try {
           const context = getAudioNodes().audioContext;
