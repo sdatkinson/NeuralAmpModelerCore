@@ -26,8 +26,8 @@
 #include "test/test_input_buffer_verification.cpp"
 #include "test/test_lstm.cpp"
 #include "test/test_wavenet_configurable_gating.cpp"
-#include "test/test_extensible.cpp"
 #include "test/test_noncontiguous_blocks.cpp"
+#include "test/test_extensible.cpp"
 
 int main()
 {
