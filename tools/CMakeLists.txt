@@ -40,6 +40,7 @@ else()
 		"$<$<CONFIG:RELEASE>:-Ofast>"
 	)
 endif()
+add_executable(benchmodel_bufsize benchmodel_bufsize.cpp ${NAM_SOURCES})
 add_executable(run_tests run_tests.cpp test/allocation_tracking.cpp ${NAM_SOURCES})
 # Compile run_tests without optimizations to ensure allocation tracking works correctly
 # Also ensure assertions are enabled (NDEBUG is not defined) so tests actually run

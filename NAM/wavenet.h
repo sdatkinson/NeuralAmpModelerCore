@@ -385,11 +385,9 @@ private:
   std::unique_ptr<Conv1x1> _layer1x1;
   // The post-activation 1x1 convolution outputting to the head, optional
   std::unique_ptr<Conv1x1> _head1x1;
-  // The internal state
+
   Eigen::MatrixXf _z;
-  // Output to next layer (residual connection: input + layer1x1 output, or just input if layer1x1 inactive)
   Eigen::MatrixXf _output_next_layer;
-  // Output to head (skip connection: activated conv output)
   Eigen::MatrixXf _output_head;
 
   activations::Activation::Ptr _activation;
@@ -606,12 +604,12 @@ private:
 
   // The layer objects
   std::vector<_Layer> _layers;
-  // Output from last layer (for next layer array)
+
   Eigen::MatrixXf _layer_outputs;
-  // Accumulated head inputs from all layers
-  // Size is _head_output_size (= head1x1.out_channels if head1x1 active, else bottleneck)
   Eigen::MatrixXf _head_inputs;
 
+  // Accumulated head inputs from all layers
+  // Size is _head_output_size (= head1x1.out_channels if head1x1 active, else bottleneck)
   // Rechannel for the head (_head_output_size -> head_size)
   Conv1x1 _head_rechannel;
 
@@ -670,9 +668,9 @@ public:
   void set_weights_(std::vector<float>::iterator& weights);
 
 protected:
-  // Element-wise arrays:
   Eigen::MatrixXf _condition_input;
   Eigen::MatrixXf _condition_output;
+
   std::unique_ptr<DSP> _condition_dsp;
   // Temporary buffers for condition DSP processing (to avoid allocations in _process_condition)
   std::vector<std::vector<NAM_SAMPLE>> _condition_dsp_input_buffers;
