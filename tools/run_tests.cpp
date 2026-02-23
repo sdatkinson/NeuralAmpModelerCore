@@ -26,6 +26,7 @@
 #include "test/test_input_buffer_verification.cpp"
 #include "test/test_lstm.cpp"
 #include "test/test_wavenet_configurable_gating.cpp"
+#include "test/test_noncontiguous_blocks.cpp"
 #include "test/test_extensible.cpp"
 
 int main()
@@ -238,6 +239,20 @@ int main()
 
   // Configurable gating/blending tests
   run_configurable_gating_tests();
+
+  // Non-contiguous block correctness tests (outerStride != rows)
+  test_noncontiguous_blocks::test_conv1x1_process_toprows();
+  test_noncontiguous_blocks::test_conv1x1_process_toprows_with_bias();
+  test_noncontiguous_blocks::test_conv1x1_process_toprows_2x2();
+  test_noncontiguous_blocks::test_conv1x1_process_toprows_4x4();
+  test_noncontiguous_blocks::test_conv1x1_toprows_matches_contiguous();
+  test_noncontiguous_blocks::test_film_process_toprows_with_shift();
+  test_noncontiguous_blocks::test_film_process_toprows_scale_only();
+  test_noncontiguous_blocks::test_film_toprows_matches_contiguous();
+  test_noncontiguous_blocks::test_film_process_inplace_toprows();
+  test_noncontiguous_blocks::test_gating_output_toprows();
+  test_noncontiguous_blocks::test_gating_toprows_matches_contiguous();
+  test_noncontiguous_blocks::test_blending_output_toprows();
 
   test_get_dsp::test_gets_input_level();
   test_get_dsp::test_gets_output_level();

@@ -119,18 +119,12 @@ inline float swish(float x)
 
 inline float hardswish(float x)
 {
-  if (x <= -3.0)
-  {
-    return 0;
-  }
-  else if (x >= 3.0)
-  {
-    return x;
-  }
-  else
-  {
-    return x * (x + 3.0) / 6.0;
-  }
+  // Branchless implementation using clamp
+  // hardswish(x) = x * relu6(x + 3) / 6
+  //              = x * clamp(x + 3, 0, 6) / 6
+  const float t = x + 3.0f;
+  const float clamped = t < 0.0f ? 0.0f : (t > 6.0f ? 6.0f : t);
+  return x * clamped * (1.0f / 6.0f);
 }
 
 inline float softsign(float x)
@@ -147,9 +141,18 @@ public:
   Activation() = default;
   virtual ~Activation() = default;
   virtual void apply(Eigen::MatrixXf& matrix) { apply(matrix.data(), matrix.rows() * matrix.cols()); }
-  virtual void apply(Eigen::Block<Eigen::MatrixXf> block) { apply(block.data(), block.rows() * block.cols()); }
+  virtual void apply(Eigen::Block<Eigen::MatrixXf> block)
+  {
+    // Block must be contiguous in memory (outerStride == rows) for flat data() access.
+    // Non-contiguous blocks (e.g. topRows() of a wider matrix) would read/write wrong elements.
+    assert(block.outerStride() == block.rows());
+    apply(block.data(), block.rows() * block.cols());
+  }
   virtual void apply(Eigen::Block<Eigen::MatrixXf, -1, -1, true> block)
   {
+    // Inner-panel blocks (e.g. leftCols()) are always contiguous for column-major matrices,
+    // but assert anyway for safety.
+    assert(block.outerStride() == block.rows());
     apply(block.data(), block.rows() * block.cols());
   }
   virtual void apply(float* data, long size) = 0;
@@ -244,9 +247,7 @@ public:
   void apply(float* data, long size) override
   {
     for (long pos = 0; pos < size; pos++)
-    {
       data[pos] = relu(data[pos]);
-    }
   }
 };
 
@@ -336,9 +337,7 @@ public:
   void apply(float* data, long size) override
   {
     for (long pos = 0; pos < size; pos++)
-    {
       data[pos] = sigmoid(data[pos]);
-    }
   }
 };
 
@@ -348,9 +347,7 @@ public:
   void apply(float* data, long size) override
   {
     for (long pos = 0; pos < size; pos++)
-    {
       data[pos] = swish(data[pos]);
-    }
   }
 };
 
@@ -360,9 +357,7 @@ public:
   void apply(float* data, long size) override
   {
     for (long pos = 0; pos < size; pos++)
-    {
       data[pos] = hardswish(data[pos]);
-    }
   }
 };
 
@@ -372,9 +367,7 @@ public:
   void apply(float* data, long size) override
   {
     for (long pos = 0; pos < size; pos++)
-    {
       data[pos] = softsign(data[pos]);
-    }
   }
 };
 
@@ -400,8 +393,8 @@ public:
   // Fast lookup with linear interpolation
   inline float lookup(float x) const
   {
-    // Clamp input to range
-    x = std::clamp(x, min_x_, max_x_);
+    // Clamp input to range (inline to avoid header dependency)
+    x = x < min_x_ ? min_x_ : (x > max_x_ ? max_x_ : x);
 
     // Calculate float index
     float f_idx = (x - min_x_) * inv_step_;
