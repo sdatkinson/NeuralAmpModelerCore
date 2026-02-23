@@ -35,10 +35,6 @@ jobs:
         cmake .. -DCMAKE_BUILD_TYPE=Debug
         cmake --build . -j4
 
-    - name: Create additional build folder
-      working-directory: ${{github_workspace}}
-      run: mkdir build_inline
-
     - name: Build Tools (Inline GEMM)
       working-directory: ${{github.workspace}}/build_inline
       env:
