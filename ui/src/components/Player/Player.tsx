@@ -4,11 +4,13 @@ import { Play } from '../ui/Play';
 import { Skip } from '../ui/Skip';
 import { Pause } from '../ui/Pause';
 import { LogoSm } from '../ui/LogoSm';
-import { DEFAULT_INPUTS, DEFAULT_MODELS, DEFAULT_IRS } from '../../constants';
+import { DEFAULT_INPUTS, DEFAULT_MODELS, DEFAULT_IRS, SOURCE_MODE_OPTIONS } from '../../constants';
 import { CircularLoader } from '../ui/CircularLoader';
 import { InputControlStrip } from '../InputControlStrip';
+import { SegmentedControl } from '../ui/SegmentedControl';
 import { usePlayerCore, formatTime } from '../../hooks/usePlayerCore';
 import { PlayerSettings } from './PlayerSettings';
+import { Settings } from 'lucide-react';
 
 const PlayerFC: React.FC<T3kPlayerProps> = ({
   models = DEFAULT_MODELS,
@@ -36,51 +38,84 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
 
   return (
     <div className='bg-zinc-900 border border-zinc-700 text-white p-4 lg:p-8 pt-0 lg:pt-2 rounded-xl w-full flex flex-col gap-6'>
-      {/* Player Controls */}
-      <div className='flex items-center gap-4 overflow-hidden'>
-        <button
-          onClick={core.togglePlay}
-          className={`p-0 focus:outline-none ${core.sourceMode === 'live' && !core.isLiveConfigured ? 'opacity-50 cursor-not-allowed' : ''}`}
-          disabled={core.sourceMode === 'live' && !core.isLiveConfigured}
-          aria-label={core.isThisPlayerActive ? 'Pause' : 'Play'}
-        >
-          {core.isThisPlayerActive ? (
-            <Pause />
-          ) : core.isLoading ? (
-            <CircularLoader size={48} />
-          ) : (
-            <Play />
+      {/* Top Bar */}
+      <div className='flex items-center justify-between pt-2'>
+        <SegmentedControl
+          options={SOURCE_MODE_OPTIONS}
+          value={core.sourceMode}
+          onChange={core.handleSourceModeChange}
+        />
+        <div className='flex items-center gap-2'>
+          {core.showPlaybackPausedMessage && (
+            <span className='text-xs text-zinc-400 animate-pulse'>Playback paused</span>
           )}
-        </button>
-
-        <button
-          onClick={core.handleSkipToStart}
-          className={`p-0 focus:outline-none ${core.sourceMode === 'live' ? 'opacity-50 cursor-not-allowed' : ''}`}
-          disabled={core.sourceMode === 'live'}
-          aria-label='Skip to start'
-        >
-          <Skip opacity={core.sourceMode === 'live' ? 0.6 : core.currentTime > 0 ? 1 : 0.6} />
-        </button>
-
-        <div className='hidden sm:flex text-sm font-mono gap-2 text-zinc-400'>
-          <span>{core.sourceMode === 'live' ? '-:--' : formatTime(core.currentTime)}</span>
-          <span> / </span>
-          <span>{core.sourceMode === 'live' ? '-:--' : formatTime(core.duration)}</span>
+          {core.toastMessage && (
+            <span className='text-xs text-zinc-400 animate-pulse'>{core.toastMessage}</span>
+          )}
+          <button
+            onClick={core.openSettingsDialog}
+            className='p-2 rounded-md transition-colors border border-zinc-700 hover:bg-zinc-800'
+            aria-label='Settings'
+          >
+            <Settings size={20} className='text-zinc-400' />
+          </button>
         </div>
+      </div>
 
-        <div ref={core.canvasWrapperRef} className='flex-1'>
-          <canvas
-            ref={core.visualizerRef}
-            height={130}
-            style={{
-              marginBottom: -20,
-              marginTop: -20,
-              width: '100%',
-              height: '130px',
-            }}
+      {/* Player Area — fixed height so preview↔live doesn't shift layout */}
+      <div className='flex items-center min-h-[104px]'>
+        {core.sourceMode === 'preview' ? (
+          <div className='flex items-center gap-4 overflow-hidden w-full'>
+            <button
+              onClick={core.togglePlay}
+              className='p-0 focus:outline-none'
+              aria-label={core.isThisPlayerActive ? 'Pause' : 'Play'}
+            >
+              {core.isThisPlayerActive ? (
+                <Pause />
+              ) : core.isLoading ? (
+                <CircularLoader size={48} />
+              ) : (
+                <Play />
+              )}
+            </button>
+
+            <button
+              onClick={core.handleSkipToStart}
+              className='p-0 focus:outline-none'
+              aria-label='Skip to start'
+            >
+              <Skip opacity={core.currentTime > 0 ? 1 : 0.6} />
+            </button>
+
+            <div className='hidden sm:flex text-sm font-mono gap-2 text-zinc-400'>
+              <span>{formatTime(core.currentTime)}</span>
+              <span> / </span>
+              <span>{formatTime(core.duration)}</span>
+            </div>
+
+            <div ref={core.canvasWrapperRef} className='flex-1'>
+              <canvas
+                ref={core.visualizerRef}
+                height={130}
+                style={{
+                  marginBottom: -20,
+                  marginTop: -20,
+                  width: '100%',
+                  height: '130px',
+                }}
+              />
+            </div>
+            {infoSlot && infoSlot}
+          </div>
+        ) : (
+          <InputControlStrip
+            isActive={core.isThisPlayerActive}
+            isMonitoring={core.isThisPlayerActive && core.sourceMode === 'live'}
+            onToggleMonitoring={core.togglePlay}
+            disabled={!core.isLiveConfigured}
           />
-        </div>
-        {infoSlot && infoSlot}
+        )}
       </div>
 
       {/* Settings */}
@@ -90,9 +125,6 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
         bypassedStyles={core.bypassedStyles}
         onBypassToggle={core.handleBypassToggle}
         sourceMode={core.sourceMode}
-        onSourceModeChange={core.handleSourceModeChange}
-        showPlaybackPausedMessage={core.showPlaybackPausedMessage}
-        toastMessage={core.toastMessage}
         onOpenSettings={core.openSettingsDialog}
         modelOptions={core.modelOptions}
         irOptions={core.irOptions}
@@ -110,11 +142,6 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
         inputModeType={core.inputModeType}
         audioInputError={core.audioInputDevices.error}
       />
-
-      {/* Live Input Control Strip */}
-      {core.sourceMode === 'live' && core.isLiveConfigured && (
-        <InputControlStrip isActive={core.isThisPlayerActive} />
-      )}
 
       {/* Footer */}
       <a

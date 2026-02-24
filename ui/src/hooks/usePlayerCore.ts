@@ -225,7 +225,7 @@ export function usePlayerCore(options: UsePlayerCoreOptions): UsePlayerCoreRetur
     handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, [handleResize]);
+  }, [handleResize, sourceMode]);
 
   // Audio element event listeners — only when THIS player is active
   useEffect(() => {
@@ -250,9 +250,10 @@ export function usePlayerCore(options: UsePlayerCoreOptions): UsePlayerCoreRetur
     };
   }, [getAudioNodes, isThisPlayerActive, setPlaying]);
 
-  // Visualizer setup — only when THIS player is active
+  // Visualizer setup — only when THIS player is active and in preview mode
   useEffect(() => {
     if (!isThisPlayerActive) return;
+    if (sourceMode !== 'preview') return;
     if (audioState.initState !== 'ready' || !visualizerRef.current) return;
 
     const audioContext = getAudioNodes().audioContext;
@@ -267,7 +268,7 @@ export function usePlayerCore(options: UsePlayerCoreOptions): UsePlayerCoreRetur
       disconnect();
       visualizerNodeRef.current = null;
     };
-  }, [audioState.initState, getAudioNodes, connectVisualizerNode, isThisPlayerActive]);
+  }, [audioState.initState, getAudioNodes, connectVisualizerNode, isThisPlayerActive, sourceMode]);
 
   // --- Event handlers ---
 

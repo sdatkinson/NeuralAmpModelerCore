@@ -17,6 +17,8 @@ export interface GainControlProps {
   size?: number;
   /** Additional CSS classes */
   className?: string;
+  /** Override label CSS classes */
+  labelClassName?: string;
   /** Disabled state */
   disabled?: boolean;
 }
@@ -39,6 +41,7 @@ export function GainControl({
   label = 'Gain',
   size = 48,
   className = '',
+  labelClassName = 'text-sm text-zinc-400',
   disabled = false,
 }: GainControlProps) {
   const knobRef = useRef<HTMLDivElement>(null);
@@ -202,7 +205,7 @@ export function GainControl({
   return (
     <div className={`flex flex-col items-center gap-1 ${className}`}>
       {label && (
-        <label className="text-xs text-zinc-400">{label}</label>
+        <label className={labelClassName}>{label}</label>
       )}
 
       {/* Rotary knob */}

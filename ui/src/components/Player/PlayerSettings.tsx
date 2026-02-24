@@ -2,27 +2,19 @@ import React from 'react';
 import { PREVIEW_MODE, SourceMode } from '../../types';
 import { Select } from '../ui/Select';
 import { ToggleSimple } from '../ui/ToggleSimple';
-import { SegmentedControl } from '../ui/SegmentedControl';
-import { SOURCE_MODE_OPTIONS } from '../../constants';
-import { Loader2, Plug, Settings } from 'lucide-react';
+import { Loader2, Plug } from 'lucide-react';
 
 interface PlayerSettingsProps {
   previewMode?: PREVIEW_MODE;
   disabled?: boolean;
 
-  // Bypass
   bypassed: boolean;
   bypassedStyles: string;
   onBypassToggle: () => void;
 
-  // Source mode
   sourceMode: SourceMode;
-  onSourceModeChange: (mode: SourceMode) => Promise<void>;
-  showPlaybackPausedMessage: boolean;
-  toastMessage: string | null;
   onOpenSettings: () => void | Promise<void>;
 
-  // Select options & handlers
   modelOptions: Array<{ label: string; value: string }>;
   irOptions: Array<{ label: string; value: string }>;
   audioOptions: Array<{ label: string; value: string }>;
@@ -33,7 +25,6 @@ interface PlayerSettingsProps {
   onIrChange: (value: string | number) => Promise<void>;
   onInputChange: (value: string | number) => Promise<void>;
 
-  // Live input
   isLiveConfigured: boolean;
   currentDeviceId: string | null;
   liveDeviceOptions: Array<{ label: string; value: string }>;
@@ -49,9 +40,6 @@ export const PlayerSettings: React.FC<PlayerSettingsProps> = ({
   bypassedStyles,
   onBypassToggle,
   sourceMode,
-  onSourceModeChange,
-  showPlaybackPausedMessage,
-  toastMessage,
   onOpenSettings,
   modelOptions,
   irOptions,
@@ -112,39 +100,9 @@ export const PlayerSettings: React.FC<PlayerSettingsProps> = ({
         </div>
       </div>
 
-      {/* Source mode segmented control with settings button */}
-      <div className='flex flex-col gap-1 pt-2'>
-        <span className='text-sm text-zinc-400'>Source</span>
-        <div className='flex items-center gap-3'>
-          <SegmentedControl
-            options={SOURCE_MODE_OPTIONS}
-            value={sourceMode}
-            onChange={onSourceModeChange}
-          />
-          <button
-            onClick={onOpenSettings}
-            className='p-2 rounded-md transition-colors border border-zinc-700 hover:bg-zinc-800'
-            aria-label='Settings'
-          >
-            <Settings size={20} className='text-zinc-400' />
-          </button>
-          {showPlaybackPausedMessage && (
-            <span className='text-xs text-zinc-400 animate-pulse'>
-              Playback paused
-            </span>
-          )}
-          {toastMessage && (
-            <span className='text-xs text-zinc-400 animate-pulse'>
-              {toastMessage}
-            </span>
-          )}
-        </div>
-      </div>
-
       {/* Input / Live device row + secondary select */}
       <div className='flex flex-col sm:flex-row items-start gap-2 sm:gap-6'>
-        <div className='w-full sm:w-1/2'>
-          {/* Preview mode: input dropdown */}
+        <div className='w-full sm:flex-1 min-w-0'>
           {sourceMode === 'preview' && (
             <Select
               options={audioOptions}
@@ -154,17 +112,18 @@ export const PlayerSettings: React.FC<PlayerSettingsProps> = ({
             />
           )}
 
-          {/* Live mode: not connected */}
           {sourceMode === 'live' && !isLiveConfigured && (
-            <div className='inline-flex flex-1 flex-col gap-1 w-full'>
-              <span className='text-sm text-zinc-400'>Live Input</span>
-              <div className='relative flex-1'>
+            <div className='flex flex-col gap-1 w-full'>
+              <div className='flex justify-between items-end'>
+                <span className='text-sm text-zinc-400'>Live Input</span>
+              </div>
+              <div className='relative'>
                 <button
                   onClick={onOpenSettings}
-                  className='flex items-center gap-2 w-full overflow-hidden px-4 py-3 text-md border border-zinc-700 rounded-md bg-transparent hover:bg-zinc-800 transition-colors focus:outline-none'
+                  className='flex items-center gap-2 w-full px-4 py-3 text-md border border-dashed border-zinc-700 rounded-md bg-transparent hover:bg-zinc-800 hover:border-zinc-600 transition-colors focus:outline-none'
                 >
-                  <Plug size={18} className='text-zinc-400 flex-shrink-0' />
-                  <span className='text-ellipsis text-nowrap overflow-hidden min-w-0'>Enable Live Input</span>
+                  <Plug size={16} className='text-zinc-400 flex-shrink-0' />
+                  <span className='text-zinc-400'>Enable Live Input</span>
                 </button>
                 {audioInputError && (
                   <span className='absolute top-full mt-1 text-xs text-red-400'>
@@ -175,7 +134,6 @@ export const PlayerSettings: React.FC<PlayerSettingsProps> = ({
             </div>
           )}
 
-          {/* Live mode: connected */}
           {sourceMode === 'live' && isLiveConfigured && (
             <div className='w-full'>
               {inputModeType === 'connecting' ? (
@@ -198,7 +156,7 @@ export const PlayerSettings: React.FC<PlayerSettingsProps> = ({
           )}
         </div>
 
-        <div className={`w-full sm:w-1/2 ${bypassedStyles}`}>
+        <div className={`w-full sm:flex-1 min-w-0 ${bypassedStyles}`}>
           {previewMode === PREVIEW_MODE.MODEL
             ? renderIrSelect()
             : renderModelSelect()}
