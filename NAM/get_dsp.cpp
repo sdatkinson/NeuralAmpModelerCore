@@ -2,15 +2,12 @@
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
-#include <unordered_set>
 
 #include "dsp.h"
 #include "registry.h"
 #include "json.hpp"
-#include "lstm.h"
-#include "convnet.h"
-#include "wavenet.h"
 #include "get_dsp.h"
+#include "model_config.h"
 
 namespace nam
 {
@@ -146,62 +143,69 @@ std::unique_ptr<DSP> get_dsp(const nlohmann::json& config, dspData& returnedConf
   return get_dsp(conf);
 }
 
-struct OptionalValue
+// =============================================================================
+// Unified construction path
+// =============================================================================
+
+std::unique_ptr<ModelConfig> parse_model_config_json(const std::string& architecture, const nlohmann::json& config,
+                                                     double sample_rate)
 {
-  bool have = false;
-  double value = 0.0;
-};
+  return ConfigParserRegistry::instance().parse(architecture, config, sample_rate);
+}
+
+namespace
+{
+
+void apply_metadata(DSP& dsp, const ModelMetadata& metadata)
+{
+  if (metadata.loudness.has_value())
+    dsp.SetLoudness(metadata.loudness.value());
+  if (metadata.input_level.has_value())
+    dsp.SetInputLevel(metadata.input_level.value());
+  if (metadata.output_level.has_value())
+    dsp.SetOutputLevel(metadata.output_level.value());
+}
+
+} // anonymous namespace
+
+std::unique_ptr<DSP> create_dsp(std::unique_ptr<ModelConfig> config, std::vector<float> weights,
+                                const ModelMetadata& metadata)
+{
+  auto out = config->create(std::move(weights), metadata.sample_rate);
+  apply_metadata(*out, metadata);
+  // "pre-warm" the model to settle initial conditions
+  // Can this be removed now that it's part of Reset()?
+  out->prewarm();
+  return out;
+}
+
+// =============================================================================
+// get_dsp(dspData&) — now uses unified path
+// =============================================================================
 
 std::unique_ptr<DSP> get_dsp(dspData& conf)
 {
   verify_config_version(conf.version);
 
-  auto& architecture = conf.architecture;
-  nlohmann::json& config = conf.config;
-  std::vector<float>& weights = conf.weights;
-  OptionalValue loudness, inputLevel, outputLevel;
-
-  auto AssignOptional = [&conf](const std::string key, OptionalValue& v) {
-    if (conf.metadata.find(key) != conf.metadata.end())
-    {
-      if (!conf.metadata[key].is_null())
-      {
-        v.value = conf.metadata[key];
-        v.have = true;
-      }
-    }
-  };
+  // Extract metadata from JSON
+  ModelMetadata metadata;
+  metadata.version = conf.version;
+  metadata.sample_rate = conf.expected_sample_rate;
 
   if (!conf.metadata.is_null())
   {
-    AssignOptional("loudness", loudness);
-    AssignOptional("input_level_dbu", inputLevel);
-    AssignOptional("output_level_dbu", outputLevel);
-  }
-  const double expectedSampleRate = conf.expected_sample_rate;
-
-  // Initialize using registry-based factory
-  std::unique_ptr<DSP> out =
-    nam::factory::FactoryRegistry::instance().create(architecture, config, weights, expectedSampleRate);
-
-  if (loudness.have)
-  {
-    out->SetLoudness(loudness.value);
-  }
-  if (inputLevel.have)
-  {
-    out->SetInputLevel(inputLevel.value);
-  }
-  if (outputLevel.have)
-  {
-    out->SetOutputLevel(outputLevel.value);
+    auto extract = [&conf](const std::string& key) -> std::optional<double> {
+      if (conf.metadata.find(key) != conf.metadata.end() && !conf.metadata[key].is_null())
+        return conf.metadata[key].get<double>();
+      return std::nullopt;
+    };
+    metadata.loudness = extract("loudness");
+    metadata.input_level = extract("input_level_dbu");
+    metadata.output_level = extract("output_level_dbu");
   }
 
-  // "pre-warm" the model to settle initial conditions
-  // Can this be removed now that it's part of Reset()?
-  out->prewarm();
-
-  return out;
+  auto model_config = ConfigParserRegistry::instance().parse(conf.architecture, conf.config, conf.expected_sample_rate);
+  return create_dsp(std::move(model_config), std::move(conf.weights), metadata);
 }
 
 double get_sample_rate_from_nam_file(const nlohmann::json& j)

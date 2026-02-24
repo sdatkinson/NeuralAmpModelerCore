@@ -163,22 +163,38 @@ void nam::lstm::LSTM::_process_sample()
   this->_output.noalias() += this->_head_bias;
 }
 
-// Factory to instantiate from nlohmann json
-std::unique_ptr<nam::DSP> nam::lstm::Factory(const nlohmann::json& config, std::vector<float>& weights,
-                                             const double expectedSampleRate)
+// Config parser
+nam::lstm::LSTMConfig nam::lstm::parse_config_json(const nlohmann::json& config)
 {
-  const int num_layers = config["num_layers"];
-  const int input_size = config["input_size"];
-  const int hidden_size = config["hidden_size"];
+  LSTMConfig c;
+  c.num_layers = config["num_layers"];
+  c.input_size = config["input_size"];
+  c.hidden_size = config["hidden_size"];
   // Default to 1 channel in/out for backward compatibility
-  const int in_channels = config.value("in_channels", 1);
-  const int out_channels = config.value("out_channels", 1);
-  return std::make_unique<nam::lstm::LSTM>(
-    in_channels, out_channels, num_layers, input_size, hidden_size, weights, expectedSampleRate);
+  c.in_channels = config.value("in_channels", 1);
+  c.out_channels = config.value("out_channels", 1);
+  return c;
 }
 
-// Register the factory
+// LSTMConfig::create()
+std::unique_ptr<nam::DSP> nam::lstm::LSTMConfig::create(std::vector<float> weights, double sampleRate)
+{
+  return std::make_unique<nam::lstm::LSTM>(in_channels, out_channels, num_layers, input_size, hidden_size, weights,
+                                           sampleRate);
+}
+
+// Config parser for ConfigParserRegistry
+std::unique_ptr<nam::ModelConfig> nam::lstm::create_config(const nlohmann::json& config, double sampleRate)
+{
+  (void)sampleRate;
+  auto c = std::make_unique<LSTMConfig>();
+  auto parsed = parse_config_json(config);
+  *c = parsed;
+  return c;
+}
+
+// Register the config parser
 namespace
 {
-static nam::factory::Helper _register_LSTM("LSTM", nam::lstm::Factory);
+static nam::ConfigParserHelper _register_LSTM("LSTM", nam::lstm::create_config);
 }

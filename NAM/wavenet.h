@@ -713,12 +713,32 @@ private:
   int PrewarmSamples() override { return mPrewarmSamples; };
 };
 
-/// \brief Factory function to instantiate WaveNet from JSON configuration
+/// \brief Configuration for a WaveNet model
+struct WaveNetConfig : public ModelConfig
+{
+  int in_channels;
+  std::vector<LayerArrayParams> layer_array_params;
+  float head_scale;
+  bool with_head;
+  std::unique_ptr<DSP> condition_dsp;
+
+  // Move-only due to unique_ptr
+  WaveNetConfig() = default;
+  WaveNetConfig(WaveNetConfig&&) = default;
+  WaveNetConfig& operator=(WaveNetConfig&&) = default;
+  WaveNetConfig(const WaveNetConfig&) = delete;
+  WaveNetConfig& operator=(const WaveNetConfig&) = delete;
+
+  std::unique_ptr<DSP> create(std::vector<float> weights, double sampleRate) override;
+};
+
+/// \brief Parse WaveNet configuration from JSON
 /// \param config JSON configuration object
-/// \param weights Model weights vector
 /// \param expectedSampleRate Expected sample rate in Hz (-1.0 if unknown)
-/// \return Unique pointer to a DSP object (WaveNet instance)
-std::unique_ptr<DSP> Factory(const nlohmann::json& config, std::vector<float>& weights,
-                             const double expectedSampleRate);
+/// \return WaveNetConfig
+WaveNetConfig parse_config_json(const nlohmann::json& config, const double expectedSampleRate);
+
+/// \brief Config parser for ConfigParserRegistry
+std::unique_ptr<ModelConfig> create_config(const nlohmann::json& config, double sampleRate);
 }; // namespace wavenet
 }; // namespace nam
