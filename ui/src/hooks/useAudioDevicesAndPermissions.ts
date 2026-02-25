@@ -28,7 +28,7 @@ interface UseAudioDevicesAndPermissionsReturn {
   audioInputDevices: AudioInputDeviceState;
   audioOutputDevices: AudioOutputDeviceState;
   requestMicrophonePermission: () => Promise<string | null>;
-  refreshAudioDevices: () => Promise<{ inputDevices: AudioInputDevice[]; preferredDeviceId: string | null }>;
+  refreshAudioInputDevices: () => Promise<{ inputDevices: AudioInputDevice[]; preferredDeviceId: string | null }>;
   refreshAudioOutputDevices: () => Promise<void>;
   setOutputDevice: (deviceId: string | null) => Promise<void>;
   handleLiveInputUnavailable: (reason: LiveInputUnavailableReason) => void;
@@ -136,8 +136,9 @@ export function useAudioDevicesAndPermissions({
     };
   }, [queryBrowserPermission]);
 
-  // Request microphone permission
-  // Returns the device ID the user selected in the browser's permission dialog
+  // Request microphone permission.
+  // Only handles the permission prompt — device enumeration is the caller's responsibility.
+  // Returns the device ID the user selected in the browser's permission dialog, or null.
   const requestMicrophonePermission = useCallback(async (): Promise<string | null> => {
     // Capture previous status via functional updater (avoids needing a ref)
     let previousStatus = 'idle' as MicrophonePermissionStatus;
@@ -146,8 +147,6 @@ export function useAudioDevicesAndPermissions({
       return { status: 'pending', error: null };
     });
 
-    setAudioInputDevices(prev => ({ ...prev, isLoading: true, error: null }));
-
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const track = stream.getAudioTracks()[0];
@@ -155,21 +154,10 @@ export function useAudioDevicesAndPermissions({
       stream.getTracks().forEach(t => t.stop());
 
       setMicrophonePermission({ status: 'granted', error: null });
-
-      const allDevices = await navigator.mediaDevices.enumerateDevices();
-      const audioInputs = mapDevices(allDevices, 'audioinput');
-
-      setAudioInputDevices({
-        devices: audioInputs,
-        isLoading: false,
-        error: audioInputs.length === 0 ? 'No audio input devices found.' : null,
-        preferredDeviceId: selectedDeviceId,
-      });
+      setAudioInputDevices(prev => ({ ...prev, preferredDeviceId: selectedDeviceId }));
 
       return selectedDeviceId;
     } catch (error) {
-      setAudioInputDevices(prev => ({ ...prev, isLoading: false }));
-
       if (error instanceof DOMException) {
         if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
           const permissionState = await queryBrowserPermission();
@@ -204,7 +192,15 @@ export function useAudioDevicesAndPermissions({
 
   // --- Device enumeration ---
 
-  const refreshAudioDevices = useCallback(async (): Promise<{ inputDevices: AudioInputDevice[]; preferredDeviceId: string | null }> => {
+  /**
+   * Enumerate audio input devices and update state. Self-healing: if the browser
+   * returns devices without labels (Firefox/Safari require a getUserMedia call per
+   * session to unlock labels), this function automatically calls getUserMedia and
+   * re-enumerates while the stream is still active. This is safe because we only
+   * call this function when permission is believed to be granted, so getUserMedia
+   * will succeed silently without prompting.
+   */
+  const refreshAudioInputDevices = useCallback(async (): Promise<{ inputDevices: AudioInputDevice[]; preferredDeviceId: string | null }> => {
     const permApiStatus = await queryBrowserPermission();
 
     if (permApiStatus === 'granted' || permApiStatus === 'blocked') {
@@ -222,32 +218,22 @@ export function useAudioDevicesAndPermissions({
 
     try {
       let allDevices = await navigator.mediaDevices.enumerateDevices();
-      let audioInputs = allDevices.filter(device => device.kind === 'audioinput');
+      const hasLabels = allDevices.some(d => d.kind === 'audioinput' && d.label);
 
-      // Firefox returns empty labels until getUserMedia is called in this session
-      const hasLabels = audioInputs.some(device => device.label && device.label.length > 0);
-
+      // Firefox/Safari workaround: getUserMedia unlocks device labels for the session.
+      // Enumerate while the stream is still active to guarantee labels are available.
       if (!hasLabels) {
         try {
           const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-          stream.getTracks().forEach(t => t.stop());
           allDevices = await navigator.mediaDevices.enumerateDevices();
-          audioInputs = allDevices.filter(device => device.kind === 'audioinput');
+          stream.getTracks().forEach(t => t.stop());
           setMicrophonePermission({ status: 'granted', error: null });
-        } catch (error) {
-          if (error instanceof DOMException &&
-              (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError')) {
-            setMicrophonePermission(prev => ({ ...prev, status: 'denied', error: null }));
-            setAudioInputDevices(prev => ({ ...prev, isLoading: false }));
-            return { inputDevices: [], preferredDeviceId: null };
-          }
+        } catch {
+          // getUserMedia failed — use the unlabeled devices we already have
         }
-      } else {
-        setMicrophonePermission(prev => ({ ...prev, status: 'granted', error: null }));
       }
 
       const mappedInputDevices = mapDevices(allDevices, 'audioinput');
-      const mappedOutputDevices = mapDevices(allDevices, 'audiooutput');
 
       setAudioInputDevices(prev => ({
         ...prev,
@@ -255,8 +241,6 @@ export function useAudioDevicesAndPermissions({
         isLoading: false,
         error: mappedInputDevices.length === 0 ? 'No audio input devices found.' : null,
       }));
-
-      setAudioOutputDevices(prev => ({ ...prev, devices: mappedOutputDevices }));
 
       return { inputDevices: mappedInputDevices, preferredDeviceId: audioInputDevices.preferredDeviceId };
     } catch {
@@ -347,17 +331,16 @@ export function useAudioDevicesAndPermissions({
 
           // Check if selected output device was disconnected
           const audioOutputs = mapDevices(allDevices, 'audiooutput');
-          let outputDeviceLost = false;
-          setAudioOutputDevices(prev => {
-            const selectedStillExists = prev.selectedDeviceId === null ||
-              audioOutputs.some(d => d.deviceId === prev.selectedDeviceId);
-            if (!selectedStillExists) {
-              outputDeviceLost = true;
-              return { ...prev, devices: audioOutputs, selectedDeviceId: null };
-            }
-            return { ...prev, devices: audioOutputs };
-          });
-          if (outputDeviceLost) {
+          const selectedStillExists = audioOutputDevices.selectedDeviceId === null ||
+            audioOutputs.some(d => d.deviceId === audioOutputDevices.selectedDeviceId);
+
+          setAudioOutputDevices(prev => ({
+            ...prev,
+            devices: audioOutputs,
+            selectedDeviceId: selectedStillExists ? prev.selectedDeviceId : null,
+          }));
+
+          if (!selectedStillExists) {
             console.warn('Selected audio output device was disconnected, falling back to system default');
             applyOutputRouting(null).catch(e =>
               console.warn('[Audio] Failed to reset output routing:', e)
@@ -374,14 +357,14 @@ export function useAudioDevicesAndPermissions({
     return () => {
       navigator.mediaDevices.removeEventListener('devicechange', handleDeviceChange);
     };
-  }, [microphonePermission.status, liveInputConfig, handleLiveInputUnavailable, applyOutputRouting]);
+  }, [microphonePermission.status, liveInputConfig, handleLiveInputUnavailable, applyOutputRouting, audioOutputDevices.selectedDeviceId]);
 
   return {
     microphonePermission,
     audioInputDevices,
     audioOutputDevices,
     requestMicrophonePermission,
-    refreshAudioDevices,
+    refreshAudioInputDevices,
     refreshAudioOutputDevices,
     setOutputDevice,
     handleLiveInputUnavailable,

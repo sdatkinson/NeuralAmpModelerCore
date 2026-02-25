@@ -81,7 +81,7 @@ interface T3kPlayerContextType {
   requestMicrophonePermission: () => Promise<string | null>;  // Returns preferred device ID
 
   // Audio input device actions
-  refreshAudioDevices: () => Promise<{ inputDevices: AudioInputDevice[]; preferredDeviceId: string | null }>;
+  refreshAudioInputDevices: () => Promise<{ inputDevices: AudioInputDevice[]; preferredDeviceId: string | null }>;
 
   // Audio output device actions
   setOutputDevice: (deviceId: string | null) => Promise<void>;
@@ -153,7 +153,7 @@ export function T3kPlayerContextProvider({
     audioInputDevices,
     audioOutputDevices,
     requestMicrophonePermission,
-    refreshAudioDevices,
+    refreshAudioInputDevices,
     refreshAudioOutputDevices,
     setOutputDevice,
     handleLiveInputUnavailable,
@@ -1194,7 +1194,7 @@ export function T3kPlayerContextProvider({
       setOutputDevice,
       setPlaying,
       requestMicrophonePermission,
-      refreshAudioDevices,
+      refreshAudioInputDevices,
       refreshAudioOutputDevices,
       settingsDialog,
       openSettingsDialog,
@@ -1224,7 +1224,7 @@ export function T3kPlayerContextProvider({
       setOutputDevice,
       setPlaying,
       requestMicrophonePermission,
-      refreshAudioDevices,
+      refreshAudioInputDevices,
       refreshAudioOutputDevices,
       settingsDialog,
       openSettingsDialog,
@@ -1275,7 +1275,7 @@ function createNoopContext(): T3kPlayerContextType {
     setOutputDevice: async () => {},
     setPlaying: (() => {}) as T3kPlayerContextType['setPlaying'],
     requestMicrophonePermission: async () => null,
-    refreshAudioDevices: async () => ({ inputDevices: [], preferredDeviceId: null }),
+    refreshAudioInputDevices: async () => ({ inputDevices: [], preferredDeviceId: null }),
     refreshAudioOutputDevices: async () => {},
     settingsDialog: { isOpen: false, sourceMode: 'preview', snapshot: null, hadExistingConfig: false },
     openSettingsDialog: () => {},

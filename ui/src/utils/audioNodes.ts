@@ -51,12 +51,16 @@ export function cleanupOutputWorkaroundRouting(nodes: AudioNodes): void {
     if (hadWorkaroundRouting) {
       try {
         nodes.outputMeterNode.disconnect();
-      } catch { /* no connections */ }
+      } catch (e) {
+        if (!(e instanceof DOMException && e.name === 'InvalidStateError')) throw e;
+      }
       nodes.outputMeterNode.connect(nodes.audioContext.destination);
     } else {
       try {
         nodes.outputMeterNode.connect(nodes.audioContext.destination);
-      } catch { /* already connected */ }
+      } catch (e) {
+        if (!(e instanceof DOMException && e.name === 'InvalidAccessError')) throw e;
+      }
     }
   }
 }
@@ -70,7 +74,7 @@ export function teardownLiveInput(nodes: AudioNodes, options: { muteOutput: bool
 
   // Reconnect file source to restore preview path
   if (nodes.sourceNode && nodes.inputGainNode) {
-    try { nodes.sourceNode.disconnect(nodes.inputGainNode); } catch { /* not connected */ }
+    try { nodes.sourceNode.disconnect(nodes.inputGainNode); } catch (e) { if (!(e instanceof DOMException && e.name === 'InvalidAccessError')) throw e; }
     nodes.sourceNode.connect(nodes.inputGainNode);
   }
 
@@ -101,7 +105,9 @@ export async function applyOutputDeviceRouting(
 
     try {
       outputMeterNode.disconnect();
-    } catch { /* no connections */ }
+    } catch (e) {
+      if (!(e instanceof DOMException && e.name === 'InvalidStateError')) throw e;
+    }
 
     if (deviceId) {
       const mediaStreamDestination = audioContext.createMediaStreamDestination();
