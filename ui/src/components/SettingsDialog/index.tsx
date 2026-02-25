@@ -35,7 +35,8 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
     audioState,
     init,
     requestMicrophonePermission,
-    refreshAudioDevices,
+    refreshAudioInputDevices,
+    refreshAudioOutputDevices,
     startLiveInput,
     reconnectLiveInput,
     selectLiveInputChannel,
@@ -50,6 +51,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
   // Local state: only UI flow
   const [step, setStep] = useState<SetupStep>('permission');
   const [isInitializing, setIsInitializing] = useState(true);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
 
   // Derived from context (single source of truth)
   const liveInputConfig = audioState.liveInputConfig;
@@ -61,7 +63,8 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
   const isLiveMode = sourceMode === 'live';
   const isPreviewMode = sourceMode === 'preview';
 
-  // Derive effective step: if permission was revoked while on device-channel-select, show permission
+  // Derive effective step: if permission isn't granted while on device-channel-select, show permission.
+  // Applies in both modes — preview mode needs permission for output device labels on Firefox/Safari.
   const effectiveStep = (
     !isInitializing &&
     microphonePermission.status !== 'granted' &&
@@ -70,32 +73,62 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
 
   // Helper to ensure audio system is initialized before starting live input
   const initAndStartLiveInput = useCallback(async (deviceId: string) => {
-    if (audioState.initState !== 'ready') {
-      await init();
+    setConnectionError(null);
+    try {
+      if (audioState.initState !== 'ready') {
+        await init();
+      }
+      await startLiveInput(deviceId);
+    } catch (error) {
+      const message = error instanceof DOMException
+        ? error.message
+        : 'Failed to connect to audio device. Please try again.';
+      setConnectionError(message);
     }
-    await startLiveInput(deviceId);
   }, [audioState.initState, init, startLiveInput]);
 
   // Imperative open handler — called once by Dialog's onOpen (ref-guarded against StrictMode)
   const handleOpen = useCallback(() => {
     setIsInitializing(true);
 
-    if (microphonePermission.status === 'granted') {
-      refreshAudioDevices().then(({ inputDevices, preferredDeviceId }) => {
-        setIsInitializing(false);
-        setStep('device-channel-select');
+    if (sourceMode === 'preview') {
+      if (microphonePermission.status === 'granted') {
+        // Permission granted: enumerate input devices first to trigger getUserMedia
+        // self-healing (Firefox/Safari require per-session getUserMedia to unlock device labels),
+        // then enumerate output devices so they have labels.
+        refreshAudioInputDevices()
+          .then(() => refreshAudioOutputDevices())
+          .then(() => {
+            setIsInitializing(false);
+            setStep('device-channel-select');
+          });
+      } else {
+        // No permission: enumerate what we can. effectiveStep will redirect to
+        // the permission step so the user can unlock device labels.
+        refreshAudioOutputDevices().then(() => {
+          setIsInitializing(false);
+          setStep('device-channel-select');
+        });
+      }
+    } else if (microphonePermission.status === 'granted') {
+      // Live mode with permission: enumerate both input and output devices
+      Promise.all([refreshAudioInputDevices(), refreshAudioOutputDevices()])
+        .then(([{ inputDevices, preferredDeviceId }]) => {
+          setIsInitializing(false);
+          setStep('device-channel-select');
 
-        // Auto-connect on first open in live mode (no device configured yet)
-        if (sourceMode === 'live' && !audioState.liveInputConfig && inputDevices.length > 0) {
-          const deviceToConnect = preferredDeviceId ?? inputDevices[0].deviceId;
-          initAndStartLiveInput(deviceToConnect);
-        }
-      });
+          // Auto-connect on first open in live mode (no device configured yet)
+          if (!audioState.liveInputConfig && inputDevices.length > 0) {
+            const deviceToConnect = preferredDeviceId ?? inputDevices[0].deviceId;
+            initAndStartLiveInput(deviceToConnect);
+          }
+        });
     } else {
+      // Live mode without permission: show permission step
       setIsInitializing(false);
       setStep('permission');
     }
-  }, [microphonePermission.status, refreshAudioDevices, sourceMode, audioState.liveInputConfig, initAndStartLiveInput]);
+  }, [sourceMode, microphonePermission.status, refreshAudioInputDevices, refreshAudioOutputDevices, audioState.liveInputConfig, initAndStartLiveInput]);
 
   // Event handlers
   const handleDeviceChange = useCallback((deviceId: string) => {
@@ -130,7 +163,10 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
   const handleRequestPermission = useCallback(async () => {
     try {
       const preferredDeviceId = await requestMicrophonePermission();
-      await refreshAudioDevices();
+      // requestMicrophonePermission only handles the permission prompt.
+      // Enumerate devices separately — refreshAudioInputDevices will get labels
+      // because getUserMedia just ran (self-healing workaround handles Firefox/Safari).
+      await Promise.all([refreshAudioInputDevices(), refreshAudioOutputDevices()]);
       setStep('device-channel-select');
 
       if (isLiveMode && preferredDeviceId) {
@@ -139,7 +175,11 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
     } catch {
       // Error handling is done in context
     }
-  }, [requestMicrophonePermission, refreshAudioDevices, initAndStartLiveInput, isLiveMode]);
+  }, [requestMicrophonePermission, refreshAudioInputDevices, refreshAudioOutputDevices, initAndStartLiveInput, isLiveMode]);
+
+  const handleRefreshDevices = useCallback(async () => {
+    await Promise.all([refreshAudioInputDevices(), refreshAudioOutputDevices()]);
+  }, [refreshAudioInputDevices, refreshAudioOutputDevices]);
 
   const isPending = microphonePermission.status === 'pending';
   const dialogTitle = isPreviewMode ? 'Settings' : 'Live Input Setup';
@@ -223,7 +263,8 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
           isLoading={audioInputDevices.isLoading}
           isConnecting={audioState.inputMode.type === 'connecting'}
           error={audioInputDevices.error}
-          onRefresh={refreshAudioDevices}
+          connectionError={connectionError}
+          onRefresh={handleRefreshDevices}
           channel0Meter={getAudioNodes().channel0PreviewMeter}
           channel1Meter={getAudioNodes().channel1PreviewMeter}
           outputDevices={audioOutputDevices.devices}

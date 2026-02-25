@@ -29,6 +29,7 @@ interface DeviceChannelContentProps {
   isLoading: boolean;
   isConnecting: boolean;
   error: string | null;
+  connectionError: string | null;
   onRefresh: () => void;
   channel0Meter: AnalyserNode | null;
   channel1Meter: AnalyserNode | null;
@@ -60,6 +61,7 @@ export const DeviceChannelContent: React.FC<DeviceChannelContentProps> = ({
   isLoading,
   isConnecting,
   error,
+  connectionError,
   onRefresh,
   channel0Meter,
   channel1Meter,
@@ -168,6 +170,13 @@ export const DeviceChannelContent: React.FC<DeviceChannelContentProps> = ({
             </InlineAlert>
           )}
         </div>
+      )}
+
+      {/* Connection error - shown when startLiveInput fails */}
+      {isLiveMode && connectionError && (
+        <Alert variant='error'>
+          {connectionError}
+        </Alert>
       )}
 
       {/* Output Device Selection - always shown */}
