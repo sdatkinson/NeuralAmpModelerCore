@@ -18,7 +18,9 @@ clear
 # Configure and build the project using Emscripten
 # -DCMAKE_BUILD_TYPE="Release" sets the build type to Release mode
 # -j4 enables parallel compilation using 4 cores
-emcmake cmake .. -DCMAKE_BUILD_TYPE="Release" && cmake --build . --config=release -j4
+# -msimd128: enable WebAssembly SIMD (128-bit vector ops) for faster matrix math
+# -DNAM_USE_INLINE_GEMM: use inline GEMM optimizations from NeuralAmpModelerCore for better performance
+emcmake cmake .. -DCMAKE_BUILD_TYPE="Release" -DCMAKE_CXX_FLAGS="${CXX_FLAGS} -msimd128 -DNAM_USE_INLINE_GEMM" && cmake --build . --config=release -j4
 
 # Format the generated JavaScript file for to prep for patching
 cd wasm
