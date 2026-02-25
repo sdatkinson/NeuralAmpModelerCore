@@ -89,7 +89,10 @@ void process(float* audio_in, float* audio_out, int n_samples)
 
   if (currentModel != nullptr)
   {
-    currentModel->process(audio_out, audio_out, n_samples);
+    // process() expects NAM_SAMPLE** (array of channel pointers); for mono we pass single-element arrays
+    NAM_SAMPLE* inputPtr = audio_out;
+    NAM_SAMPLE* outputPtr = audio_out;
+    currentModel->process(&inputPtr, &outputPtr, n_samples);
 
     if (currentModel->HasLoudness())
     {
