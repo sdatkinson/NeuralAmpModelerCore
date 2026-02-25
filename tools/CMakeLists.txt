@@ -1,21 +1,66 @@
 file(GLOB_RECURSE NAM_SOURCES ../NAM/*.cpp ../NAM/*.c ../NAM*.h)
 
+# TODO: add loadmodel and run_tests to TOOLS?
 set(TOOLS benchmodel)
 
 add_custom_target(tools ALL
-	DEPENDS ${TOOLS})
+	DEPENDS ${TOOLS} render)
+
+set(AUDIO_DSP_TOOLS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../Dependencies/AudioDSPTools")
+set(AUDIO_DSP_TOOLS_WAV_SOURCES "${AUDIO_DSP_TOOLS_DIR}/dsp/wav.cpp")
 
 include_directories(tools ..)
 include_directories(tools ${NAM_DEPS_PATH}/eigen)
 include_directories(tools ${NAM_DEPS_PATH}/nlohmann)
+include_directories(tools ${AUDIO_DSP_TOOLS_DIR}/dsp)
 
 add_executable(loadmodel loadmodel.cpp ${NAM_SOURCES})
 add_executable(benchmodel benchmodel.cpp ${NAM_SOURCES})
-add_executable(run_tests run_tests.cpp ${NAM_SOURCES})
+add_executable(render render.cpp ${NAM_SOURCES} ${AUDIO_DSP_TOOLS_WAV_SOURCES})
+target_compile_features(render PUBLIC cxx_std_20)
+# AudioDSPTools wav.cpp has sign-compare issues; don't fail build
+set_source_files_properties(${AUDIO_DSP_TOOLS_WAV_SOURCES} PROPERTIES COMPILE_FLAGS "-Wno-error")
+set_target_properties(render PROPERTIES
+	CXX_VISIBILITY_PRESET hidden
+	INTERPROCEDURAL_OPTIMIZATION TRUE
+	PREFIX ""
+)
+if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
+	target_compile_definitions(render PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
+endif()
+if (MSVC)
+	target_compile_options(render PRIVATE
+		"$<$<CONFIG:DEBUG>:/W4>"
+		"$<$<CONFIG:RELEASE>:/O2>"
+	)
+else()
+	target_compile_options(render PRIVATE
+		-Wall -Wextra -Wpedantic -Wstrict-aliasing -Wunreachable-code -Weffc++ -Wno-unused-parameter
+		"$<$<CONFIG:DEBUG>:-Og;-ggdb;-Werror>"
+		"$<$<CONFIG:RELEASE>:-Ofast>"
+	)
+endif()
+add_executable(benchmodel_bufsize benchmodel_bufsize.cpp ${NAM_SOURCES})
+add_executable(run_tests run_tests.cpp test/allocation_tracking.cpp ${NAM_SOURCES})
+# Compile run_tests without optimizations to ensure allocation tracking works correctly
+# Also ensure assertions are enabled (NDEBUG is not defined) so tests actually run
+set_target_properties(run_tests PROPERTIES COMPILE_OPTIONS "-O0")
+# Ensure assertions are enabled for run_tests by removing NDEBUG if it was set
+# Release/RelWithDebInfo/MinSizeRel build types automatically define NDEBUG
+# We use a compile option to undefine it, which works on GCC, Clang, and MSVC
+target_compile_options(run_tests PRIVATE
+	$<$<OR:$<CONFIG:Release>,$<CONFIG:RelWithDebInfo>,$<CONFIG:MinSizeRel>>:-UNDEBUG>
+)
+
+# Option to enable ADDASSERT test (tests that assertions are actually enabled)
+option(ENABLE_ASSERT_TEST "Enable ADDASSERT test to verify assertions are enabled" OFF)
+if(ENABLE_ASSERT_TEST)
+	target_compile_definitions(run_tests PRIVATE ADDASSERT)
+endif()
 
 source_group(NAM ${CMAKE_CURRENT_SOURCE_DIR} FILES ${NAM_SOURCES})
 
-target_compile_features(${TOOLS} PUBLIC cxx_std_17)
+target_compile_features(${TOOLS} PUBLIC cxx_std_20)
 
 set_target_properties(${TOOLS}
 	PROPERTIES
@@ -45,3 +90,4 @@ endif()
 # /Users/steve/src/NeuralAmpModelerCore/Dependencies/eigen/Eigen/src/Core/products/GeneralBlockPanelKernel.h
 # Don't let this break my build on debug:
 set_source_files_properties(../NAM/dsp.cpp PROPERTIES COMPILE_FLAGS "-Wno-error")
+set_source_files_properties(../NAM/conv1d.cpp PROPERTIES COMPILE_FLAGS "-Wno-error")

@@ -1,14 +1,18 @@
 cmake_minimum_required(VERSION 3.10)
 
 # Make sure this matches ./NAM/version.h!
-project(NAM VERSION 0.3.0)
+project(NAM VERSION 0.4.0)
 
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED OFF)
 set(CMAKE_CXX_EXTENSIONS OFF)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++ -std=c++20")
+
+# Use libc++ on macOS, system default on Linux
+if (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
+endif()
 
 if (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
 	include_directories(SYSTEM /usr/local/include)
@@ -21,6 +25,7 @@ elseif (NOT CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
 endif()
 
 set(NAM_DEPS_PATH "${CMAKE_CURRENT_SOURCE_DIR}/Dependencies")
+include_directories(SYSTEM "${NAM_DEPS_PATH}/eigen")
 
 # wasm subdir for emscript builds
 if (DEFINED EMSCRIPTEN)

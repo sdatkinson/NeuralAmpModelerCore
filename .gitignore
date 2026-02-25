@@ -31,5 +31,9 @@
 *.out
 *.app
 
-
 .DS_Store
+.vscode/
+
+docs/_build/
+
+example_audio/output.wav

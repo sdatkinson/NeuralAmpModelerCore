@@ -3,9 +3,6 @@ name: Build
 on:
   [workflow_dispatch, pull_request]
 
-env:
-  BUILD_TYPE: Release
-  
 jobs:
   build-ubuntu:
     name: Build Ubuntu
@@ -15,12 +12,35 @@ jobs:
       with:
         submodules: recursive
     
+    # - name: Install clang-format 19
+    #   uses: KyleMayes/install-llvm-action@v2
+    #   with:
+    #     version: "19"
+    #     cached: true
+    
+    # - name: Check formatting
+    #   working-directory: ${{github.workspace}}
+    #   run: |
+    #     echo "clang-format version:"
+    #     clang-format --version
+    #     chmod +x format.sh
+    #     ./format.sh
+    #     git diff --exit-code
+    
     - name: Build Tools
       working-directory: ${{github.workspace}}/build
       env:
         CXX: clang++
       run: |
-        cmake ..
+        cmake .. -DCMAKE_BUILD_TYPE=Debug
+        cmake --build . -j4
+
+    - name: Build Tools (Inline GEMM)
+      working-directory: ${{github.workspace}}/build_inline
+      env:
+        CXX: clang++
+      run: |
+        cmake .. -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS="-DNAM_USE_INLINE_GEMM"
         cmake --build . -j4
     
     - name: Run tests
@@ -29,3 +49,9 @@ jobs:
         ./build/tools/run_tests
         ./build/tools/benchmodel ./example_models/wavenet.nam
         ./build/tools/benchmodel ./example_models/lstm.nam
+        ./build/tools/render ./example_models/wavenet.nam ./example_audio/input.wav ./example_audio/output.wav
+        ./build_inline/tools/run_tests
+        ./build_inline/tools/benchmodel ./example_models/wavenet.nam
+        ./build_inline/tools/benchmodel ./example_models/lstm.nam
+        ./build_inline/tools/render ./example_models/wavenet.nam ./example_audio/input.wav ./example_audio/output.wav
+
