@@ -1,4 +1,4 @@
-import { Input, IR, Model } from "../types";
+import { Input, IR, Model } from '../types';
 type NonEmptyArray<T> = [T, ...T[]];
 const inputs = [
   {
@@ -27,8 +27,8 @@ const inputs = [
     url: "/inputs/Drivin' - Bass.wav",
   },
   {
-    name: "Fast Thrash - Guitar",
-    url: "/inputs/Fast Thrash - Guitar.wav",
+    name: 'Fast Thrash - Guitar',
+    url: '/inputs/Fast Thrash - Guitar.wav',
   },
   {
     name: 'Fear - Guitar',
@@ -43,8 +43,8 @@ const inputs = [
     url: '/inputs/Garden - Bass.wav',
   },
   {
-    name: "Groove Thrash - Guitar",
-    url: "/inputs/Groove Thrash - Guitar.wav",
+    name: 'Groove Thrash - Guitar',
+    url: '/inputs/Groove Thrash - Guitar.wav',
   },
   {
     name: 'Hammer Lead - Guitar',
@@ -99,8 +99,8 @@ const inputs = [
     url: '/inputs/Power - Guitar.wav',
   },
   {
-    name: "Power Thrash - Guitar",
-    url: "/inputs/Power Thrash - Guitar.wav",
+    name: 'Power Thrash - Guitar',
+    url: '/inputs/Power Thrash - Guitar.wav',
   },
   {
     name: 'Progression -  Guitar',
@@ -209,8 +209,8 @@ const models = [
     url: '/models/ampeg.nam',
   },
   {
-    name: "Boosted EVH 5153",
-    url: "/models/5153.nam",
+    name: 'Boosted EVH 5153',
+    url: '/models/5153.nam',
   },
   {
     name: 'Roland JC-120',
@@ -222,27 +222,41 @@ const githubBaseUrl =
   'https://raw.githubusercontent.com/tone-3000/neural-amp-modeler-wasm/refs/heads/main/ui/public';
 const isDev = process.env.NODE_ENV === 'development';
 
-export const DEFAULT_MODELS = (isDev
-  ? models
-  : models.map(model => ({
-      ...model,
-      url: `${githubBaseUrl}${model.url}`,
-    }))) as NonEmptyArray<Model>;
+export const DEFAULT_MODELS = (
+  isDev
+    ? models
+    : models.map(model => ({
+        ...model,
+        url: `${githubBaseUrl}${model.url}`,
+      }))
+) as NonEmptyArray<Model>;
 
-export const DEFAULT_IRS = (isDev
-  ? irs
-  : irs.map(ir => ({
-      ...ir,
-      url: ir.url ? `${githubBaseUrl}${ir.url}` : '', // Empty string if no url
-    }))) as NonEmptyArray<IR>;
+export const DEFAULT_IRS = (
+  isDev
+    ? irs
+    : irs.map(ir => ({
+        ...ir,
+        url: ir.url ? `${githubBaseUrl}${ir.url}` : '', // Empty string if no url
+      }))
+) as NonEmptyArray<IR>;
 
-export const DEFAULT_INPUTS = (isDev
+export const DEFAULT_INPUTS = (
+  isDev
     ? inputs
     : inputs.map(input => ({
         ...input,
         url: `${githubBaseUrl}${input.url}`,
-      }))) as NonEmptyArray<Input>;
+      }))
+) as NonEmptyArray<Input>;
 
 export const DEFAULT_AUDIO_SRC = isDev
   ? '/inputs/placeholder.wav'
   : githubBaseUrl + '/inputs/placeholder.wav';
+
+export const SOURCE_MODE_OPTIONS: Array<{
+  value: 'demo' | 'play';
+  label: string;
+}> = [
+  { value: 'demo', label: 'Demo' },
+  { value: 'play', label: 'Play' },
+];

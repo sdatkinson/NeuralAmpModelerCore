@@ -27,3 +27,27 @@
   /* This ensures all Tailwind utilities are scoped to the component */
   box-sizing: border-box;
 }
+
+@keyframes monitor-pop {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.animate-monitor-pop {
+  animation: monitor-pop 300ms ease-out;
+}
+
+/* Remove all focus indicators from monitor button - browser defaults vary */
+.monitor-button-reset-focus:focus,
+.monitor-button-reset-focus:focus-visible,
+.monitor-button-reset-focus:active {
+  outline: none !important;
+  box-shadow: none !important;
+}

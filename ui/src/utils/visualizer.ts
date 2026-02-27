@@ -25,7 +25,7 @@ export const setupVisualizer = (
   audioCtx: AudioContext,
   bg = '#18181b',
   useGradient = true
-): AnalyserNode => {
+): { analyser: AnalyserNode; stop: () => void } => {
   const canvasCtx = canvas.getContext('2d');
   if (canvasCtx === null) {
     throw new Error('canvasCtx was null');
@@ -34,6 +34,8 @@ export const setupVisualizer = (
   const analyzer = audioCtx.createAnalyser();
   analyzer.fftSize = FFT_SIZE;
   const analyzeResultArray = new Uint8Array(analyzer.fftSize);
+
+  let running = true;
 
   (async () => {
     const { height, width } = canvas;
@@ -51,6 +53,8 @@ export const setupVisualizer = (
     }
 
     for await (const _ of rafIter()) {
+      if (!running) break;
+
       analyzer.getByteTimeDomainData(analyzeResultArray);
 
       canvasCtx.fillStyle = bg;
@@ -77,7 +81,12 @@ export const setupVisualizer = (
     }
   })();
 
-  return analyzer;
+  return {
+    analyser: analyzer,
+    stop: () => {
+      running = false;
+    },
+  };
 };
 
 export const initVisualizer = ({

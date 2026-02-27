@@ -14,31 +14,27 @@ interface Option {
 
 interface SelectProps {
   options: Option[];
-  defaultOption?: string | number;
+  value?: string | number;
   onChange?: (selected: string | number) => void | Promise<void>;
   label?: string;
+  heading?: string;
   disabled?: boolean;
   backgroundColor?: string;
   infoModal?: ReactNode;
-  value?: string | number;
 }
 
 export const Select = ({
   options,
   label,
-  defaultOption,
+  heading,
+  value,
   onChange,
   disabled = false,
   backgroundColor = 'bg-zinc-900',
   infoModal,
-  value,
 }: SelectProps) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [selectedOption, setSelectedOption] = useState(
-    defaultOption
-      ? options.find(opt => opt.value === defaultOption) || options[0]
-      : options[0]
-  );
+  const selectedOption = options.find(opt => opt.value === value) || options[0];
   const containerRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
@@ -68,7 +64,6 @@ export const Select = ({
 
   const handleSelect = useCallback(
     (option: Option) => {
-      setSelectedOption(option);
       setIsOpen(false);
       buttonRef.current?.focus();
       if (onChange) {
@@ -78,60 +73,56 @@ export const Select = ({
     [onChange]
   );
 
-  useEffect(() => {
-    let button = buttonRef.current;
-    const listener = (e: KeyboardEvent) => {
-      if (!isOpen) {
-        if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown') {
-          e.preventDefault();
-          setIsOpen(true);
-          setActiveIndex(
-            options.findIndex(opt => opt.value === selectedOption.value)
-          );
-        }
-        return;
+  const keydownHandlerRef = useRef<(e: KeyboardEvent) => void>();
+  keydownHandlerRef.current = (e: KeyboardEvent) => {
+    if (!isOpen) {
+      if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        setIsOpen(true);
+        setActiveIndex(
+          options.findIndex(opt => opt.value === selectedOption.value)
+        );
       }
-
-      switch (e.key) {
-        case 'Enter':
-        case ' ':
-          e.preventDefault();
-          if (activeIndex >= 0 && activeIndex < options.length) {
-            handleSelect(options[activeIndex]);
-          }
-          break;
-        case 'ArrowDown':
-          e.preventDefault();
-          if (activeIndex < options.length - 1) {
-            setActiveIndex(prev => prev + 1);
-          }
-          break;
-        case 'ArrowUp':
-          e.preventDefault();
-          if (activeIndex > 0) {
-            setActiveIndex(prev => prev - 1);
-          }
-          break;
-        case 'Escape':
-          setIsOpen(false);
-          buttonRef.current?.focus();
-          break;
-        case 'Tab':
-          setIsOpen(false);
-          break;
-      }
-    };
-
-    if (button) {
-      button.addEventListener('keydown', listener);
+      return;
     }
 
-    return () => {
-      if (button) {
-        button.removeEventListener('keydown', listener);
-      }
-    };
-  }, [isOpen, options, activeIndex, selectedOption?.value, handleSelect]);
+    switch (e.key) {
+      case 'Enter':
+      case ' ':
+        e.preventDefault();
+        if (activeIndex >= 0 && activeIndex < options.length) {
+          handleSelect(options[activeIndex]);
+        }
+        break;
+      case 'ArrowDown':
+        e.preventDefault();
+        if (activeIndex < options.length - 1) {
+          setActiveIndex(prev => prev + 1);
+        }
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        if (activeIndex > 0) {
+          setActiveIndex(prev => prev - 1);
+        }
+        break;
+      case 'Escape':
+        setIsOpen(false);
+        buttonRef.current?.focus();
+        break;
+      case 'Tab':
+        setIsOpen(false);
+        break;
+    }
+  };
+
+  useEffect(() => {
+    const button = buttonRef.current;
+    if (!button) return;
+    const listener = (e: KeyboardEvent) => keydownHandlerRef.current?.(e);
+    button.addEventListener('keydown', listener);
+    return () => button.removeEventListener('keydown', listener);
+  }, []);
 
   // Add effect for scrolling active item into view
   useEffect(() => {
@@ -153,19 +144,16 @@ export const Select = ({
     }
   }, [activeIndex, isOpen, selectId]);
 
-  useEffect(() => {
-    if (!value) return;
-    if (value !== selectedOption?.value) {
-      setSelectedOption(options.find(opt => opt.value === value) || options[0]);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value]);
-
   return (
-    <div
-      ref={containerRef}
-      className={'inline-flex flex-1 flex-col gap-1 w-full'}
-    >
+    <div ref={containerRef} className={'flex flex-col gap-1 w-full'}>
+      {heading && (
+        <span
+          className='text-base text-white font-semibold'
+          id={`${selectId}-heading`}
+        >
+          {heading}
+        </span>
+      )}
       <div className={'flex justify-between items-end'}>
         {label && (
           <span className='text-sm text-zinc-400' id={`${selectId}-label`}>
@@ -174,7 +162,7 @@ export const Select = ({
         )}
         {!!infoModal && infoModal}
       </div>
-      <div className='relative flex-1'>
+      <div className='relative'>
         <button
           ref={buttonRef}
           className={`flex items-center justify-between w-full overflow-hidden px-4 py-3 text-md border border-zinc-700 rounded-md bg-transparent focus:outline-none ${disabled ? 'touch-none cursor-not-allowed' : ''}`}
