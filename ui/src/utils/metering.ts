@@ -24,7 +24,7 @@ export function calculateLevels(
   analyser: AnalyserNode,
   buffer: Float32Array
 ): MeterLevels {
-  analyser.getFloatTimeDomainData(buffer);
+  analyser.getFloatTimeDomainData(buffer as Float32Array<ArrayBuffer>);
 
   let peak = 0;
   let sumSquares = 0;
@@ -90,4 +90,22 @@ export function scaleForDisplay(level: number): number {
   // Simple power curve - makes quiet signals more visible
   // Adjust exponent for different response curves (0.5 = square root, more responsive to quiet)
   return Math.pow(clamp(level, 0, 1), 0.5);
+}
+
+/** dB floor for log-scaled meters (-40 dB ≈ 0.01 linear) */
+const LOG_METER_DB_MIN = -40;
+
+/**
+ * Map a linear level (0-1) to a pseudo-log display value (0-1) for block meters.
+ * Uses dB scaling so blocks fill left-to-right in a log-like manner:
+ * quiet levels fill fewer blocks, loud levels fill more, clipping = full bar.
+ *
+ * @param level - Linear level (0.0 to 1.0+)
+ * @returns Display value 0.0 to 1.0
+ */
+export function levelToLogDisplay(level: number): number {
+  if (level <= 0) return 0;
+  const db = linearToDb(level);
+  const normalized = (db - LOG_METER_DB_MIN) / (0 - LOG_METER_DB_MIN);
+  return clamp(normalized, 0, 1);
 }

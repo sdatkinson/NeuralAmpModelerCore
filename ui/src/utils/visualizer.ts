@@ -81,7 +81,12 @@ export const setupVisualizer = (
     }
   })();
 
-  return { analyser: analyzer, stop: () => { running = false; } };
+  return {
+    analyser: analyzer,
+    stop: () => {
+      running = false;
+    },
+  };
 };
 
 export const initVisualizer = ({

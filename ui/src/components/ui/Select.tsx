@@ -17,6 +17,7 @@ interface SelectProps {
   value?: string | number;
   onChange?: (selected: string | number) => void | Promise<void>;
   label?: string;
+  heading?: string;
   disabled?: boolean;
   backgroundColor?: string;
   infoModal?: ReactNode;
@@ -25,6 +26,7 @@ interface SelectProps {
 export const Select = ({
   options,
   label,
+  heading,
   value,
   onChange,
   disabled = false,
@@ -143,10 +145,15 @@ export const Select = ({
   }, [activeIndex, isOpen, selectId]);
 
   return (
-    <div
-      ref={containerRef}
-      className={'flex flex-col gap-1 w-full'}
-    >
+    <div ref={containerRef} className={'flex flex-col gap-1 w-full'}>
+      {heading && (
+        <span
+          className='text-base text-white font-semibold'
+          id={`${selectId}-heading`}
+        >
+          {heading}
+        </span>
+      )}
       <div className={'flex justify-between items-end'}>
         {label && (
           <span className='text-sm text-zinc-400' id={`${selectId}-label`}>

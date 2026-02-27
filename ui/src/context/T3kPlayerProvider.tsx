@@ -1,11 +1,18 @@
 import React, { ReactNode } from 'react';
-import { T3kPlayerContextProvider, useT3kPlayerContext } from './T3kPlayerContext';
+import {
+  T3kPlayerContextProvider,
+  useT3kPlayerContext,
+} from './T3kPlayerContext';
 import { SettingsDialog } from '../components/SettingsDialog';
 
 function SettingsDialogRenderer() {
   const { settingsDialog, closeSettingsDialog } = useT3kPlayerContext();
 
-  if (!settingsDialog.isOpen || !settingsDialog.selectedModel || !settingsDialog.selectedIr) {
+  if (
+    !settingsDialog.isOpen ||
+    !settingsDialog.selectedModel ||
+    !settingsDialog.selectedIr
+  ) {
     return null;
   }
 

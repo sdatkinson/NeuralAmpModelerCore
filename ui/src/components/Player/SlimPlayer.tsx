@@ -18,7 +18,7 @@ const SlimPlayerFC: React.FC<T3kSlimPlayerProps> = ({
     loadAudio,
     syncEngineSettings,
     setPlaying,
-    stopLiveInput,
+    stopPlayInput,
   } = useT3kPlayerContext();
 
   const [isLoading, setIsLoading] = useState(false);
@@ -52,10 +52,10 @@ const SlimPlayerFC: React.FC<T3kSlimPlayerProps> = ({
   const togglePlay = useCallback(async () => {
     if (!id) return;
 
-    // Stop live input if engine is in live mode
+    // Stop play input if engine is in play mode
     const { mediaStream } = getAudioNodes();
     if (mediaStream?.active) {
-      stopLiveInput();
+      stopPlayInput();
     }
 
     setIsLoading(true);
@@ -99,7 +99,7 @@ const SlimPlayerFC: React.FC<T3kSlimPlayerProps> = ({
   }, [
     id,
     getAudioNodes,
-    stopLiveInput,
+    stopPlayInput,
     getDataCached,
     audioState.initState,
     audioState.audioUrl,

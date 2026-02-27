@@ -9,6 +9,8 @@ export interface ClipIndicatorProps {
   className?: string;
   /** Label for accessibility */
   label?: string;
+  /** Whether the indicator is inactive */
+  inactive?: boolean;
 }
 
 /**
@@ -32,23 +34,25 @@ export const ClipIndicator = forwardRef<HTMLButtonElement, ClipIndicatorProps>(
   (
     {
       onClick,
-      size = 12,
+      size = 24,
       className = '',
       label = 'Clip indicator - click to reset',
+      inactive = false,
     },
     ref
   ) => {
     return (
       <button
         ref={ref}
-        type="button"
+        type='button'
         onClick={onClick}
         className={`
-          rounded-sm transition-colors duration-75
-          bg-zinc-700 hover:bg-zinc-600
-          focus:outline-none focus:ring-1 focus:ring-zinc-500
-          [&.clipped]:bg-red-500 [&.clipped]:hover:bg-red-400
+          rounded-sm
+          bg-zinc-700
+          focus:outline-none
+          [&.clipped]:bg-[#f00]
           ${className}
+          ${inactive ? 'grayscale cursor-not-allowed' : 'cursor-pointer'}
         `}
         style={{
           width: size,
@@ -58,7 +62,7 @@ export const ClipIndicator = forwardRef<HTMLButtonElement, ClipIndicatorProps>(
         }}
         aria-label={label}
         aria-pressed={false}
-        title="Click to reset clip indicator"
+        title='Click to reset clip indicator'
       />
     );
   }

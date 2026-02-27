@@ -33,3 +33,6 @@
 
 
 .DS_Store
+
+# Third-party dependencies (not submodules)
+Dependencies/AudioDSPTools/

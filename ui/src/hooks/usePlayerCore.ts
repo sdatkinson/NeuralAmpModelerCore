@@ -4,7 +4,6 @@ import { Input, IR, Model, SourceMode } from '../types';
 import { initVisualizer, setupVisualizer } from '../utils/visualizer';
 import { formatTime, getDefault } from '../utils/player';
 import { useSourceMode } from './useSourceMode';
-import { useToast } from './useToast';
 
 // ---------- Options interface ----------
 
@@ -44,16 +43,15 @@ export interface UsePlayerCoreReturn {
   // Source mode
   sourceMode: SourceMode;
   showPlaybackPausedMessage: boolean;
-  toastMessage: string | null;
 
   // Derived
-  isLiveConfigured: boolean;
+  isPlayConfigured: boolean;
   currentDeviceId: string | null;
   bypassedStyles: string;
   modelOptions: Array<{ label: string; value: string }>;
   audioOptions: Array<{ label: string; value: string }>;
   irOptions: Array<{ label: string; value: string }>;
-  liveDeviceOptions: Array<{ label: string; value: string }>;
+  playDeviceOptions: Array<{ label: string; value: string }>;
 
   // Handlers
   togglePlay: () => Promise<void>;
@@ -63,7 +61,7 @@ export interface UsePlayerCoreReturn {
   handleInputChange: (value: string | number) => Promise<void>;
   handleIrChange: (value: string | number) => Promise<void>;
   handleSourceModeChange: (mode: SourceMode) => Promise<void>;
-  handleLiveDeviceChange: (deviceId: string) => Promise<void>;
+  handlePlayDeviceChange: (deviceId: string) => Promise<void>;
   openSettingsDialog: () => void | Promise<void>;
 
   // Refs
@@ -71,13 +69,17 @@ export interface UsePlayerCoreReturn {
   canvasWrapperRef: React.RefObject<HTMLDivElement>;
 
   // Context passthrough
-  audioInputDevices: ReturnType<typeof useT3kPlayerContext>['audioInputDevices'];
+  audioInputDevices: ReturnType<
+    typeof useT3kPlayerContext
+  >['audioInputDevices'];
   inputModeType: string;
 }
 
 // ---------- Hook ----------
 
-export function usePlayerCore(options: UsePlayerCoreOptions): UsePlayerCoreReturn {
+export function usePlayerCore(
+  options: UsePlayerCoreOptions
+): UsePlayerCoreReturn {
   const {
     id,
     disabled = false,
@@ -105,8 +107,8 @@ export function usePlayerCore(options: UsePlayerCoreOptions): UsePlayerCoreRetur
     syncEngineSettings,
     connectVisualizerNode,
     cleanup,
-    reconnectLiveInput,
-    stopLiveInput,
+    reconnectPlayInput,
+    stopPlayInput,
     setPlaying,
     openSettingsDialog: openDialog,
   } = useT3kPlayerContext();
@@ -115,28 +117,25 @@ export function usePlayerCore(options: UsePlayerCoreOptions): UsePlayerCoreRetur
   const {
     sourceMode,
     showPlaybackPausedMessage,
-    liveDeviceOptions,
+    playDeviceOptions,
     handleSourceModeChange,
-    handleLiveDeviceChange,
+    handlePlayDeviceChange,
   } = useSourceMode({ playerId: id });
 
-  // Toast messages
-  const toastMessage = useToast();
-
   // --- Derived from context ---
-  const isLiveConfigured = audioState.liveInputConfig !== null;
-  const currentDeviceId = audioState.liveInputConfig?.deviceId ?? null;
+  const isPlayConfigured = audioState.playInputConfig !== null;
+  const currentDeviceId = audioState.playInputConfig?.deviceId ?? null;
   const isThisPlayerActive = audioState.activePlayerId === id;
 
   // --- Selection state ---
-  const [selectedModel, setSelectedModel] = useState<Model | null>(
-    () => (models ? getDefault(models) : null)
+  const [selectedModel, setSelectedModel] = useState<Model | null>(() =>
+    models ? getDefault(models) : null
   );
-  const [selectedInput, setSelectedInput] = useState<Input | null>(
-    () => (inputs ? getDefault(inputs) : null)
+  const [selectedInput, setSelectedInput] = useState<Input | null>(() =>
+    inputs ? getDefault(inputs) : null
   );
-  const [selectedIr, setSelectedIr] = useState<IR | null>(
-    () => (irs ? getDefault(irs) : null)
+  const [selectedIr, setSelectedIr] = useState<IR | null>(() =>
+    irs ? getDefault(irs) : null
   );
 
   // Initialize selections when data arrives (null → array transition for AcordianPlayer)
@@ -183,7 +182,9 @@ export function usePlayerCore(options: UsePlayerCoreOptions): UsePlayerCoreRetur
 
   // --- Helpers ---
   const ensureSelections = useCallback(async (): Promise<{
-    model: Model; ir: IR; input: Input;
+    model: Model;
+    ir: IR;
+    input: Input;
   }> => {
     if (selectedModel && selectedIr && selectedInput) {
       return { model: selectedModel, ir: selectedIr, input: selectedInput };
@@ -198,19 +199,24 @@ export function usePlayerCore(options: UsePlayerCoreOptions): UsePlayerCoreRetur
     throw new Error('No data available and no resolveData provided');
   }, [selectedModel, selectedIr, selectedInput, resolveData]);
 
-  const syncPlayerToEngine = useCallback(async (model: Model, ir: IR, bypassState: boolean) => {
-    await syncEngineSettings({
-      modelUrl: model.url,
-      ir: { url: ir.url, mix: ir.mix, gain: ir.gain },
-      bypassed: bypassState,
-    });
-  }, [syncEngineSettings]);
+  const syncPlayerToEngine = useCallback(
+    async (model: Model, ir: IR, bypassState: boolean) => {
+      await syncEngineSettings({
+        modelUrl: model.url,
+        ir: { url: ir.url, mix: ir.mix, gain: ir.gain },
+        bypassed: bypassState,
+      });
+    },
+    [syncEngineSettings]
+  );
 
   // --- Effects ---
 
   // Cleanup on unmount
   useEffect(() => {
-    return () => { cleanup(); };
+    return () => {
+      cleanup();
+    };
   }, [cleanup]);
 
   // Resize handler
@@ -250,16 +256,18 @@ export function usePlayerCore(options: UsePlayerCoreOptions): UsePlayerCoreRetur
     };
   }, [getAudioNodes, isThisPlayerActive, setPlaying]);
 
-  // Visualizer setup — only when THIS player is active and in preview mode
+  // Visualizer setup — only when THIS player is active and in demo mode
   useEffect(() => {
     if (!isThisPlayerActive) return;
-    if (sourceMode !== 'preview') return;
     if (audioState.initState !== 'ready' || !visualizerRef.current) return;
 
     const audioContext = getAudioNodes().audioContext;
     if (!audioContext) return;
 
-    const { analyser, stop } = setupVisualizer(visualizerRef.current, audioContext);
+    const { analyser, stop } = setupVisualizer(
+      visualizerRef.current,
+      audioContext
+    );
     visualizerNodeRef.current = analyser;
     const disconnect = connectVisualizerNode(analyser);
 
@@ -268,31 +276,36 @@ export function usePlayerCore(options: UsePlayerCoreOptions): UsePlayerCoreRetur
       disconnect();
       visualizerNodeRef.current = null;
     };
-  }, [audioState.initState, getAudioNodes, connectVisualizerNode, isThisPlayerActive, sourceMode]);
+  }, [
+    audioState.initState,
+    getAudioNodes,
+    connectVisualizerNode,
+    isThisPlayerActive,
+    sourceMode,
+  ]);
 
   // --- Event handlers ---
 
   const openSettingsDialog = useCallback(async () => {
     const { model, ir } = await ensureSelections();
     openDialog({
-      sourceMode,
       playerId: id,
       selectedModel: model,
       selectedIr: ir,
     });
-  }, [ensureSelections, openDialog, sourceMode, id]);
+  }, [ensureSelections, openDialog, id]);
 
   const togglePlay = useCallback(async () => {
     if (!id) return;
-    const wantsLiveInput = sourceMode === 'live';
+    const wantsPlayInput = sourceMode === 'play';
     const isActive = audioState.activePlayerId === id;
 
-    // === LIVE MODE ===
-    if (wantsLiveInput) {
+    // === PLAY MODE ===
+    if (wantsPlayInput) {
       const { model, ir } = await ensureSelections();
       const { audioContext } = getAudioNodes();
 
-      await reconnectLiveInput();
+      await reconnectPlayInput();
 
       if (audioContext && audioContext.state === 'suspended') {
         await audioContext.resume();
@@ -304,14 +317,15 @@ export function usePlayerCore(options: UsePlayerCoreOptions): UsePlayerCoreRetur
         setPlaying(false);
       } else {
         setPlaying(true, id);
+        onPlay?.({ model, ir, input: { name: 'play-live-input', url: '' } });
       }
       return;
     }
 
-    // === PREVIEW MODE ===
+    // === DEMO MODE ===
     const { mediaStream } = getAudioNodes();
     if (mediaStream?.active) {
-      stopLiveInput();
+      stopPlayInput();
     }
 
     setIsLoading(true);
@@ -356,8 +370,8 @@ export function usePlayerCore(options: UsePlayerCoreOptions): UsePlayerCoreRetur
     getAudioNodes,
     init,
     loadAudio,
-    reconnectLiveInput,
-    stopLiveInput,
+    reconnectPlayInput,
+    stopPlayInput,
     setPlaying,
     syncPlayerToEngine,
     onPlay,
@@ -422,7 +436,16 @@ export function usePlayerCore(options: UsePlayerCoreOptions): UsePlayerCoreRetur
         console.error('Error loading audio:', error);
       }
     },
-    [id, audioState.activePlayerId, audioState.audioUrl, audioState.initState, inputs, loadAudio, onInputChange, setPlaying]
+    [
+      id,
+      audioState.activePlayerId,
+      audioState.audioUrl,
+      audioState.initState,
+      inputs,
+      loadAudio,
+      onInputChange,
+      setPlaying,
+    ]
   );
 
   const handleIrChange = useCallback(
@@ -435,7 +458,11 @@ export function usePlayerCore(options: UsePlayerCoreOptions): UsePlayerCoreRetur
       try {
         if (isThisPlayerActive) {
           if (audioState.initState === 'ready' && ir.url) {
-            await loadIr({ url: ir.url, wetAmount: ir.mix, gainAmount: ir.gain });
+            await loadIr({
+              url: ir.url,
+              wetAmount: ir.mix,
+              gainAmount: ir.gain,
+            });
           } else {
             removeIr();
           }
@@ -445,7 +472,14 @@ export function usePlayerCore(options: UsePlayerCoreOptions): UsePlayerCoreRetur
         console.error('Error loading IR:', error);
       }
     },
-    [irs, loadIr, removeIr, onIrChange, audioState.initState, isThisPlayerActive]
+    [
+      irs,
+      loadIr,
+      removeIr,
+      onIrChange,
+      audioState.initState,
+      isThisPlayerActive,
+    ]
   );
 
   const bypassedStyles = bypassed
@@ -464,15 +498,14 @@ export function usePlayerCore(options: UsePlayerCoreOptions): UsePlayerCoreRetur
 
     sourceMode,
     showPlaybackPausedMessage,
-    toastMessage,
 
-    isLiveConfigured,
+    isPlayConfigured,
     currentDeviceId,
     bypassedStyles,
     modelOptions,
     audioOptions,
     irOptions,
-    liveDeviceOptions,
+    playDeviceOptions,
 
     togglePlay,
     handleSkipToStart,
@@ -481,7 +514,7 @@ export function usePlayerCore(options: UsePlayerCoreOptions): UsePlayerCoreRetur
     handleInputChange,
     handleIrChange,
     handleSourceModeChange,
-    handleLiveDeviceChange,
+    handlePlayDeviceChange,
     openSettingsDialog,
 
     visualizerRef,

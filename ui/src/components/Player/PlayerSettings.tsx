@@ -2,7 +2,10 @@ import React from 'react';
 import { PREVIEW_MODE, SourceMode } from '../../types';
 import { Select } from '../ui/Select';
 import { ToggleSimple } from '../ui/ToggleSimple';
-import { Loader2, Plug } from 'lucide-react';
+import { Settings } from 'lucide-react';
+import { PlayLiveTakeover } from './PlayLiveTakeover';
+import { InputControls } from './InputControls';
+import { Alert } from '../ui/Alert';
 
 interface PlayerSettingsProps {
   previewMode?: PREVIEW_MODE;
@@ -25,12 +28,12 @@ interface PlayerSettingsProps {
   onIrChange: (value: string | number) => Promise<void>;
   onInputChange: (value: string | number) => Promise<void>;
 
-  isLiveConfigured: boolean;
+  isPlayConfigured: boolean;
   currentDeviceId: string | null;
-  liveDeviceOptions: Array<{ label: string; value: string }>;
-  onLiveDeviceChange: (deviceId: string) => Promise<void>;
+  playDeviceOptions: Array<{ label: string; value: string }>;
   inputModeType: string;
   audioInputError: string | null;
+  isThisPlayerActive: boolean;
 }
 
 export const PlayerSettings: React.FC<PlayerSettingsProps> = ({
@@ -50,13 +53,16 @@ export const PlayerSettings: React.FC<PlayerSettingsProps> = ({
   onModelChange,
   onIrChange,
   onInputChange,
-  isLiveConfigured,
+  isPlayConfigured,
   currentDeviceId,
-  liveDeviceOptions,
-  onLiveDeviceChange,
+  playDeviceOptions,
   inputModeType,
   audioInputError,
+  isThisPlayerActive,
 }) => {
+  const isMonitoring = isThisPlayerActive && sourceMode === 'play';
+  const isConnecting = inputModeType === 'connecting';
+
   const renderModelSelect = () => (
     <Select
       options={modelOptions}
@@ -77,8 +83,12 @@ export const PlayerSettings: React.FC<PlayerSettingsProps> = ({
     />
   );
 
+  if (sourceMode === 'play' && !isPlayConfigured && !isConnecting) {
+    return <PlayLiveTakeover onConnect={onOpenSettings} />;
+  }
+
   return (
-    <div className='flex flex-col gap-2'>
+    <div className='flex flex-col gap-4'>
       {/* Primary select + bypass toggle */}
       <div className='flex flex-row items-center gap-4 flex-wrap'>
         <div className='flex-1 min-w-[0px]'>
@@ -100,67 +110,53 @@ export const PlayerSettings: React.FC<PlayerSettingsProps> = ({
         </div>
       </div>
 
-      {/* Input / Live device row + secondary select */}
-      <div className='flex flex-col sm:flex-row items-start gap-2 sm:gap-6'>
-        <div className='w-full sm:flex-1 min-w-0'>
-          {sourceMode === 'preview' && (
-            <Select
-              options={audioOptions}
-              label='Input'
-              onChange={onInputChange}
-              value={selectedInputUrl}
-            />
-          )}
+      {/* Secondary select */}
+      <div className={`w-full sm:flex-1 min-w-0 ${bypassedStyles}`}>
+        {previewMode === PREVIEW_MODE.MODEL
+          ? renderIrSelect()
+          : renderModelSelect()}
+      </div>
 
-          {sourceMode === 'live' && !isLiveConfigured && (
+      {/* Input / Play device row */}
+      <div className='w-full sm:flex-1 min-w-0'>
+        {sourceMode === 'demo' && (
+          <Select
+            options={audioOptions}
+            label='Input'
+            onChange={onInputChange}
+            value={selectedInputUrl}
+          />
+        )}
+
+        {sourceMode === 'play' && isPlayConfigured && (
+          <div className='w-full'>
             <div className='flex flex-col gap-1 w-full'>
-              <div className='flex justify-between items-end'>
-                <span className='text-sm text-zinc-400'>Live Input</span>
-              </div>
-              <div className='relative'>
+              <div className='flex items-center justify-between w-full'>
+                <span className='text-sm text-zinc-400'>
+                  {isConnecting
+                    ? 'Connecting...'
+                    : (playDeviceOptions?.find(
+                        option => option.value === currentDeviceId
+                      )?.label ?? 'No device selected')}
+                </span>
                 <button
+                  type='button'
+                  className='text-white'
                   onClick={onOpenSettings}
-                  className='flex items-center gap-2 w-full px-4 py-3 text-md border border-dashed border-zinc-700 rounded-md bg-transparent hover:bg-zinc-800 hover:border-zinc-600 transition-colors focus:outline-none'
                 >
-                  <Plug size={16} className='text-zinc-400 flex-shrink-0' />
-                  <span className='text-zinc-400'>Enable Live Input</span>
+                  <Settings size={18} />
                 </button>
-                {audioInputError && (
-                  <span className='absolute top-full mt-1 text-xs text-red-400'>
-                    {audioInputError}
-                  </span>
-                )}
               </div>
-            </div>
-          )}
-
-          {sourceMode === 'live' && isLiveConfigured && (
-            <div className='w-full'>
-              {inputModeType === 'connecting' ? (
-                <div className='flex flex-col gap-1 w-full'>
-                  <span className='text-sm text-zinc-400'>Live Input</span>
-                  <div className='flex items-center justify-between w-full px-4 py-3 text-md border border-zinc-700 rounded-md bg-transparent opacity-50 cursor-wait'>
-                    <span className='text-zinc-400'>Switching device...</span>
-                    <Loader2 size={24} className='text-zinc-400 animate-spin' />
-                  </div>
-                </div>
-              ) : (
-                <Select
-                  options={liveDeviceOptions}
-                  label='Live Input'
-                  onChange={(value) => onLiveDeviceChange(String(value))}
-                  value={currentDeviceId ?? ''}
-                />
+              <InputControls
+                isMonitoring={isMonitoring}
+                isConnecting={isConnecting}
+              />
+              {audioInputError && (
+                <Alert variant='error'>{audioInputError}</Alert>
               )}
             </div>
-          )}
-        </div>
-
-        <div className={`w-full sm:flex-1 min-w-0 ${bypassedStyles}`}>
-          {previewMode === PREVIEW_MODE.MODEL
-            ? renderIrSelect()
-            : renderModelSelect()}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );

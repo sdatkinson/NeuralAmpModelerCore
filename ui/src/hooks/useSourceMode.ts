@@ -13,30 +13,32 @@ interface UseSourceModeReturn {
   showPlaybackPausedMessage: boolean;
 
   // Derived (from context, shared by multiple consumers)
-  liveDeviceOptions: Array<{ label: string; value: string }>;
+  playDeviceOptions: Array<{ label: string; value: string }>;
 
   // Handlers
   handleSourceModeChange: (mode: SourceMode) => Promise<void>;
-  handleLiveDeviceChange: (deviceId: string) => Promise<void>;
+  handlePlayDeviceChange: (deviceId: string) => Promise<void>;
 }
 
-export function useSourceMode(options: UseSourceModeOptions = {}): UseSourceModeReturn {
+export function useSourceMode(
+  options: UseSourceModeOptions = {}
+): UseSourceModeReturn {
   const { playerId, onSourceModeChange } = options;
 
   const {
     audioState,
     audioInputDevices,
-    startLiveInput,
-    reconnectLiveInput,
+    sourceMode,
+    setSourceMode,
+    startPlayInput,
+    reconnectPlayInput,
     setPlaying,
   } = useT3kPlayerContext();
+  const [showPlaybackPausedMessage, setShowPlaybackPausedMessage] =
+    useState(false);
 
-  // Local state
-  const [sourceMode, setSourceMode] = useState<SourceMode>('preview');
-  const [showPlaybackPausedMessage, setShowPlaybackPausedMessage] = useState(false);
-
-  // Live device options for Select component (shared by multiple consumers)
-  const liveDeviceOptions = useMemo(
+  // Play device options for Select component (shared by multiple consumers)
+  const playDeviceOptions = useMemo(
     () =>
       audioInputDevices.devices.map(device => ({
         label: device.label,
@@ -45,24 +47,24 @@ export function useSourceMode(options: UseSourceModeOptions = {}): UseSourceMode
     [audioInputDevices.devices]
   );
 
-  // Handle source mode change (Preview <-> Live)
+  // Handle source mode change (Demo <-> Play)
   const handleSourceModeChange = useCallback(
     async (newMode: SourceMode) => {
       if (newMode === sourceMode) return;
 
-      if (newMode === 'live') {
-        // Switching from Preview to Live
+      if (newMode === 'play') {
+        // Switching from Demo to Play
         if (audioState.isPlaying) {
           setPlaying(false);
           setShowPlaybackPausedMessage(true);
           setTimeout(() => setShowPlaybackPausedMessage(false), 3000);
         }
 
-        // If live input is already active (another player started it), just switch mode
+        // If play input is already active (another player started it), just switch mode
         // If not active but we have a config, reconnect using the saved config
-        await reconnectLiveInput();
+        await reconnectPlayInput();
       } else {
-        // Switching from Live to Preview
+        // Switching from Play to Demo
         setShowPlaybackPausedMessage(false);
 
         // Stop this player's monitoring if it was active
@@ -80,26 +82,26 @@ export function useSourceMode(options: UseSourceModeOptions = {}): UseSourceMode
       audioState.activePlayerId,
       playerId,
       setPlaying,
-      reconnectLiveInput,
+      reconnectPlayInput,
       onSourceModeChange,
     ]
   );
 
   // Handle device change
-  const handleLiveDeviceChange = useCallback(
+  const handlePlayDeviceChange = useCallback(
     async (deviceId: string) => {
-      if (deviceId !== audioState.liveInputConfig?.deviceId) {
-        await startLiveInput(deviceId);
+      if (deviceId !== audioState.playInputConfig?.deviceId) {
+        await startPlayInput(deviceId);
       }
     },
-    [audioState.liveInputConfig?.deviceId, startLiveInput]
+    [audioState.playInputConfig?.deviceId, startPlayInput]
   );
 
   return {
     sourceMode,
     showPlaybackPausedMessage,
-    liveDeviceOptions,
+    playDeviceOptions,
     handleSourceModeChange,
-    handleLiveDeviceChange,
+    handlePlayDeviceChange,
   };
 }

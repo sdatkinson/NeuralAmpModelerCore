@@ -1,6 +1,4 @@
-export const readModel = (
-  file: File
-): Promise<string | ArrayBuffer | null> => {
+export const readModel = (file: File): Promise<string | ArrayBuffer | null> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
 

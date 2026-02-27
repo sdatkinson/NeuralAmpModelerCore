@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { ReactNode } from 'react';
 
 export interface Model {
   name: string;
@@ -25,18 +25,21 @@ export enum PREVIEW_MODE {
   IR = 'ir',
 }
 
-// Source mode for players: 'preview' uses file playback, 'live' uses direct input
-export type SourceMode = 'preview' | 'live';
+// Source mode for players: 'demo' uses file playback, 'play' uses direct input
+export type SourceMode = 'demo' | 'play';
 
 // Channel selection for multi-channel audio interfaces
 export type ChannelSelection = 'first' | 'second';
 
 // What audio source is currently active (connected to the audio engine)
-export type InputMode = { type: 'preview' } | { type: 'connecting' } | { type: 'live' };
+export type InputMode =
+  | { type: 'demo' }
+  | { type: 'connecting' }
+  | { type: 'play' };
 
-// Configured live input settings (persists even when preview is active)
+// Configured play input settings (persists even when demo is active)
 // This allows the UI to show the configured device even when file playback is active
-export interface LiveInputConfig {
+export interface PlayInputConfig {
   deviceId: string;
   channelCount: number;
   selectedChannel: ChannelSelection;
@@ -57,7 +60,7 @@ export interface AudioOutputDevice {
 export interface SettingsSnapshot {
   outputDeviceId: string | null;
   inputMode: InputMode;
-  liveInputConfig: LiveInputConfig | null;
+  playInputConfig: PlayInputConfig | null;
   isPlaying: boolean;
   isBypassed: boolean;
   activePlayerId: string | null;
@@ -81,7 +84,13 @@ export interface SettingsDialogState {
 // - 'denied': permission denied (can retry)
 // - 'blocked': permanently blocked by browser (must reset in browser settings)
 // - 'error': other error (device not found, in use, etc.)
-export type MicrophonePermissionStatus = 'idle' | 'pending' | 'granted' | 'denied' | 'blocked' | 'error';
+export type MicrophonePermissionStatus =
+  | 'idle'
+  | 'pending'
+  | 'granted'
+  | 'denied'
+  | 'blocked'
+  | 'error';
 
 export interface MicrophonePermissionState {
   status: MicrophonePermissionStatus;
@@ -93,13 +102,13 @@ export interface AudioInputDeviceState {
   devices: AudioInputDevice[];
   isLoading: boolean;
   error: string | null;
-  preferredDeviceId: string | null;  // Device selected by user in browser permission dialog
+  preferredDeviceId: string | null; // Device selected by user in browser permission dialog
 }
 
 // Audio output device state
 export interface AudioOutputDeviceState {
   devices: AudioOutputDevice[];
-  selectedDeviceId: string | null;  // null means system default
+  selectedDeviceId: string | null; // null means system default
 }
 
 // All Web Audio API node references managed by the audio engine
@@ -115,9 +124,9 @@ export interface AudioNodes {
   irDryGain: GainNode | null;
   irGain: GainNode | null;
   sourceNode: MediaElementAudioSourceNode | null;
-  // Live input nodes
-  liveSourceNode: MediaStreamAudioSourceNode | null;
-  liveInputGainNode: GainNode | null;
+  // Play input nodes
+  playSourceNode: MediaStreamAudioSourceNode | null;
+  playInputGainNode: GainNode | null;
   mediaStream: MediaStream | null;
   // Metering nodes
   inputMeterNode: AnalyserNode | null;
@@ -125,8 +134,8 @@ export interface AudioNodes {
   // Channel selection (for multi-channel interfaces)
   channelSplitterNode: ChannelSplitterNode | null;
   channelMergerNode: ChannelMergerNode | null;
-  channel0PreviewMeter: AnalyserNode | null;
-  channel1PreviewMeter: AnalyserNode | null;
+  channel0PlayMeter: AnalyserNode | null;
+  channel1PlayMeter: AnalyserNode | null;
   // Output device routing workaround (Firefox/Safari don't support AudioContext.setSinkId)
   outputWorkaroundDestination: MediaStreamAudioDestinationNode | null;
   outputWorkaroundElement: HTMLAudioElement | null;
@@ -137,17 +146,17 @@ export type AudioInitState = 'uninitialized' | 'initializing' | 'ready';
 
 export interface AudioState {
   initState: AudioInitState;
-  isPlaying: boolean;  // Whether audio is playing (preview) or monitoring (live)
-  activePlayerId: string | null;  // Which player is currently controlling playback
+  isPlaying: boolean; // Whether audio is playing (demo) or monitoring (play)
+  activePlayerId: string | null; // Which player is currently controlling playback
   isBypassed: boolean;
   modelUrl: string | null;
   irUrl: string | null;
   audioUrl: string | null;
   // What audio source is currently active (connected to audio engine)
   inputMode: InputMode;
-  // Configured live input settings (persists even when preview is active)
+  // Configured play input settings (persists even when demo is active)
   // This allows UI to show configured device while another player uses file playback
-  liveInputConfig: LiveInputConfig | null;
+  playInputConfig: PlayInputConfig | null;
 }
 
 export interface IrConfig {
@@ -169,15 +178,15 @@ export const EMPTY_AUDIO_NODES: AudioNodes = {
   irDryGain: null,
   irGain: null,
   sourceNode: null,
-  liveSourceNode: null,
-  liveInputGainNode: null,
+  playSourceNode: null,
+  playInputGainNode: null,
   mediaStream: null,
   inputMeterNode: null,
   outputMeterNode: null,
   channelSplitterNode: null,
   channelMergerNode: null,
-  channel0PreviewMeter: null,
-  channel1PreviewMeter: null,
+  channel0PlayMeter: null,
+  channel1PlayMeter: null,
   outputWorkaroundDestination: null,
   outputWorkaroundElement: null,
 };

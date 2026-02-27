@@ -25,7 +25,9 @@ const PreviewContent: React.FC = () => {
                 console.log('slim play', { model, input, ir })
               }
             />
-            <span className='text-sm text-zinc-400'>Slim Player — {DEFAULT_MODELS[0].name}</span>
+            <span className='text-sm text-zinc-400'>
+              Slim Player — {DEFAULT_MODELS[0].name}
+            </span>
           </div>
           <T3kPlayer
             id='model-player'
@@ -47,7 +49,11 @@ const PreviewContent: React.FC = () => {
             onPlay={({ model, input, ir }) =>
               console.log('play', { model, input, ir })
             }
-            getData={async () => ({ models: DEFAULT_MODELS, irs: DEFAULT_IRS, inputs: DEFAULT_INPUTS })}
+            getData={async () => ({
+              models: DEFAULT_MODELS,
+              irs: DEFAULT_IRS,
+              inputs: DEFAULT_INPUTS,
+            })}
           />
           <T3kAcordianPlayer
             id='acordian-player-2'
@@ -58,7 +64,11 @@ const PreviewContent: React.FC = () => {
             onPlay={({ model, input, ir }) =>
               console.log('play', { model, input, ir })
             }
-            getData={async () => ({ models: DEFAULT_MODELS, irs: DEFAULT_IRS, inputs: DEFAULT_INPUTS })}
+            getData={async () => ({
+              models: DEFAULT_MODELS,
+              irs: DEFAULT_IRS,
+              inputs: DEFAULT_INPUTS,
+            })}
           />
           <T3kAcordianPlayer
             id='acordian-player-3'
@@ -69,7 +79,11 @@ const PreviewContent: React.FC = () => {
             onPlay={({ model, input, ir }) =>
               console.log('play', { model, input, ir })
             }
-            getData={async () => ({ models: DEFAULT_MODELS, irs: DEFAULT_IRS, inputs: DEFAULT_INPUTS })}
+            getData={async () => ({
+              models: DEFAULT_MODELS,
+              irs: DEFAULT_IRS,
+              inputs: DEFAULT_INPUTS,
+            })}
           />
           <T3kAcordianPlayer
             id='acordian-player-4'
@@ -80,7 +94,11 @@ const PreviewContent: React.FC = () => {
             onPlay={({ model, input, ir }) =>
               console.log('play', { model, input, ir })
             }
-            getData={async () => ({ models: DEFAULT_MODELS, irs: DEFAULT_IRS, inputs: DEFAULT_INPUTS })}
+            getData={async () => ({
+              models: DEFAULT_MODELS,
+              irs: DEFAULT_IRS,
+              inputs: DEFAULT_INPUTS,
+            })}
           />
         </div>
       </div>

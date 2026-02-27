@@ -1,16 +1,19 @@
 import React, { memo } from 'react';
-import { PREVIEW_MODE, T3kPlayerProps } from '../../types';
-import { Play } from '../ui/Play';
-import { Skip } from '../ui/Skip';
-import { Pause } from '../ui/Pause';
+import { T3kPlayerProps } from '../../types';
 import { LogoSm } from '../ui/LogoSm';
-import { DEFAULT_INPUTS, DEFAULT_MODELS, DEFAULT_IRS, SOURCE_MODE_OPTIONS } from '../../constants';
-import { CircularLoader } from '../ui/CircularLoader';
-import { InputControlStrip } from '../InputControlStrip';
-import { SegmentedControl } from '../ui/SegmentedControl';
-import { usePlayerCore, formatTime } from '../../hooks/usePlayerCore';
+import {
+  DEFAULT_INPUTS,
+  DEFAULT_MODELS,
+  DEFAULT_IRS,
+  SOURCE_MODE_OPTIONS,
+} from '../../constants';
+import { Tabs } from '../ui/Tabs';
+import { usePlayerCore } from '../../hooks/usePlayerCore';
 import { PlayerSettings } from './PlayerSettings';
-import { Settings } from 'lucide-react';
+import { Demo } from '../ui/Demo';
+import { PlayIcon } from '../ui/PlayIcon';
+import { DemoPlaybar } from '../ui/DemoPlaybar';
+import { PlayPlaybar } from '../ui/PlayPlaybar';
 
 const PlayerFC: React.FC<T3kPlayerProps> = ({
   models = DEFAULT_MODELS,
@@ -38,110 +41,78 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
 
   return (
     <div className='bg-zinc-900 border border-zinc-700 text-white p-4 lg:p-8 pt-0 lg:pt-2 rounded-xl w-full flex flex-col gap-6'>
-      {/* Top Bar */}
-      <div className='flex items-center justify-between pt-2'>
-        <SegmentedControl
-          options={SOURCE_MODE_OPTIONS}
-          value={core.sourceMode}
-          onChange={core.handleSourceModeChange}
-        />
-        <div className='flex items-center gap-2'>
-          {core.showPlaybackPausedMessage && (
-            <span className='text-xs text-zinc-400 animate-pulse'>Playback paused</span>
+      <div className='flex flex-col'>
+        <div className='flex items-center min-h-[80px]'>
+          {core.sourceMode === 'demo' ? (
+            <DemoPlaybar
+              togglePlay={core.togglePlay}
+              isThisPlayerActive={core.isThisPlayerActive}
+              isLoading={core.isLoading}
+              handleSkipToStart={core.handleSkipToStart}
+              currentTime={core.currentTime}
+              duration={core.duration}
+              canvasWrapperRef={core.canvasWrapperRef}
+              visualizerRef={core.visualizerRef}
+              infoSlot={infoSlot}
+            />
+          ) : (
+            <PlayPlaybar
+              togglePlay={core.togglePlay}
+              isThisPlayerActive={core.isThisPlayerActive}
+              sourceMode={core.sourceMode}
+              isPlayConfigured={core.isPlayConfigured}
+              canvasWrapperRef={core.canvasWrapperRef}
+              visualizerRef={core.visualizerRef}
+              infoSlot={infoSlot}
+              onOpenSettings={core.openSettingsDialog}
+            />
           )}
-          {core.toastMessage && (
-            <span className='text-xs text-zinc-400 animate-pulse'>{core.toastMessage}</span>
-          )}
-          <button
-            onClick={core.openSettingsDialog}
-            className='p-2 rounded-md transition-colors border border-zinc-700 hover:bg-zinc-800'
-            aria-label='Settings'
-          >
-            <Settings size={20} className='text-zinc-400' />
-          </button>
+        </div>
+        <div className='flex flex-col gap-6'>
+          {/* Toggle between demo and play */}
+          <Tabs
+            tabs={SOURCE_MODE_OPTIONS.map(o => (
+              <div className='flex gap-2 items-center'>
+                {o.value === 'demo' ? (
+                  <Demo size={20} />
+                ) : (
+                  <PlayIcon size={20} />
+                )}
+                <span>{o.label}</span>
+              </div>
+            ))}
+            activeTab={SOURCE_MODE_OPTIONS.findIndex(
+              o => o.value === core.sourceMode
+            )}
+            setActiveTab={index =>
+              core.handleSourceModeChange(SOURCE_MODE_OPTIONS[index].value)
+            }
+          />
+          <PlayerSettings
+            previewMode={previewMode}
+            bypassed={core.bypassed}
+            bypassedStyles={core.bypassedStyles}
+            onBypassToggle={core.handleBypassToggle}
+            sourceMode={core.sourceMode}
+            onOpenSettings={core.openSettingsDialog}
+            modelOptions={core.modelOptions}
+            irOptions={core.irOptions}
+            audioOptions={core.audioOptions}
+            selectedModelUrl={core.selectedModel?.url ?? ''}
+            selectedIrUrl={core.selectedIr?.url ?? ''}
+            selectedInputUrl={core.selectedInput?.url ?? ''}
+            onModelChange={core.handleModelChange}
+            onIrChange={core.handleIrChange}
+            onInputChange={core.handleInputChange}
+            isPlayConfigured={core.isPlayConfigured}
+            currentDeviceId={core.currentDeviceId}
+            playDeviceOptions={core.playDeviceOptions}
+            inputModeType={core.inputModeType}
+            audioInputError={core.audioInputDevices.error}
+            isThisPlayerActive={core.isThisPlayerActive}
+          />
         </div>
       </div>
-
-      {/* Player Area — fixed height so preview↔live doesn't shift layout */}
-      <div className='flex items-center min-h-[104px]'>
-        {core.sourceMode === 'preview' ? (
-          <div className='flex items-center gap-4 overflow-hidden w-full'>
-            <button
-              onClick={core.togglePlay}
-              className='p-0 focus:outline-none'
-              aria-label={core.isThisPlayerActive ? 'Pause' : 'Play'}
-            >
-              {core.isThisPlayerActive ? (
-                <Pause />
-              ) : core.isLoading ? (
-                <CircularLoader size={48} />
-              ) : (
-                <Play />
-              )}
-            </button>
-
-            <button
-              onClick={core.handleSkipToStart}
-              className='p-0 focus:outline-none'
-              aria-label='Skip to start'
-            >
-              <Skip opacity={core.currentTime > 0 ? 1 : 0.6} />
-            </button>
-
-            <div className='hidden sm:flex text-sm font-mono gap-2 text-zinc-400'>
-              <span>{formatTime(core.currentTime)}</span>
-              <span> / </span>
-              <span>{formatTime(core.duration)}</span>
-            </div>
-
-            <div ref={core.canvasWrapperRef} className='flex-1'>
-              <canvas
-                ref={core.visualizerRef}
-                height={130}
-                style={{
-                  marginBottom: -20,
-                  marginTop: -20,
-                  width: '100%',
-                  height: '130px',
-                }}
-              />
-            </div>
-            {infoSlot && infoSlot}
-          </div>
-        ) : (
-          <InputControlStrip
-            isActive={core.isThisPlayerActive}
-            isMonitoring={core.isThisPlayerActive && core.sourceMode === 'live'}
-            onToggleMonitoring={core.togglePlay}
-            disabled={!core.isLiveConfigured}
-          />
-        )}
-      </div>
-
-      {/* Settings */}
-      <PlayerSettings
-        previewMode={previewMode}
-        bypassed={core.bypassed}
-        bypassedStyles={core.bypassedStyles}
-        onBypassToggle={core.handleBypassToggle}
-        sourceMode={core.sourceMode}
-        onOpenSettings={core.openSettingsDialog}
-        modelOptions={core.modelOptions}
-        irOptions={core.irOptions}
-        audioOptions={core.audioOptions}
-        selectedModelUrl={core.selectedModel?.url ?? ''}
-        selectedIrUrl={core.selectedIr?.url ?? ''}
-        selectedInputUrl={core.selectedInput?.url ?? ''}
-        onModelChange={core.handleModelChange}
-        onIrChange={core.handleIrChange}
-        onInputChange={core.handleInputChange}
-        isLiveConfigured={core.isLiveConfigured}
-        currentDeviceId={core.currentDeviceId}
-        liveDeviceOptions={core.liveDeviceOptions}
-        onLiveDeviceChange={core.handleLiveDeviceChange}
-        inputModeType={core.inputModeType}
-        audioInputError={core.audioInputDevices.error}
-      />
 
       {/* Footer */}
       <a

@@ -1,3 +1,4 @@
+import { Loader2 } from 'lucide-react';
 import React, { useEffect, useRef } from 'react';
 
 interface DialogProps {
@@ -12,6 +13,8 @@ interface DialogProps {
   closeOnBackdropClick?: boolean;
   /** Max width class for the dialog */
   maxWidth?: 'sm' | 'md' | 'lg' | 'xl';
+  /** Whether to show a loading indicator in place of the dialog */
+  isLoading?: boolean;
 }
 
 const maxWidthStyles: Record<string, string> = {
@@ -30,6 +33,7 @@ export const Dialog: React.FC<DialogProps> = ({
   children,
   closeOnBackdropClick = true,
   maxWidth = 'md',
+  isLoading = false,
 }) => {
   // Call onOpen exactly once per open transition.
   // The ref persists across StrictMode's simulated unmount/remount,
@@ -57,18 +61,6 @@ export const Dialog: React.FC<DialogProps> = ({
     return () => document.removeEventListener('keydown', handleEscape);
   }, [isOpen, onClose]);
 
-  // Prevent body scroll when dialog is open
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
-    return () => {
-      document.body.style.overflow = '';
-    };
-  }, [isOpen]);
-
   if (!isOpen) return null;
 
   return (
@@ -84,29 +76,28 @@ export const Dialog: React.FC<DialogProps> = ({
         aria-hidden='true'
       />
 
+      {isLoading && (
+        <Loader2
+          size={42}
+          className='text-zinc-700 flex-shrink-0 animate-spin'
+        />
+      )}
+
       {/* Dialog Content */}
-      <div
-        className={`relative bg-zinc-900 text-white border border-zinc-700 rounded-xl w-full ${maxWidthStyles[maxWidth]} mx-4 shadow-xl`}
-      >
-        {/* Header */}
-        {header && (
-          <div className='border-b border-zinc-700'>
-            {header}
-          </div>
-        )}
+      {!isLoading && (
+        <div
+          className={`relative bg-zinc-900 text-white border border-zinc-700 rounded-xl w-full ${maxWidthStyles[maxWidth]} mx-4 shadow-xl`}
+        >
+          {/* Header */}
+          {header && <div>{header}</div>}
 
-        {/* Body */}
-        <div className='p-6'>
-          {children}
+          {/* Body */}
+          <div className='px-4 pb-6'>{children}</div>
+
+          {/* Footer */}
+          {footer && <div>{footer}</div>}
         </div>
-
-        {/* Footer */}
-        {footer && (
-          <div className='border-t border-zinc-700'>
-            {footer}
-          </div>
-        )}
-      </div>
+      )}
     </div>
   );
 };

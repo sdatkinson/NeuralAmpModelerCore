@@ -1,9 +1,9 @@
 import React, { useState, useCallback } from 'react';
-import { ArrowLeft } from 'lucide-react';
+import { Info, Settings, X } from 'lucide-react';
 import { Dialog } from '../ui/Dialog';
 import { Button } from '../ui/Button';
 import { PermissionContent } from './content/PermissionContent';
-import { DeviceChannelContent } from './content/DeviceChannelContent';
+import { DeviceContent } from './content/DeviceContent';
 import { useT3kPlayerContext } from '../../context/T3kPlayerContext';
 import { Model, IR, SourceMode } from '../../types';
 
@@ -17,7 +17,7 @@ interface SettingsDialogProps {
   playerId?: string;
 }
 
-type SetupStep = 'permission' | 'device-channel-select';
+type SetupStep = 'permission' | 'device-select';
 
 export const SettingsDialog: React.FC<SettingsDialogProps> = ({
   isOpen,
@@ -37,14 +37,12 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
     requestMicrophonePermission,
     refreshAudioInputDevices,
     refreshAudioOutputDevices,
-    startLiveInput,
-    reconnectLiveInput,
-    selectLiveInputChannel,
-    setLiveInputGain,
+    startPlayInput,
+    reconnectPlayInput,
+    selectPlayInputChannel,
     syncEngineSettings,
     setOutputDevice,
     setPlaying,
-    setBypass,
     getAudioNodes,
   } = useT3kPlayerContext();
 
@@ -54,44 +52,47 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
   const [connectionError, setConnectionError] = useState<string | null>(null);
 
   // Derived from context (single source of truth)
-  const liveInputConfig = audioState.liveInputConfig;
-  const currentDeviceId = liveInputConfig?.deviceId ?? null;
-  const currentChannel = liveInputConfig?.selectedChannel ?? 'first';
-  const channelCount = liveInputConfig?.channelCount ?? 1;
-  const currentInputGain = liveInputConfig?.channelGains?.[currentChannel] ?? 0;
+  const playInputConfig = audioState.playInputConfig;
+  const currentDeviceId = playInputConfig?.deviceId ?? null;
+  const currentChannel = playInputConfig?.selectedChannel ?? 'first';
+  const channelCount = playInputConfig?.channelCount ?? 1;
 
-  const isLiveMode = sourceMode === 'live';
-  const isPreviewMode = sourceMode === 'preview';
+  const isDemoMode = sourceMode === 'demo';
 
-  // Derive effective step: if permission isn't granted while on device-channel-select, show permission.
-  // Applies in both modes — preview mode needs permission for output device labels on Firefox/Safari.
-  const effectiveStep = (
+  // Derive effective step: if permission isn't granted while on device-select, show permission.
+  // Applies in both modes — demo mode needs permission for output device labels on Firefox/Safari.
+  const effectiveStep =
     !isInitializing &&
     microphonePermission.status !== 'granted' &&
-    step === 'device-channel-select'
-  ) ? 'permission' : step;
+    step === 'device-select'
+      ? 'permission'
+      : step;
 
-  // Helper to ensure audio system is initialized before starting live input
-  const initAndStartLiveInput = useCallback(async (deviceId: string) => {
-    setConnectionError(null);
-    try {
-      if (audioState.initState !== 'ready') {
-        await init();
+  // Helper to ensure audio system is initialized before starting play input
+  const initAndStartPlayInput = useCallback(
+    async (deviceId: string) => {
+      setConnectionError(null);
+      try {
+        if (audioState.initState !== 'ready') {
+          await init();
+        }
+        await startPlayInput(deviceId);
+      } catch (error) {
+        const message =
+          error instanceof DOMException
+            ? error.message
+            : 'Failed to connect to audio device. Please try again.';
+        setConnectionError(message);
       }
-      await startLiveInput(deviceId);
-    } catch (error) {
-      const message = error instanceof DOMException
-        ? error.message
-        : 'Failed to connect to audio device. Please try again.';
-      setConnectionError(message);
-    }
-  }, [audioState.initState, init, startLiveInput]);
+    },
+    [audioState.initState, init, startPlayInput]
+  );
 
   // Imperative open handler — called once by Dialog's onOpen (ref-guarded against StrictMode)
   const handleOpen = useCallback(() => {
     setIsInitializing(true);
 
-    if (sourceMode === 'preview') {
+    if (sourceMode === 'demo') {
       if (microphonePermission.status === 'granted') {
         // Permission granted: enumerate input devices first to trigger getUserMedia
         // self-healing (Firefox/Safari require per-session getUserMedia to unlock device labels),
@@ -100,65 +101,89 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
           .then(() => refreshAudioOutputDevices())
           .then(() => {
             setIsInitializing(false);
-            setStep('device-channel-select');
+            setStep('device-select');
           });
       } else {
         // No permission: enumerate what we can. effectiveStep will redirect to
         // the permission step so the user can unlock device labels.
         refreshAudioOutputDevices().then(() => {
           setIsInitializing(false);
-          setStep('device-channel-select');
+          setStep('device-select');
         });
       }
     } else if (microphonePermission.status === 'granted') {
-      // Live mode with permission: enumerate both input and output devices
-      Promise.all([refreshAudioInputDevices(), refreshAudioOutputDevices()])
-        .then(([{ inputDevices, preferredDeviceId }]) => {
-          setIsInitializing(false);
-          setStep('device-channel-select');
+      // Play mode with permission: enumerate both input and output devices
+      Promise.all([
+        refreshAudioInputDevices(),
+        refreshAudioOutputDevices(),
+      ]).then(([{ inputDevices, preferredDeviceId }]) => {
+        setIsInitializing(false);
+        setStep('device-select');
 
-          // Auto-connect on first open in live mode (no device configured yet)
-          if (!audioState.liveInputConfig && inputDevices.length > 0) {
-            const deviceToConnect = preferredDeviceId ?? inputDevices[0].deviceId;
-            initAndStartLiveInput(deviceToConnect);
-          }
-        });
+        // Auto-connect on first open in play mode (no device configured yet)
+        if (!audioState.playInputConfig && inputDevices.length > 0) {
+          const deviceToConnect = preferredDeviceId ?? inputDevices[0].deviceId;
+          initAndStartPlayInput(deviceToConnect);
+        }
+      });
     } else {
-      // Live mode without permission: show permission step
+      // Play mode without permission: show permission step
       setIsInitializing(false);
       setStep('permission');
     }
-  }, [sourceMode, microphonePermission.status, refreshAudioInputDevices, refreshAudioOutputDevices, audioState.liveInputConfig, initAndStartLiveInput]);
+  }, [
+    sourceMode,
+    microphonePermission.status,
+    refreshAudioInputDevices,
+    refreshAudioOutputDevices,
+    audioState.playInputConfig,
+    initAndStartPlayInput,
+  ]);
 
   // Event handlers
-  const handleDeviceChange = useCallback((deviceId: string) => {
-    initAndStartLiveInput(deviceId);
-  }, [initAndStartLiveInput]);
+  const handleDeviceChange = useCallback(
+    (deviceId: string) => {
+      initAndStartPlayInput(deviceId);
+    },
+    [initAndStartPlayInput]
+  );
 
-  const handleMonitoringChange = useCallback(async (enabled: boolean) => {
-    if (enabled) {
-      // Reconnect live input if it was torn down (e.g. another player was previewing)
-      await reconnectLiveInput();
+  const handleMonitoringChange = useCallback(
+    async (enabled: boolean) => {
+      if (enabled) {
+        // Reconnect play input if it was torn down (e.g. another player was in demo mode)
+        await reconnectPlayInput();
 
-      if (audioState.initState === 'ready') {
-        await syncEngineSettings({
-          modelUrl: selectedModel.url,
-          ir: { url: selectedIr.url, mix: selectedIr.mix ?? 1, gain: selectedIr.gain ?? 1 },
-          bypassed: audioState.isBypassed,
-        });
+        if (audioState.initState === 'ready') {
+          await syncEngineSettings({
+            modelUrl: selectedModel.url,
+            ir: {
+              url: selectedIr.url,
+              mix: selectedIr.mix ?? 1,
+              gain: selectedIr.gain ?? 1,
+            },
+            bypassed: audioState.isBypassed,
+          });
+        }
+
+        if (playerId) {
+          setPlaying(true, playerId);
+        }
+      } else {
+        setPlaying(false);
       }
-
-      if (playerId) {
-        setPlaying(true, playerId);
-      }
-    } else {
-      setPlaying(false);
-    }
-  }, [reconnectLiveInput, setPlaying, syncEngineSettings, audioState.initState, audioState.isBypassed, selectedModel, selectedIr, playerId]);
-
-  const handleWetSignalToggle = useCallback(() => {
-    setBypass(!audioState.isBypassed);
-  }, [setBypass, audioState.isBypassed]);
+    },
+    [
+      reconnectPlayInput,
+      setPlaying,
+      syncEngineSettings,
+      audioState.initState,
+      audioState.isBypassed,
+      selectedModel,
+      selectedIr,
+      playerId,
+    ]
+  );
 
   const handleRequestPermission = useCallback(async () => {
     try {
@@ -166,66 +191,76 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
       // requestMicrophonePermission only handles the permission prompt.
       // Enumerate devices separately — refreshAudioInputDevices will get labels
       // because getUserMedia just ran (self-healing workaround handles Firefox/Safari).
-      await Promise.all([refreshAudioInputDevices(), refreshAudioOutputDevices()]);
-      setStep('device-channel-select');
+      await Promise.all([
+        refreshAudioInputDevices(),
+        refreshAudioOutputDevices(),
+      ]);
+      setStep('device-select');
 
-      if (isLiveMode && preferredDeviceId) {
-        initAndStartLiveInput(preferredDeviceId);
+      if (preferredDeviceId) {
+        initAndStartPlayInput(preferredDeviceId);
       }
     } catch {
       // Error handling is done in context
     }
-  }, [requestMicrophonePermission, refreshAudioInputDevices, refreshAudioOutputDevices, initAndStartLiveInput, isLiveMode]);
+  }, [
+    requestMicrophonePermission,
+    refreshAudioInputDevices,
+    refreshAudioOutputDevices,
+    initAndStartPlayInput,
+  ]);
 
   const handleRefreshDevices = useCallback(async () => {
-    await Promise.all([refreshAudioInputDevices(), refreshAudioOutputDevices()]);
+    await Promise.all([
+      refreshAudioInputDevices(),
+      refreshAudioOutputDevices(),
+    ]);
   }, [refreshAudioInputDevices, refreshAudioOutputDevices]);
 
   const isPending = microphonePermission.status === 'pending';
-  const dialogTitle = isPreviewMode ? 'Settings' : 'Live Input Setup';
-  const isSaveEnabled = isPreviewMode || currentDeviceId !== null;
+  const dialogTitle =
+    effectiveStep !== 'permission' ? 'Settings' : 'Microphone Access';
+  const dialogIcon =
+    effectiveStep !== 'permission' ? (
+      <Settings size={24} />
+    ) : (
+      <Info size={24} />
+    );
+  const isSaveEnabled = isDemoMode || currentDeviceId !== null;
 
-  // Header with back button
+  // Header with close button
   const header = (
-    <div className='flex items-center gap-3 p-4'>
+    <div className='flex items-center justify-between p-4'>
+      <div className='flex items-center gap-4'>
+        {dialogIcon}
+        <h2 className='text-lg font-semibold'>{dialogTitle}</h2>
+      </div>
       <button
         onClick={onCancel}
-        className='p-1 hover:bg-zinc-800 rounded-md transition-colors'
-        aria-label='Back'
+        className='p-1'
+        aria-label='Close'
         disabled={isPending}
       >
-        <ArrowLeft size={20} className='text-zinc-400' />
+        <X size={24} className='text-zinc-400' />
       </button>
-      <h2 className='text-lg font-semibold'>{dialogTitle}</h2>
     </div>
   );
 
   // Footer only for device/channel selection step
-  const footer = !isInitializing && effectiveStep === 'device-channel-select' ? (
-    <div className='flex justify-end gap-3 p-4'>
-      <Button variant='ghost' onClick={onCancel}>
-        Cancel
-      </Button>
-      <Button
-        variant='primary'
-        onClick={onSave}
-        disabled={!isSaveEnabled}
-      >
-        Save
-      </Button>
-    </div>
-  ) : null;
-
-  // Skeleton content while checking permission state
-  const skeletonContent = (
-    <div className='flex flex-col gap-4'>
-      <div className='flex flex-col gap-2'>
-        <div className='h-4 bg-zinc-800 rounded animate-pulse w-full' />
-        <div className='h-4 bg-zinc-800 rounded animate-pulse w-3/4' />
+  const footer =
+    !isInitializing && effectiveStep === 'device-select' ? (
+      <div className='flex justify-center p-4'>
+        <Button
+          variant='primary'
+          size='lg'
+          fullWidth
+          onClick={onSave}
+          disabled={!isSaveEnabled}
+        >
+          Done
+        </Button>
       </div>
-      <div className='h-12 bg-zinc-800 rounded animate-pulse w-full' />
-    </div>
-  );
+    ) : null;
 
   return (
     <Dialog
@@ -235,38 +270,32 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
       header={header}
       footer={footer}
       closeOnBackdropClick={!isPending && !isInitializing}
+      isLoading={isInitializing || audioInputDevices.isLoading}
     >
-      {isInitializing ? (
-        skeletonContent
-      ) : effectiveStep === 'permission' ? (
+      {effectiveStep === 'permission' ? (
         <PermissionContent
           status={microphonePermission.status}
           errorMessage={microphonePermission.error}
           onRequestPermission={handleRequestPermission}
-          sourceMode={sourceMode}
         />
       ) : (
-        <DeviceChannelContent
-          sourceMode={sourceMode}
+        <DeviceContent
           devices={audioInputDevices.devices}
           selectedDeviceId={currentDeviceId ?? ''}
           selectedChannel={currentChannel}
           channelCount={channelCount}
-          isMonitoring={audioState.isPlaying && audioState.activePlayerId === playerId}
-          isWetSignalEnabled={!audioState.isBypassed}
-          inputGain={currentInputGain}
+          isMonitoring={
+            audioState.isPlaying && audioState.activePlayerId === playerId
+          }
           onDeviceChange={handleDeviceChange}
-          onChannelChange={selectLiveInputChannel}
+          onChannelChange={selectPlayInputChannel}
           onMonitoringChange={handleMonitoringChange}
-          onWetSignalToggle={handleWetSignalToggle}
-          onInputGainChange={setLiveInputGain}
-          isLoading={audioInputDevices.isLoading}
           isConnecting={audioState.inputMode.type === 'connecting'}
           error={audioInputDevices.error}
           connectionError={connectionError}
           onRefresh={handleRefreshDevices}
-          channel0Meter={getAudioNodes().channel0PreviewMeter}
-          channel1Meter={getAudioNodes().channel1PreviewMeter}
+          channel0Meter={getAudioNodes().channel0PlayMeter}
+          channel1Meter={getAudioNodes().channel1PlayMeter}
           outputDevices={audioOutputDevices.devices}
           selectedOutputDeviceId={audioOutputDevices.selectedDeviceId}
           onOutputDeviceChange={setOutputDevice}

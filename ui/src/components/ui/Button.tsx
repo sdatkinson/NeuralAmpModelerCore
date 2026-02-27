@@ -13,15 +13,16 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variantStyles: Record<ButtonVariant, string> = {
-  primary: 'bg-white text-zinc-900 hover:bg-zinc-200',
-  secondary: 'bg-zinc-800 text-white hover:bg-zinc-700 border border-zinc-700',
-  ghost: 'bg-transparent text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800',
+  primary:
+    'bg-gradient-to-b from-[#00F] to-[#0000D0] text-white border-0 rounded-xl',
+  secondary: 'bg-transparent text-white border border-white rounded-full',
+  ghost: 'bg-transparent text-zinc-400 border border-transparent rounded-xl',
 };
 
 const sizeStyles: Record<ButtonSize, string> = {
   sm: 'px-3 py-1.5 text-sm',
-  md: 'px-4 py-2 text-sm',
-  lg: 'px-4 py-3 text-md',
+  md: 'px-5 py-3.5 text-sm',
+  lg: 'px-5 py-3.5 text-md',
 };
 
 export const Button: React.FC<ButtonProps> = ({
@@ -38,12 +39,12 @@ export const Button: React.FC<ButtonProps> = ({
   return (
     <button
       className={`
-        inline-flex items-center justify-center gap-2 font-medium rounded-md transition-colors
-        focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 focus:ring-offset-zinc-900
+        flex items-center justify-center gap-2 font-medium
+        focus:outline-none
         disabled:opacity-50 disabled:cursor-not-allowed
         ${variantStyles[variant]}
         ${sizeStyles[size]}
-        ${fullWidth ? 'w-full' : ''}
+        ${fullWidth ? 'w-full self-stretch' : ''}
         ${className}
       `}
       disabled={disabled}

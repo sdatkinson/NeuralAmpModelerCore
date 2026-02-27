@@ -1,5 +1,10 @@
 import { useEffect, useRef, useCallback } from 'react';
-import { calculateLevels, isClipping, scaleForDisplay, MeterLevels } from '../utils/metering';
+import {
+  calculateLevels,
+  isClipping,
+  scaleForDisplay,
+  MeterLevels,
+} from '../utils/metering';
 
 /**
  * Async iterator for requestAnimationFrame loop
@@ -14,7 +19,7 @@ const rafIter = () => {
       if (cancelled) {
         return { value: undefined, done: true };
       }
-      const promise = new Promise<number>((resolve) => {
+      const promise = new Promise<number>(resolve => {
         id = requestAnimationFrame(resolve);
       });
       await promise;
@@ -82,16 +87,19 @@ export function useMeterAnimation(
   const cleanupRef = useRef<(() => void) | null>(null);
 
   // Reset clip latch indicators
-  const resetClipLatch = useCallback((which: 'input' | 'output' | 'all' = 'all') => {
-    if (which === 'input' || which === 'all') {
-      clipStateRef.current.inputClipLatched = false;
-      inputConfig?.clipRef?.current?.classList.remove('clipped');
-    }
-    if (which === 'output' || which === 'all') {
-      clipStateRef.current.outputClipLatched = false;
-      outputConfig?.clipRef?.current?.classList.remove('clipped');
-    }
-  }, [inputConfig?.clipRef, outputConfig?.clipRef]);
+  const resetClipLatch = useCallback(
+    (which: 'input' | 'output' | 'all' = 'all') => {
+      if (which === 'input' || which === 'all') {
+        clipStateRef.current.inputClipLatched = false;
+        inputConfig?.clipRef?.current?.classList.remove('clipped');
+      }
+      if (which === 'output' || which === 'all') {
+        clipStateRef.current.outputClipLatched = false;
+        outputConfig?.clipRef?.current?.classList.remove('clipped');
+      }
+    },
+    [inputConfig?.clipRef, outputConfig?.clipRef]
+  );
 
   useEffect(() => {
     // Clean up any existing animation loop
@@ -117,7 +125,10 @@ export function useMeterAnimation(
 
           // Update meter display (using scaled value for visual response)
           const displayLevel = scaleForDisplay(levels.rms);
-          inputConfig.meterRef.current.style.setProperty('--level', String(displayLevel));
+          inputConfig.meterRef.current.style.setProperty(
+            '--level',
+            String(displayLevel)
+          );
 
           // Check for clipping
           if (isClipping(levels)) {
@@ -133,7 +144,10 @@ export function useMeterAnimation(
 
           // Update meter display
           const displayLevel = scaleForDisplay(levels.rms);
-          outputConfig.meterRef.current.style.setProperty('--level', String(displayLevel));
+          outputConfig.meterRef.current.style.setProperty(
+            '--level',
+            String(displayLevel)
+          );
 
           // Check for clipping
           if (isClipping(levels)) {

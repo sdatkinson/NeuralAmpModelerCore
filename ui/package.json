@@ -61,6 +61,7 @@
   "author": "woodybury",
   "license": "ISC",
   "dependencies": {
-    "lucide-react": "^0.513.0"
+    "lucide-react": "^0.513.0",
+    "react-knob-headless": "^0.4.0"
   }
 }
