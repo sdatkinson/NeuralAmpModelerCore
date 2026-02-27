@@ -1,3 +1,6 @@
 [submodule "Dependencies/eigen"]
 	path = Dependencies/eigen
 	url = https://gitlab.com/libeigen/eigen
+[submodule "Dependencies/AudioDSPTools"]
+	path = Dependencies/AudioDSPTools
+	url = https://github.com/sdatkinson/AudioDSPTools.git
