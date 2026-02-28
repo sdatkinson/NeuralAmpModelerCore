@@ -745,74 +745,96 @@ export function T3kPlayerContextProvider({
   );
 
   // Cleanup
-  const cleanup = useCallback((): void => {
-    const nodes = getAudioNodes();
-    const { audioElement, audioContext } = nodes;
+  // const cleanup = useCallback((): void => {
+  //   const nodes = getAudioNodes();
+  //   const { audioElement, audioContext } = nodes;
 
-    // Stop file playback
+  //   // Stop file playback
+  //   if (audioElement) {
+  //     audioElement.pause();
+  //     audioElement.currentTime = 0;
+  //     audioElement.remove();
+  //   }
+
+  //   // Clean up all play input nodes
+  //   cleanupPlayInputNodes(nodes);
+
+  //   cleanupOutputWorkaroundRouting(nodes);
+
+  //   removeIr();
+
+  //   // Disconnect all core audio nodes
+  //   const coreNodes: (AudioNode | null)[] = [
+  //     nodes.inputGainNode,
+  //     nodes.outputGainNode,
+  //     nodes.bypassNode,
+  //     nodes.inputMeterNode,
+  //     nodes.outputMeterNode,
+  //     nodes.sourceNode,
+  //     nodes.audioWorkletNode,
+  //   ];
+  //   for (const node of coreNodes) {
+  //     try {
+  //       node?.disconnect();
+  //     } catch {
+  //       /* already disconnected */
+  //     }
+  //   }
+
+  //   // Close AudioContext
+  //   if (audioContext && audioContext.state !== 'closed') {
+  //     audioContext.close();
+  //   }
+
+  //   // Null out all node references
+  //   nodes.audioContext = null;
+  //   nodes.audioElement = null;
+  //   nodes.audioWorkletNode = null;
+  //   nodes.inputGainNode = null;
+  //   nodes.outputGainNode = null;
+  //   nodes.bypassNode = null;
+  //   nodes.sourceNode = null;
+  //   nodes.inputMeterNode = null;
+  //   nodes.outputMeterNode = null;
+  //   nodes.irNode = null;
+  //   nodes.irWetGain = null;
+  //   nodes.irDryGain = null;
+  //   nodes.irGain = null;
+
+  //   isInitializedRef.current = false;
+
+  //   setAudioState(prev => ({
+  //     ...prev,
+  //     initState: 'uninitialized',
+  //     isPlaying: false,
+  //     activePlayerId: null,
+  //     modelUrl: null,
+  //     audioUrl: null,
+  //     isBypassed: false,
+  //     inputMode: { type: 'demo' },
+  //     playInputConfig: null,
+  //   }));
+  // }, [getAudioNodes, removeIr]);
+
+  // Cleanup without destroying audio
+  const cleanup = useCallback((): void => {
+    const { audioElement } = getAudioNodes();
+
     if (audioElement) {
       audioElement.pause();
       audioElement.currentTime = 0;
-      audioElement.remove();
     }
-
-    // Clean up all play input nodes
-    cleanupPlayInputNodes(nodes);
-
-    cleanupOutputWorkaroundRouting(nodes);
 
     removeIr();
 
-    // Disconnect all core audio nodes
-    const coreNodes: (AudioNode | null)[] = [
-      nodes.inputGainNode,
-      nodes.outputGainNode,
-      nodes.bypassNode,
-      nodes.inputMeterNode,
-      nodes.outputMeterNode,
-      nodes.sourceNode,
-      nodes.audioWorkletNode,
-    ];
-    for (const node of coreNodes) {
-      try {
-        node?.disconnect();
-      } catch {
-        /* already disconnected */
-      }
-    }
-
-    // Close AudioContext
-    if (audioContext && audioContext.state !== 'closed') {
-      audioContext.close();
-    }
-
-    // Null out all node references
-    nodes.audioContext = null;
-    nodes.audioElement = null;
-    nodes.audioWorkletNode = null;
-    nodes.inputGainNode = null;
-    nodes.outputGainNode = null;
-    nodes.bypassNode = null;
-    nodes.sourceNode = null;
-    nodes.inputMeterNode = null;
-    nodes.outputMeterNode = null;
-    nodes.irNode = null;
-    nodes.irWetGain = null;
-    nodes.irDryGain = null;
-    nodes.irGain = null;
-
-    isInitializedRef.current = false;
-
     setAudioState(prev => ({
       ...prev,
-      initState: 'uninitialized',
       isPlaying: false,
       activePlayerId: null,
       modelUrl: null,
       audioUrl: null,
       isBypassed: false,
       inputMode: { type: 'demo' },
-      playInputConfig: null,
     }));
   }, [getAudioNodes, removeIr]);
 
