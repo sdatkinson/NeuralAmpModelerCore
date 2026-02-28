@@ -40,10 +40,6 @@
   }
 }
 
-.animate-monitor-pop {
-  animation: monitor-pop 300ms ease-out;
-}
-
 /* Remove all focus indicators from monitor button - browser defaults vary */
 .monitor-button-reset-focus:focus,
 .monitor-button-reset-focus:focus-visible,

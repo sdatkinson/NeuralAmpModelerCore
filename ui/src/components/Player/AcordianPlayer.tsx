@@ -69,105 +69,107 @@ const PlayerFC: React.FC<T3kAcordianPlayerProps> = ({
   }, [models, resolveData]);
 
   return (
-    <div
-      className={`bg-zinc-900 border border-t-0 border-zinc-700 text-white px-4 sm:px-6 pt-0 pb-0 rounded-xl w-full flex flex-col gap-0 rounded-t-none ${expanded ? 'pb-4 lg:pb-8' : 'pb-0'}`}
-    >
+    <div className='neural-amp-modeler'>
       <div
-        className={`flex items-center gap-4 overflow-hidden min-h-[80px] ${disabled ? 'opacity-50 touch-none cursor-not-allowed' : ''}`}
+        className={`bg-zinc-900 border border-t-0 border-zinc-700 text-white px-4 sm:px-6 pt-0 pb-0 rounded-xl w-full flex flex-col gap-0 rounded-t-none ${expanded ? 'pb-4 lg:pb-8' : 'pb-0'}`}
       >
-        {core.sourceMode === 'demo' ? (
-          <DemoPlaybar
-            togglePlay={core.togglePlay}
-            isThisPlayerActive={core.isThisPlayerActive}
-            isLoading={core.isLoading}
-            handleSkipToStart={core.handleSkipToStart}
-            currentTime={core.currentTime}
-            duration={core.duration}
-            canvasWrapperRef={core.canvasWrapperRef}
-            visualizerRef={core.visualizerRef}
-            infoSlot={infoSlot}
-          />
-        ) : (
-          <PlayPlaybar
-            togglePlay={core.togglePlay}
-            isThisPlayerActive={core.isThisPlayerActive}
-            sourceMode={core.sourceMode}
-            isPlayConfigured={core.isPlayConfigured}
-            canvasWrapperRef={core.canvasWrapperRef}
-            visualizerRef={core.visualizerRef}
-            infoSlot={infoSlot}
-            onOpenSettings={core.openSettingsDialog}
-          />
-        )}
-
-        <button
-          onClick={handleToggleExpand}
-          className={`p-0 focus:outline-none flex-shrink-0 ${disabled ? 'cursor-not-allowed' : ''}`}
-          aria-label='Toggle accordion'
-          disabled={disabled}
+        <div
+          className={`flex items-center gap-4 overflow-hidden min-h-[80px] ${disabled ? 'opacity-50 touch-none cursor-not-allowed' : ''}`}
         >
-          {expanded ? <ChevronUp size={24} /> : <ChevronDown size={24} />}
-        </button>
-      </div>
-
-      {expanded && (
-        <>
-          <div className='flex flex-col gap-6'>
-            {/* Toggle between demo and play */}
-            <Tabs
-              tabs={SOURCE_MODE_OPTIONS.map(o => (
-                <div className='flex gap-2 items-center'>
-                  {o.value === 'demo' ? (
-                    <Demo size={20} />
-                  ) : (
-                    <PlayIcon size={20} />
-                  )}
-                  <span>{o.label}</span>
-                </div>
-              ))}
-              activeTab={SOURCE_MODE_OPTIONS.findIndex(
-                o => o.value === core.sourceMode
-              )}
-              setActiveTab={index =>
-                core.handleSourceModeChange(SOURCE_MODE_OPTIONS[index].value)
-              }
-            />
-            <PlayerSettings
-              previewMode={previewMode}
-              disabled={disabled}
-              bypassed={core.bypassed}
-              bypassedStyles={core.bypassedStyles}
-              onBypassToggle={core.handleBypassToggle}
-              sourceMode={core.sourceMode}
-              onOpenSettings={core.openSettingsDialog}
-              modelOptions={core.modelOptions}
-              irOptions={core.irOptions}
-              audioOptions={core.audioOptions}
-              selectedModelUrl={core.selectedModel?.url ?? ''}
-              selectedIrUrl={core.selectedIr?.url ?? ''}
-              selectedInputUrl={core.selectedInput?.url ?? ''}
-              onModelChange={core.handleModelChange}
-              onIrChange={core.handleIrChange}
-              onInputChange={core.handleInputChange}
-              isPlayConfigured={core.isPlayConfigured}
-              currentDeviceId={core.currentDeviceId}
-              playDeviceOptions={core.playDeviceOptions}
-              inputModeType={core.inputModeType}
-              audioInputError={core.audioInputDevices.error}
+          {core.sourceMode === 'demo' ? (
+            <DemoPlaybar
+              togglePlay={core.togglePlay}
               isThisPlayerActive={core.isThisPlayerActive}
+              isLoading={core.isLoading}
+              handleSkipToStart={core.handleSkipToStart}
+              currentTime={core.currentTime}
+              duration={core.duration}
+              canvasWrapperRef={core.canvasWrapperRef}
+              visualizerRef={core.visualizerRef}
+              infoSlot={infoSlot}
             />
-          </div>
+          ) : (
+            <PlayPlaybar
+              togglePlay={core.togglePlay}
+              isThisPlayerActive={core.isThisPlayerActive}
+              sourceMode={core.sourceMode}
+              isPlayConfigured={core.isPlayConfigured}
+              canvasWrapperRef={core.canvasWrapperRef}
+              visualizerRef={core.visualizerRef}
+              infoSlot={infoSlot}
+              onOpenSettings={core.openSettingsDialog}
+            />
+          )}
 
-          <a
-            href='https://www.tone3000.com'
-            target='_blank'
-            className='hidden flex flex-row gap-2 items-center self-end'
+          <button
+            onClick={handleToggleExpand}
+            className={`p-0 focus:outline-none flex-shrink-0 ${disabled ? 'cursor-not-allowed' : ''}`}
+            aria-label='Toggle accordion'
+            disabled={disabled}
           >
-            <p className='text-zinc-400 text-xs'>Powered by</p>
-            <LogoSm width={42} height={14} />
-          </a>
-        </>
-      )}
+            {expanded ? <ChevronUp size={24} /> : <ChevronDown size={24} />}
+          </button>
+        </div>
+
+        {expanded && (
+          <>
+            <div className='flex flex-col gap-6'>
+              {/* Toggle between demo and play */}
+              <Tabs
+                tabs={SOURCE_MODE_OPTIONS.map(o => (
+                  <div className='flex gap-2 items-center'>
+                    {o.value === 'demo' ? (
+                      <Demo size={20} />
+                    ) : (
+                      <PlayIcon size={20} />
+                    )}
+                    <span>{o.label}</span>
+                  </div>
+                ))}
+                activeTab={SOURCE_MODE_OPTIONS.findIndex(
+                  o => o.value === core.sourceMode
+                )}
+                setActiveTab={index =>
+                  core.handleSourceModeChange(SOURCE_MODE_OPTIONS[index].value)
+                }
+              />
+              <PlayerSettings
+                previewMode={previewMode}
+                disabled={disabled}
+                bypassed={core.bypassed}
+                bypassedStyles={core.bypassedStyles}
+                onBypassToggle={core.handleBypassToggle}
+                sourceMode={core.sourceMode}
+                onOpenSettings={core.openSettingsDialog}
+                modelOptions={core.modelOptions}
+                irOptions={core.irOptions}
+                audioOptions={core.audioOptions}
+                selectedModelUrl={core.selectedModel?.url ?? ''}
+                selectedIrUrl={core.selectedIr?.url ?? ''}
+                selectedInputUrl={core.selectedInput?.url ?? ''}
+                onModelChange={core.handleModelChange}
+                onIrChange={core.handleIrChange}
+                onInputChange={core.handleInputChange}
+                isPlayConfigured={core.isPlayConfigured}
+                currentDeviceId={core.currentDeviceId}
+                playDeviceOptions={core.playDeviceOptions}
+                inputModeType={core.inputModeType}
+                audioInputError={core.audioInputDevices.error}
+                isThisPlayerActive={core.isThisPlayerActive}
+              />
+            </div>
+
+            <a
+              href='https://www.tone3000.com'
+              target='_blank'
+              className='hidden flex flex-row gap-2 items-center self-end'
+            >
+              <p className='text-zinc-400 text-xs'>Powered by</p>
+              <LogoSm width={42} height={14} />
+            </a>
+          </>
+        )}
+      </div>
     </div>
   );
 };

@@ -744,97 +744,77 @@ export function T3kPlayerContextProvider({
     [getAudioNodes]
   );
 
-  // Cleanup
-  // const cleanup = useCallback((): void => {
-  //   const nodes = getAudioNodes();
-  //   const { audioElement, audioContext } = nodes;
+  // Destructive cleanup - destroys the audio context and audio nodes
+  // @TODO: We should probably remove this function as everything should be kept alive 
+  // for the entire duration of the session to allow for playback to be resumed later.
+  const destructiveCleanup = useCallback((): void => {
+    const nodes = getAudioNodes();
+    const { audioElement, audioContext } = nodes;
 
-  //   // Stop file playback
-  //   if (audioElement) {
-  //     audioElement.pause();
-  //     audioElement.currentTime = 0;
-  //     audioElement.remove();
-  //   }
-
-  //   // Clean up all play input nodes
-  //   cleanupPlayInputNodes(nodes);
-
-  //   cleanupOutputWorkaroundRouting(nodes);
-
-  //   removeIr();
-
-  //   // Disconnect all core audio nodes
-  //   const coreNodes: (AudioNode | null)[] = [
-  //     nodes.inputGainNode,
-  //     nodes.outputGainNode,
-  //     nodes.bypassNode,
-  //     nodes.inputMeterNode,
-  //     nodes.outputMeterNode,
-  //     nodes.sourceNode,
-  //     nodes.audioWorkletNode,
-  //   ];
-  //   for (const node of coreNodes) {
-  //     try {
-  //       node?.disconnect();
-  //     } catch {
-  //       /* already disconnected */
-  //     }
-  //   }
-
-  //   // Close AudioContext
-  //   if (audioContext && audioContext.state !== 'closed') {
-  //     audioContext.close();
-  //   }
-
-  //   // Null out all node references
-  //   nodes.audioContext = null;
-  //   nodes.audioElement = null;
-  //   nodes.audioWorkletNode = null;
-  //   nodes.inputGainNode = null;
-  //   nodes.outputGainNode = null;
-  //   nodes.bypassNode = null;
-  //   nodes.sourceNode = null;
-  //   nodes.inputMeterNode = null;
-  //   nodes.outputMeterNode = null;
-  //   nodes.irNode = null;
-  //   nodes.irWetGain = null;
-  //   nodes.irDryGain = null;
-  //   nodes.irGain = null;
-
-  //   isInitializedRef.current = false;
-
-  //   setAudioState(prev => ({
-  //     ...prev,
-  //     initState: 'uninitialized',
-  //     isPlaying: false,
-  //     activePlayerId: null,
-  //     modelUrl: null,
-  //     audioUrl: null,
-  //     isBypassed: false,
-  //     inputMode: { type: 'demo' },
-  //     playInputConfig: null,
-  //   }));
-  // }, [getAudioNodes, removeIr]);
-
-  // Cleanup without destroying audio
-  const cleanup = useCallback((): void => {
-    const { audioElement } = getAudioNodes();
-
+    // Stop file playback
     if (audioElement) {
       audioElement.pause();
       audioElement.currentTime = 0;
+      audioElement.remove();
     }
+
+    // Clean up all play input nodes
+    cleanupPlayInputNodes(nodes);
+
+    cleanupOutputWorkaroundRouting(nodes);
 
     removeIr();
 
+    // Disconnect all core audio nodes
+    const coreNodes: (AudioNode | null)[] = [
+      nodes.inputGainNode,
+      nodes.outputGainNode,
+      nodes.bypassNode,
+      nodes.inputMeterNode,
+      nodes.outputMeterNode,
+      nodes.sourceNode,
+      nodes.audioWorkletNode,
+    ];
+    for (const node of coreNodes) {
+      try {
+        node?.disconnect();
+      } catch {
+        /* already disconnected */
+      }
+    }
+
+    // Close AudioContext
+    if (audioContext && audioContext.state !== 'closed') {
+      audioContext.close();
+    }
+
+    // Null out all node references
+    nodes.audioContext = null;
+    nodes.audioElement = null;
+    nodes.audioWorkletNode = null;
+    nodes.inputGainNode = null;
+    nodes.outputGainNode = null;
+    nodes.bypassNode = null;
+    nodes.sourceNode = null;
+    nodes.inputMeterNode = null;
+    nodes.outputMeterNode = null;
+    nodes.irNode = null;
+    nodes.irWetGain = null;
+    nodes.irDryGain = null;
+    nodes.irGain = null;
+
+    isInitializedRef.current = false;
+
     setAudioState(prev => ({
       ...prev,
+      initState: 'uninitialized',
       isPlaying: false,
       activePlayerId: null,
       modelUrl: null,
       audioUrl: null,
       isBypassed: false,
       inputMode: { type: 'demo' },
+      playInputConfig: null,
     }));
   }, [getAudioNodes, removeIr]);
 
@@ -1276,6 +1256,28 @@ export function T3kPlayerContextProvider({
     },
     [isAudioReady, getAudioNodes, audioState.inputMode.type]
   );
+
+
+  // Cleanup without destroying audio
+  // This should keep the audio context alive and the audio nodes in place, 
+  // but reset the states and stop playback.
+  const cleanup = useCallback((): void => {
+    setPlaying(false); // stop playback for demo or play mode
+    // also reset the audio element current time to the start of the audio
+    const { audioElement } = getAudioNodes();
+    if (audioElement) { audioElement.currentTime = 0; }
+
+    // remove the ir from the engine
+    removeIr();
+
+    setAudioState(prev => ({
+      ...prev,
+      // reset the other states
+      modelUrl: null,
+      audioUrl: null,
+      isBypassed: false,
+    }));
+  }, [getAudioNodes, removeIr, setPlaying]);
 
   // Close the global settings dialog, restoring snapshot on cancel
   const closeSettingsDialog = useCallback(
