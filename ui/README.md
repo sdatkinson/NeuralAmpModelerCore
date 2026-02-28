@@ -30,14 +30,14 @@ Before using the component, you need to host the WebAssembly files at the root o
 ```tsx
 import {
   T3kPlayer,
-  T3kPlayerContextProvider,
+  T3kPlayerProvider,
   PREVIEW_MODE,
 } from 'neural-amp-modeler-wasm';
 import 'neural-amp-modeler-wasm/dist/styles.css';
 
 function App() {
   return (
-    <T3kPlayerContextProvider>
+    <T3kPlayerProvider>
       <T3kPlayer
         models={[
           {
@@ -93,10 +93,12 @@ function App() {
           console.log('IR changed to:', ir);
         }}
       />
-    </T3kPlayerContextProvider>
+    </T3kPlayerProvider>
   );
 }
 ```
+
+`T3kPlayerProvider` includes the settings dialog (microphone/device selection) and renders it once for all players on the page.
 
 ## Component Props
 

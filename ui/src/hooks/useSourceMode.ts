@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useT3kPlayerContext } from '../context/T3kPlayerContext';
 import { SourceMode } from '../types';
 
@@ -10,7 +10,6 @@ interface UseSourceModeOptions {
 interface UseSourceModeReturn {
   // State
   sourceMode: SourceMode;
-  showPlaybackPausedMessage: boolean;
 
   // Derived (from context, shared by multiple consumers)
   playDeviceOptions: Array<{ label: string; value: string }>;
@@ -34,9 +33,6 @@ export function useSourceMode(
     reconnectPlayInput,
     setPlaying,
   } = useT3kPlayerContext();
-  const [showPlaybackPausedMessage, setShowPlaybackPausedMessage] =
-    useState(false);
-
   // Play device options for Select component (shared by multiple consumers)
   const playDeviceOptions = useMemo(
     () =>
@@ -56,8 +52,6 @@ export function useSourceMode(
         // Switching from Demo to Play
         if (audioState.isPlaying) {
           setPlaying(false);
-          setShowPlaybackPausedMessage(true);
-          setTimeout(() => setShowPlaybackPausedMessage(false), 3000);
         }
 
         // If play input is already active (another player started it), just switch mode
@@ -65,8 +59,6 @@ export function useSourceMode(
         await reconnectPlayInput();
       } else {
         // Switching from Play to Demo
-        setShowPlaybackPausedMessage(false);
-
         // Stop this player's monitoring if it was active
         if (audioState.activePlayerId === playerId) {
           setPlaying(false);
@@ -99,7 +91,6 @@ export function useSourceMode(
 
   return {
     sourceMode,
-    showPlaybackPausedMessage,
     playDeviceOptions,
     handleSourceModeChange,
     handlePlayDeviceChange,

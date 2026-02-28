@@ -5,6 +5,7 @@ import {
 } from './T3kPlayerContext';
 import { SettingsDialog } from '../components/SettingsDialog';
 
+/** Renders the global settings dialog when open. Included once by T3kPlayerProvider. */
 function SettingsDialogRenderer() {
   const { settingsDialog, closeSettingsDialog } = useT3kPlayerContext();
 
@@ -17,7 +18,7 @@ function SettingsDialogRenderer() {
   }
 
   return (
-    <div className='neural-amp-modeler' style={{ background: 'none' }}>
+    <div className="neural-amp-modeler" style={{ background: 'none' }}>
       <SettingsDialog
         isOpen={true}
         onSave={() => closeSettingsDialog({ saved: true })}
@@ -31,6 +32,10 @@ function SettingsDialogRenderer() {
   );
 }
 
+/**
+ * Recommended provider for the T3k player. Wraps T3kPlayerContextProvider and
+ * includes SettingsDialogRenderer once (shared by all players on the page).
+ */
 export function T3kPlayerProvider({ children }: { children: ReactNode }) {
   return (
     <T3kPlayerContextProvider>

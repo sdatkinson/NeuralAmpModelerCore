@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useT3kPlayerContext } from '../context/T3kPlayerContext';
 import { Input, IR, Model, SourceMode } from '../types';
 import { initVisualizer, setupVisualizer } from '../utils/visualizer';
@@ -42,7 +42,6 @@ export interface UsePlayerCoreReturn {
 
   // Source mode
   sourceMode: SourceMode;
-  showPlaybackPausedMessage: boolean;
 
   // Derived
   isPlayConfigured: boolean;
@@ -81,7 +80,7 @@ export function usePlayerCore(
   options: UsePlayerCoreOptions
 ): UsePlayerCoreReturn {
   const {
-    id,
+    id: idProp,
     disabled = false,
     models,
     irs,
@@ -92,6 +91,9 @@ export function usePlayerCore(
     onInputChange,
     onIrChange,
   } = options;
+
+  const generatedId = useId();
+  const id = idProp ?? generatedId;
 
   // --- Context ---
   const {
@@ -116,7 +118,6 @@ export function usePlayerCore(
   // --- Source mode hook (per-player) ---
   const {
     sourceMode,
-    showPlaybackPausedMessage,
     playDeviceOptions,
     handleSourceModeChange,
     handlePlayDeviceChange,
@@ -296,7 +297,6 @@ export function usePlayerCore(
   }, [ensureSelections, openDialog, id]);
 
   const togglePlay = useCallback(async () => {
-    if (!id) return;
     const wantsPlayInput = sourceMode === 'play';
     const isActive = audioState.activePlayerId === id;
 
@@ -427,7 +427,7 @@ export function usePlayerCore(
           await loadAudio(input.url);
         }
 
-        if (wasThisPlayerPlaying && id) {
+        if (wasThisPlayerPlaying) {
           setPlaying(true, id);
         }
 
@@ -497,7 +497,6 @@ export function usePlayerCore(
     isThisPlayerActive,
 
     sourceMode,
-    showPlaybackPausedMessage,
 
     isPlayConfigured,
     currentDeviceId,

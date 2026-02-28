@@ -113,12 +113,12 @@ The project exports a React component that can be used in other projects. To use
 
 2. Import and use the component in your React application:
    ```tsx
-   import { T3kPlayer, T3kPlayerContextProvider } from 'neural-amp-modeler-wasm';
+   import { T3kPlayer, T3kPlayerProvider } from 'neural-amp-modeler-wasm';
    import 'neural-amp-modeler-wasm/dist/styles.css';
 
    function App() {
      return (
-       <T3kPlayerContextProvider>
+       <T3kPlayerProvider>
          <T3kPlayer
            models={[
              {
@@ -156,12 +156,12 @@ The project exports a React component that can be used in other projects. To use
              }
            ]}
          />
-       </T3kPlayerContextProvider>
+       </T3kPlayerProvider>
      );
    }
    ```
 
-The component must be wrapped in a `T3kPlayerContextProvider` which handles the WebAssembly module initialization and audio context setup. The provider manages the audio processing pipeline and ensures proper cleanup of resources.
+The component must be wrapped in a `T3kPlayerProvider` which handles the WebAssembly module initialization, audio context setup, and includes the settings dialog (rendered once for all players on the page). The provider manages the audio processing pipeline and ensures proper cleanup of resources.
 
 ## Component Props
 

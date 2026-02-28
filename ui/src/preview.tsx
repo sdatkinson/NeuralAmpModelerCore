@@ -18,7 +18,7 @@ const PreviewContent: React.FC = () => {
               id='slim-player-1'
               getData={async () => ({
                 model: DEFAULT_MODELS[0],
-                ir: DEFAULT_IRS[0],
+                ir: DEFAULT_IRS[1],
                 input: DEFAULT_INPUTS[0],
               })}
               onPlay={({ model, input, ir }) =>
@@ -26,7 +26,7 @@ const PreviewContent: React.FC = () => {
               }
             />
             <span className='text-sm text-zinc-400'>
-              Slim Player — {DEFAULT_MODELS[0].name}
+              Slim Player - {DEFAULT_MODELS[0].name} - {DEFAULT_INPUTS[0].name} - {DEFAULT_IRS[1].name}
             </span>
           </div>
           <T3kPlayer
