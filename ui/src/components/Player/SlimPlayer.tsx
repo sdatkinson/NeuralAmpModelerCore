@@ -19,9 +19,15 @@ const SlimPlayerFC: React.FC<T3kSlimPlayerProps> = ({
     syncEngineSettings,
     setPlaying,
     stopLiveInput,
+    cleanup,
   } = useT3kPlayerContext();
 
   const [isLoading, setIsLoading] = useState(false);
+
+  // Cleanup on unmount (same as usePlayerCore)
+  useEffect(() => {
+    return () => cleanup();
+  }, [cleanup]);
 
   // Cache getData result so we don't re-fetch on every toggle
   const dataRef = useRef<Awaited<ReturnType<typeof getData>> | null>(null);

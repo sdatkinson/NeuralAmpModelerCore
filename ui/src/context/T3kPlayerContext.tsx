@@ -395,33 +395,50 @@ export function T3kPlayerContextProvider({
     // Use UTF-8 byte length: jsonStr.length counts characters, but stringToUTF8 writes
     // UTF-8 bytes. Special chars (e.g. "ö") need 2+ bytes, so we must size correctly.
     const byteLength = new TextEncoder().encode(jsonStr).length + 1;
-    const ptr = module._malloc(byteLength);
-    module.stringToUTF8(jsonStr, ptr, byteLength);
 
-    try {
-      const context = getAudioNodes().audioContext;
+    // Retry logic: WASM runtime can have a brief race where Module appears ready
+    // but _malloc fails (e.g. heap/worker not fully initialized). Retry with backoff.
+    const maxAttempts = 3;
+    let lastError: unknown;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        const ptr = module._malloc(byteLength);
+        module.stringToUTF8(jsonStr, ptr, byteLength);
 
-      // Suspend context during model loading (if it exists)
-      if (context?.state === 'running') {
-        await context.suspend();
+        try {
+          const context = getAudioNodes().audioContext;
+
+          // Suspend context during model loading (if it exists)
+          if (context?.state === 'running') {
+            await context.suspend();
+          }
+
+          // Load DSP - this triggers WASM to create AudioContext/AudioWorklet
+          await module.ccall('setDsp', null, ['number'], [ptr], {
+            async: true,
+          });
+          module._free(ptr);
+
+          // Resume context (if it exists)
+          if (context?.state === 'suspended') {
+            await context.resume();
+          }
+
+          setAudioState(prev => ({ ...prev, modelUrl }));
+          return;
+        } catch (error) {
+          module._free(ptr);
+          throw error;
+        }
+      } catch (error) {
+        console.error('Error loading model:', error);
+        lastError = error;
+        if (attempt < maxAttempts - 1) {
+          await new Promise(r => setTimeout(r, 100 * (attempt + 1)));
+        }
       }
-
-      // Load DSP - this triggers WASM to create AudioContext/AudioWorklet
-      await module.ccall('setDsp', null, ['number'], [ptr], {
-        async: true,
-      });
-      module._free(ptr);
-
-      // Resume context (if it exists)
-      if (context?.state === 'suspended') {
-        await context.resume();
-      }
-
-      setAudioState(prev => ({ ...prev, modelUrl }));
-    } catch (error) {
-      module._free(ptr);
-      throw error;
     }
+    throw lastError;
   };
 
   // Load model (public API with guards)

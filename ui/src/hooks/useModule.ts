@@ -9,9 +9,14 @@ declare global {
   }
 }
 
+// Cached promise so multiple callers share the same load; probe runs only once
+let cachedModulePromise: Promise<ModuleType> | null = null;
+
 export const useModule = (): (() => Promise<ModuleType>) => {
   const modulePromise = (): Promise<ModuleType> => {
-    return new Promise((resolve, reject) => {
+    if (cachedModulePromise) return cachedModulePromise;
+
+    cachedModulePromise = new Promise<ModuleType>((resolve, reject) => {
       // console.log('Starting to load WASM module - ' + JSON.stringify({
       //   hasWebAssembly: !!window.WebAssembly,
       //   hasSharedArrayBuffer: typeof SharedArrayBuffer !== 'undefined',
@@ -82,9 +87,18 @@ export const useModule = (): (() => Promise<ModuleType>) => {
             Module.runtimeInitialized === true || !!Module.wasmMemory;
 
           if (hasRequiredFunctions && runtimeReady) {
-            // console.log('WASM Module loaded with required functions');
-            resolve(Module);
-            clearInterval(interval);
+            // Probe: verify _malloc actually works (avoids race where Module
+            // appears ready but heap/worker isn't fully initialized yet)
+            try {
+              const ptr = Module._malloc(1);
+              if (ptr !== 0) {
+                Module._free(ptr);
+              }
+              resolve(Module);
+              clearInterval(interval);
+            } catch {
+              // _malloc threw - runtime not fully ready, keep polling
+            }
           } else {
             console.log(
               'Module not ready - ' +
@@ -119,12 +133,15 @@ export const useModule = (): (() => Promise<ModuleType>) => {
 
           console.error('Module load timeout - final state: ' + finalState);
           clearInterval(interval);
+          cachedModulePromise = null;
           reject(new Error('Failed to load WASM module - timeout'));
         }
       }, 100);
 
       return () => clearInterval(interval);
     });
+
+    return cachedModulePromise;
   };
 
   return modulePromise;
