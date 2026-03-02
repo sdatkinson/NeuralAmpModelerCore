@@ -120,7 +120,7 @@ const SlimPlayerFC: React.FC<T3kSlimPlayerProps> = ({
   return (
     <button
       onClick={togglePlay}
-      className='p-0 focus:outline-none neural-amp-modeler'
+      className='p-0 focus:outline-none'
       aria-label={isThisPlayerActive ? 'Pause' : 'Play'}
     >
       {isThisPlayerActive ? (
