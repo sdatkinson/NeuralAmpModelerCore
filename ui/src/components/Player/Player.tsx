@@ -13,14 +13,15 @@ import { PlayerSettings } from './PlayerSettings';
 import { Demo } from '../ui/Demo';
 import { PlayIcon } from '../ui/PlayIcon';
 import { DemoPlaybar } from '../ui/DemoPlaybar';
-import { PlayPlaybar } from '../ui/PlayPlaybar';
+import { LivePlaybar } from '../ui/LivePlaybar';
 
 const PlayerFC: React.FC<T3kPlayerProps> = ({
   models = DEFAULT_MODELS,
   irs = DEFAULT_IRS,
   inputs = DEFAULT_INPUTS,
   previewMode,
-  onPlay,
+  onPlayDemo,
+  onPlayLive,
   onModelChange,
   onInputChange,
   onIrChange,
@@ -33,7 +34,8 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
     models,
     irs,
     inputs,
-    onPlay,
+    onPlayDemo,
+    onPlayLive,
     onModelChange,
     onInputChange,
     onIrChange,
@@ -56,11 +58,11 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
               infoSlot={infoSlot}
             />
           ) : (
-            <PlayPlaybar
+            <LivePlaybar
               togglePlay={core.togglePlay}
               isThisPlayerActive={core.isThisPlayerActive}
               sourceMode={core.sourceMode}
-              isPlayConfigured={core.isPlayConfigured}
+              isLiveConfigured={core.isLiveConfigured}
               canvasWrapperRef={core.canvasWrapperRef}
               visualizerRef={core.visualizerRef}
               infoSlot={infoSlot}
@@ -69,7 +71,7 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
           )}
         </div>
         <div className='flex flex-col gap-6'>
-          {/* Toggle between demo and play */}
+          {/* Toggle between demo and live */}
           <Tabs
             tabs={SOURCE_MODE_OPTIONS.map(o => (
               <div className='flex gap-2 items-center'>
@@ -78,7 +80,7 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
                 ) : (
                   <PlayIcon size={20} />
                 )}
-                <span>{o.label}</span>
+                <span>{o.label === 'Live' ? 'Play' : o.label}</span>
               </div>
             ))}
             activeTab={SOURCE_MODE_OPTIONS.findIndex(
@@ -104,9 +106,9 @@ const PlayerFC: React.FC<T3kPlayerProps> = ({
             onModelChange={core.handleModelChange}
             onIrChange={core.handleIrChange}
             onInputChange={core.handleInputChange}
-            isPlayConfigured={core.isPlayConfigured}
+            isLiveConfigured={core.isLiveConfigured}
             currentDeviceId={core.currentDeviceId}
-            playDeviceOptions={core.playDeviceOptions}
+            liveDeviceOptions={core.liveDeviceOptions}
             inputModeType={core.inputModeType}
             audioInputError={core.audioInputDevices.error}
             isThisPlayerActive={core.isThisPlayerActive}

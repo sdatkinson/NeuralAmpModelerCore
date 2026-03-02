@@ -86,7 +86,7 @@ export const Dialog: React.FC<DialogProps> = ({
       {/* Dialog Content */}
       {!isLoading && (
         <div
-          className={`relative bg-zinc-900 text-white border border-zinc-700 rounded-xl w-full ${maxWidthStyles[maxWidth]} mx-4 shadow-xl`}
+          className={`relative bg-zinc-900 text-white border border-zinc-700 rounded-xl w-full ${maxWidthStyles[maxWidth]} mx-4 shadow-xl max-h-[90vh] overflow-y-auto`}
         >
           {/* Header */}
           {header && <div>{header}</div>}

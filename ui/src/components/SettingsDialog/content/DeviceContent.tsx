@@ -13,7 +13,6 @@ import { Radio } from '../../ui/Radio';
 import { ToggleSimple } from '../../ui/ToggleSimple';
 import { isSafari, needsMediaStreamWorkaround } from '../../../utils/browser';
 import { InterfaceIcon } from '../../ui/Interface';
-import { useT3kPlayerContext } from '../../../context/T3kPlayerContext';
 
 interface DeviceContentProps {
   devices: AudioInputDevice[];
@@ -21,7 +20,7 @@ interface DeviceContentProps {
   selectedChannel: ChannelSelection;
   channelCount: number;
   isMonitoring: boolean;
-  onDeviceChange: (deviceId: string) => void;
+  onDeviceChange: (deviceId: string) => void | Promise<void>;
   onChannelChange: (channel: ChannelSelection) => void;
   onMonitoringChange: (enabled: boolean) => void;
   isConnecting: boolean;
@@ -94,13 +93,13 @@ export const DeviceContent: React.FC<DeviceContentProps> = ({
       <div className='flex flex-col gap-4 w-full border border-zinc-700 rounded-lg p-4'>
         <div className='flex gap-4 items-center'>
           <InterfaceIcon size={20} />
-          <h3 className='text-base text-white font-semibold'>
+          <h3 className='text-base font-mono text-white font-semibold'>
             AUDIO INTERFACE
           </h3>
         </div>
         {isConnecting ? (
-          <div className='flex flex-col gap-1'>
-            <div className='flex flex-col gap-1'>
+          <div className='flex flex-col gap-2'>
+            <div className='flex flex-col'>
               <span className='text-base text-white font-semibold'>
                 Select Interface
               </span>
@@ -127,10 +126,9 @@ export const DeviceContent: React.FC<DeviceContentProps> = ({
             value={selectedDeviceId}
             label='Plug your instrument into Input 1 or 2 of your interface.'
             heading='Select Interface'
-            onChange={value => {
-              onDeviceChange(String(value));
+            onChange={async value => {
+              await onDeviceChange(String(value));
               onMonitoringChange(true); // Enable monitoring by default when selecting a device
-              // @TODO WE NEED TO TRIGGER THE ON PLAY CALLBACK HERE. HOW?!?!?!
             }}
           />
         )}
@@ -203,48 +201,67 @@ export const DeviceContent: React.FC<DeviceContentProps> = ({
       )}
 
       {/* Output Device Selection - always shown */}
-      {outputDevices.length > 0 && (
-        <div>
-          <Select
-            options={[
-              ...(needsMediaStreamWorkaround
-                ? [{ label: 'System Default', value: '' }]
-                : []),
-              ...outputDevices.map(d => ({
-                label: d.label,
-                value: d.deviceId,
-              })),
-            ]}
-            value={selectedOutputDeviceId ?? ''}
-            heading='Output Device'
-            label='Select where you want to hear the sound.'
-            onChange={value =>
-              onOutputDeviceChange(value === '' ? null : String(value))
-            }
-          />
-        </div>
-      )}
-
-      {/* Input Monitoring - when a device is selected */}
-      {selectedDeviceId && (
-        <div className='flex flex-col gap-1'>
-          <h3 className='text-base text-white font-semibold'>
-            Input Monitoring
-          </h3>
-          <p className='text-sm text-zinc-400'>
-            Hear your instrument while playing.
-          </p>
-          <div className='flex items-center justify-between w-full px-4 py-3 border border-zinc-700 rounded-lg bg-transparent'>
-            <span className='text-sm text-white'>Hear Yourself</span>
-            <ToggleSimple
-              label=''
-              isChecked={isMonitoring}
-              onChange={onMonitoringChange}
-              ariaLabel='Hear yourself'
+      {isConnecting ? (
+        <div className='flex flex-col gap-2'>
+          <div className='flex flex-col'>
+            <span className='text-base text-white font-semibold'>
+              Output Device
+            </span>
+            <span className='text-sm text-zinc-400'>
+              Select where you want to hear the sound.
+            </span>
+          </div>
+          <div className='flex items-center justify-between w-full overflow-hidden px-4 py-3 text-md border border-zinc-700 rounded-md bg-transparent opacity-50 cursor-wait'>
+            <span className='text-ellipsis text-nowrap overflow-hidden min-w-0'>
+              Initializing audio...
+            </span>
+            <Loader2
+              size={20}
+              className='text-zinc-400 flex-shrink-0 animate-spin'
             />
           </div>
         </div>
+      ) : (
+        outputDevices.length > 0 && (
+          <div>
+            <Select
+              options={[
+                ...(needsMediaStreamWorkaround
+                  ? [{ label: 'System Default', value: '' }]
+                  : []),
+                ...outputDevices.map(d => ({
+                  label: d.label,
+                  value: d.deviceId,
+                })),
+              ]}
+              value={selectedOutputDeviceId ?? ''}
+              heading='Output Device'
+              label='Select where you want to hear the sound.'
+              onChange={value =>
+                onOutputDeviceChange(value === '' ? null : String(value))
+              }
+            />
+          </div>
+        )
       )}
+
+      {/* Input Monitoring - when a device is selected */}
+      <div className='flex flex-col'>
+        <h3 className='text-base text-white font-semibold'>Input Monitoring</h3>
+        <p className='text-sm text-zinc-400 pb-2'>
+          Hear your instrument while playing.
+        </p>
+        <div className='flex items-center justify-between w-full px-4 py-3 border border-zinc-700 rounded-lg bg-transparent'>
+          <span className='text-base text-white'>Hear Yourself</span>
+          <ToggleSimple
+            label=''
+            isChecked={isMonitoring}
+            onChange={onMonitoringChange}
+            ariaLabel='Hear yourself'
+            disabled={isConnecting || !selectedDeviceId}
+          />
+        </div>
+      </div>
     </div>
   );
 };

@@ -6,7 +6,7 @@ import { Pause } from '../ui/Pause';
 import { CircularLoader } from '../ui/CircularLoader';
 
 const SlimPlayerFC: React.FC<T3kSlimPlayerProps> = ({
-  onPlay,
+  onPlayDemo,
   id,
   getData,
   size = 40,
@@ -18,7 +18,7 @@ const SlimPlayerFC: React.FC<T3kSlimPlayerProps> = ({
     loadAudio,
     syncEngineSettings,
     setPlaying,
-    stopPlayInput,
+    stopLiveInput,
   } = useT3kPlayerContext();
 
   const [isLoading, setIsLoading] = useState(false);
@@ -52,10 +52,10 @@ const SlimPlayerFC: React.FC<T3kSlimPlayerProps> = ({
   const togglePlay = useCallback(async () => {
     if (!id) return;
 
-    // Stop play input if engine is in play mode
+    // Stop live input if engine is in live mode
     const { mediaStream } = getAudioNodes();
     if (mediaStream?.active) {
-      stopPlayInput();
+      stopLiveInput();
     }
 
     setIsLoading(true);
@@ -88,7 +88,7 @@ const SlimPlayerFC: React.FC<T3kSlimPlayerProps> = ({
 
         setPlaying(true, id);
 
-        onPlay?.({ model, ir, input });
+        onPlayDemo?.({ model, ir, input });
       }
     } catch (error) {
       console.error('Error in togglePlay:', error);
@@ -99,7 +99,7 @@ const SlimPlayerFC: React.FC<T3kSlimPlayerProps> = ({
   }, [
     id,
     getAudioNodes,
-    stopPlayInput,
+    stopLiveInput,
     getDataCached,
     audioState.initState,
     audioState.audioUrl,
@@ -108,7 +108,7 @@ const SlimPlayerFC: React.FC<T3kSlimPlayerProps> = ({
     loadAudio,
     syncEngineSettings,
     setPlaying,
-    onPlay,
+    onPlayDemo,
   ]);
 
   return (

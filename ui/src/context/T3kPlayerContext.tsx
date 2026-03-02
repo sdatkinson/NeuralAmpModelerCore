@@ -18,7 +18,6 @@ import {
   AudioInputDeviceState,
   AudioOutputDeviceState,
   ChannelSelection,
-  SettingsSnapshot,
   SettingsDialogState,
   SourceMode,
   Model,
@@ -30,9 +29,8 @@ import {
 } from '../types';
 import { dbToLinear } from '../utils/metering';
 import {
-  cleanupPlayInputNodes,
-  cleanupOutputWorkaroundRouting,
-  teardownPlayInput,
+  cleanupLiveInputNodes,
+  teardownLiveInput,
   applyOutputDeviceRouting,
 } from '../utils/audioNodes';
 import { useAudioDevicesAndPermissions } from '../hooks/useAudioDevicesAndPermissions';
@@ -87,17 +85,17 @@ interface T3kPlayerContextType {
   }) => Promise<void>;
 
   // Input mode actions
-  startPlayInput: (
+  startLiveInput: (
     deviceId?: string,
     options?: {
       initialChannel?: ChannelSelection;
       initialChannelGains?: Record<ChannelSelection, number>;
     }
   ) => Promise<void>;
-  reconnectPlayInput: () => Promise<void>;
-  stopPlayInput: () => void;
-  selectPlayInputChannel: (channel: ChannelSelection) => void;
-  setPlayInputGain: (gainDb: number) => void;
+  reconnectLiveInput: () => Promise<void>;
+  stopLiveInput: () => void;
+  selectLiveInputChannel: (channel: ChannelSelection) => void;
+  setLiveInputGain: (gainDb: number) => void;
 
   // Playback control
   setPlaying: {
@@ -125,8 +123,9 @@ interface T3kPlayerContextType {
     playerId?: string;
     selectedModel: Model;
     selectedIr: IR;
+    onMonitoringChange: (enabled: boolean) => void | Promise<void>;
   }) => void;
-  closeSettingsDialog: (options: { saved: boolean }) => void;
+  closeSettingsDialog: () => void;
 }
 
 // Context
@@ -148,25 +147,17 @@ export function T3kPlayerContextProvider({
     irUrl: null,
     audioUrl: null,
     inputMode: { type: 'demo' },
-    playInputConfig: null,
+    liveInputConfig: null,
   });
 
-  // Global source mode (demo vs play) — shared by all players
+  // Global source mode (demo vs live) — shared by all players
   const [sourceMode, setSourceMode] = useState<SourceMode>('demo');
 
   // Settings dialog state (global, single instance)
   const [settingsDialog, setSettingsDialog] = useState<SettingsDialogState>({
     isOpen: false,
     sourceMode: 'demo',
-    snapshot: null,
-    hadExistingConfig: false,
-  });
-  const settingsSnapshotRef = useRef<{
-    snapshot: SettingsSnapshot | null;
-    hadExistingConfig: boolean;
-  }>({
-    snapshot: null,
-    hadExistingConfig: false,
+    onMonitoringChange: () => {},
   });
 
   // Refs for non-render-triggering data
@@ -198,26 +189,26 @@ export function T3kPlayerContextProvider({
     refreshAudioInputDevices,
     refreshAudioOutputDevices,
     setOutputDevice,
-    handlePlayInputUnavailable,
+    handleLiveInputUnavailable,
   } = useAudioDevicesAndPermissions({
     applyOutputRouting: useCallback(async (deviceId: string | null) => {
       const nodes = audioNodesRef.current;
       if (!nodes.audioContext || !nodes.outputMeterNode) return;
       await applyOutputDeviceRouting(nodes, deviceId);
     }, []),
-    teardownPlayInput: useCallback(() => {
-      teardownPlayInput(audioNodesRef.current, { muteOutput: false });
+    teardownLiveInput: useCallback(() => {
+      teardownLiveInput(audioNodesRef.current, { muteOutput: false });
     }, []),
-    onPlayInputLost: useCallback(() => {
+    onLiveInputLost: useCallback(() => {
       setAudioState(prev => ({
         ...prev,
         inputMode: { type: 'demo' },
-        playInputConfig: null,
+        liveInputConfig: null,
         isPlaying: false,
         activePlayerId: null,
       }));
     }, []),
-    playInputConfig: audioState.playInputConfig,
+    liveInputConfig: audioState.liveInputConfig,
   });
 
   /**
@@ -491,7 +482,7 @@ export function T3kPlayerContextProvider({
   // In normal usage, callers should ensure init() has completed before calling loadIr().
   // TODO: Consider removing polling and requiring callers to use isAudioReady() guard.
   const loadIr = useCallback(
-    async ({ url, wetAmount = 1, gainAmount = 1 }: IrConfig): Promise<void> => {
+    async ({ url, mix = 1, gain = 1 }: IrConfig): Promise<void> => {
       // Poll for audio nodes with timeout (defensive - see note above)
       const pollForNodes = async (): Promise<{
         audioContext: AudioContext;
@@ -525,30 +516,24 @@ export function T3kPlayerContextProvider({
       try {
         // Create or update gain nodes
         if (!nodes.irWetGain) {
-          nodes.irWetGain = new GainNode(audioContext, { gain: wetAmount });
+          nodes.irWetGain = new GainNode(audioContext, { gain: mix });
         } else {
-          nodes.irWetGain.gain.setValueAtTime(
-            wetAmount,
-            audioContext.currentTime
-          );
+          nodes.irWetGain.gain.setValueAtTime(mix, audioContext.currentTime);
         }
 
         if (!nodes.irDryGain) {
-          nodes.irDryGain = new GainNode(audioContext, { gain: 1 - wetAmount });
+          nodes.irDryGain = new GainNode(audioContext, { gain: 1 - mix });
         } else {
           nodes.irDryGain.gain.setValueAtTime(
-            1 - wetAmount,
+            1 - mix,
             audioContext.currentTime
           );
         }
 
         if (!nodes.irGain) {
-          nodes.irGain = new GainNode(audioContext, { gain: gainAmount });
+          nodes.irGain = new GainNode(audioContext, { gain });
         } else {
-          nodes.irGain.gain.setValueAtTime(
-            gainAmount,
-            audioContext.currentTime
-          );
+          nodes.irGain.gain.setValueAtTime(gain, audioContext.currentTime);
         }
 
         // Fetch and decode IR
@@ -703,8 +688,8 @@ export function T3kPlayerContextProvider({
         if (currentIrUrl !== config.ir.url) {
           await loadIr({
             url: config.ir.url,
-            wetAmount: config.ir.mix,
-            gainAmount: config.ir.gain,
+            mix: config.ir.mix,
+            gain: config.ir.gain,
           });
         }
       } else if (currentIrUrl) {
@@ -744,84 +729,10 @@ export function T3kPlayerContextProvider({
     [getAudioNodes]
   );
 
-  // Destructive cleanup - destroys the audio context and audio nodes
-  // @TODO: We should probably remove this function as everything should be kept alive 
-  // for the entire duration of the session to allow for playback to be resumed later.
-  const destructiveCleanup = useCallback((): void => {
-    const nodes = getAudioNodes();
-    const { audioElement, audioContext } = nodes;
-
-    // Stop file playback
-    if (audioElement) {
-      audioElement.pause();
-      audioElement.currentTime = 0;
-      audioElement.remove();
-    }
-
-    // Clean up all play input nodes
-    cleanupPlayInputNodes(nodes);
-
-    cleanupOutputWorkaroundRouting(nodes);
-
-    removeIr();
-
-    // Disconnect all core audio nodes
-    const coreNodes: (AudioNode | null)[] = [
-      nodes.inputGainNode,
-      nodes.outputGainNode,
-      nodes.bypassNode,
-      nodes.inputMeterNode,
-      nodes.outputMeterNode,
-      nodes.sourceNode,
-      nodes.audioWorkletNode,
-    ];
-    for (const node of coreNodes) {
-      try {
-        node?.disconnect();
-      } catch {
-        /* already disconnected */
-      }
-    }
-
-    // Close AudioContext
-    if (audioContext && audioContext.state !== 'closed') {
-      audioContext.close();
-    }
-
-    // Null out all node references
-    nodes.audioContext = null;
-    nodes.audioElement = null;
-    nodes.audioWorkletNode = null;
-    nodes.inputGainNode = null;
-    nodes.outputGainNode = null;
-    nodes.bypassNode = null;
-    nodes.sourceNode = null;
-    nodes.inputMeterNode = null;
-    nodes.outputMeterNode = null;
-    nodes.irNode = null;
-    nodes.irWetGain = null;
-    nodes.irDryGain = null;
-    nodes.irGain = null;
-
-    isInitializedRef.current = false;
-
-    setAudioState(prev => ({
-      ...prev,
-      initState: 'uninitialized',
-      isPlaying: false,
-      activePlayerId: null,
-      modelUrl: null,
-      audioUrl: null,
-      isBypassed: false,
-      inputMode: { type: 'demo' },
-      playInputConfig: null,
-    }));
-  }, [getAudioNodes, removeIr]);
-
   // Start play audio input from microphone/audio interface
   // Optional initialChannel and initialChannelGains allow restoring a previous configuration
-  // without needing to call selectPlayInputChannel separately (which would have stale closure issues)
-  const startPlayInput = useCallback(
+  // without needing to call selectLiveInputChannel separately (which would have stale closure issues)
+  const startLiveInput = useCallback(
     async (
       deviceId?: string,
       options?: {
@@ -865,8 +776,8 @@ export function T3kPlayerContextProvider({
       }));
 
       try {
-        // Clean up any existing play input nodes before setting up new ones
-        cleanupPlayInputNodes(nodes);
+        // Clean up any existing live input nodes before setting up new ones
+        cleanupLiveInputNodes(nodes);
 
         // Request microphone/audio interface access with settings optimized for instruments
         const baseAudioConstraints: MediaTrackConstraints = {
@@ -918,18 +829,18 @@ export function T3kPlayerContextProvider({
         // but may not fire the Permissions API 'change' event.
         track.addEventListener('ended', () => {
           console.warn('Audio track ended unexpectedly');
-          handlePlayInputUnavailable('device-disconnected');
+          handleLiveInputUnavailable('device-disconnected');
         });
 
-        // Create source node from the play stream
-        const playSource = audioContext.createMediaStreamSource(stream);
-        nodes.playSourceNode = playSource;
+        // Create source node from the live stream
+        const liveSource = audioContext.createMediaStreamSource(stream);
+        nodes.liveSourceNode = liveSource;
 
         // Disconnect file source from inputGainNode
         sourceNode?.disconnect();
 
-        // Create dedicated gain node for play input (applied before channel splitting)
-        nodes.playInputGainNode = new GainNode(audioContext, { gain: 1 });
+        // Create dedicated gain node for live input (applied before channel splitting)
+        nodes.liveInputGainNode = new GainNode(audioContext, { gain: 1 });
 
         // Create channel splitter for multi-channel input
         nodes.channelSplitterNode = audioContext.createChannelSplitter(2);
@@ -937,18 +848,18 @@ export function T3kPlayerContextProvider({
 
         // Create per-channel meters (post-gain, since gain is applied before splitting)
         const meterConfig = { fftSize: 2048 };
-        nodes.channel0PlayMeter = new AnalyserNode(audioContext, meterConfig);
-        nodes.channel1PlayMeter = new AnalyserNode(audioContext, meterConfig);
+        nodes.channel0LiveMeter = new AnalyserNode(audioContext, meterConfig);
+        nodes.channel1LiveMeter = new AnalyserNode(audioContext, meterConfig);
 
-        // Connect: playSource → playInputGainNode → channelSplitter
+        // Connect: liveSource → liveInputGainNode → channelSplitter
         // This applies gain BEFORE channel splitting, so meters show post-gain levels
-        playSource.connect(nodes.playInputGainNode);
-        nodes.playInputGainNode.connect(nodes.channelSplitterNode);
+        liveSource.connect(nodes.liveInputGainNode);
+        nodes.liveInputGainNode.connect(nodes.channelSplitterNode);
 
         // Connect each channel to its meter (these are now post-gain)
-        nodes.channelSplitterNode.connect(nodes.channel0PlayMeter, 0);
+        nodes.channelSplitterNode.connect(nodes.channel0LiveMeter, 0);
         if (channelCount > 1) {
-          nodes.channelSplitterNode.connect(nodes.channel1PlayMeter, 1);
+          nodes.channelSplitterNode.connect(nodes.channel1LiveMeter, 1);
         }
 
         // Route selected channel to processing chain
@@ -963,15 +874,15 @@ export function T3kPlayerContextProvider({
         // Apply initial gain for the selected channel
         const initialGainDb = initialChannelGains[initialChannel] ?? 0;
         const initialLinearGain = dbToLinear(initialGainDb);
-        nodes.playInputGainNode.gain.setValueAtTime(
+        nodes.liveInputGainNode.gain.setValueAtTime(
           initialLinearGain,
           audioContext.currentTime
         );
 
         setAudioState(prev => ({
           ...prev,
-          inputMode: { type: 'play' },
-          playInputConfig: {
+          inputMode: { type: 'live' },
+          liveInputConfig: {
             deviceId: actualDeviceId,
             channelCount: channelCount,
             selectedChannel: initialChannel,
@@ -988,14 +899,14 @@ export function T3kPlayerContextProvider({
         const selectedOutputId = audioOutputDevices.selectedDeviceId;
         await applyOutputDeviceRouting(nodes, selectedOutputId);
       } catch (error) {
-        // Clean up any partially-created play input nodes
-        cleanupPlayInputNodes(nodes);
+        // Clean up any partially-created live input nodes
+        cleanupLiveInputNodes(nodes);
 
         setAudioState(prev => ({
           ...prev,
           inputMode: { type: 'demo' },
         }));
-        console.error('Error starting play input:', error);
+        console.error('Error starting live input:', error);
         throw error;
       }
     },
@@ -1003,26 +914,25 @@ export function T3kPlayerContextProvider({
       isAudioReady,
       getAudioNodes,
       audioOutputDevices.selectedDeviceId,
-      handlePlayInputUnavailable,
+      handleLiveInputUnavailable,
     ]
   );
 
-  // Reconnect play input using the saved playInputConfig.
-  // No-op if no config exists or play input is already active.
-  const reconnectPlayInput = useCallback(async (): Promise<void> => {
-    if (audioState.inputMode.type === 'play') return;
-    if (!audioState.playInputConfig) return;
-    await startPlayInput(audioState.playInputConfig.deviceId, {
-      initialChannel: audioState.playInputConfig.selectedChannel,
-      initialChannelGains: audioState.playInputConfig.channelGains,
+  // Reconnect live input using the saved liveInputConfig.
+  // No-op if no config exists or live input is already active.
+  const reconnectLiveInput = useCallback(async (): Promise<void> => {
+    if (audioState.inputMode.type === 'live') return;
+    if (!audioState.liveInputConfig) return;
+    await startLiveInput(audioState.liveInputConfig.deviceId, {
+      initialChannel: audioState.liveInputConfig.selectedChannel,
+      initialChannelGains: audioState.liveInputConfig.channelGains,
     });
-  }, [audioState.inputMode.type, audioState.playInputConfig, startPlayInput]);
+  }, [audioState.inputMode.type, audioState.liveInputConfig, startLiveInput]);
 
-  // Stop play audio input and prepare for demo mode takeover
-  // Note: This preserves playInputConfig so players can still see/use the configured device.
-  // Use clearPlayInputConfig() to fully disconnect and clear the saved configuration.
-  const stopPlayInput = useCallback((): void => {
-    teardownPlayInput(getAudioNodes(), { muteOutput: true });
+  // Stop live input and prepare for demo mode takeover
+  // Note: This preserves liveInputConfig so players can still see/use the configured device.
+  const stopLiveInput = useCallback((): void => {
+    teardownLiveInput(getAudioNodes(), { muteOutput: true });
 
     // Reset ownership - no player owns the audio engine until they press play
     setAudioState(prev => ({
@@ -1033,40 +943,19 @@ export function T3kPlayerContextProvider({
     }));
   }, [getAudioNodes]);
 
-  // Clear the saved play input configuration (used when user explicitly disconnects in settings)
-  // This stops play input if active AND clears the saved config so it won't auto-reconnect
-  const clearPlayInputConfig = (): void => {
-    const nodes = getAudioNodes();
-
-    // Stop play input if currently active
-    if (nodes.mediaStream) {
-      teardownPlayInput(nodes, { muteOutput: true });
-    }
-
-    // Clear both inputMode and playInputConfig
-    setAudioState(prev => ({
-      ...prev,
-      inputMode: { type: 'demo' },
-      playInputConfig: null,
-      isPlaying: false,
-      activePlayerId: null,
-    }));
-  };
-
-  // Select which channel to route from play input to processing
-  const selectPlayInputChannel = useCallback(
+  // Select which channel to route from live input to processing
+  const selectLiveInputChannel = useCallback(
     (channel: ChannelSelection): void => {
       const nodes = getAudioNodes();
       const {
         channelSplitterNode,
         channelMergerNode,
-        inputGainNode,
-        playInputGainNode,
+        liveInputGainNode,
         audioContext,
       } = nodes;
 
-      if (!channelSplitterNode || !channelMergerNode || !inputGainNode) {
-        console.warn('Cannot select channel: play input not active');
+      if (!channelSplitterNode || !channelMergerNode) {
+        console.warn('Cannot select channel: live input not active');
         return;
       }
 
@@ -1080,9 +969,9 @@ export function T3kPlayerContextProvider({
       channelSplitterNode.connect(channelMergerNode, newChannelIndex, 0);
 
       // Apply gain for the new channel (side effect outside state updater)
-      if (playInputGainNode && audioContext && audioState.playInputConfig) {
-        const gainDb = audioState.playInputConfig.channelGains?.[channel] ?? 0;
-        playInputGainNode.gain.setTargetAtTime(
+      if (liveInputGainNode && audioContext && audioState.liveInputConfig) {
+        const gainDb = audioState.liveInputConfig.channelGains?.[channel] ?? 0;
+        liveInputGainNode.gain.setTargetAtTime(
           dbToLinear(gainDb),
           audioContext.currentTime,
           0.02
@@ -1091,45 +980,45 @@ export function T3kPlayerContextProvider({
 
       // Pure state update
       setAudioState(prev => {
-        if (!prev.playInputConfig) return prev;
+        if (!prev.liveInputConfig) return prev;
         return {
           ...prev,
-          playInputConfig: {
-            ...prev.playInputConfig,
+          liveInputConfig: {
+            ...prev.liveInputConfig,
             selectedChannel: channel,
           },
         };
       });
     },
-    [getAudioNodes, audioState.playInputConfig]
+    [getAudioNodes, audioState.liveInputConfig]
   );
 
-  // Set play input gain for the currently selected channel (persists to playInputConfig)
-  const setPlayInputGain = useCallback(
+  // Set live input gain for the currently selected channel (persists to liveInputConfig)
+  const setLiveInputGain = useCallback(
     (gainDb: number): void => {
       const nodes = getAudioNodes();
-      const { playInputGainNode, audioContext } = nodes;
+      const { liveInputGainNode, audioContext } = nodes;
 
-      // Apply gain to the play input gain node (before channel splitting)
-      if (playInputGainNode && audioContext) {
+      // Apply gain to the live input gain node (before channel splitting)
+      if (liveInputGainNode && audioContext) {
         const linearGain = dbToLinear(gainDb);
-        playInputGainNode.gain.setTargetAtTime(
+        liveInputGainNode.gain.setTargetAtTime(
           linearGain,
           audioContext.currentTime,
           0.02 // 20ms smoothing
         );
       }
 
-      // Persist to playInputConfig for the currently selected channel
+      // Persist to liveInputConfig for the currently selected channel
       setAudioState(prev => {
-        if (!prev.playInputConfig) return prev;
-        const selectedChannel = prev.playInputConfig.selectedChannel ?? 'first';
+        if (!prev.liveInputConfig) return prev;
+        const selectedChannel = prev.liveInputConfig.selectedChannel ?? 'first';
         return {
           ...prev,
-          playInputConfig: {
-            ...prev.playInputConfig,
+          liveInputConfig: {
+            ...prev.liveInputConfig,
             channelGains: {
-              ...prev.playInputConfig.channelGains,
+              ...prev.liveInputConfig.channelGains,
               [selectedChannel]: gainDb,
             },
           },
@@ -1139,55 +1028,33 @@ export function T3kPlayerContextProvider({
     [getAudioNodes]
   );
 
-  // Open the global settings dialog with a snapshot of current state
+  // Open the global settings dialog
   const openSettingsDialog = useCallback(
     (config: {
       playerId?: string;
       selectedModel: Model;
       selectedIr: IR;
+      onMonitoringChange: (enabled: boolean) => void | Promise<void>;
     }): void => {
-      const hadExistingConfig = audioState.playInputConfig !== null;
-      const snapshot: SettingsSnapshot = {
-        outputDeviceId: audioOutputDevices.selectedDeviceId,
-        inputMode: { ...audioState.inputMode },
-        playInputConfig: audioState.playInputConfig
-          ? { ...audioState.playInputConfig }
-          : null,
-        isPlaying: audioState.isPlaying,
-        isBypassed: audioState.isBypassed,
-        activePlayerId: audioState.activePlayerId,
-      };
-
-      settingsSnapshotRef.current = { snapshot, hadExistingConfig };
-
       setSettingsDialog({
         isOpen: true,
         sourceMode,
         playerId: config.playerId,
         selectedModel: config.selectedModel,
         selectedIr: config.selectedIr,
-        snapshot,
-        hadExistingConfig,
+        onMonitoringChange: config.onMonitoringChange,
       });
     },
-    [
-      sourceMode,
-      audioState.playInputConfig,
-      audioState.inputMode,
-      audioState.isPlaying,
-      audioState.isBypassed,
-      audioState.activePlayerId,
-      audioOutputDevices.selectedDeviceId,
-    ]
+    [sourceMode]
   );
 
-  // Set playing state (controls audioElement in demo mode, outputGainNode in play mode)
-  // playerId identifies which player is taking control (required when playing=true)
+  // Set playing state (controls audioElement in demo mode, outputGainNode in live mode)
+  // playerId identifies which player is taking control (required when shouldPlay=true)
   const setPlaying = useCallback(
-    (playing: boolean, playerId?: string): void => {
+    (shouldPlay: boolean, playerId?: string): void => {
       // Guard: require initialization when starting playback
       // (stopping is always allowed to handle edge cases)
-      if (playing && !isAudioReady()) {
+      if (shouldPlay && !isAudioReady()) {
         console.warn('Cannot start playback: audio not initialized');
         return;
       }
@@ -1196,14 +1063,14 @@ export function T3kPlayerContextProvider({
       const { audioElement, outputGainNode, audioContext, mediaStream } = nodes;
 
       // Check actual node state, not React state (which can be stale due to async updates)
-      const isActuallyPlayMode = mediaStream !== null && mediaStream.active;
+      const isActuallyLiveMode = mediaStream !== null && mediaStream.active;
 
       // Update audio nodes based on actual input mode
-      if (isActuallyPlayMode) {
-        // Play mode: control output gain only (no audio element involved)
+      if (isActuallyLiveMode) {
+        // Live mode: control output gain only (no audio element involved)
         if (outputGainNode && audioContext) {
           // Resume context if suspended
-          if (playing && audioContext.state === 'suspended') {
+          if (shouldPlay && audioContext.state === 'suspended') {
             audioContext.resume().catch(error => {
               console.error('Failed to resume audio context:', error);
               setAudioState(prev => ({
@@ -1214,7 +1081,7 @@ export function T3kPlayerContextProvider({
             });
           }
           outputGainNode.gain.setTargetAtTime(
-            playing ? 1 : 0,
+            shouldPlay ? 1 : 0,
             audioContext.currentTime,
             0.01 // 10ms for quick response
           );
@@ -1222,7 +1089,7 @@ export function T3kPlayerContextProvider({
       } else {
         // Demo mode: control audio element playback
         if (audioElement) {
-          if (playing) {
+          if (shouldPlay) {
             audioContext?.resume().catch(error => {
               console.error('Failed to resume audio context:', error);
             });
@@ -1241,7 +1108,7 @@ export function T3kPlayerContextProvider({
         // Also set output gain for demo mode
         if (outputGainNode && audioContext) {
           outputGainNode.gain.setTargetAtTime(
-            playing ? 1 : 0,
+            shouldPlay ? 1 : 0,
             audioContext.currentTime,
             0.01
           );
@@ -1250,22 +1117,23 @@ export function T3kPlayerContextProvider({
 
       setAudioState(prev => ({
         ...prev,
-        isPlaying: playing,
-        activePlayerId: playing ? (playerId ?? prev.activePlayerId) : null,
+        isPlaying: shouldPlay,
+        activePlayerId: shouldPlay ? (playerId ?? prev.activePlayerId) : null,
       }));
     },
     [isAudioReady, getAudioNodes, audioState.inputMode.type]
   );
 
-
   // Cleanup without destroying audio
-  // This should keep the audio context alive and the audio nodes in place, 
+  // This should keep the audio context alive and the audio nodes in place,
   // but reset the states and stop playback.
   const cleanup = useCallback((): void => {
-    setPlaying(false); // stop playback for demo or play mode
+    setPlaying(false); // stop playback for demo or live mode
     // also reset the audio element current time to the start of the audio
     const { audioElement } = getAudioNodes();
-    if (audioElement) { audioElement.currentTime = 0; }
+    if (audioElement) {
+      audioElement.currentTime = 0;
+    }
 
     // remove the ir from the engine
     removeIr();
@@ -1279,57 +1147,10 @@ export function T3kPlayerContextProvider({
     }));
   }, [getAudioNodes, removeIr, setPlaying]);
 
-  // Close the global settings dialog, restoring snapshot on cancel
-  const closeSettingsDialog = useCallback(
-    async (options: { saved: boolean }): Promise<void> => {
-      const { snapshot, hadExistingConfig } = settingsSnapshotRef.current;
-
-      if (!options.saved && snapshot) {
-        // If we opened without a play config but one was created, clear it
-        if (!hadExistingConfig && audioState.playInputConfig !== null) {
-          clearPlayInputConfig();
-        } else if (hadExistingConfig && snapshot.playInputConfig) {
-          // Only reconnect play input if it was actually active (not just configured)
-          if (snapshot.inputMode.type === 'play') {
-            await startPlayInput(snapshot.playInputConfig.deviceId, {
-              initialChannel: snapshot.playInputConfig.selectedChannel,
-              initialChannelGains: snapshot.playInputConfig.channelGains,
-            });
-
-            // Restore playback and bypass state
-            if (snapshot.isPlaying && snapshot.activePlayerId) {
-              setPlaying(true, snapshot.activePlayerId);
-            } else {
-              setPlaying(false);
-            }
-            setBypass(snapshot.isBypassed);
-          } else {
-            // Was in demo mode — just restore the config without connecting
-            setAudioState(prev => ({
-              ...prev,
-              playInputConfig: snapshot.playInputConfig,
-            }));
-          }
-        }
-
-        // Restore output device
-        await setOutputDevice(snapshot.outputDeviceId);
-      }
-
-      setSettingsDialog(prev => ({
-        ...prev,
-        isOpen: false,
-        snapshot: null,
-      }));
-    },
-    [
-      audioState.playInputConfig,
-      startPlayInput,
-      setPlaying,
-      setOutputDevice,
-      setBypass,
-    ]
-  );
+  // Close the global settings dialog (keeps whatever the user has set)
+  const closeSettingsDialog = useCallback((): void => {
+    setSettingsDialog(prev => ({ ...prev, isOpen: false }));
+  }, []);
 
   // Full teardown on provider unmount (handles HMR/routing teardown)
   useEffect(() => {
@@ -1363,11 +1184,11 @@ export function T3kPlayerContextProvider({
       syncEngineSettings,
       cleanup,
       connectVisualizerNode,
-      startPlayInput,
-      reconnectPlayInput,
-      stopPlayInput,
-      selectPlayInputChannel,
-      setPlayInputGain,
+      startLiveInput,
+      reconnectLiveInput,
+      stopLiveInput,
+      selectLiveInputChannel,
+      setLiveInputGain,
       setOutputDevice,
       setPlaying,
       setSourceMode,
@@ -1395,11 +1216,11 @@ export function T3kPlayerContextProvider({
       syncEngineSettings,
       cleanup,
       connectVisualizerNode,
-      startPlayInput,
-      reconnectPlayInput,
-      stopPlayInput,
-      selectPlayInputChannel,
-      setPlayInputGain,
+      startLiveInput,
+      reconnectLiveInput,
+      stopLiveInput,
+      selectLiveInputChannel,
+      setLiveInputGain,
       setOutputDevice,
       setPlaying,
       setSourceMode,
@@ -1431,7 +1252,7 @@ function createNoopContext(): T3kPlayerContextType {
       irUrl: null,
       audioUrl: null,
       inputMode: { type: 'demo' },
-      playInputConfig: null,
+      liveInputConfig: null,
     },
     sourceMode: 'demo',
     microphonePermission: { status: 'idle', error: null },
@@ -1453,11 +1274,11 @@ function createNoopContext(): T3kPlayerContextType {
     syncEngineSettings: async () => {},
     cleanup: () => {},
     connectVisualizerNode: () => () => {},
-    startPlayInput: async () => {},
-    reconnectPlayInput: async () => {},
-    stopPlayInput: () => {},
-    selectPlayInputChannel: () => {},
-    setPlayInputGain: () => {},
+    startLiveInput: async () => {},
+    reconnectLiveInput: async () => {},
+    stopLiveInput: () => {},
+    selectLiveInputChannel: () => {},
+    setLiveInputGain: () => {},
     setOutputDevice: async () => {},
     setPlaying: (() => {}) as T3kPlayerContextType['setPlaying'],
     setSourceMode: () => {},
@@ -1470,8 +1291,7 @@ function createNoopContext(): T3kPlayerContextType {
     settingsDialog: {
       isOpen: false,
       sourceMode: 'demo',
-      snapshot: null,
-      hadExistingConfig: false,
+      onMonitoringChange: () => {},
     },
     openSettingsDialog: () => {},
     closeSettingsDialog: () => {},

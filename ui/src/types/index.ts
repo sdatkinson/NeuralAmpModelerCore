@@ -25,8 +25,8 @@ export enum PREVIEW_MODE {
   IR = 'ir',
 }
 
-// Source mode for players: 'demo' uses file playback, 'play' uses direct input
-export type SourceMode = 'demo' | 'play';
+// Source mode for players: 'demo' uses file playback, 'live' uses direct input
+export type SourceMode = 'demo' | 'live';
 
 // Channel selection for multi-channel audio interfaces
 export type ChannelSelection = 'first' | 'second';
@@ -35,11 +35,11 @@ export type ChannelSelection = 'first' | 'second';
 export type InputMode =
   | { type: 'demo' }
   | { type: 'connecting' }
-  | { type: 'play' };
+  | { type: 'live' };
 
-// Configured play input settings (persists even when demo is active)
+// Configured live input settings (persists even when demo is active)
 // This allows the UI to show the configured device even when file playback is active
-export interface PlayInputConfig {
+export interface LiveInputConfig {
   deviceId: string;
   channelCount: number;
   selectedChannel: ChannelSelection;
@@ -56,16 +56,6 @@ export interface AudioOutputDevice {
   label: string;
 }
 
-// Snapshot of settings for restore on dialog cancel
-export interface SettingsSnapshot {
-  outputDeviceId: string | null;
-  inputMode: InputMode;
-  playInputConfig: PlayInputConfig | null;
-  isPlaying: boolean;
-  isBypassed: boolean;
-  activePlayerId: string | null;
-}
-
 // State of the global settings dialog (managed by context)
 export interface SettingsDialogState {
   isOpen: boolean;
@@ -73,8 +63,7 @@ export interface SettingsDialogState {
   playerId?: string;
   selectedModel?: Model;
   selectedIr?: IR;
-  snapshot: SettingsSnapshot | null;
-  hadExistingConfig: boolean;
+  onMonitoringChange: (enabled: boolean) => void | Promise<void>;
 }
 
 // Microphone permission state (permission concerns only)
@@ -124,9 +113,9 @@ export interface AudioNodes {
   irDryGain: GainNode | null;
   irGain: GainNode | null;
   sourceNode: MediaElementAudioSourceNode | null;
-  // Play input nodes
-  playSourceNode: MediaStreamAudioSourceNode | null;
-  playInputGainNode: GainNode | null;
+  // Live input nodes
+  liveSourceNode: MediaStreamAudioSourceNode | null;
+  liveInputGainNode: GainNode | null;
   mediaStream: MediaStream | null;
   // Metering nodes
   inputMeterNode: AnalyserNode | null;
@@ -134,8 +123,8 @@ export interface AudioNodes {
   // Channel selection (for multi-channel interfaces)
   channelSplitterNode: ChannelSplitterNode | null;
   channelMergerNode: ChannelMergerNode | null;
-  channel0PlayMeter: AnalyserNode | null;
-  channel1PlayMeter: AnalyserNode | null;
+  channel0LiveMeter: AnalyserNode | null;
+  channel1LiveMeter: AnalyserNode | null;
   // Output device routing workaround (Firefox/Safari don't support AudioContext.setSinkId)
   outputWorkaroundDestination: MediaStreamAudioDestinationNode | null;
   outputWorkaroundElement: HTMLAudioElement | null;
@@ -146,7 +135,7 @@ export type AudioInitState = 'uninitialized' | 'initializing' | 'ready';
 
 export interface AudioState {
   initState: AudioInitState;
-  isPlaying: boolean; // Whether audio is playing (demo) or monitoring (play)
+  isPlaying: boolean; // Whether audio is playing (demo) or monitoring (live)
   activePlayerId: string | null; // Which player is currently controlling playback
   isBypassed: boolean;
   modelUrl: string | null;
@@ -154,15 +143,15 @@ export interface AudioState {
   audioUrl: string | null;
   // What audio source is currently active (connected to audio engine)
   inputMode: InputMode;
-  // Configured play input settings (persists even when demo is active)
+  // Configured live input settings (persists even when demo is active)
   // This allows UI to show configured device while another player uses file playback
-  playInputConfig: PlayInputConfig | null;
+  liveInputConfig: LiveInputConfig | null;
 }
 
 export interface IrConfig {
   url: string;
-  wetAmount?: number;
-  gainAmount?: number;
+  mix?: number;
+  gain?: number;
 }
 
 // Default initial value for AudioNodes ref (all null)
@@ -178,15 +167,15 @@ export const EMPTY_AUDIO_NODES: AudioNodes = {
   irDryGain: null,
   irGain: null,
   sourceNode: null,
-  playSourceNode: null,
-  playInputGainNode: null,
+  liveSourceNode: null,
+  liveInputGainNode: null,
   mediaStream: null,
   inputMeterNode: null,
   outputMeterNode: null,
   channelSplitterNode: null,
   channelMergerNode: null,
-  channel0PlayMeter: null,
-  channel1PlayMeter: null,
+  channel0LiveMeter: null,
+  channel1LiveMeter: null,
   outputWorkaroundDestination: null,
   outputWorkaroundElement: null,
 };
@@ -200,7 +189,7 @@ export interface T3kPlayerProps {
   inputs?: NonEmptyArray<Input>;
   isLoading?: boolean;
   previewMode?: PREVIEW_MODE;
-  onPlay?: ({
+  onPlayDemo?: ({
     model,
     ir,
     input,
@@ -208,6 +197,15 @@ export interface T3kPlayerProps {
     model: Model;
     ir: IR;
     input: Input;
+  }) => void;
+  onPlayLive?: ({
+    model,
+    ir,
+    device,
+  }: {
+    model: Model;
+    ir: IR;
+    device: string | null;
   }) => void;
   onModelChange?: (model: Model) => void;
   onInputChange?: (input: Input) => void;

@@ -15,7 +15,7 @@ import { usePlayerCore } from '../../hooks/usePlayerCore';
 import { PlayerSettings } from './PlayerSettings';
 import { getDefault } from '../../utils/player';
 import { DemoPlaybar } from '../ui/DemoPlaybar';
-import { PlayPlaybar } from '../ui/PlayPlaybar';
+import { LivePlaybar } from '../ui/LivePlaybar';
 
 const PlayerFC: React.FC<T3kAcordianPlayerProps> = ({
   getData = async () => ({
@@ -24,7 +24,8 @@ const PlayerFC: React.FC<T3kAcordianPlayerProps> = ({
     inputs: DEFAULT_INPUTS,
   }),
   previewMode,
-  onPlay,
+  onPlayDemo,
+  onPlayLive,
   onModelChange,
   onInputChange,
   onIrChange,
@@ -57,7 +58,8 @@ const PlayerFC: React.FC<T3kAcordianPlayerProps> = ({
     irs,
     inputs,
     resolveData,
-    onPlay,
+    onPlayDemo,
+    onPlayLive,
     onModelChange,
     onInputChange,
     onIrChange,
@@ -89,11 +91,11 @@ const PlayerFC: React.FC<T3kAcordianPlayerProps> = ({
               infoSlot={infoSlot}
             />
           ) : (
-            <PlayPlaybar
+            <LivePlaybar
               togglePlay={core.togglePlay}
               isThisPlayerActive={core.isThisPlayerActive}
               sourceMode={core.sourceMode}
-              isPlayConfigured={core.isPlayConfigured}
+              isLiveConfigured={core.isLiveConfigured}
               canvasWrapperRef={core.canvasWrapperRef}
               visualizerRef={core.visualizerRef}
               infoSlot={infoSlot}
@@ -114,7 +116,7 @@ const PlayerFC: React.FC<T3kAcordianPlayerProps> = ({
         {expanded && (
           <>
             <div className='flex flex-col gap-6'>
-              {/* Toggle between demo and play */}
+              {/* Toggle between demo and live */}
               <Tabs
                 tabs={SOURCE_MODE_OPTIONS.map(o => (
                   <div className='flex gap-2 items-center'>
@@ -123,7 +125,7 @@ const PlayerFC: React.FC<T3kAcordianPlayerProps> = ({
                     ) : (
                       <PlayIcon size={20} />
                     )}
-                    <span>{o.label}</span>
+                    <span>{o.label === 'Live' ? 'Play' : o.label}</span>
                   </div>
                 ))}
                 activeTab={SOURCE_MODE_OPTIONS.findIndex(
@@ -150,9 +152,9 @@ const PlayerFC: React.FC<T3kAcordianPlayerProps> = ({
                 onModelChange={core.handleModelChange}
                 onIrChange={core.handleIrChange}
                 onInputChange={core.handleInputChange}
-                isPlayConfigured={core.isPlayConfigured}
+                isLiveConfigured={core.isLiveConfigured}
                 currentDeviceId={core.currentDeviceId}
-                playDeviceOptions={core.playDeviceOptions}
+                liveDeviceOptions={core.liveDeviceOptions}
                 inputModeType={core.inputModeType}
                 audioInputError={core.audioInputDevices.error}
                 isThisPlayerActive={core.isThisPlayerActive}

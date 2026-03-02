@@ -74,13 +74,20 @@ export const useModule = (): (() => Promise<ModuleType>) => {
           //   mainScriptUrlOrBlob: !!Module.mainScriptUrlOrBlob
           // }));
 
-          if (Module._malloc && Module.stringToUTF8 && Module.ccall) {
+          // Require runtime to be initialized - _malloc needs wasmMemory/HEAP8
+          // which are undefined until runtimeInitialized is true
+          const hasRequiredFunctions =
+            Module._malloc && Module.stringToUTF8 && Module.ccall;
+          const runtimeReady =
+            Module.runtimeInitialized === true || !!Module.wasmMemory;
+
+          if (hasRequiredFunctions && runtimeReady) {
             // console.log('WASM Module loaded with required functions');
             resolve(Module);
             clearInterval(interval);
           } else {
             console.log(
-              'Module missing functions - ' +
+              'Module not ready - ' +
                 JSON.stringify({
                   malloc: !!Module._malloc,
                   stringToUTF8: !!Module.stringToUTF8,

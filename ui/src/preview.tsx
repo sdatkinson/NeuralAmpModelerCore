@@ -21,12 +21,13 @@ const PreviewContent: React.FC = () => {
                 ir: DEFAULT_IRS[1],
                 input: DEFAULT_INPUTS[0],
               })}
-              onPlay={({ model, input, ir }) =>
+              onPlayDemo={({ model, input, ir }) =>
                 console.log('slim play', { model, input, ir })
               }
             />
             <span className='text-sm text-zinc-400'>
-              Slim Player - {DEFAULT_MODELS[0].name} - {DEFAULT_INPUTS[0].name} - {DEFAULT_IRS[1].name}
+              Slim Player - {DEFAULT_MODELS[0].name} - {DEFAULT_INPUTS[0].name}{' '}
+              - {DEFAULT_IRS[1].name}
             </span>
           </div>
           <T3kPlayer
@@ -36,8 +37,11 @@ const PreviewContent: React.FC = () => {
             onModelChange={model => console.log('model changed', model)}
             onInputChange={input => console.log('input changed', input)}
             onIrChange={ir => console.log('ir changed', ir)}
-            onPlay={({ model, input, ir }) =>
+            onPlayDemo={({ model, input, ir }) =>
               console.log('play', { model, input, ir })
+            }
+            onPlayLive={({ model, ir, device }) =>
+              console.log('play live', { model, ir, device })
             }
           />
           <T3kAcordianPlayer
@@ -46,8 +50,11 @@ const PreviewContent: React.FC = () => {
             onModelChange={model => console.log('model changed', model)}
             onInputChange={input => console.log('input changed', input)}
             onIrChange={ir => console.log('ir changed', ir)}
-            onPlay={({ model, input, ir }) =>
+            onPlayDemo={({ model, input, ir }) =>
               console.log('play', { model, input, ir })
+            }
+            onPlayLive={({ model, ir, device }) =>
+              console.log('play live', { model, ir, device })
             }
             getData={async () => ({
               models: DEFAULT_MODELS,
@@ -61,8 +68,11 @@ const PreviewContent: React.FC = () => {
             onModelChange={model => console.log('model changed', model)}
             onInputChange={input => console.log('input changed', input)}
             onIrChange={ir => console.log('ir changed', ir)}
-            onPlay={({ model, input, ir }) =>
+            onPlayDemo={({ model, input, ir }) =>
               console.log('play', { model, input, ir })
+            }
+            onPlayLive={({ model, ir, device }) =>
+              console.log('play live', { model, ir, device })
             }
             getData={async () => ({
               models: DEFAULT_MODELS,
@@ -76,8 +86,11 @@ const PreviewContent: React.FC = () => {
             onModelChange={model => console.log('model changed', model)}
             onInputChange={input => console.log('input changed', input)}
             onIrChange={ir => console.log('ir changed', ir)}
-            onPlay={({ model, input, ir }) =>
+            onPlayDemo={({ model, input, ir }) =>
               console.log('play', { model, input, ir })
+            }
+            onPlayLive={({ model, ir, device }) =>
+              console.log('play live', { model, ir, device })
             }
             getData={async () => ({
               models: DEFAULT_MODELS,
@@ -91,8 +104,11 @@ const PreviewContent: React.FC = () => {
             onModelChange={model => console.log('model changed', model)}
             onInputChange={input => console.log('input changed', input)}
             onIrChange={ir => console.log('ir changed', ir)}
-            onPlay={({ model, input, ir }) =>
+            onPlayDemo={({ model, input, ir }) =>
               console.log('play', { model, input, ir })
+            }
+            onPlayLive={({ model, ir, device }) =>
+              console.log('play live', { model, ir, device })
             }
             getData={async () => ({
               models: DEFAULT_MODELS,

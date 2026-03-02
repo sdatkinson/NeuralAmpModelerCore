@@ -12,11 +12,11 @@ interface UseSourceModeReturn {
   sourceMode: SourceMode;
 
   // Derived (from context, shared by multiple consumers)
-  playDeviceOptions: Array<{ label: string; value: string }>;
+  liveDeviceOptions: Array<{ label: string; value: string }>;
 
   // Handlers
   handleSourceModeChange: (mode: SourceMode) => Promise<void>;
-  handlePlayDeviceChange: (deviceId: string) => Promise<void>;
+  handleLiveDeviceChange: (deviceId: string) => Promise<void>;
 }
 
 export function useSourceMode(
@@ -29,12 +29,12 @@ export function useSourceMode(
     audioInputDevices,
     sourceMode,
     setSourceMode,
-    startPlayInput,
-    reconnectPlayInput,
+    startLiveInput,
+    reconnectLiveInput,
     setPlaying,
   } = useT3kPlayerContext();
-  // Play device options for Select component (shared by multiple consumers)
-  const playDeviceOptions = useMemo(
+  // Live device options for Select component (shared by multiple consumers)
+  const liveDeviceOptions = useMemo(
     () =>
       audioInputDevices.devices.map(device => ({
         label: device.label,
@@ -43,22 +43,22 @@ export function useSourceMode(
     [audioInputDevices.devices]
   );
 
-  // Handle source mode change (Demo <-> Play)
+  // Handle source mode change (Demo <-> Live)
   const handleSourceModeChange = useCallback(
     async (newMode: SourceMode) => {
       if (newMode === sourceMode) return;
 
-      if (newMode === 'play') {
-        // Switching from Demo to Play
+      if (newMode === 'live') {
+        // Switching from Demo to Live
         if (audioState.isPlaying) {
           setPlaying(false);
         }
 
         // If play input is already active (another player started it), just switch mode
         // If not active but we have a config, reconnect using the saved config
-        await reconnectPlayInput();
+        await reconnectLiveInput();
       } else {
-        // Switching from Play to Demo
+        // Switching from Live to Demo
         // Stop this player's monitoring if it was active
         if (audioState.activePlayerId === playerId) {
           setPlaying(false);
@@ -74,25 +74,25 @@ export function useSourceMode(
       audioState.activePlayerId,
       playerId,
       setPlaying,
-      reconnectPlayInput,
+      reconnectLiveInput,
       onSourceModeChange,
     ]
   );
 
   // Handle device change
-  const handlePlayDeviceChange = useCallback(
+  const handleLiveDeviceChange = useCallback(
     async (deviceId: string) => {
-      if (deviceId !== audioState.playInputConfig?.deviceId) {
-        await startPlayInput(deviceId);
+      if (deviceId !== audioState.liveInputConfig?.deviceId) {
+        await startLiveInput(deviceId);
       }
     },
-    [audioState.playInputConfig?.deviceId, startPlayInput]
+    [audioState.liveInputConfig?.deviceId, startLiveInput]
   );
 
   return {
     sourceMode,
-    playDeviceOptions,
+    liveDeviceOptions,
     handleSourceModeChange,
-    handlePlayDeviceChange,
+    handleLiveDeviceChange,
   };
 }

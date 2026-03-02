@@ -10,28 +10,28 @@ const CANVAS_STYLE = {
   height: '130px',
 } as const;
 
-export interface PlayPlaybarProps {
+export interface LivePlaybarProps {
   togglePlay: () => Promise<void>;
   isThisPlayerActive: boolean;
   sourceMode: SourceMode;
-  isPlayConfigured: boolean;
+  isLiveConfigured: boolean;
   canvasWrapperRef: React.RefObject<HTMLDivElement>;
   visualizerRef: React.RefObject<HTMLCanvasElement>;
   infoSlot?: React.ReactNode;
   onOpenSettings: () => void;
 }
 
-export const PlayPlaybar: React.FC<PlayPlaybarProps> = ({
+export const LivePlaybar: React.FC<LivePlaybarProps> = ({
   togglePlay,
   isThisPlayerActive,
   sourceMode,
-  isPlayConfigured,
+  isLiveConfigured,
   canvasWrapperRef,
   visualizerRef,
   infoSlot,
   onOpenSettings,
 }) => {
-  const isMonitoring = isThisPlayerActive && sourceMode === 'play';
+  const isMonitoring = isThisPlayerActive && sourceMode === 'live';
   const { getAudioNodes, audioState } = useT3kPlayerContext();
   const nodes = getAudioNodes();
   const isReady = audioState.initState === 'ready';
@@ -40,11 +40,11 @@ export const PlayPlaybar: React.FC<PlayPlaybarProps> = ({
     <div className='flex items-center gap-4 overflow-hidden w-full'>
       <MonitorButton
         isMonitoring={isMonitoring}
-        onClick={!isPlayConfigured ? onOpenSettings : togglePlay}
+        onClick={togglePlay}
+        disabled={!isLiveConfigured}
         analyserNode={isMonitoring && isReady ? nodes.inputMeterNode : null}
         size={48}
       />
-
       <div ref={canvasWrapperRef} className='flex-1'>
         <canvas ref={visualizerRef} height={130} style={CANVAS_STYLE} />
       </div>

@@ -3,7 +3,7 @@ import { PREVIEW_MODE, SourceMode } from '../../types';
 import { Select } from '../ui/Select';
 import { ToggleSimple } from '../ui/ToggleSimple';
 import { Settings } from 'lucide-react';
-import { PlayLiveTakeover } from './PlayLiveTakeover';
+import { LiveTakeover } from './LiveTakeover';
 import { InputControls } from './InputControls';
 import { Alert } from '../ui/Alert';
 
@@ -28,9 +28,9 @@ interface PlayerSettingsProps {
   onIrChange: (value: string | number) => Promise<void>;
   onInputChange: (value: string | number) => Promise<void>;
 
-  isPlayConfigured: boolean;
+  isLiveConfigured: boolean;
   currentDeviceId: string | null;
-  playDeviceOptions: Array<{ label: string; value: string }>;
+  liveDeviceOptions: Array<{ label: string; value: string }>;
   inputModeType: string;
   audioInputError: string | null;
   isThisPlayerActive: boolean;
@@ -53,14 +53,14 @@ export const PlayerSettings: React.FC<PlayerSettingsProps> = ({
   onModelChange,
   onIrChange,
   onInputChange,
-  isPlayConfigured,
+  isLiveConfigured,
   currentDeviceId,
-  playDeviceOptions,
+  liveDeviceOptions,
   inputModeType,
   audioInputError,
   isThisPlayerActive,
 }) => {
-  const isMonitoring = isThisPlayerActive && sourceMode === 'play';
+  const isMonitoring = isThisPlayerActive && sourceMode === 'live';
   const isConnecting = inputModeType === 'connecting';
 
   const renderModelSelect = () => (
@@ -83,8 +83,8 @@ export const PlayerSettings: React.FC<PlayerSettingsProps> = ({
     />
   );
 
-  if (sourceMode === 'play' && !isPlayConfigured && !isConnecting) {
-    return <PlayLiveTakeover onConnect={onOpenSettings} />;
+  if (sourceMode === 'live' && !isLiveConfigured && !isConnecting) {
+    return <LiveTakeover onConnect={onOpenSettings} />;
   }
 
   return (
@@ -128,14 +128,14 @@ export const PlayerSettings: React.FC<PlayerSettingsProps> = ({
           />
         )}
 
-        {sourceMode === 'play' && isPlayConfigured && (
+        {sourceMode === 'live' && isLiveConfigured && (
           <div className='w-full'>
             <div className='flex flex-col gap-1 w-full'>
               <div className='flex items-center justify-between w-full'>
                 <span className='text-sm text-zinc-400'>
                   {isConnecting
                     ? 'Connecting...'
-                    : (playDeviceOptions?.find(
+                    : (liveDeviceOptions?.find(
                         option => option.value === currentDeviceId
                       )?.label ?? 'No device selected')}
                 </span>

@@ -1,5 +1,9 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
-import { calculateLevels, clamp, levelToLogDisplay } from '../../utils/metering';
+import {
+  calculateLevels,
+  clamp,
+  levelToLogDisplay,
+} from '../../utils/metering';
 
 export interface InputMeterProps {
   /** AnalyserNode to read levels from */

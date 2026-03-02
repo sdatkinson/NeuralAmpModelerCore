@@ -9,24 +9,24 @@ import { Model, IR, SourceMode } from '../../types';
 
 interface SettingsDialogProps {
   isOpen: boolean;
-  onSave: () => void;
-  onCancel: () => void;
+  onClose: () => void;
   sourceMode: SourceMode;
   selectedModel: Model;
   selectedIr: IR;
   playerId?: string;
+  onMonitoringChange: (enabled: boolean) => void | Promise<void>;
 }
 
 type SetupStep = 'permission' | 'device-select';
 
 export const SettingsDialog: React.FC<SettingsDialogProps> = ({
   isOpen,
-  onSave,
-  onCancel,
+  onClose,
   sourceMode,
   selectedModel,
   selectedIr,
   playerId,
+  onMonitoringChange,
 }) => {
   const {
     microphonePermission,
@@ -37,12 +37,9 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
     requestMicrophonePermission,
     refreshAudioInputDevices,
     refreshAudioOutputDevices,
-    startPlayInput,
-    reconnectPlayInput,
-    selectPlayInputChannel,
-    syncEngineSettings,
+    startLiveInput,
+    selectLiveInputChannel,
     setOutputDevice,
-    setPlaying,
     getAudioNodes,
   } = useT3kPlayerContext();
 
@@ -52,10 +49,10 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
   const [connectionError, setConnectionError] = useState<string | null>(null);
 
   // Derived from context (single source of truth)
-  const playInputConfig = audioState.playInputConfig;
-  const currentDeviceId = playInputConfig?.deviceId ?? null;
-  const currentChannel = playInputConfig?.selectedChannel ?? 'first';
-  const channelCount = playInputConfig?.channelCount ?? 1;
+  const liveInputConfig = audioState.liveInputConfig;
+  const currentDeviceId = liveInputConfig?.deviceId ?? null;
+  const currentChannel = liveInputConfig?.selectedChannel ?? 'first';
+  const channelCount = liveInputConfig?.channelCount ?? 1;
 
   const isDemoMode = sourceMode === 'demo';
 
@@ -68,15 +65,15 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
       ? 'permission'
       : step;
 
-  // Helper to ensure audio system is initialized before starting play input
-  const initAndStartPlayInput = useCallback(
+  // Helper to ensure audio system is initialized before starting live input
+  const initAndStartLiveInput = useCallback(
     async (deviceId: string) => {
       setConnectionError(null);
       try {
         if (audioState.initState !== 'ready') {
           await init();
         }
-        await startPlayInput(deviceId);
+        await startLiveInput(deviceId);
       } catch (error) {
         const message =
           error instanceof DOMException
@@ -85,7 +82,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
         setConnectionError(message);
       }
     },
-    [audioState.initState, init, startPlayInput]
+    [audioState.initState, init, startLiveInput]
   );
 
   // Imperative open handler — called once by Dialog's onOpen (ref-guarded against StrictMode)
@@ -112,7 +109,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
         });
       }
     } else if (microphonePermission.status === 'granted') {
-      // Play mode with permission: enumerate both input and output devices
+      // Live mode with permission: enumerate both input and output devices
       Promise.all([
         refreshAudioInputDevices(),
         refreshAudioOutputDevices(),
@@ -120,14 +117,14 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
         setIsInitializing(false);
         setStep('device-select');
 
-        // Auto-connect on first open in play mode (no device configured yet)
-        if (!audioState.playInputConfig && inputDevices.length > 0) {
+        // Auto-connect on first open in live mode (no device configured yet)
+        if (!audioState.liveInputConfig && inputDevices.length > 0) {
           const deviceToConnect = preferredDeviceId ?? inputDevices[0].deviceId;
-          initAndStartPlayInput(deviceToConnect);
+          initAndStartLiveInput(deviceToConnect);
         }
       });
     } else {
-      // Play mode without permission: show permission step
+      // Play-live mode without permission: show permission step
       setIsInitializing(false);
       setStep('permission');
     }
@@ -136,53 +133,14 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
     microphonePermission.status,
     refreshAudioInputDevices,
     refreshAudioOutputDevices,
-    audioState.playInputConfig,
-    initAndStartPlayInput,
+    audioState.liveInputConfig,
+    initAndStartLiveInput,
   ]);
 
   // Event handlers
   const handleDeviceChange = useCallback(
-    (deviceId: string) => {
-      initAndStartPlayInput(deviceId);
-    },
-    [initAndStartPlayInput]
-  );
-
-  const handleMonitoringChange = useCallback(
-    async (enabled: boolean) => {
-      if (enabled) {
-        // Reconnect play input if it was torn down (e.g. another player was in demo mode)
-        await reconnectPlayInput();
-
-        if (audioState.initState === 'ready') {
-          await syncEngineSettings({
-            modelUrl: selectedModel.url,
-            ir: {
-              url: selectedIr.url,
-              mix: selectedIr.mix ?? 1,
-              gain: selectedIr.gain ?? 1,
-            },
-            bypassed: audioState.isBypassed,
-          });
-        }
-
-        if (playerId) {
-          setPlaying(true, playerId);
-        }
-      } else {
-        setPlaying(false);
-      }
-    },
-    [
-      reconnectPlayInput,
-      setPlaying,
-      syncEngineSettings,
-      audioState.initState,
-      audioState.isBypassed,
-      selectedModel,
-      selectedIr,
-      playerId,
-    ]
+    (deviceId: string) => initAndStartLiveInput(deviceId),
+    [initAndStartLiveInput]
   );
 
   const handleRequestPermission = useCallback(async () => {
@@ -198,7 +156,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
       setStep('device-select');
 
       if (preferredDeviceId) {
-        initAndStartPlayInput(preferredDeviceId);
+        initAndStartLiveInput(preferredDeviceId);
       }
     } catch {
       // Error handling is done in context
@@ -207,7 +165,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
     requestMicrophonePermission,
     refreshAudioInputDevices,
     refreshAudioOutputDevices,
-    initAndStartPlayInput,
+    initAndStartLiveInput,
   ]);
 
   const handleRefreshDevices = useCallback(async () => {
@@ -236,7 +194,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
         <h2 className='text-lg font-semibold'>{dialogTitle}</h2>
       </div>
       <button
-        onClick={onCancel}
+        onClick={onClose}
         className='p-1'
         aria-label='Close'
         disabled={isPending}
@@ -254,7 +212,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
           variant='primary'
           size='lg'
           fullWidth
-          onClick={onSave}
+          onClick={onClose}
           disabled={!isSaveEnabled}
         >
           Done
@@ -265,7 +223,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
   return (
     <Dialog
       isOpen={isOpen}
-      onClose={onCancel}
+      onClose={onClose}
       onOpen={handleOpen}
       header={header}
       footer={footer}
@@ -288,14 +246,14 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
             audioState.isPlaying && audioState.activePlayerId === playerId
           }
           onDeviceChange={handleDeviceChange}
-          onChannelChange={selectPlayInputChannel}
-          onMonitoringChange={handleMonitoringChange}
+          onChannelChange={selectLiveInputChannel}
+          onMonitoringChange={onMonitoringChange}
           isConnecting={audioState.inputMode.type === 'connecting'}
           error={audioInputDevices.error}
           connectionError={connectionError}
           onRefresh={handleRefreshDevices}
-          channel0Meter={getAudioNodes().channel0PlayMeter}
-          channel1Meter={getAudioNodes().channel1PlayMeter}
+          channel0Meter={getAudioNodes().channel0LiveMeter}
+          channel1Meter={getAudioNodes().channel1LiveMeter}
           outputDevices={audioOutputDevices.devices}
           selectedOutputDeviceId={audioOutputDevices.selectedDeviceId}
           onOutputDeviceChange={setOutputDevice}

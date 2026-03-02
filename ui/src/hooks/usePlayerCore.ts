@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { useT3kPlayerContext } from '../context/T3kPlayerContext';
 import { Input, IR, Model, SourceMode } from '../types';
 import { initVisualizer, setupVisualizer } from '../utils/visualizer';
@@ -21,7 +28,8 @@ interface UsePlayerCoreOptions {
   resolveData?: () => Promise<{ model: Model; ir: IR; input: Input }>;
 
   // Callbacks
-  onPlay?: (data: { model: Model; ir: IR; input: Input }) => void;
+  onPlayDemo?: (data: { model: Model; ir: IR; input: Input }) => void;
+  onPlayLive?: (data: { model: Model; ir: IR; device: string | null }) => void;
   onModelChange?: (model: Model) => void;
   onInputChange?: (input: Input) => void;
   onIrChange?: (ir: IR) => void;
@@ -44,13 +52,13 @@ export interface UsePlayerCoreReturn {
   sourceMode: SourceMode;
 
   // Derived
-  isPlayConfigured: boolean;
+  isLiveConfigured: boolean;
   currentDeviceId: string | null;
   bypassedStyles: string;
   modelOptions: Array<{ label: string; value: string }>;
   audioOptions: Array<{ label: string; value: string }>;
   irOptions: Array<{ label: string; value: string }>;
-  playDeviceOptions: Array<{ label: string; value: string }>;
+  liveDeviceOptions: Array<{ label: string; value: string }>;
 
   // Handlers
   togglePlay: () => Promise<void>;
@@ -60,7 +68,7 @@ export interface UsePlayerCoreReturn {
   handleInputChange: (value: string | number) => Promise<void>;
   handleIrChange: (value: string | number) => Promise<void>;
   handleSourceModeChange: (mode: SourceMode) => Promise<void>;
-  handlePlayDeviceChange: (deviceId: string) => Promise<void>;
+  handleLiveDeviceChange: (deviceId: string) => Promise<void>;
   openSettingsDialog: () => void | Promise<void>;
 
   // Refs
@@ -86,7 +94,8 @@ export function usePlayerCore(
     irs,
     inputs,
     resolveData,
-    onPlay,
+    onPlayDemo,
+    onPlayLive,
     onModelChange,
     onInputChange,
     onIrChange,
@@ -109,8 +118,8 @@ export function usePlayerCore(
     syncEngineSettings,
     connectVisualizerNode,
     cleanup,
-    reconnectPlayInput,
-    stopPlayInput,
+    reconnectLiveInput,
+    stopLiveInput,
     setPlaying,
     openSettingsDialog: openDialog,
   } = useT3kPlayerContext();
@@ -118,14 +127,14 @@ export function usePlayerCore(
   // --- Source mode hook (per-player) ---
   const {
     sourceMode,
-    playDeviceOptions,
+    liveDeviceOptions,
     handleSourceModeChange,
-    handlePlayDeviceChange,
+    handleLiveDeviceChange,
   } = useSourceMode({ playerId: id });
 
   // --- Derived from context ---
-  const isPlayConfigured = audioState.playInputConfig !== null;
-  const currentDeviceId = audioState.playInputConfig?.deviceId ?? null;
+  const isLiveConfigured = audioState.liveInputConfig !== null;
+  const currentDeviceId = audioState.liveInputConfig?.deviceId ?? null;
   const isThisPlayerActive = audioState.activePlayerId === id;
 
   // --- Selection state ---
@@ -287,25 +296,61 @@ export function usePlayerCore(
 
   // --- Event handlers ---
 
+  const setLiveMonitoring = useCallback(
+    async (enabled: boolean) => {
+      if (sourceMode !== 'live') return;
+      if (enabled) {
+        await reconnectLiveInput();
+        const { audioContext } = getAudioNodes();
+        if (audioContext?.state === 'suspended') {
+          await audioContext.resume();
+        }
+        const { model, ir } = await ensureSelections();
+        await syncPlayerToEngine(model, ir, bypassed);
+        setPlaying(true, id);
+        const device =
+          liveDeviceOptions.find(opt => opt.value === currentDeviceId)?.label ??
+          null;
+        onPlayLive?.({ model, ir, device });
+      } else {
+        setPlaying(false);
+      }
+    },
+    [
+      id,
+      sourceMode,
+      bypassed,
+      ensureSelections,
+      getAudioNodes,
+      reconnectLiveInput,
+      setPlaying,
+      syncPlayerToEngine,
+      onPlayLive,
+      liveDeviceOptions,
+      currentDeviceId,
+    ]
+  );
+
   const openSettingsDialog = useCallback(async () => {
     const { model, ir } = await ensureSelections();
     openDialog({
       playerId: id,
       selectedModel: model,
       selectedIr: ir,
+      onMonitoringChange: setLiveMonitoring,
     });
-  }, [ensureSelections, openDialog, id]);
+  }, [ensureSelections, openDialog, id, setLiveMonitoring]);
 
   const togglePlay = useCallback(async () => {
-    const wantsPlayInput = sourceMode === 'play';
+    const wantsLiveInput = sourceMode === 'live';
     const isActive = audioState.activePlayerId === id;
 
-    // === PLAY MODE ===
-    if (wantsPlayInput) {
+    // === LIVE MODE ===
+    if (wantsLiveInput) {
       const { model, ir } = await ensureSelections();
       const { audioContext } = getAudioNodes();
 
-      await reconnectPlayInput();
+      await reconnectLiveInput();
 
       if (audioContext && audioContext.state === 'suspended') {
         await audioContext.resume();
@@ -317,7 +362,10 @@ export function usePlayerCore(
         setPlaying(false);
       } else {
         setPlaying(true, id);
-        onPlay?.({ model, ir, input: { name: 'play-live-input', url: '' } });
+        const device =
+          liveDeviceOptions.find(opt => opt.value === currentDeviceId)?.label ??
+          null;
+        onPlayLive?.({ model, ir, device });
       }
       return;
     }
@@ -325,7 +373,7 @@ export function usePlayerCore(
     // === DEMO MODE ===
     const { mediaStream } = getAudioNodes();
     if (mediaStream?.active) {
-      stopPlayInput();
+      stopLiveInput();
     }
 
     setIsLoading(true);
@@ -351,7 +399,7 @@ export function usePlayerCore(
 
         await syncPlayerToEngine(model, ir, bypassed);
         setPlaying(true, id);
-        onPlay?.({ model, ir, input });
+        onPlayDemo?.({ model, ir, input });
       }
     } catch (error) {
       console.error('Error in togglePlay:', error);
@@ -370,11 +418,14 @@ export function usePlayerCore(
     getAudioNodes,
     init,
     loadAudio,
-    reconnectPlayInput,
-    stopPlayInput,
+    reconnectLiveInput,
+    stopLiveInput,
     setPlaying,
     syncPlayerToEngine,
-    onPlay,
+    onPlayDemo,
+    onPlayLive,
+    liveDeviceOptions,
+    currentDeviceId,
   ]);
 
   const handleSkipToStart = useCallback(() => {
@@ -460,8 +511,8 @@ export function usePlayerCore(
           if (audioState.initState === 'ready' && ir.url) {
             await loadIr({
               url: ir.url,
-              wetAmount: ir.mix,
-              gainAmount: ir.gain,
+              mix: ir.mix,
+              gain: ir.gain,
             });
           } else {
             removeIr();
@@ -498,13 +549,13 @@ export function usePlayerCore(
 
     sourceMode,
 
-    isPlayConfigured,
+    isLiveConfigured,
     currentDeviceId,
     bypassedStyles,
     modelOptions,
     audioOptions,
     irOptions,
-    playDeviceOptions,
+    liveDeviceOptions,
 
     togglePlay,
     handleSkipToStart,
@@ -513,7 +564,7 @@ export function usePlayerCore(
     handleInputChange,
     handleIrChange,
     handleSourceModeChange,
-    handlePlayDeviceChange,
+    handleLiveDeviceChange,
     openSettingsDialog,
 
     visualizerRef,

@@ -3,23 +3,23 @@ import {
   AudioInputDevice,
   AudioInputDeviceState,
   AudioOutputDeviceState,
-  PlayInputConfig,
+  LiveInputConfig,
   MicrophonePermissionState,
   MicrophonePermissionStatus,
 } from '../types';
 import { mapDevices } from '../utils/devices';
 
-type PlayInputUnavailableReason = 'device-disconnected' | 'permission-revoked';
+type LiveInputUnavailableReason = 'device-disconnected' | 'permission-revoked';
 
 interface UseAudioDevicesAndPermissionsParams {
   /** Callback to apply audio routing when output device changes. */
   applyOutputRouting: (deviceId: string | null) => Promise<void>;
-  /** Callback to tear down play input audio nodes and restore demo path. */
-  teardownPlayInput: () => void;
-  /** Callback to reset audio state when play input is lost (mode, playback, config). */
-  onPlayInputLost: () => void;
-  /** Current play input config from audio state (for disconnect detection). */
-  playInputConfig: PlayInputConfig | null;
+  /** Callback to tear down live input audio nodes and restore demo path. */
+  teardownLiveInput: () => void;
+  /** Callback to reset audio state when live input is lost (mode, playback, config). */
+  onLiveInputLost: () => void;
+  /** Current live input config from audio state (for disconnect detection). */
+  liveInputConfig: LiveInputConfig | null;
 }
 
 interface UseAudioDevicesAndPermissionsReturn {
@@ -33,7 +33,7 @@ interface UseAudioDevicesAndPermissionsReturn {
   }>;
   refreshAudioOutputDevices: () => Promise<void>;
   setOutputDevice: (deviceId: string | null) => Promise<void>;
-  handlePlayInputUnavailable: (reason: PlayInputUnavailableReason) => void;
+  handleLiveInputUnavailable: (reason: LiveInputUnavailableReason) => void;
 }
 
 /**
@@ -44,9 +44,9 @@ interface UseAudioDevicesAndPermissionsReturn {
  */
 export function useAudioDevicesAndPermissions({
   applyOutputRouting,
-  teardownPlayInput,
-  onPlayInputLost,
-  playInputConfig,
+  teardownLiveInput,
+  onLiveInputLost,
+  liveInputConfig,
 }: UseAudioDevicesAndPermissionsParams): UseAudioDevicesAndPermissionsReturn {
   // --- State ---
 
@@ -338,21 +338,21 @@ export function useAudioDevicesAndPermissions({
     [applyOutputRouting]
   );
 
-  // --- Play input unavailable handler ---
+  // --- Live input unavailable handler ---
 
-  const handlePlayInputUnavailable = useCallback(
-    (reason: PlayInputUnavailableReason): void => {
-      teardownPlayInput();
-      onPlayInputLost();
+  const handleLiveInputUnavailable = useCallback(
+    (reason: LiveInputUnavailableReason): void => {
+      teardownLiveInput();
+      onLiveInputLost();
 
-      const errorMessages: Record<PlayInputUnavailableReason, string> = {
+      const errorMessages: Record<LiveInputUnavailableReason, string> = {
         'device-disconnected': 'Audio input device was disconnected.',
         'permission-revoked':
           'Microphone permission was revoked. Please re-enable access in your browser settings.',
       };
       setAudioInputDevices(prev => ({ ...prev, error: errorMessages[reason] }));
     },
-    [teardownPlayInput, onPlayInputLost]
+    [teardownLiveInput, onLiveInputLost]
   );
 
   // --- Hot-plug detection ---
@@ -367,14 +367,14 @@ export function useAudioDevicesAndPermissions({
           const audioInputs = mapDevices(allDevices, 'audioinput');
 
           // Check if configured input device was disconnected
-          const configuredDeviceId = playInputConfig?.deviceId;
+          const configuredDeviceId = liveInputConfig?.deviceId;
           if (configuredDeviceId) {
             const configuredDeviceStillExists = audioInputs.some(
               d => d.deviceId === configuredDeviceId
             );
             if (!configuredDeviceStillExists) {
               console.warn('Configured audio input device was disconnected');
-              handlePlayInputUnavailable('device-disconnected');
+              handleLiveInputUnavailable('device-disconnected');
               setAudioInputDevices(prev => ({ ...prev, devices: audioInputs }));
               return;
             }
@@ -431,8 +431,8 @@ export function useAudioDevicesAndPermissions({
     };
   }, [
     microphonePermission.status,
-    playInputConfig,
-    handlePlayInputUnavailable,
+    liveInputConfig,
+    handleLiveInputUnavailable,
     applyOutputRouting,
     audioOutputDevices.selectedDeviceId,
   ]);
@@ -445,6 +445,6 @@ export function useAudioDevicesAndPermissions({
     refreshAudioInputDevices,
     refreshAudioOutputDevices,
     setOutputDevice,
-    handlePlayInputUnavailable,
+    handleLiveInputUnavailable,
   };
 }

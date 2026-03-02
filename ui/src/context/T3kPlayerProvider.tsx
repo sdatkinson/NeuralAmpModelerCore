@@ -18,15 +18,15 @@ function SettingsDialogRenderer() {
   }
 
   return (
-    <div className="neural-amp-modeler" style={{ background: 'none' }}>
+    <div className='neural-amp-modeler' style={{ background: 'none' }}>
       <SettingsDialog
         isOpen={true}
-        onSave={() => closeSettingsDialog({ saved: true })}
-        onCancel={() => closeSettingsDialog({ saved: false })}
+        onClose={closeSettingsDialog}
         sourceMode={settingsDialog.sourceMode}
         selectedModel={settingsDialog.selectedModel}
         selectedIr={settingsDialog.selectedIr}
         playerId={settingsDialog.playerId}
+        onMonitoringChange={settingsDialog.onMonitoringChange}
       />
     </div>
   );

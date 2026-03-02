@@ -1,5 +1,6 @@
 import React, { forwardRef, useRef, useEffect, useState } from 'react';
 import { calculateLevels, scaleForDisplay } from '../../utils/metering';
+import { Mute, Unmute } from './Mute';
 
 const LED_SIZE = 36;
 const INNER_CIRCLE_SIZE = 16;
@@ -11,10 +12,14 @@ interface MonitorButtonProps {
   onClick: () => void;
   analyserNode: AnalyserNode | null;
   size?: number;
+  disabled?: boolean;
 }
 
 export const MonitorButton = forwardRef<HTMLButtonElement, MonitorButtonProps>(
-  ({ isMonitoring, onClick, analyserNode, size = LED_SIZE }, ref) => {
+  (
+    { isMonitoring, onClick, analyserNode, size = LED_SIZE, disabled = false },
+    ref
+  ) => {
     const internalRef = useRef<HTMLButtonElement>(null);
     const buttonRef =
       (ref as React.RefObject<HTMLButtonElement>) || internalRef;
@@ -55,13 +60,19 @@ export const MonitorButton = forwardRef<HTMLButtonElement, MonitorButtonProps>(
     const ringColor = isMonitoring ? '#f00' : '#a1a1aa';
 
     return (
-      <div className='flex items-center justify-center'>
-        <button
+      <button
+        type='button'
+        onClick={onClick}
+        aria-label={isMonitoring ? 'Stop monitoring' : 'Start monitoring'}
+        aria-pressed={isMonitoring}
+        className='flex items-center justify-center gap-1'
+        disabled={disabled}
+        style={{
+          cursor: disabled ? 'not-allowed' : 'pointer',
+        }}
+      >
+        <span
           ref={buttonRef}
-          type='button'
-          onClick={onClick}
-          aria-label={isMonitoring ? 'Stop monitoring' : 'Start monitoring'}
-          aria-pressed={isMonitoring}
           className={`
             monitor-button-reset-focus rounded-full flex-shrink-0 transition-all duration-150 ease-in
             focus:outline-none focus:ring-0 focus:ring-offset-0
@@ -99,13 +110,19 @@ export const MonitorButton = forwardRef<HTMLButtonElement, MonitorButtonProps>(
               strokeWidth={RING_STROKE}
             />
           </svg>
-        </button>
-        <span
-          className={`text-xs ${isMonitoring ? 'text-white' : 'text-zinc-400'}`}
-        >
-          LIVE
         </span>
-      </div>
+        <span className='flex items-center gap-4'>
+          <span
+            className={`hidden md:block text-sm font-mono ${isMonitoring ? 'text-white' : 'text-zinc-400'}`}
+          >
+            LIVE
+          </span>
+          <span className='w-[1px] h-[40px] bg-zinc-700' />
+          <span className={disabled ? 'text-zinc-400' : 'text-white'}>
+            {isMonitoring ? <Mute /> : <Unmute />}
+          </span>
+        </span>
+      </button>
     );
   }
 );

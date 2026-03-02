@@ -145,7 +145,7 @@ export const Select = ({
   }, [activeIndex, isOpen, selectId]);
 
   return (
-    <div ref={containerRef} className={'flex flex-col gap-1 w-full'}>
+    <div ref={containerRef} className={'flex flex-col w-full'}>
       {heading && (
         <span
           className='text-base text-white font-semibold'
@@ -154,7 +154,9 @@ export const Select = ({
           {heading}
         </span>
       )}
-      <div className={'flex justify-between items-end'}>
+      <div
+        className={`flex justify-between items-end ${heading ? 'pb-2' : 'pb-1'}`}
+      >
         {label && (
           <span className='text-sm text-zinc-400' id={`${selectId}-label`}>
             {label}

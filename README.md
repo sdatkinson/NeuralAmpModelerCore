@@ -197,13 +197,23 @@ Optional boolean to show loading state
 
 ### Event Callbacks
 
-#### onPlay
-Callback function triggered when audio playback starts:
+#### onPlayDemo
+Callback function triggered when demo audio playback starts (playing from a pre-recorded input file):
 ```tsx
-onPlay?: ({ model, ir, input }: { 
+onPlayDemo?: ({ model, ir, input }: { 
   model: Model, 
   ir: IR, 
   input: Input 
+}) => void;
+```
+
+#### onPlayLive
+Callback function triggered when live mode playback starts (playing from microphone/live input):
+```tsx
+onPlayLive?: ({ model, ir, device }: { 
+  model: Model, 
+  ir: IR,
+  device: string | null  // configured microphone/interface name
 }) => void;
 ```
 

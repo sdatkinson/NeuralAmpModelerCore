@@ -1,19 +1,19 @@
 import { AudioNodes } from '../types';
 import { needsMediaStreamWorkaround } from './browser';
 
-/** Clean up all play input nodes (mediaStream, source, gain, splitter, merger, meters) */
-export function cleanupPlayInputNodes(nodes: AudioNodes): void {
+/** Clean up all live input nodes (mediaStream, source, gain, splitter, merger, meters) */
+export function cleanupLiveInputNodes(nodes: AudioNodes): void {
   if (nodes.mediaStream) {
     nodes.mediaStream.getTracks().forEach(track => track.stop());
     nodes.mediaStream = null;
   }
-  if (nodes.playSourceNode) {
-    nodes.playSourceNode.disconnect();
-    nodes.playSourceNode = null;
+  if (nodes.liveSourceNode) {
+    nodes.liveSourceNode.disconnect();
+    nodes.liveSourceNode = null;
   }
-  if (nodes.playInputGainNode) {
-    nodes.playInputGainNode.disconnect();
-    nodes.playInputGainNode = null;
+  if (nodes.liveInputGainNode) {
+    nodes.liveInputGainNode.disconnect();
+    nodes.liveInputGainNode = null;
   }
   if (nodes.channelSplitterNode) {
     nodes.channelSplitterNode.disconnect();
@@ -23,13 +23,13 @@ export function cleanupPlayInputNodes(nodes: AudioNodes): void {
     nodes.channelMergerNode.disconnect();
     nodes.channelMergerNode = null;
   }
-  if (nodes.channel0PlayMeter) {
-    nodes.channel0PlayMeter.disconnect();
-    nodes.channel0PlayMeter = null;
+  if (nodes.channel0LiveMeter) {
+    nodes.channel0LiveMeter.disconnect();
+    nodes.channel0LiveMeter = null;
   }
-  if (nodes.channel1PlayMeter) {
-    nodes.channel1PlayMeter.disconnect();
-    nodes.channel1PlayMeter = null;
+  if (nodes.channel1LiveMeter) {
+    nodes.channel1LiveMeter.disconnect();
+    nodes.channel1LiveMeter = null;
   }
 }
 
@@ -70,14 +70,14 @@ export function cleanupOutputWorkaroundRouting(nodes: AudioNodes): void {
 }
 
 /**
- * Tear down play input audio nodes and restore the demo signal path.
- * Used by stopPlayInput, clearPlayInputConfig, and handlePlayInputUnavailable.
+ * Tear down live input audio nodes and restore the demo signal path.
+ * Used by stopLiveInput and handleLiveInputUnavailable.
  */
-export function teardownPlayInput(
+export function teardownLiveInput(
   nodes: AudioNodes,
   options: { muteOutput: boolean }
 ): void {
-  cleanupPlayInputNodes(nodes);
+  cleanupLiveInputNodes(nodes);
 
   // Reconnect file source to restore demo path
   if (nodes.sourceNode && nodes.inputGainNode) {

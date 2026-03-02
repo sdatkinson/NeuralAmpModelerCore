@@ -80,8 +80,11 @@ function App() {
         ]}
         previewMode={PREVIEW_MODE.MODEL}
         isLoading={false}
-        onPlay={({ model, ir, input }) => {
+        onPlayDemo={({ model, ir, input }) => {
           console.log('Playing with:', { model, ir, input });
+        }}
+        onPlayLive={({ model, ir, device }) => {
+          console.log('Playing live with:', { model, ir, device });
         }}
         onModelChange={model => {
           console.log('Model changed to:', model);
@@ -143,15 +146,27 @@ Optional boolean to show loading state
 
 ### Event Callbacks
 
-#### onPlay
+#### onPlayDemo
 
-Callback function triggered when audio playback starts:
+Callback function triggered when demo audio playback starts (playing from a pre-recorded input file):
 
 ```tsx
-onPlay?: ({ model, ir, input }: {
+onPlayDemo?: ({ model, ir, input }: {
   model: Model,
   ir: IR,
   input: Input
+}) => void;
+```
+
+#### onPlayLive
+
+Callback function triggered when live mode playback starts (playing from microphone/live input):
+
+```tsx
+onPlayLive?: ({ model, ir, device }: {
+  model: Model,
+  ir: IR,
+  device: string | null  // configured microphone/interface name
 }) => void;
 ```
 

@@ -27,12 +27,12 @@ export const InputControls: React.FC<InputControlsProps> = ({
   isMonitoring,
   isConnecting,
 }) => {
-  const { getAudioNodes, audioState, setPlayInputGain } = useT3kPlayerContext();
+  const { getAudioNodes, audioState, setLiveInputGain } = useT3kPlayerContext();
   const nodes = getAudioNodes();
   const isReady = audioState.initState === 'ready';
-  const playInputConfig = audioState.playInputConfig;
-  const currentChannel = playInputConfig?.selectedChannel ?? 'first';
-  const inputGainDb = playInputConfig?.channelGains?.[currentChannel] ?? 0;
+  const liveInputConfig = audioState.liveInputConfig;
+  const currentChannel = liveInputConfig?.selectedChannel ?? 'first';
+  const inputGainDb = liveInputConfig?.channelGains?.[currentChannel] ?? 0;
 
   const inputMeterRef = useRef<HTMLDivElement>(null);
   const inputClipRef = useRef<HTMLButtonElement>(null);
@@ -54,11 +54,11 @@ export const InputControls: React.FC<InputControlsProps> = ({
   useEffect(() => {
     resetClipLatch('input');
     inputClipRef.current?.classList.remove('clipped');
-  }, [playInputConfig?.selectedChannel, resetClipLatch]);
+  }, [liveInputConfig?.selectedChannel, resetClipLatch]);
 
   const handleKnobChange = useCallback(
-    (knobValue: number) => setPlayInputGain(knobToDb(knobValue)),
-    [setPlayInputGain]
+    (knobValue: number) => setLiveInputGain(knobToDb(knobValue)),
+    [setLiveInputGain]
   );
 
   return (

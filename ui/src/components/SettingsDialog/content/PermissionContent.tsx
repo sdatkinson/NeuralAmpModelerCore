@@ -98,6 +98,7 @@ export const PermissionContent: React.FC<PermissionContentProps> = ({
   const isPending = status === 'pending';
   const isBlocked = status === 'blocked';
   const hasError = status === 'denied' || status === 'error';
+  const isGranted = status === 'granted';
 
   return (
     <div className='flex flex-col gap-4'>
@@ -144,23 +145,27 @@ export const PermissionContent: React.FC<PermissionContentProps> = ({
         size='lg'
         fullWidth
         leftIcon={
-          isPending ? (
+          isPending || isGranted ? (
             <Loader2 size={18} className='animate-spin' />
           ) : (
             <Mic size={18} />
           )
         }
         onClick={onRequestPermission}
-        disabled={isPending || isBlocked}
+        disabled={isPending || isBlocked || isGranted}
       >
-        {isPending ? 'Asking for permission...' : 'Allow Microphone'}
+        {isPending
+          ? 'Asking for permission...'
+          : isGranted
+            ? 'Configuring settings...'
+            : 'Allow Microphone'}
       </Button>
 
       {/* Info about privacy */}
-      <div className='flex gap-2 text-zinc-400'>
+      <div className='flex gap-2 text-zinc-400 justify-center'>
         <Lock size={18} />
         <span className='text-sm'>
-          Your audio is processed locally and never leaves your device.
+          Audio is processed locally and never leaves your device.
         </span>
       </div>
     </div>

@@ -254,9 +254,9 @@ export const DEFAULT_AUDIO_SRC = isDev
   : githubBaseUrl + '/inputs/placeholder.wav';
 
 export const SOURCE_MODE_OPTIONS: Array<{
-  value: 'demo' | 'play';
+  value: 'demo' | 'live';
   label: string;
 }> = [
   { value: 'demo', label: 'Demo' },
-  { value: 'play', label: 'Play' },
+  { value: 'live', label: 'Live' },
 ];
