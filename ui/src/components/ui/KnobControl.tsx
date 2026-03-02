@@ -123,7 +123,6 @@ export const KnobControl: React.FC<KnobControlProps> = ({
           fontWeight: 400,
           textAlign: 'center',
           color: '#ffffff',
-          letterSpacing: '1px',
         }}
       >
         {label}
