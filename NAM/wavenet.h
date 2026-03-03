@@ -242,6 +242,10 @@ public:
       }
     }
 
+    // When no head1x1 and no gating, _output_head would be a straight copy of _z.
+    // Skip the copy and return _z directly from GetOutputHead().
+    _skip_head_copy = !params.head1x1_params.active && params.gating_mode == GatingMode::NONE;
+
     // Validate & initialize gating/blending activation
     if (params.gating_mode == GatingMode::GATED)
     {
@@ -361,12 +365,14 @@ public:
   ///
   /// Returns the full pre-allocated buffer; only the first num_frames columns
   /// are valid for a given processing call. Slice with .leftCols(num_frames) as needed.
+  /// When _skip_head_copy is true (no head1x1, no gating), returns _z directly
+  /// to avoid a redundant memcpy.
   /// \return Reference to the head output buffer
-  Eigen::MatrixXf& GetOutputHead() { return this->_output_head; }
+  Eigen::MatrixXf& GetOutputHead() { return _skip_head_copy ? this->_z : this->_output_head; }
 
   /// \brief Get output to head (const version)
   /// \return Const reference to the head output buffer
-  const Eigen::MatrixXf& GetOutputHead() const { return this->_output_head; }
+  const Eigen::MatrixXf& GetOutputHead() const { return _skip_head_copy ? this->_z : this->_output_head; }
 
   /// \brief Access Conv1D for Reset() propagation (needed for _LayerArray)
   /// \return Reference to the internal Conv1D object
@@ -395,6 +401,7 @@ private:
   activations::Activation::Ptr _activation;
   const GatingMode _gating_mode;
   const int _bottleneck; // Internal channel count (not doubled when gated)
+  bool _skip_head_copy = false; // When true, GetOutputHead() returns _z directly (no head1x1, no gating)
 
   // Gating/blending activation objects
   std::unique_ptr<gating_activations::GatingActivation> _gating_activation;

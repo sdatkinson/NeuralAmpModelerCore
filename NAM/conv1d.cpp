@@ -207,6 +207,17 @@ void Conv1D::Process(const Eigen::MatrixXf& input, const int num_frames)
           output_ptr[off + 7] += w7 * input_ptr[off + 7];
         }
       }
+      else if (channels == 3)
+      {
+        const float w0 = weight_ptr[0], w1 = weight_ptr[1], w2 = weight_ptr[2];
+        for (int f = 0; f < num_frames; f++)
+        {
+          const int off = f * 3;
+          output_ptr[off] += w0 * input_ptr[off];
+          output_ptr[off + 1] += w1 * input_ptr[off + 1];
+          output_ptr[off + 2] += w2 * input_ptr[off + 2];
+        }
+      }
       else
       {
         // General depthwise path with loop unrolling
@@ -347,6 +358,52 @@ void Conv1D::Process(const Eigen::MatrixXf& input, const int num_frames)
         output_ptr[off] = (w0_00 * i0_0 + w0_01 * i0_1) + (w1_00 * i1_0 + w1_01 * i1_1) + (w2_00 * i2_0 + w2_01 * i2_1);
         output_ptr[off + 1] =
           (w0_10 * i0_0 + w0_11 * i0_1) + (w1_10 * i1_0 + w1_11 * i1_1) + (w2_10 * i2_0 + w2_11 * i2_1);
+      }
+    }
+    else if (kernel_size == 6 && out_ch == 3 && in_ch == 3)
+    {
+      // Fused 3x3 kernel_size=6: read all 6 input blocks and compute in one pass
+      const long dil = this->_dilation;
+      auto in0 = _input_buffer.Read(num_frames, 5 * dil);
+      auto in1 = _input_buffer.Read(num_frames, 4 * dil);
+      auto in2 = _input_buffer.Read(num_frames, 3 * dil);
+      auto in3 = _input_buffer.Read(num_frames, 2 * dil);
+      auto in4 = _input_buffer.Read(num_frames, dil);
+      auto in5 = _input_buffer.Read(num_frames, 0);
+
+      const float* __restrict__ in_ptrs[6] = {
+        in0.data(), in1.data(), in2.data(),
+        in3.data(), in4.data(), in5.data()
+      };
+      float* __restrict__ output_ptr = _output.data();
+
+      // Cache all 54 weights on stack (6 taps x 3x3 matrix, column-major)
+      float w[6][9];
+      for (int k = 0; k < 6; k++)
+      {
+        const float* wp = this->_weight[k].data();
+        for (int j = 0; j < 9; j++)
+          w[k][j] = wp[j];
+      }
+
+      for (int f = 0; f < num_frames; f++)
+      {
+        const int off = f * 3;
+        float o0 = 0.0f, o1 = 0.0f, o2 = 0.0f;
+
+        for (int k = 0; k < 6; k++)
+        {
+          const float i0 = in_ptrs[k][off];
+          const float i1 = in_ptrs[k][off + 1];
+          const float i2 = in_ptrs[k][off + 2];
+          o0 += w[k][0] * i0 + w[k][3] * i1 + w[k][6] * i2;
+          o1 += w[k][1] * i0 + w[k][4] * i1 + w[k][7] * i2;
+          o2 += w[k][2] * i0 + w[k][5] * i1 + w[k][8] * i2;
+        }
+
+        output_ptr[off] = o0;
+        output_ptr[off + 1] = o1;
+        output_ptr[off + 2] = o2;
       }
     }
     else

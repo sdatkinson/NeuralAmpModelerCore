@@ -173,9 +173,8 @@ std::unique_ptr<DSP> create_dsp(std::unique_ptr<ModelConfig> config, std::vector
 {
   auto out = config->create(std::move(weights), metadata.sample_rate);
   apply_metadata(*out, metadata);
-  // "pre-warm" the model to settle initial conditions
-  // Can this be removed now that it's part of Reset()?
-  out->prewarm();
+  // Prewarm is left to the caller so it can call SetMaxBufferSize() first.
+  // On embedded targets the default (4096) wastes memory and time.
   return out;
 }
 
