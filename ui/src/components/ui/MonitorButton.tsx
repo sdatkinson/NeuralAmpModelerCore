@@ -119,7 +119,7 @@ export const MonitorButton = forwardRef<HTMLButtonElement, MonitorButtonProps>(
           </span>
           <span className='w-[1px] h-[40px] bg-zinc-700' />
           <span className={disabled ? 'text-zinc-400' : 'text-white'}>
-            {isMonitoring ? <Mute /> : <Unmute />}
+            {isMonitoring ? <Unmute /> : <Mute />}
           </span>
         </span>
       </button>
