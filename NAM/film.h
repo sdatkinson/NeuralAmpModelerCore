@@ -108,7 +108,7 @@ public:
         int i = 0;
         for (; i + 3 < input_dim; i += 4)
         {
-          out_col[i]     = in_col[i]     * scale_col[i]     + shift_col[i];
+          out_col[i] = in_col[i] * scale_col[i] + shift_col[i];
           out_col[i + 1] = in_col[i + 1] * scale_col[i + 1] + shift_col[i + 1];
           out_col[i + 2] = in_col[i + 2] * scale_col[i + 2] + shift_col[i + 2];
           out_col[i + 3] = in_col[i + 3] * scale_col[i + 3] + shift_col[i + 3];
@@ -131,7 +131,7 @@ public:
         int i = 0;
         for (; i + 3 < input_dim; i += 4)
         {
-          out_col[i]     = in_col[i]     * scale_col[i];
+          out_col[i] = in_col[i] * scale_col[i];
           out_col[i + 1] = in_col[i + 1] * scale_col[i + 1];
           out_col[i + 2] = in_col[i + 2] * scale_col[i + 2];
           out_col[i + 3] = in_col[i + 3] * scale_col[i + 3];

@@ -179,8 +179,8 @@ nam::lstm::LSTMConfig nam::lstm::parse_config_json(const nlohmann::json& config)
 // LSTMConfig::create()
 std::unique_ptr<nam::DSP> nam::lstm::LSTMConfig::create(std::vector<float> weights, double sampleRate)
 {
-  return std::make_unique<nam::lstm::LSTM>(in_channels, out_channels, num_layers, input_size, hidden_size, weights,
-                                           sampleRate);
+  return std::make_unique<nam::lstm::LSTM>(
+    in_channels, out_channels, num_layers, input_size, hidden_size, weights, sampleRate);
 }
 
 // Config parser for ConfigParserRegistry

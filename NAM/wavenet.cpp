@@ -378,8 +378,8 @@ void nam::wavenet::_LayerArray::ProcessInner(const Eigen::MatrixXf& layer_inputs
 #ifdef NAM_USE_INLINE_GEMM
   {
     const int total = (int)this->_get_channels() * num_frames;
-    std::memcpy(this->_layer_outputs.data(), this->_layers[last_layer].GetOutputNextLayer().data(),
-                total * sizeof(float));
+    std::memcpy(
+      this->_layer_outputs.data(), this->_layers[last_layer].GetOutputNextLayer().data(), total * sizeof(float));
   }
 #else
   this->_layer_outputs.leftCols(num_frames).noalias() =
@@ -905,8 +905,8 @@ nam::wavenet::WaveNetConfig nam::wavenet::parse_config_json(const nlohmann::json
 // WaveNetConfig::create()
 std::unique_ptr<nam::DSP> nam::wavenet::WaveNetConfig::create(std::vector<float> weights, double sampleRate)
 {
-  return std::make_unique<nam::wavenet::WaveNet>(in_channels, layer_array_params, head_scale, with_head,
-                                                 std::move(weights), std::move(condition_dsp), sampleRate);
+  return std::make_unique<nam::wavenet::WaveNet>(
+    in_channels, layer_array_params, head_scale, with_head, std::move(weights), std::move(condition_dsp), sampleRate);
 }
 
 // Config parser for ConfigParserRegistry

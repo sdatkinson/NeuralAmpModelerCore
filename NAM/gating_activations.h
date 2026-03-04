@@ -72,7 +72,7 @@ public:
     const int input_stride = (int)input.outerStride();
     const float* __restrict__ input_ptr = input.derived().data();
     float* __restrict__ output_ptr = output.derived().data();
-    const int output_stride = (int)output.outerStride();  // Column stride for output
+    const int output_stride = (int)output.outerStride(); // Column stride for output
 
     for (int f = 0; f < num_samples; f++)
     {
@@ -178,7 +178,7 @@ public:
     const int input_stride = (int)input.outerStride();
     const float* __restrict__ input_ptr = input.derived().data();
     float* __restrict__ output_ptr = output.derived().data();
-    const int output_stride = (int)output.outerStride();  // Column stride for output
+    const int output_stride = (int)output.outerStride(); // Column stride for output
 
     for (int f = 0; f < num_samples; f++)
     {
