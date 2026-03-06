@@ -31,7 +31,7 @@ void nam::DSP::prewarm()
 {
   if (mMaxBufferSize == 0)
   {
-    SetMaxBufferSize(4096);
+    SetMaxBufferSize(NAM_DEFAULT_MAX_BUFFER_SIZE);
   }
   const int prewarmSamples = PrewarmSamples();
   if (prewarmSamples == 0)
