@@ -27,6 +27,10 @@
 /// \brief Use a sample rate of -1 if we don't know what the model expects to be run at
 #define NAM_UNKNOWN_EXPECTED_SAMPLE_RATE -1.0
 
+#if defined(_MSC_VER) && !defined(__llvm__) 
+#define __restrict__ __restrict
+#endif
+
 namespace nam
 {
 namespace wavenet
