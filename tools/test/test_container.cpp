@@ -73,21 +73,21 @@ void process_and_verify(nam::DSP* dsp, int num_buffers, int buffer_size)
 
 void test_container_loads_from_json()
 {
-  auto j = build_container_json("example_models/lstm.nam", "example_models/wavenet.nam", "example_models/nano_relu.nam");
+  auto j = build_container_json("example_models/lstm.nam", "example_models/wavenet.nam", "example_models/wavenet_a2_max.nam");
   auto dsp = nam::get_dsp(j);
   assert(dsp != nullptr);
 }
 
 void test_container_processes_audio()
 {
-  auto j = build_container_json("example_models/lstm.nam", "example_models/wavenet.nam", "example_models/nano_relu.nam");
+  auto j = build_container_json("example_models/lstm.nam", "example_models/wavenet.nam", "example_models/wavenet_a2_max.nam");
   auto dsp = nam::get_dsp(j);
   process_and_verify(dsp.get(), 3, 64);
 }
 
 void test_container_slimmable_selects_submodel()
 {
-  auto j = build_container_json("example_models/lstm.nam", "example_models/wavenet.nam", "example_models/nano_relu.nam");
+  auto j = build_container_json("example_models/lstm.nam", "example_models/wavenet.nam", "example_models/wavenet_a2_max.nam");
   auto dsp = nam::get_dsp(j);
   const double sample_rate = 48000.0;
   const int buffer_size = 64;
@@ -125,7 +125,7 @@ void test_container_slimmable_selects_submodel()
 
 void test_container_boundary_values()
 {
-  auto j = build_container_json("example_models/lstm.nam", "example_models/wavenet.nam", "example_models/nano_relu.nam");
+  auto j = build_container_json("example_models/lstm.nam", "example_models/wavenet.nam", "example_models/wavenet_a2_max.nam");
   auto dsp = nam::get_dsp(j);
   const double sample_rate = 48000.0;
   const int buffer_size = 16;
@@ -284,7 +284,7 @@ void test_container_load_from_file()
 
 void test_container_default_is_max_size()
 {
-  auto j = build_container_json("example_models/lstm.nam", "example_models/wavenet.nam", "example_models/nano_relu.nam");
+  auto j = build_container_json("example_models/lstm.nam", "example_models/wavenet.nam", "example_models/wavenet_a2_max.nam");
   auto dsp = nam::get_dsp(j);
   const double sample_rate = 48000.0;
   const int buffer_size = 64;
