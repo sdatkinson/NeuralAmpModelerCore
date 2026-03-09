@@ -223,42 +223,66 @@ void nam::wavenet::_Layer::Process(const Eigen::MatrixXf& input, const Eigen::Ma
   {
     // (No FiLM)
     // Store output to head (skip connection: activated conv output)
+    // When _skip_head_copy is true, GetOutputHead() returns _z directly, so no copy needed.
+    if (!this->_skip_head_copy)
+    {
 #ifdef NAM_USE_INLINE_GEMM
-    if (this->_gating_mode == GatingMode::NONE)
-    {
-      // _z has bottleneck rows, data is contiguous - use memcpy
-      const int total = (int)bottleneck * num_frames;
-      std::memcpy(this->_output_head.data(), this->_z.data(), total * sizeof(float));
-    }
-    else
-    {
-      // _z has 2*bottleneck rows but we only want top bottleneck rows
-      // Column-major: need to copy column by column with stride
-      const int out_rows = (int)bottleneck;
-      const int z_rows = (int)this->_z.rows(); // 2*bottleneck for gated
-      const float* __restrict__ src = this->_z.data();
-      float* __restrict__ dst = this->_output_head.data();
-      for (int f = 0; f < num_frames; f++)
+      if (this->_gating_mode == GatingMode::NONE)
       {
-        const float* __restrict__ src_col = src + f * z_rows;
-        float* __restrict__ dst_col = dst + f * out_rows;
-        for (int r = 0; r < out_rows; r++)
-          dst_col[r] = src_col[r];
+        // _z has bottleneck rows, data is contiguous - use memcpy
+        const int total = (int)bottleneck * num_frames;
+        std::memcpy(this->_output_head.data(), this->_z.data(), total * sizeof(float));
       }
-    }
+      else
+      {
+        // _z has 2*bottleneck rows but we only want top bottleneck rows
+        // Column-major: need to copy column by column with stride
+        const int out_rows = (int)bottleneck;
+        const int z_rows = (int)this->_z.rows(); // 2*bottleneck for gated
+        const float* __restrict__ src = this->_z.data();
+        float* __restrict__ dst = this->_output_head.data();
+        for (int f = 0; f < num_frames; f++)
+        {
+          const float* __restrict__ src_col = src + f * z_rows;
+          float* __restrict__ dst_col = dst + f * out_rows;
+          for (int r = 0; r < out_rows; r++)
+            dst_col[r] = src_col[r];
+        }
+      }
 #else
-    if (this->_gating_mode == GatingMode::NONE)
-      this->_output_head.leftCols(num_frames).noalias() = this->_z.leftCols(num_frames);
-    else
-      this->_output_head.leftCols(num_frames).noalias() = this->_z.topRows(bottleneck).leftCols(num_frames);
+      if (this->_gating_mode == GatingMode::NONE)
+        this->_output_head.leftCols(num_frames).noalias() = this->_z.leftCols(num_frames);
+      else
+        this->_output_head.leftCols(num_frames).noalias() = this->_z.topRows(bottleneck).leftCols(num_frames);
 #endif
+    }
   }
 
   // Store output to next layer (residual connection: input + layer1x1 output, or just input if layer1x1 inactive)
   if (this->_layer1x1)
   {
+#ifdef NAM_USE_INLINE_GEMM
+    {
+      const int channels = (int)this->get_channels();
+      const int total = channels * num_frames;
+      const float* __restrict__ in_ptr = input.data();
+      const float* __restrict__ layer_ptr = this->_layer1x1->GetOutput().data();
+      float* __restrict__ out_ptr = this->_output_next_layer.data();
+      int i = 0;
+      for (; i + 3 < total; i += 4)
+      {
+        out_ptr[i] = in_ptr[i] + layer_ptr[i];
+        out_ptr[i + 1] = in_ptr[i + 1] + layer_ptr[i + 1];
+        out_ptr[i + 2] = in_ptr[i + 2] + layer_ptr[i + 2];
+        out_ptr[i + 3] = in_ptr[i + 3] + layer_ptr[i + 3];
+      }
+      for (; i < total; i++)
+        out_ptr[i] = in_ptr[i] + layer_ptr[i];
+    }
+#else
     this->_output_next_layer.leftCols(num_frames).noalias() =
       input.leftCols(num_frames) + this->_layer1x1->GetOutput().leftCols(num_frames);
+#endif
   }
   else
   {
@@ -370,7 +394,25 @@ void nam::wavenet::_LayerArray::ProcessInner(const Eigen::MatrixXf& layer_inputs
     }
 
     // Accumulate head output from this layer
+#ifdef NAM_USE_INLINE_GEMM
+    {
+      const int total = (int)this->_head_output_size * num_frames;
+      const float* __restrict__ src = this->_layers[i].GetOutputHead().data();
+      float* __restrict__ dst = this->_head_inputs.data();
+      int j = 0;
+      for (; j + 3 < total; j += 4)
+      {
+        dst[j] += src[j];
+        dst[j + 1] += src[j + 1];
+        dst[j + 2] += src[j + 2];
+        dst[j + 3] += src[j + 3];
+      }
+      for (; j < total; j++)
+        dst[j] += src[j];
+    }
+#else
     this->_head_inputs.leftCols(num_frames).noalias() += this->_layers[i].GetOutputHead().leftCols(num_frames);
+#endif
   }
 
   // Store output from last layer - use memcpy for pure copy

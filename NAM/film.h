@@ -98,47 +98,78 @@ public:
     if (_do_shift)
     {
       // scale = top input_dim rows, shift = bottom input_dim rows
-      for (int f = 0; f < num_frames; f++)
+      if (input_dim == 3)
       {
-        const float* __restrict__ in_col = input_ptr + f * input_stride;
-        const float* __restrict__ scale_col = scale_shift_ptr + f * scale_shift_rows;
-        const float* __restrict__ shift_col = scale_col + input_dim;
-        float* __restrict__ out_col = output_ptr + f * input_dim;
-
-        int i = 0;
-        for (; i + 3 < input_dim; i += 4)
+        for (int f = 0; f < num_frames; f++)
         {
-          out_col[i]     = in_col[i]     * scale_col[i]     + shift_col[i];
-          out_col[i + 1] = in_col[i + 1] * scale_col[i + 1] + shift_col[i + 1];
-          out_col[i + 2] = in_col[i + 2] * scale_col[i + 2] + shift_col[i + 2];
-          out_col[i + 3] = in_col[i + 3] * scale_col[i + 3] + shift_col[i + 3];
+          const float* __restrict__ in_col = input_ptr + f * input_stride;
+          const float* __restrict__ scale_col = scale_shift_ptr + f * scale_shift_rows;
+          const float* __restrict__ shift_col = scale_col + 3;
+          float* __restrict__ out_col = output_ptr + f * 3;
+          out_col[0] = in_col[0] * scale_col[0] + shift_col[0];
+          out_col[1] = in_col[1] * scale_col[1] + shift_col[1];
+          out_col[2] = in_col[2] * scale_col[2] + shift_col[2];
         }
-        for (; i < input_dim; i++)
+      }
+      else
+      {
+        for (int f = 0; f < num_frames; f++)
         {
-          out_col[i] = in_col[i] * scale_col[i] + shift_col[i];
+          const float* __restrict__ in_col = input_ptr + f * input_stride;
+          const float* __restrict__ scale_col = scale_shift_ptr + f * scale_shift_rows;
+          const float* __restrict__ shift_col = scale_col + input_dim;
+          float* __restrict__ out_col = output_ptr + f * input_dim;
+
+          int i = 0;
+          for (; i + 3 < input_dim; i += 4)
+          {
+            out_col[i]     = in_col[i]     * scale_col[i]     + shift_col[i];
+            out_col[i + 1] = in_col[i + 1] * scale_col[i + 1] + shift_col[i + 1];
+            out_col[i + 2] = in_col[i + 2] * scale_col[i + 2] + shift_col[i + 2];
+            out_col[i + 3] = in_col[i + 3] * scale_col[i + 3] + shift_col[i + 3];
+          }
+          for (; i < input_dim; i++)
+          {
+            out_col[i] = in_col[i] * scale_col[i] + shift_col[i];
+          }
         }
       }
     }
     else
     {
       // scale only
-      for (int f = 0; f < num_frames; f++)
+      if (input_dim == 3)
       {
-        const float* __restrict__ in_col = input_ptr + f * input_stride;
-        const float* __restrict__ scale_col = scale_shift_ptr + f * scale_shift_rows;
-        float* __restrict__ out_col = output_ptr + f * input_dim;
-
-        int i = 0;
-        for (; i + 3 < input_dim; i += 4)
+        for (int f = 0; f < num_frames; f++)
         {
-          out_col[i]     = in_col[i]     * scale_col[i];
-          out_col[i + 1] = in_col[i + 1] * scale_col[i + 1];
-          out_col[i + 2] = in_col[i + 2] * scale_col[i + 2];
-          out_col[i + 3] = in_col[i + 3] * scale_col[i + 3];
+          const float* __restrict__ in_col = input_ptr + f * input_stride;
+          const float* __restrict__ scale_col = scale_shift_ptr + f * scale_shift_rows;
+          float* __restrict__ out_col = output_ptr + f * 3;
+          out_col[0] = in_col[0] * scale_col[0];
+          out_col[1] = in_col[1] * scale_col[1];
+          out_col[2] = in_col[2] * scale_col[2];
         }
-        for (; i < input_dim; i++)
+      }
+      else
+      {
+        for (int f = 0; f < num_frames; f++)
         {
-          out_col[i] = in_col[i] * scale_col[i];
+          const float* __restrict__ in_col = input_ptr + f * input_stride;
+          const float* __restrict__ scale_col = scale_shift_ptr + f * scale_shift_rows;
+          float* __restrict__ out_col = output_ptr + f * input_dim;
+
+          int i = 0;
+          for (; i + 3 < input_dim; i += 4)
+          {
+            out_col[i]     = in_col[i]     * scale_col[i];
+            out_col[i + 1] = in_col[i + 1] * scale_col[i + 1];
+            out_col[i + 2] = in_col[i + 2] * scale_col[i + 2];
+            out_col[i + 3] = in_col[i + 3] * scale_col[i + 3];
+          }
+          for (; i < input_dim; i++)
+          {
+            out_col[i] = in_col[i] * scale_col[i];
+          }
         }
       }
     }

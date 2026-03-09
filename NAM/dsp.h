@@ -18,6 +18,12 @@
 #else
   #define NAM_SAMPLE double
 #endif
+/// \brief Default max buffer size used by prewarm() when none has been set.
+/// Override at compile time with -DNAM_DEFAULT_MAX_BUFFER_SIZE=N.
+#ifndef NAM_DEFAULT_MAX_BUFFER_SIZE
+  #define NAM_DEFAULT_MAX_BUFFER_SIZE 4096
+#endif
+
 /// \brief Use a sample rate of -1 if we don't know what the model expects to be run at
 #define NAM_UNKNOWN_EXPECTED_SAMPLE_RATE -1.0
 
