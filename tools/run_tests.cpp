@@ -29,6 +29,7 @@
 #include "test/test_noncontiguous_blocks.cpp"
 #include "test/test_extensible.cpp"
 #include "test/test_container.cpp"
+#include "test/test_render_slim.cpp"
 
 int main()
 {
@@ -280,6 +281,12 @@ int main()
   test_container::test_container_sample_rate_mismatch_throws();
   test_container::test_container_load_from_file();
   test_container::test_container_default_is_max_size();
+
+  // Render --slim tests
+  test_render_slim::test_slim_changes_output();
+  test_render_slim::test_slim_rejects_non_slimmable();
+  test_render_slim::test_slim_boundary_values();
+  test_render_slim::test_slim_applied_before_processing();
 
   std::cout << "Success!" << std::endl;
 #ifdef ADDASSERT

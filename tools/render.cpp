@@ -2,11 +2,14 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <string>
 #include <vector>
 
+#include "NAM/container.h"
 #include "NAM/dsp.h"
 #include "NAM/get_dsp.h"
 #include "wav.h"
@@ -60,15 +63,47 @@ bool SaveWavFloat32(const char* fileName, const float* samples, size_t numSample
 
 int main(int argc, char* argv[])
 {
-  if (argc < 3 || argc > 4)
+  // Parse optional --slim <value> from the arguments
+  double slimValue = -1.0;
+  bool hasSlim = false;
+  std::vector<char*> positionalArgs;
+  positionalArgs.push_back(argv[0]);
+
+  for (int i = 1; i < argc; i++)
   {
-    std::cerr << "Usage: render <model.nam> <input.wav> [output.wav]\n";
+    std::string arg(argv[i]);
+    if (arg == "--slim")
+    {
+      if (i + 1 >= argc)
+      {
+        std::cerr << "Error: --slim requires a value between 0.0 and 1.0\n";
+        return 1;
+      }
+      char* end = nullptr;
+      slimValue = std::strtod(argv[i + 1], &end);
+      if (end == argv[i + 1] || *end != '\0' || slimValue < 0.0 || slimValue > 1.0)
+      {
+        std::cerr << "Error: --slim value must be a number between 0.0 and 1.0\n";
+        return 1;
+      }
+      hasSlim = true;
+      i++; // skip the value
+    }
+    else
+    {
+      positionalArgs.push_back(argv[i]);
+    }
+  }
+
+  if (positionalArgs.size() < 3 || positionalArgs.size() > 4)
+  {
+    std::cerr << "Usage: render [--slim <0.0-1.0>] <model.nam> <input.wav> [output.wav]\n";
     return 1;
   }
 
-  const char* modelPath = argv[1];
-  const char* inputPath = argv[2];
-  const char* outputPath = (argc >= 4) ? argv[3] : "output.wav";
+  const char* modelPath = positionalArgs[1];
+  const char* inputPath = positionalArgs[2];
+  const char* outputPath = (positionalArgs.size() >= 4) ? positionalArgs[3] : "output.wav";
 
   std::cerr << "Loading model [" << modelPath << "]\n";
   auto model = nam::get_dsp(std::filesystem::path(modelPath));
@@ -78,6 +113,18 @@ int main(int argc, char* argv[])
     return 1;
   }
   std::cerr << "Model loaded successfully\n";
+
+  if (hasSlim)
+  {
+    auto* container = dynamic_cast<nam::container::ContainerModel*>(model.get());
+    if (!container)
+    {
+      std::cerr << "Error: --slim requires a model that implements the Slimmable interface (e.g. SlimmableContainer)\n";
+      return 1;
+    }
+    std::cerr << "Setting slimmable size to " << slimValue << "\n";
+    model->SetSlimmableSize(slimValue);
+  }
 
   std::vector<float> inputAudio;
   double inputSampleRate = 0.0;
