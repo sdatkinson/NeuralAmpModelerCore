@@ -42,7 +42,7 @@ Version ParseVersion(const std::string& versionStr);
 
 void verify_config_version(const std::string versionStr);
 
-const std::string LATEST_FULLY_SUPPORTED_NAM_FILE_VERSION = "0.6.0";
+const std::string LATEST_FULLY_SUPPORTED_NAM_FILE_VERSION = "0.7.0";
 const std::string EARLIEST_SUPPORTED_NAM_FILE_VERSION = "0.5.0";
 
 /// \brief Get NAM from a .nam file at the provided location

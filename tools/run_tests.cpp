@@ -28,6 +28,8 @@
 #include "test/test_wavenet_configurable_gating.cpp"
 #include "test/test_noncontiguous_blocks.cpp"
 #include "test/test_extensible.cpp"
+#include "test/test_container.cpp"
+#include "test/test_render_slim.cpp"
 
 int main()
 {
@@ -267,6 +269,24 @@ int main()
 
   // Extensibility: external architecture registration and get_dsp (issue #230)
   test_extensible::run_extensibility_tests();
+
+  // Container / SlimmableContainer tests
+  test_container::test_container_loads_from_json();
+  test_container::test_container_processes_audio();
+  test_container::test_container_slimmable_selects_submodel();
+  test_container::test_container_boundary_values();
+  test_container::test_container_empty_submodels_throws();
+  test_container::test_container_last_max_value_must_cover_one();
+  test_container::test_container_unsorted_submodels_throws();
+  test_container::test_container_sample_rate_mismatch_throws();
+  test_container::test_container_load_from_file();
+  test_container::test_container_default_is_max_size();
+
+  // Render --slim tests
+  test_render_slim::test_slim_changes_output();
+  test_render_slim::test_slim_rejects_non_slimmable();
+  test_render_slim::test_slim_boundary_values();
+  test_render_slim::test_slim_applied_before_processing();
 
   std::cout << "Success!" << std::endl;
 #ifdef ADDASSERT
