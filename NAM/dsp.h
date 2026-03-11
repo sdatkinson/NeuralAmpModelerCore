@@ -155,13 +155,6 @@ public:
   /// \param outputLevel Output level in dBu
   void SetOutputLevel(const double outputLevel);
 
-  /// \brief Set the slimmable size of the model
-  ///
-  /// This is a hint that allows models to reduce their computational cost.
-  /// The interpretation is model-specific. The default implementation is a no-op.
-  /// \param val Value between 0.0 (minimum size) and 1.0 (maximum size)
-  virtual void SetSlimmableSize(const double val) { (void)val; };
-
 protected:
   friend class wavenet::WaveNet; // Allow WaveNet to access protected members. Used in condition DSP.
 

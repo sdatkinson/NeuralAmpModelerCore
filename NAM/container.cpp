@@ -72,7 +72,7 @@ void ContainerModel::SetSlimmableSize(const double val)
   _active_index = _submodels.size() - 1;
   for (size_t i = 0; i < _submodels.size(); ++i)
   {
-    if (val <= _submodels[i].max_value)
+    if (val < _submodels[i].max_value)
     {
       _active_index = i;
       break;

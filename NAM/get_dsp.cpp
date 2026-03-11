@@ -69,7 +69,7 @@ void verify_config_version(const std::string versionStr)
        << currentVersion.toString();
     throw std::runtime_error(ss.str());
   }
-  else if (version.major == 0 && version.minor == 6 && version.patch > 0)
+  else if (currentVersion < version)
   {
     std::cerr << "Model config is a partially-supported version " << versionStr
               << ". The latest fully-supported version is " << currentVersion.toString()

@@ -11,6 +11,7 @@
 
 #include "NAM/container.h"
 #include "NAM/get_dsp.h"
+#include "NAM/slimmable.h"
 
 namespace test_container
 {
@@ -35,7 +36,7 @@ nlohmann::json build_container_json(const std::string& small_path, const std::st
   nlohmann::json large_model = load_nam_json(large_path);
 
   nlohmann::json container;
-  container["version"] = "0.6.1";
+  container["version"] = "0.7.0";
   container["architecture"] = "SlimmableContainer";
   container["config"]["submodels"] = nlohmann::json::array(
     {{{"max_value", 0.33}, {"model", small_model}}, {{"max_value", 0.66}, {"model", medium_model}}, {{"max_value", 1.0}, {"model", large_model}}});
@@ -99,13 +100,16 @@ void test_container_slimmable_selects_submodel()
   NAM_SAMPLE* in_ptr = input.data();
   NAM_SAMPLE* out_ptr;
 
+  auto* slimmable = dynamic_cast<nam::SlimmableModel*>(dsp.get());
+  assert(slimmable != nullptr);
+
   // Process at minimum size (selects first submodel)
-  dsp->SetSlimmableSize(0.0);
+  slimmable->SetSlimmableSize(0.0);
   out_ptr = out_small.data();
   dsp->process(&in_ptr, &out_ptr, buffer_size);
 
   // Process at maximum size (selects last submodel)
-  dsp->SetSlimmableSize(1.0);
+  slimmable->SetSlimmableSize(1.0);
   out_ptr = out_large.data();
   dsp->process(&in_ptr, &out_ptr, buffer_size);
 
@@ -136,23 +140,31 @@ void test_container_boundary_values()
   NAM_SAMPLE* in_ptr = input.data();
   NAM_SAMPLE* out_ptr = output.data();
 
-  // Test exact boundary values
-  dsp->SetSlimmableSize(0.33); // Should select first submodel (max_value=0.33)
+  auto* slimmable = dynamic_cast<nam::SlimmableModel*>(dsp.get());
+  assert(slimmable != nullptr);
+
+  // Test exact boundary values (max_value is exclusive: val < max_value selects that submodel)
+  slimmable->SetSlimmableSize(0.32); // Should select first submodel (0.32 < 0.33)
   dsp->process(&in_ptr, &out_ptr, buffer_size);
   for (int i = 0; i < buffer_size; i++)
     assert(std::isfinite(output[i]));
 
-  dsp->SetSlimmableSize(0.34); // Should select second submodel (max_value=0.66)
+  slimmable->SetSlimmableSize(0.33); // Should select second submodel (0.33 is NOT < 0.33, but IS < 0.66)
   dsp->process(&in_ptr, &out_ptr, buffer_size);
   for (int i = 0; i < buffer_size; i++)
     assert(std::isfinite(output[i]));
 
-  dsp->SetSlimmableSize(0.66); // Should select second submodel (max_value=0.66)
+  slimmable->SetSlimmableSize(0.65); // Should select second submodel (0.65 < 0.66)
   dsp->process(&in_ptr, &out_ptr, buffer_size);
   for (int i = 0; i < buffer_size; i++)
     assert(std::isfinite(output[i]));
 
-  dsp->SetSlimmableSize(1.0); // Should select third submodel (max_value=1.0)
+  slimmable->SetSlimmableSize(0.66); // Should select third/last submodel (0.66 is NOT < 0.66, fallback)
+  dsp->process(&in_ptr, &out_ptr, buffer_size);
+  for (int i = 0; i < buffer_size; i++)
+    assert(std::isfinite(output[i]));
+
+  slimmable->SetSlimmableSize(1.0); // Should select third/last submodel (fallback)
   dsp->process(&in_ptr, &out_ptr, buffer_size);
   for (int i = 0; i < buffer_size; i++)
     assert(std::isfinite(output[i]));
@@ -161,7 +173,7 @@ void test_container_boundary_values()
 void test_container_empty_submodels_throws()
 {
   nlohmann::json j;
-  j["version"] = "0.6.1";
+  j["version"] = "0.7.0";
   j["architecture"] = "SlimmableContainer";
   j["config"]["submodels"] = nlohmann::json::array();
   j["weights"] = nlohmann::json::array();
@@ -185,7 +197,7 @@ void test_container_last_max_value_must_cover_one()
   auto small_json = load_nam_json("example_models/lstm.nam");
 
   nlohmann::json j;
-  j["version"] = "0.6.1";
+  j["version"] = "0.7.0";
   j["architecture"] = "SlimmableContainer";
   j["config"]["submodels"] = nlohmann::json::array({{{"max_value", 0.5}, {"model", small_json}}});
   j["weights"] = nlohmann::json::array();
@@ -216,7 +228,7 @@ void test_container_unsorted_submodels_throws()
   auto medium_json = load_nam_json("example_models/wavenet.nam");
 
   nlohmann::json j;
-  j["version"] = "0.6.1";
+  j["version"] = "0.7.0";
   j["architecture"] = "SlimmableContainer";
   j["config"]["submodels"] = nlohmann::json::array(
     {{{"max_value", 0.8}, {"model", small_json}}, {{"max_value", 0.5}, {"model", medium_json}}});
@@ -249,7 +261,7 @@ void test_container_sample_rate_mismatch_throws()
   model_44k["sample_rate"] = 44100;
 
   nlohmann::json j;
-  j["version"] = "0.6.1";
+  j["version"] = "0.7.0";
   j["architecture"] = "SlimmableContainer";
   j["config"]["submodels"] = nlohmann::json::array(
     {{{"max_value", 0.5}, {"model", model_44k}}, {{"max_value", 1.0}, {"model", model_48k}}});
@@ -301,7 +313,9 @@ void test_container_default_is_max_size()
   dsp->process(&in_ptr, &out_ptr, buffer_size);
 
   // Explicitly set to max
-  dsp->SetSlimmableSize(1.0);
+  auto* slimmable = dynamic_cast<nam::SlimmableModel*>(dsp.get());
+  assert(slimmable != nullptr);
+  slimmable->SetSlimmableSize(1.0);
   out_ptr = out_max.data();
   dsp->process(&in_ptr, &out_ptr, buffer_size);
 

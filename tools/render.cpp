@@ -9,9 +9,9 @@
 #include <string>
 #include <vector>
 
-#include "NAM/container.h"
 #include "NAM/dsp.h"
 #include "NAM/get_dsp.h"
+#include "NAM/slimmable.h"
 #include "wav.h"
 
 namespace
@@ -116,14 +116,14 @@ int main(int argc, char* argv[])
 
   if (hasSlim)
   {
-    auto* container = dynamic_cast<nam::container::ContainerModel*>(model.get());
-    if (!container)
+    auto* slimmable = dynamic_cast<nam::SlimmableModel*>(model.get());
+    if (!slimmable)
     {
-      std::cerr << "Error: --slim requires a model that implements the Slimmable interface (e.g. SlimmableContainer)\n";
+      std::cerr << "Error: --slim requires a model that implements the SlimmableModel interface\n";
       return 1;
     }
     std::cerr << "Setting slimmable size to " << slimValue << "\n";
-    model->SetSlimmableSize(slimValue);
+    slimmable->SetSlimmableSize(slimValue);
   }
 
   std::vector<float> inputAudio;

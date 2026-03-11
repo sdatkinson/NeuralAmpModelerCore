@@ -9,9 +9,9 @@
 #include <string>
 #include <vector>
 
-#include "NAM/container.h"
 #include "NAM/dsp.h"
 #include "NAM/get_dsp.h"
+#include "NAM/slimmable.h"
 
 namespace test_render_slim
 {
@@ -25,9 +25,9 @@ void test_slim_changes_output()
   auto model = nam::get_dsp(std::filesystem::path("example_models/slimmable_container.nam"));
   assert(model != nullptr);
 
-  // Verify it's actually a ContainerModel
-  auto* container = dynamic_cast<nam::container::ContainerModel*>(model.get());
-  assert(container != nullptr);
+  // Verify it implements SlimmableModel
+  auto* slimmable = dynamic_cast<nam::SlimmableModel*>(model.get());
+  assert(slimmable != nullptr);
 
   const double sample_rate = model->GetExpectedSampleRate() > 0 ? model->GetExpectedSampleRate() : 48000.0;
   const int buffer_size = 64;
@@ -40,12 +40,12 @@ void test_slim_changes_output()
   NAM_SAMPLE* out_ptr;
 
   // Render at minimum size
-  model->SetSlimmableSize(0.0);
+  slimmable->SetSlimmableSize(0.0);
   out_ptr = out_small.data();
   model->process(&in_ptr, &out_ptr, buffer_size);
 
   // Render at maximum size
-  model->SetSlimmableSize(1.0);
+  slimmable->SetSlimmableSize(1.0);
   out_ptr = out_large.data();
   model->process(&in_ptr, &out_ptr, buffer_size);
 
@@ -71,9 +71,9 @@ void test_slim_rejects_non_slimmable()
   auto model = nam::get_dsp(std::filesystem::path("example_models/lstm.nam"));
   assert(model != nullptr);
 
-  // Verify it's NOT a ContainerModel
-  auto* container = dynamic_cast<nam::container::ContainerModel*>(model.get());
-  assert(container == nullptr);
+  // Verify it does NOT implement SlimmableModel
+  auto* slimmable = dynamic_cast<nam::SlimmableModel*>(model.get());
+  assert(slimmable == nullptr);
 }
 
 // Test that --slim with boundary values produces finite output
@@ -93,10 +93,13 @@ void test_slim_boundary_values()
   NAM_SAMPLE* in_ptr = input.data();
   NAM_SAMPLE* out_ptr = output.data();
 
+  auto* slimmable = dynamic_cast<nam::SlimmableModel*>(model.get());
+  assert(slimmable != nullptr);
+
   double values[] = {0.0, 0.25, 0.5, 0.75, 1.0};
   for (double val : values)
   {
-    model->SetSlimmableSize(val);
+    slimmable->SetSlimmableSize(val);
     model->process(&in_ptr, &out_ptr, buffer_size);
     for (int i = 0; i < buffer_size; i++)
       assert(std::isfinite(output[i]));
@@ -111,14 +114,14 @@ void test_slim_applied_before_processing()
   auto model = nam::get_dsp(std::filesystem::path("example_models/slimmable_container.nam"));
   assert(model != nullptr);
 
-  auto* container = dynamic_cast<nam::container::ContainerModel*>(model.get());
-  assert(container != nullptr);
+  auto* slimmable = dynamic_cast<nam::SlimmableModel*>(model.get());
+  assert(slimmable != nullptr);
 
   const double sample_rate = model->GetExpectedSampleRate() > 0 ? model->GetExpectedSampleRate() : 48000.0;
   const int buffer_size = 64;
 
   // Set slim BEFORE Reset (as render.cpp does it before Reset)
-  model->SetSlimmableSize(0.5);
+  slimmable->SetSlimmableSize(0.5);
   model->Reset(sample_rate, buffer_size);
 
   std::vector<NAM_SAMPLE> input(buffer_size, 0.1);

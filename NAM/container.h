@@ -6,6 +6,7 @@
 
 #include "dsp.h"
 #include "model_config.h"
+#include "slimmable.h"
 
 namespace nam
 {
@@ -21,8 +22,9 @@ struct Submodel
 /// \brief A container model that holds multiple submodels at different sizes
 ///
 /// SetSlimmableSize selects the active submodel based on the max_value thresholds.
-/// Each submodel covers values up to (and including) its max_value.
-class ContainerModel : public DSP
+/// Each submodel covers values up to (but not including) its max_value.
+/// The last submodel is the fallback for values at or above the last threshold.
+class ContainerModel : public DSP, public SlimmableModel
 {
 public:
   /// \brief Constructor
