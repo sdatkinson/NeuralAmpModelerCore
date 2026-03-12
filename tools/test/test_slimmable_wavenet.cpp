@@ -325,4 +325,199 @@ void test_unsupported_method_throws()
   assert(threw);
 }
 
+void test_slimmed_matches_small_model()
+{
+  std::cout << "  test_slimmable_wavenet_slimmed_matches_small_model" << std::endl;
+
+  // Build a minimal WaveNet config: 1 layer array, 2 layers (dilations [1,2]),
+  // kernel_size=3, no gating, no layer1x1, no head1x1, no FiLM, Tanh activation.
+  // bottleneck = channels (required when layer1x1 is inactive).
+  const int small_ch = 2;
+  const int large_ch = 4;
+  const int kernel_size = 3;
+  const int input_size = 1;
+  const int condition_size = 1;
+  const int head_size = 1;
+  const int num_layers = 2;
+
+  auto make_layer_config = [&](int channels) -> nlohmann::json {
+    nlohmann::json lc;
+    lc["input_size"] = input_size;
+    lc["condition_size"] = condition_size;
+    lc["head_size"] = head_size;
+    lc["channels"] = channels;
+    lc["kernel_size"] = kernel_size;
+    lc["dilations"] = {1, 2};
+    lc["activation"] = "Tanh";
+    lc["head_bias"] = false;
+    // Disable layer1x1 so bottleneck == channels (simplest config)
+    lc["layer1x1"] = {{"active", false}, {"groups", 1}};
+    return lc;
+  };
+
+  // --- Generate deterministic weights for the small (2ch) model ---
+  // Weight layout for 1 array, no gating, no layer1x1, no head1x1, no FiLM:
+  //   rechannel: Conv1x1(input_size -> ch, no bias) = input_size * ch
+  //   per layer:
+  //     conv: Conv1D(ch -> ch, K, bias) = ch * ch * K + ch
+  //     input_mixin: Conv1x1(condition_size -> ch, no bias) = condition_size * ch
+  //   head_rechannel: Conv1x1(ch -> head_size, no bias) = ch * head_size
+  //   head_scale: 1
+  auto count_weights = [&](int ch) {
+    int n = input_size * ch; // rechannel
+    for (int l = 0; l < num_layers; l++)
+    {
+      n += ch * ch * kernel_size + ch; // conv
+      n += condition_size * ch;        // input_mixin
+    }
+    n += ch * head_size; // head_rechannel
+    n += 1;              // head_scale
+    return n;
+  };
+
+  const int small_weight_count = count_weights(small_ch);
+  std::vector<float> small_weights(small_weight_count);
+  // Fill with a deterministic pattern (small non-zero values)
+  for (int i = 0; i < small_weight_count; i++)
+    small_weights[i] = 0.01f * ((i % 17) - 8); // values in [-0.08, 0.08]
+
+  // --- Embed small weights into large weight vector ---
+  // Walk both weight layouts in parallel: for each matrix, place small weights
+  // in the top-left corner and fill the rest with arbitrary filler.
+  std::vector<float> large_weights;
+  auto small_it = small_weights.cbegin();
+
+  // Helper: embed Conv1x1(small_in, small_out) into Conv1x1(full_in, full_out)
+  auto embed_conv1x1 = [](std::vector<float>::const_iterator& src, int small_in, int small_out, int full_in,
+                           int full_out, bool bias, std::vector<float>& dst) {
+    for (int i = 0; i < full_out; i++)
+      for (int j = 0; j < full_in; j++)
+      {
+        if (i < small_out && j < small_in)
+          dst.push_back(*(src++));
+        else
+          dst.push_back(0.02f);
+      }
+    if (bias)
+      for (int i = 0; i < full_out; i++)
+      {
+        if (i < small_out)
+          dst.push_back(*(src++));
+        else
+          dst.push_back(0.02f);
+      }
+  };
+
+  // Helper: embed Conv1D(small_in, small_out) into Conv1D(full_in, full_out)
+  auto embed_conv1d = [](std::vector<float>::const_iterator& src, int small_in, int small_out, int full_in,
+                          int full_out, int ks, std::vector<float>& dst) {
+    for (int i = 0; i < full_out; i++)
+      for (int j = 0; j < full_in; j++)
+        for (int k = 0; k < ks; k++)
+        {
+          if (i < small_out && j < small_in)
+            dst.push_back(*(src++));
+          else
+            dst.push_back(0.02f);
+        }
+    // bias
+    for (int i = 0; i < full_out; i++)
+    {
+      if (i < small_out)
+        dst.push_back(*(src++));
+      else
+        dst.push_back(0.02f);
+    }
+  };
+
+  // rechannel: Conv1x1(input_size -> ch, no bias)
+  embed_conv1x1(small_it, input_size, small_ch, input_size, large_ch, false, large_weights);
+  // per layer
+  for (int l = 0; l < num_layers; l++)
+  {
+    // conv: Conv1D(ch -> ch, K, bias)
+    embed_conv1d(small_it, small_ch, small_ch, large_ch, large_ch, kernel_size, large_weights);
+    // input_mixin: Conv1x1(condition_size -> ch, no bias)
+    embed_conv1x1(small_it, condition_size, small_ch, condition_size, large_ch, false, large_weights);
+  }
+  // head_rechannel: Conv1x1(ch -> head_size, no bias)
+  embed_conv1x1(small_it, small_ch, head_size, large_ch, head_size, false, large_weights);
+  // head_scale
+  large_weights.push_back(*(small_it++));
+
+  assert(small_it == small_weights.cend());
+  assert((int)large_weights.size() == count_weights(large_ch));
+
+  // --- Build the 2ch WaveNet (non-slimmable) ---
+  nlohmann::json small_json;
+  small_json["version"] = "0.7.0";
+  small_json["architecture"] = "WaveNet";
+  small_json["config"]["layers"] = nlohmann::json::array({make_layer_config(small_ch)});
+  small_json["config"]["head_scale"] = 1.0;
+  small_json["weights"] = small_weights;
+  small_json["sample_rate"] = 48000;
+
+  auto small_dsp = nam::get_dsp(small_json);
+  assert(small_dsp != nullptr);
+
+  // --- Build the 4ch SlimmableWavenet ---
+  nlohmann::json large_json;
+  large_json["version"] = "0.7.0";
+  large_json["architecture"] = "SlimmableWavenet";
+  auto large_layer_config = make_layer_config(large_ch);
+  large_layer_config["slimmable"] = {{"method", "slice_channels_uniform"},
+                                     {"kwargs", {{"allowed_channels", {small_ch, large_ch}}}}};
+  large_json["config"]["model"]["layers"] = nlohmann::json::array({large_layer_config});
+  large_json["config"]["model"]["head_scale"] = 1.0;
+  large_json["weights"] = large_weights;
+  large_json["sample_rate"] = 48000;
+
+  auto large_dsp = nam::get_dsp(large_json);
+  assert(large_dsp != nullptr);
+
+  // Slim the large model down to match the small model
+  auto* slimmable = dynamic_cast<nam::SlimmableModel*>(large_dsp.get());
+  assert(slimmable != nullptr);
+  // ratio 0.0 -> idx = floor(0.0 * 2) = 0 -> allowed_channels[0] = small_ch
+  slimmable->SetSlimmableSize(0.0);
+
+  // --- Process audio through both and compare ---
+  const double sample_rate = 48000.0;
+  const int buffer_size = 64;
+  const int num_buffers = 5; // process enough buffers to exercise the dilated convolutions
+
+  small_dsp->Reset(sample_rate, buffer_size);
+  large_dsp->Reset(sample_rate, buffer_size);
+
+  for (int buf = 0; buf < num_buffers; buf++)
+  {
+    std::vector<NAM_SAMPLE> input(buffer_size);
+    for (int i = 0; i < buffer_size; i++)
+      input[i] = (NAM_SAMPLE)(0.1 * std::sin(0.1 * (buf * buffer_size + i)));
+
+    std::vector<NAM_SAMPLE> out_small(buffer_size);
+    std::vector<NAM_SAMPLE> out_large(buffer_size);
+    NAM_SAMPLE* in_ptr = input.data();
+    NAM_SAMPLE* out_ptr;
+
+    out_ptr = out_small.data();
+    small_dsp->process(&in_ptr, &out_ptr, buffer_size);
+
+    out_ptr = out_large.data();
+    large_dsp->process(&in_ptr, &out_ptr, buffer_size);
+
+    for (int i = 0; i < buffer_size; i++)
+    {
+      assert(std::isfinite(out_small[i]));
+      assert(std::isfinite(out_large[i]));
+      if (std::abs(out_small[i] - out_large[i]) > 1e-6)
+      {
+        std::cerr << "  MISMATCH at buffer " << buf << " sample " << i << ": small=" << out_small[i]
+                  << " slimmed=" << out_large[i] << " diff=" << std::abs(out_small[i] - out_large[i]) << std::endl;
+        assert(false);
+      }
+    }
+  }
+}
+
 } // namespace test_slimmable_wavenet

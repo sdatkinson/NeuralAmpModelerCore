@@ -300,6 +300,7 @@ int main()
   test_slimmable_wavenet::test_from_json();
   test_slimmable_wavenet::test_no_slimmable_layers_throws();
   test_slimmable_wavenet::test_unsupported_method_throws();
+  test_slimmable_wavenet::test_slimmed_matches_small_model();
 
   std::cout << "Success!" << std::endl;
 #ifdef ADDASSERT
