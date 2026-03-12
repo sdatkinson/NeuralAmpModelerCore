@@ -2,7 +2,6 @@
 #include <cmath>
 #include <filesystem>
 #include <fstream>
-#include <iostream>
 #include <memory>
 #include <vector>
 
@@ -55,7 +54,7 @@ void process_and_verify(nam::DSP* dsp, int num_buffers, int buffer_size)
 
 void test_loads_from_file()
 {
-  std::cout << "  test_slimmable_wavenet_loads_from_file" << std::endl;
+
 
   std::filesystem::path path("example_models/slimmable_wavenet.nam");
   auto dsp = nam::get_dsp(path);
@@ -64,7 +63,7 @@ void test_loads_from_file()
 
 void test_implements_slimmable()
 {
-  std::cout << "  test_slimmable_wavenet_implements_slimmable" << std::endl;
+
 
   auto dsp = nam::get_dsp(std::filesystem::path("example_models/slimmable_wavenet.nam"));
   assert(dsp != nullptr);
@@ -75,7 +74,7 @@ void test_implements_slimmable()
 
 void test_processes_audio()
 {
-  std::cout << "  test_slimmable_wavenet_processes_audio" << std::endl;
+
 
   auto dsp = nam::get_dsp(std::filesystem::path("example_models/slimmable_wavenet.nam"));
   assert(dsp != nullptr);
@@ -84,7 +83,7 @@ void test_processes_audio()
 
 void test_slimming_changes_output()
 {
-  std::cout << "  test_slimmable_wavenet_slimming_changes_output" << std::endl;
+
 
   auto dsp = nam::get_dsp(std::filesystem::path("example_models/slimmable_wavenet.nam"));
   assert(dsp != nullptr);
@@ -129,7 +128,7 @@ void test_slimming_changes_output()
 
 void test_boundary_values()
 {
-  std::cout << "  test_slimmable_wavenet_boundary_values" << std::endl;
+
 
   auto dsp = nam::get_dsp(std::filesystem::path("example_models/slimmable_wavenet.nam"));
   assert(dsp != nullptr);
@@ -163,7 +162,7 @@ void test_boundary_values()
 
 void test_default_is_max_size()
 {
-  std::cout << "  test_slimmable_wavenet_default_is_max_size" << std::endl;
+
 
   auto dsp = nam::get_dsp(std::filesystem::path("example_models/slimmable_wavenet.nam"));
   assert(dsp != nullptr);
@@ -197,7 +196,7 @@ void test_default_is_max_size()
 
 void test_ratio_mapping()
 {
-  std::cout << "  test_slimmable_wavenet_ratio_mapping" << std::endl;
+
 
   // With allowed_channels [1, 2, 3] (len=3):
   // idx = min(floor(ratio * 3), 2)
@@ -247,24 +246,9 @@ void test_ratio_mapping()
 
 void test_from_json()
 {
-  std::cout << "  test_slimmable_wavenet_from_json" << std::endl;
 
-  // Build a SlimmableWavenet JSON from an existing WaveNet
-  auto wavenet_json = load_nam_json("example_models/wavenet_3ch.nam");
 
-  nlohmann::json j;
-  j["version"] = "0.7.0";
-  j["architecture"] = "SlimmableWavenet";
-
-  // Copy the WaveNet config and add slimmable field to the first layer
-  j["config"]["model"] = wavenet_json["config"];
-  j["config"]["model"]["layers"][0]["slimmable"] = {
-    {"method", "slice_channels_uniform"},
-    {"kwargs", {{"allowed_channels", {2, 3}}}}
-  };
-  j["weights"] = wavenet_json["weights"];
-  j["sample_rate"] = wavenet_json["sample_rate"];
-
+  auto j = load_nam_json("example_models/slimmable_wavenet.nam");
   auto dsp = nam::get_dsp(j);
   assert(dsp != nullptr);
   process_and_verify(dsp.get(), 3, 64);
@@ -272,9 +256,9 @@ void test_from_json()
 
 void test_no_slimmable_layers_throws()
 {
-  std::cout << "  test_slimmable_wavenet_no_slimmable_layers_throws" << std::endl;
 
-  auto wavenet_json = load_nam_json("example_models/wavenet_3ch.nam");
+
+  auto wavenet_json = load_nam_json("example_models/wavenet.nam");
 
   nlohmann::json j;
   j["version"] = "0.7.0";
@@ -298,18 +282,16 @@ void test_no_slimmable_layers_throws()
 
 void test_unsupported_method_throws()
 {
-  std::cout << "  test_slimmable_wavenet_unsupported_method_throws" << std::endl;
 
-  auto wavenet_json = load_nam_json("example_models/wavenet_3ch.nam");
+
+  auto wavenet_json = load_nam_json("example_models/wavenet.nam");
 
   nlohmann::json j;
   j["version"] = "0.7.0";
   j["architecture"] = "SlimmableWavenet";
   j["config"]["model"] = wavenet_json["config"];
   j["config"]["model"]["layers"][0]["slimmable"] = {
-    {"method", "some_future_method"},
-    {"kwargs", {{"allowed_channels", {2, 3}}}}
-  };
+    {"method", "some_future_method"}, {"kwargs", {{"allowed_channels", {2, 3}}}}};
   j["weights"] = wavenet_json["weights"];
   j["sample_rate"] = wavenet_json["sample_rate"];
 
@@ -327,7 +309,7 @@ void test_unsupported_method_throws()
 
 void test_slimmed_matches_small_model()
 {
-  std::cout << "  test_slimmable_wavenet_slimmed_matches_small_model" << std::endl;
+
 
   // Build a minimal WaveNet config: 1 layer array, 2 layers (dilations [1,2]),
   // kernel_size=3, no gating, no layer1x1, no head1x1, no FiLM, Tanh activation.
@@ -368,10 +350,10 @@ void test_slimmed_matches_small_model()
     for (int l = 0; l < num_layers; l++)
     {
       n += ch * ch * kernel_size + ch; // conv
-      n += condition_size * ch;        // input_mixin
+      n += condition_size * ch; // input_mixin
     }
     n += ch * head_size; // head_rechannel
-    n += 1;              // head_scale
+    n += 1; // head_scale
     return n;
   };
 
@@ -389,7 +371,7 @@ void test_slimmed_matches_small_model()
 
   // Helper: embed Conv1x1(small_in, small_out) into Conv1x1(full_in, full_out)
   auto embed_conv1x1 = [](std::vector<float>::const_iterator& src, int small_in, int small_out, int full_in,
-                           int full_out, bool bias, std::vector<float>& dst) {
+                          int full_out, bool bias, std::vector<float>& dst) {
     for (int i = 0; i < full_out; i++)
       for (int j = 0; j < full_in; j++)
       {
@@ -410,7 +392,7 @@ void test_slimmed_matches_small_model()
 
   // Helper: embed Conv1D(small_in, small_out) into Conv1D(full_in, full_out)
   auto embed_conv1d = [](std::vector<float>::const_iterator& src, int small_in, int small_out, int full_in,
-                          int full_out, int ks, std::vector<float>& dst) {
+                         int full_out, int ks, std::vector<float>& dst) {
     for (int i = 0; i < full_out; i++)
       for (int j = 0; j < full_in; j++)
         for (int k = 0; k < ks; k++)
@@ -465,8 +447,8 @@ void test_slimmed_matches_small_model()
   large_json["version"] = "0.7.0";
   large_json["architecture"] = "SlimmableWavenet";
   auto large_layer_config = make_layer_config(large_ch);
-  large_layer_config["slimmable"] = {{"method", "slice_channels_uniform"},
-                                     {"kwargs", {{"allowed_channels", {small_ch, large_ch}}}}};
+  large_layer_config["slimmable"] = {
+    {"method", "slice_channels_uniform"}, {"kwargs", {{"allowed_channels", {small_ch, large_ch}}}}};
   large_json["config"]["model"]["layers"] = nlohmann::json::array({large_layer_config});
   large_json["config"]["model"]["head_scale"] = 1.0;
   large_json["weights"] = large_weights;
@@ -510,12 +492,7 @@ void test_slimmed_matches_small_model()
     {
       assert(std::isfinite(out_small[i]));
       assert(std::isfinite(out_large[i]));
-      if (std::abs(out_small[i] - out_large[i]) > 1e-6)
-      {
-        std::cerr << "  MISMATCH at buffer " << buf << " sample " << i << ": small=" << out_small[i]
-                  << " slimmed=" << out_large[i] << " diff=" << std::abs(out_small[i] - out_large[i]) << std::endl;
-        assert(false);
-      }
+      assert(std::abs(out_small[i] - out_large[i]) <= 1e-6);
     }
   }
 }
