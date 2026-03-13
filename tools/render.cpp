@@ -38,7 +38,7 @@ bool SaveWavFloat32(const char* fileName, const float* samples, size_t numSample
   const uint32_t fmtSize = 16;
   out.write("fmt ", 4);
   out.write(reinterpret_cast<const char*>(&fmtSize), 4);
-  const uint16_t audioFormat = 3;  // IEEE float
+  const uint16_t audioFormat = 3; // IEEE float
   out.write(reinterpret_cast<const char*>(&audioFormat), 2);
   const uint16_t numChannels = 1;
   out.write(reinterpret_cast<const char*>(&numChannels), 2);
@@ -59,7 +59,7 @@ bool SaveWavFloat32(const char* fileName, const float* samples, size_t numSample
   return out.good();
 }
 
-}  // namespace
+} // namespace
 
 int main(int argc, char* argv[])
 {
@@ -138,8 +138,8 @@ int main(int argc, char* argv[])
   const double expectedRate = model->GetExpectedSampleRate();
   if (expectedRate > 0 && std::abs(inputSampleRate - expectedRate) > 0.5)
   {
-    std::cerr << "Error: Input WAV sample rate (" << inputSampleRate
-              << " Hz) does not match model expected rate (" << expectedRate << " Hz)\n";
+    std::cerr << "Error: Input WAV sample rate (" << inputSampleRate << " Hz) does not match model expected rate ("
+              << expectedRate << " Hz)\n";
     return 1;
   }
 

@@ -38,8 +38,9 @@ nlohmann::json build_container_json(const std::string& small_path, const std::st
   nlohmann::json container;
   container["version"] = "0.7.0";
   container["architecture"] = "SlimmableContainer";
-  container["config"]["submodels"] = nlohmann::json::array(
-    {{{"max_value", 0.33}, {"model", small_model}}, {{"max_value", 0.66}, {"model", medium_model}}, {{"max_value", 1.0}, {"model", large_model}}});
+  container["config"]["submodels"] = nlohmann::json::array({{{"max_value", 0.33}, {"model", small_model}},
+                                                            {{"max_value", 0.66}, {"model", medium_model}},
+                                                            {{"max_value", 1.0}, {"model", large_model}}});
   container["weights"] = nlohmann::json::array();
   container["sample_rate"] = 48000;
   return container;
@@ -74,21 +75,24 @@ void process_and_verify(nam::DSP* dsp, int num_buffers, int buffer_size)
 
 void test_container_loads_from_json()
 {
-  auto j = build_container_json("example_models/lstm.nam", "example_models/wavenet.nam", "example_models/wavenet_a2_max.nam");
+  auto j =
+    build_container_json("example_models/lstm.nam", "example_models/wavenet.nam", "example_models/wavenet_a2_max.nam");
   auto dsp = nam::get_dsp(j);
   assert(dsp != nullptr);
 }
 
 void test_container_processes_audio()
 {
-  auto j = build_container_json("example_models/lstm.nam", "example_models/wavenet.nam", "example_models/wavenet_a2_max.nam");
+  auto j =
+    build_container_json("example_models/lstm.nam", "example_models/wavenet.nam", "example_models/wavenet_a2_max.nam");
   auto dsp = nam::get_dsp(j);
   process_and_verify(dsp.get(), 3, 64);
 }
 
 void test_container_slimmable_selects_submodel()
 {
-  auto j = build_container_json("example_models/lstm.nam", "example_models/wavenet.nam", "example_models/wavenet_a2_max.nam");
+  auto j =
+    build_container_json("example_models/lstm.nam", "example_models/wavenet.nam", "example_models/wavenet_a2_max.nam");
   auto dsp = nam::get_dsp(j);
   const double sample_rate = 48000.0;
   const int buffer_size = 64;
@@ -129,7 +133,8 @@ void test_container_slimmable_selects_submodel()
 
 void test_container_boundary_values()
 {
-  auto j = build_container_json("example_models/lstm.nam", "example_models/wavenet.nam", "example_models/wavenet_a2_max.nam");
+  auto j =
+    build_container_json("example_models/lstm.nam", "example_models/wavenet.nam", "example_models/wavenet_a2_max.nam");
   auto dsp = nam::get_dsp(j);
   const double sample_rate = 48000.0;
   const int buffer_size = 16;
@@ -230,8 +235,8 @@ void test_container_unsorted_submodels_throws()
   nlohmann::json j;
   j["version"] = "0.7.0";
   j["architecture"] = "SlimmableContainer";
-  j["config"]["submodels"] = nlohmann::json::array(
-    {{{"max_value", 0.8}, {"model", small_json}}, {{"max_value", 0.5}, {"model", medium_json}}});
+  j["config"]["submodels"] =
+    nlohmann::json::array({{{"max_value", 0.8}, {"model", small_json}}, {{"max_value", 0.5}, {"model", medium_json}}});
   j["weights"] = nlohmann::json::array();
   j["sample_rate"] = 48000;
 
@@ -263,8 +268,8 @@ void test_container_sample_rate_mismatch_throws()
   nlohmann::json j;
   j["version"] = "0.7.0";
   j["architecture"] = "SlimmableContainer";
-  j["config"]["submodels"] = nlohmann::json::array(
-    {{{"max_value", 0.5}, {"model", model_44k}}, {{"max_value", 1.0}, {"model", model_48k}}});
+  j["config"]["submodels"] =
+    nlohmann::json::array({{{"max_value", 0.5}, {"model", model_44k}}, {{"max_value", 1.0}, {"model", model_48k}}});
   j["weights"] = nlohmann::json::array();
   j["sample_rate"] = 48000;
 
@@ -296,7 +301,8 @@ void test_container_load_from_file()
 
 void test_container_default_is_max_size()
 {
-  auto j = build_container_json("example_models/lstm.nam", "example_models/wavenet.nam", "example_models/wavenet_a2_max.nam");
+  auto j =
+    build_container_json("example_models/lstm.nam", "example_models/wavenet.nam", "example_models/wavenet_a2_max.nam");
   auto dsp = nam::get_dsp(j);
   const double sample_rate = 48000.0;
   const int buffer_size = 64;
