@@ -254,43 +254,33 @@ void test_from_json()
   process_and_verify(dsp.get(), 3, 64);
 }
 
-void test_no_slimmable_layers_throws()
+void test_wavenet_without_slimmable_loads_as_regular()
 {
-
-
+  // WaveNet config without slimmable allowed_channels loads as regular WaveNet
   auto wavenet_json = load_nam_json("example_models/wavenet.nam");
 
   nlohmann::json j;
   j["version"] = "0.7.0";
-  j["architecture"] = "SlimmableWavenet";
-  j["config"]["model"] = wavenet_json["config"];
-  // No slimmable field on any layer -> all allowed_channels empty -> should throw
+  j["architecture"] = "WaveNet";
+  j["config"] = wavenet_json["config"];
   j["weights"] = wavenet_json["weights"];
   j["sample_rate"] = wavenet_json["sample_rate"];
 
-  bool threw = false;
-  try
-  {
-    auto dsp = nam::get_dsp(j);
-  }
-  catch (const std::runtime_error&)
-  {
-    threw = true;
-  }
-  assert(threw);
+  auto dsp = nam::get_dsp(j);
+  assert(dsp != nullptr);
+  assert(dynamic_cast<nam::SlimmableModel*>(dsp.get()) == nullptr);
 }
 
 void test_unsupported_method_throws()
 {
-
-
+  // WaveNet with slimmable but unsupported method -> throws
   auto wavenet_json = load_nam_json("example_models/wavenet.nam");
 
   nlohmann::json j;
   j["version"] = "0.7.0";
-  j["architecture"] = "SlimmableWavenet";
-  j["config"]["model"] = wavenet_json["config"];
-  j["config"]["model"]["layers"][0]["slimmable"] = {
+  j["architecture"] = "WaveNet";
+  j["config"] = wavenet_json["config"];
+  j["config"]["layers"][0]["slimmable"] = {
     {"method", "some_future_method"}, {"kwargs", {{"allowed_channels", {2, 3}}}}};
   j["weights"] = wavenet_json["weights"];
   j["sample_rate"] = wavenet_json["sample_rate"];
@@ -442,15 +432,15 @@ void test_slimmed_matches_small_model()
   auto small_dsp = nam::get_dsp(small_json);
   assert(small_dsp != nullptr);
 
-  // --- Build the 4ch SlimmableWavenet ---
+  // --- Build the 4ch slimmable WaveNet (detected from config) ---
   nlohmann::json large_json;
   large_json["version"] = "0.7.0";
-  large_json["architecture"] = "SlimmableWavenet";
+  large_json["architecture"] = "WaveNet";
   auto large_layer_config = make_layer_config(large_ch);
   large_layer_config["slimmable"] = {
     {"method", "slice_channels_uniform"}, {"kwargs", {{"allowed_channels", {small_ch, large_ch}}}}};
-  large_json["config"]["model"]["layers"] = nlohmann::json::array({large_layer_config});
-  large_json["config"]["model"]["head_scale"] = 1.0;
+  large_json["config"]["layers"] = nlohmann::json::array({large_layer_config});
+  large_json["config"]["head_scale"] = 1.0;
   large_json["weights"] = large_weights;
   large_json["sample_rate"] = 48000;
 

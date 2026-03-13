@@ -411,8 +411,9 @@ void SlimmableWavenet::SetSlimmableSize(const double val)
 
 std::unique_ptr<DSP> SlimmableWavenetConfig::create(std::vector<float> weights, double sampleRate)
 {
-  // Parse the WaveNet model config into typed params
-  nlohmann::json model_json = raw_config["model"];
+  // Parse the WaveNet model config — support both wrapped {"model": {...}} and flat config
+  nlohmann::json model_json =
+    raw_config.contains("model") ? raw_config["model"] : raw_config;
   auto wc = wavenet::parse_config_json(model_json, sampleRate);
 
   // Extract per-array allowed_channels from slimmable config fields
@@ -433,12 +434,19 @@ std::unique_ptr<DSP> SlimmableWavenetConfig::create(std::vector<float> weights, 
         for (const auto& ch : slim_cfg["kwargs"]["allowed_channels"])
           allowed.push_back(ch.get<int>());
       }
+      else
+      {
+        // Missing allowed_channels: assume [1, 2, ..., channels] for slice_channels_uniform
+        const int channels = lc["channels"].get<int>();
+        for (int c = 1; c <= channels; c++)
+          allowed.push_back(c);
+      }
     }
     per_array_allowed.push_back(std::move(allowed));
   }
 
-  // Extract condition_dsp JSON for future rebuilds
-  nlohmann::json condition_dsp_json = nullptr;
+  // Extract condition_dsp JSON for future rebuilds (in model config)
+  nlohmann::json condition_dsp_json;
   if (model_json.find("condition_dsp") != model_json.end() && !model_json["condition_dsp"].is_null())
     condition_dsp_json = model_json["condition_dsp"];
 
@@ -453,12 +461,6 @@ std::unique_ptr<ModelConfig> create_config(const nlohmann::json& config, double 
   sc->raw_config = config;
   sc->sample_rate = sampleRate;
   return sc;
-}
-
-// Auto-register with the config parser registry
-namespace
-{
-static ConfigParserHelper _register_SlimmableWavenet("SlimmableWavenet", nam::slimmable_wavenet::create_config);
 }
 
 } // namespace slimmable_wavenet

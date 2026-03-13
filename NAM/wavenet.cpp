@@ -8,6 +8,7 @@
 
 #include "get_dsp.h"
 #include "registry.h"
+#include "slimmable_wavenet.h"
 #include "wavenet.h"
 
 // Layer ======================================================================
@@ -951,9 +952,31 @@ std::unique_ptr<nam::DSP> nam::wavenet::WaveNetConfig::create(std::vector<float>
                                                  std::move(weights), std::move(condition_dsp), sampleRate);
 }
 
+namespace
+{
+bool config_is_slimmable_wavenet(const nlohmann::json& config)
+{
+  if (config.find("layers") == config.end() || !config["layers"].is_array())
+    return false;
+  const std::string recognized_method = "slice_channels_uniform";
+  for (const auto& lc : config["layers"])
+  {
+    if (lc.find("slimmable") == lc.end() || !lc["slimmable"].is_object())
+      continue;
+    const std::string method = lc["slimmable"].value("method", "");
+    if (method == recognized_method)
+      return true;
+  }
+  return false;
+}
+} // namespace
+
 // Config parser for ConfigParserRegistry
 std::unique_ptr<nam::ModelConfig> nam::wavenet::create_config(const nlohmann::json& config, double sampleRate)
 {
+  if (config_is_slimmable_wavenet(config))
+    return nam::slimmable_wavenet::create_config(config, sampleRate);
+
   auto wc = std::make_unique<WaveNetConfig>();
   auto parsed = parse_config_json(config, sampleRate);
   *wc = std::move(parsed);
