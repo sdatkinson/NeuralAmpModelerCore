@@ -298,7 +298,7 @@ int main()
   test_slimmable_wavenet::test_default_is_max_size();
   test_slimmable_wavenet::test_ratio_mapping();
   test_slimmable_wavenet::test_from_json();
-  test_slimmable_wavenet::test_no_slimmable_layers_throws();
+  test_slimmable_wavenet::test_wavenet_without_slimmable_loads_as_regular();
   test_slimmable_wavenet::test_unsupported_method_throws();
   test_slimmable_wavenet::test_slimmed_matches_small_model();
 

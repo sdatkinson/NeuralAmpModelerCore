@@ -159,8 +159,8 @@ std::vector<float> extract_slimmed_weights(const std::vector<wavenet::LayerArray
 
       // head1x1 (optional): Conv1x1(B -> head1x1_out, bias=true)
       if (p.head1x1_params.active)
-        extract_conv1x1(src, full_bn, p.head1x1_params.out_channels, slim_bn, p.head1x1_params.out_channels, true,
-                         slim);
+        extract_conv1x1(
+          src, full_bn, p.head1x1_params.out_channels, slim_bn, p.head1x1_params.out_channels, true, slim);
 
       // ---- FiLM objects (8, in set_weights_ order) ----
 
@@ -260,9 +260,8 @@ std::vector<wavenet::LayerArrayParams> modify_params_for_channels(
       new_input_size, p.condition_size, new_head_size, new_ch, new_bottleneck, p.kernel_size,
       std::vector<int>(p.dilations), std::vector<activations::ActivationConfig>(p.activation_configs),
       std::vector<wavenet::GatingMode>(p.gating_modes), p.head_bias, p.groups_input, p.groups_input_mixin,
-      p.layer1x1_params, p.head1x1_params,
-      std::vector<activations::ActivationConfig>(p.secondary_activation_configs), p.conv_pre_film_params,
-      p.conv_post_film_params, p.input_mixin_pre_film_params, p.input_mixin_post_film_params,
+      p.layer1x1_params, p.head1x1_params, std::vector<activations::ActivationConfig>(p.secondary_activation_configs),
+      p.conv_pre_film_params, p.conv_post_film_params, p.input_mixin_pre_film_params, p.input_mixin_post_film_params,
       p.activation_pre_film_params, p.activation_post_film_params, p._layer1x1_post_film_params,
       p.head1x1_post_film_params));
   }
@@ -360,8 +359,8 @@ void SlimmableWavenet::_rebuild_model(const std::vector<int>& target_channels)
     condition_dsp = get_dsp(_condition_dsp_json);
 
   double sampleRate = _current_sample_rate > 0 ? _current_sample_rate : GetExpectedSampleRate();
-  _active_model = std::make_unique<wavenet::WaveNet>(_in_channels, *params_ptr, _head_scale, _with_head,
-                                                     std::move(weights), std::move(condition_dsp), sampleRate);
+  _active_model = std::make_unique<wavenet::WaveNet>(
+    _in_channels, *params_ptr, _head_scale, _with_head, std::move(weights), std::move(condition_dsp), sampleRate);
   _current_channels = target_channels;
 
   if (_current_buffer_size > 0)
@@ -411,8 +410,8 @@ void SlimmableWavenet::SetSlimmableSize(const double val)
 
 std::unique_ptr<DSP> SlimmableWavenetConfig::create(std::vector<float> weights, double sampleRate)
 {
-  // Parse the WaveNet model config into typed params
-  nlohmann::json model_json = raw_config["model"];
+  // Parse the WaveNet model config — support both wrapped {"model": {...}} and flat config
+  nlohmann::json model_json = raw_config.contains("model") ? raw_config["model"] : raw_config;
   auto wc = wavenet::parse_config_json(model_json, sampleRate);
 
   // Extract per-array allowed_channels from slimmable config fields
@@ -428,23 +427,31 @@ std::unique_ptr<DSP> SlimmableWavenetConfig::create(std::vector<float> weights, 
       const std::string method = slim_cfg.value("method", "");
       if (method != "slice_channels_uniform")
         throw std::runtime_error("SlimmableWavenet: unsupported slimmable method '" + method + "'");
-      if (slim_cfg.find("kwargs") != slim_cfg.end() && slim_cfg["kwargs"].find("allowed_channels") != slim_cfg["kwargs"].end())
+      if (slim_cfg.find("kwargs") != slim_cfg.end()
+          && slim_cfg["kwargs"].find("allowed_channels") != slim_cfg["kwargs"].end())
       {
         for (const auto& ch : slim_cfg["kwargs"]["allowed_channels"])
           allowed.push_back(ch.get<int>());
+      }
+      else
+      {
+        // Missing allowed_channels: assume [1, 2, ..., channels] for slice_channels_uniform
+        const int channels = lc["channels"].get<int>();
+        for (int c = 1; c <= channels; c++)
+          allowed.push_back(c);
       }
     }
     per_array_allowed.push_back(std::move(allowed));
   }
 
-  // Extract condition_dsp JSON for future rebuilds
-  nlohmann::json condition_dsp_json = nullptr;
+  // Extract condition_dsp JSON for future rebuilds (in model config)
+  nlohmann::json condition_dsp_json;
   if (model_json.find("condition_dsp") != model_json.end() && !model_json["condition_dsp"].is_null())
     condition_dsp_json = model_json["condition_dsp"];
 
   return std::make_unique<SlimmableWavenet>(std::move(wc.layer_array_params), std::move(per_array_allowed),
-                                            wc.in_channels, wc.head_scale, wc.with_head,
-                                            std::move(condition_dsp_json), std::move(weights), sampleRate);
+                                            wc.in_channels, wc.head_scale, wc.with_head, std::move(condition_dsp_json),
+                                            std::move(weights), sampleRate);
 }
 
 std::unique_ptr<ModelConfig> create_config(const nlohmann::json& config, double sampleRate)
@@ -453,12 +460,6 @@ std::unique_ptr<ModelConfig> create_config(const nlohmann::json& config, double 
   sc->raw_config = config;
   sc->sample_rate = sampleRate;
   return sc;
-}
-
-// Auto-register with the config parser registry
-namespace
-{
-static ConfigParserHelper _register_SlimmableWavenet("SlimmableWavenet", nam::slimmable_wavenet::create_config);
 }
 
 } // namespace slimmable_wavenet

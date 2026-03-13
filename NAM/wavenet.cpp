@@ -3,11 +3,13 @@
 #include <iostream>
 #include <math.h>
 #include <sstream>
+#include <stdexcept>
 
 #include <Eigen/Dense>
 
 #include "get_dsp.h"
 #include "registry.h"
+#include "slimmable_wavenet.h"
 #include "wavenet.h"
 
 // Layer ======================================================================
@@ -420,8 +422,8 @@ void nam::wavenet::_LayerArray::ProcessInner(const Eigen::MatrixXf& layer_inputs
 #ifdef NAM_USE_INLINE_GEMM
   {
     const int total = (int)this->_get_channels() * num_frames;
-    std::memcpy(this->_layer_outputs.data(), this->_layers[last_layer].GetOutputNextLayer().data(),
-                total * sizeof(float));
+    std::memcpy(
+      this->_layer_outputs.data(), this->_layers[last_layer].GetOutputNextLayer().data(), total * sizeof(float));
   }
 #else
   this->_layer_outputs.leftCols(num_frames).noalias() =
@@ -947,13 +949,41 @@ nam::wavenet::WaveNetConfig nam::wavenet::parse_config_json(const nlohmann::json
 // WaveNetConfig::create()
 std::unique_ptr<nam::DSP> nam::wavenet::WaveNetConfig::create(std::vector<float> weights, double sampleRate)
 {
-  return std::make_unique<nam::wavenet::WaveNet>(in_channels, layer_array_params, head_scale, with_head,
-                                                 std::move(weights), std::move(condition_dsp), sampleRate);
+  return std::make_unique<nam::wavenet::WaveNet>(
+    in_channels, layer_array_params, head_scale, with_head, std::move(weights), std::move(condition_dsp), sampleRate);
 }
+
+namespace
+{
+const std::string SLIMMABLE_METHOD = "slice_channels_uniform";
+
+bool config_is_slimmable_wavenet(const nlohmann::json& config)
+{
+  if (config.find("layers") == config.end() || !config["layers"].is_array())
+    return false;
+  for (const auto& lc : config["layers"])
+  {
+    if (lc.find("slimmable") == lc.end() || !lc["slimmable"].is_object())
+      continue;
+    const std::string method = lc["slimmable"].value("method", "");
+    if (method != SLIMMABLE_METHOD)
+    {
+      if (!method.empty())
+        throw std::runtime_error("SlimmableWavenet: unsupported slimmable method '" + method + "'");
+      continue;
+    }
+    return true;
+  }
+  return false;
+}
+} // namespace
 
 // Config parser for ConfigParserRegistry
 std::unique_ptr<nam::ModelConfig> nam::wavenet::create_config(const nlohmann::json& config, double sampleRate)
 {
+  if (config_is_slimmable_wavenet(config))
+    return nam::slimmable_wavenet::create_config(config, sampleRate);
+
   auto wc = std::make_unique<WaveNetConfig>();
   auto parsed = parse_config_json(config, sampleRate);
   *wc = std::move(parsed);
