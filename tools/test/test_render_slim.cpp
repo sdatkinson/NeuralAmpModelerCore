@@ -1,12 +1,7 @@
 #include <cassert>
 #include <cmath>
-#include <cstdlib>
 #include <filesystem>
-#include <fstream>
-#include <iostream>
 #include <memory>
-#include <sstream>
-#include <string>
 #include <vector>
 
 #include "NAM/dsp.h"
@@ -19,7 +14,6 @@ namespace test_render_slim
 // Test that --slim with a SlimmableContainer model changes the output
 void test_slim_changes_output()
 {
-  std::cout << "  test_slim_changes_output" << std::endl;
 
   // Load the slimmable container model
   auto model = nam::get_dsp(std::filesystem::path("example_models/slimmable_container.nam"));
@@ -65,7 +59,6 @@ void test_slim_changes_output()
 // Test that --slim rejects non-slimmable models
 void test_slim_rejects_non_slimmable()
 {
-  std::cout << "  test_slim_rejects_non_slimmable" << std::endl;
 
   // Load a regular (non-container) model
   auto model = nam::get_dsp(std::filesystem::path("example_models/lstm.nam"));
@@ -79,7 +72,6 @@ void test_slim_rejects_non_slimmable()
 // Test that --slim with boundary values produces finite output
 void test_slim_boundary_values()
 {
-  std::cout << "  test_slim_boundary_values" << std::endl;
 
   auto model = nam::get_dsp(std::filesystem::path("example_models/slimmable_container.nam"));
   assert(model != nullptr);
@@ -109,7 +101,6 @@ void test_slim_boundary_values()
 // Test that SetSlimmableSize is called before processing (simulates --slim flow)
 void test_slim_applied_before_processing()
 {
-  std::cout << "  test_slim_applied_before_processing" << std::endl;
 
   auto model = nam::get_dsp(std::filesystem::path("example_models/slimmable_container.nam"));
   assert(model != nullptr);

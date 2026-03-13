@@ -30,6 +30,7 @@
 #include "test/test_extensible.cpp"
 #include "test/test_container.cpp"
 #include "test/test_render_slim.cpp"
+#include "test/test_slimmable_wavenet.cpp"
 
 int main()
 {
@@ -287,6 +288,19 @@ int main()
   test_render_slim::test_slim_rejects_non_slimmable();
   test_render_slim::test_slim_boundary_values();
   test_render_slim::test_slim_applied_before_processing();
+
+  // SlimmableWavenet tests
+  test_slimmable_wavenet::test_loads_from_file();
+  test_slimmable_wavenet::test_implements_slimmable();
+  test_slimmable_wavenet::test_processes_audio();
+  test_slimmable_wavenet::test_slimming_changes_output();
+  test_slimmable_wavenet::test_boundary_values();
+  test_slimmable_wavenet::test_default_is_max_size();
+  test_slimmable_wavenet::test_ratio_mapping();
+  test_slimmable_wavenet::test_from_json();
+  test_slimmable_wavenet::test_no_slimmable_layers_throws();
+  test_slimmable_wavenet::test_unsupported_method_throws();
+  test_slimmable_wavenet::test_slimmed_matches_small_model();
 
   std::cout << "Success!" << std::endl;
 #ifdef ADDASSERT
