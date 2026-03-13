@@ -136,10 +136,10 @@ void test_conv1x1_process_toprows_2x2()
   conv.SetMaxBufferSize(64);
 
   Eigen::MatrixXf full_matrix(total_rows, num_frames);
-  full_matrix << 1.0f, 2.0f, 3.0f,   // row 0 (top, used)
-                 4.0f, 5.0f, 6.0f,   // row 1 (top, used)
-                 99.0f, 99.0f, 99.0f, // row 2 (bottom, NOT used)
-                 99.0f, 99.0f, 99.0f; // row 3 (bottom, NOT used)
+  full_matrix << 1.0f, 2.0f, 3.0f, // row 0 (top, used)
+    4.0f, 5.0f, 6.0f, // row 1 (top, used)
+    99.0f, 99.0f, 99.0f, // row 2 (bottom, NOT used)
+    99.0f, 99.0f, 99.0f; // row 3 (bottom, NOT used)
 
   conv.process_(full_matrix.topRows(bottleneck), num_frames);
   const auto& output = conv.GetOutput();
@@ -236,12 +236,12 @@ void test_film_process_toprows_with_shift()
   // Configure Conv1x1 with zero weights, fixed biases for scale/shift
   std::vector<float> weights((2 * input_dim) * condition_dim + (2 * input_dim), 0.0f);
   const int bias_offset = (2 * input_dim) * condition_dim;
-  weights[bias_offset + 0] = 2.0f;  // scale[0]
+  weights[bias_offset + 0] = 2.0f; // scale[0]
   weights[bias_offset + 1] = -1.0f; // scale[1]
-  weights[bias_offset + 2] = 0.5f;  // scale[2]
+  weights[bias_offset + 2] = 0.5f; // scale[2]
   weights[bias_offset + 3] = 10.0f; // shift[0]
   weights[bias_offset + 4] = -5.0f; // shift[1]
-  weights[bias_offset + 5] = 3.0f;  // shift[2]
+  weights[bias_offset + 5] = 3.0f; // shift[2]
   auto it = weights.begin();
   film.set_weights_(it);
 
@@ -447,7 +447,7 @@ void test_gating_output_toprows()
   {
     for (int c = 0; c < bottleneck; c++)
     {
-      const float input_val = input(c, f);               // identity activation
+      const float input_val = input(c, f); // identity activation
       const float gate_val = 1.0f / (1.0f + expf(-input(c + bottleneck, f))); // sigmoid
       const float expected = input_val * gate_val;
       assert(std::abs(output_matrix(c, f) - expected) < 1e-5f);
