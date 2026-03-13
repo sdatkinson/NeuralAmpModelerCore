@@ -3,6 +3,7 @@
 #include <iostream>
 #include <math.h>
 #include <sstream>
+#include <stdexcept>
 
 #include <Eigen/Dense>
 
@@ -421,8 +422,8 @@ void nam::wavenet::_LayerArray::ProcessInner(const Eigen::MatrixXf& layer_inputs
 #ifdef NAM_USE_INLINE_GEMM
   {
     const int total = (int)this->_get_channels() * num_frames;
-    std::memcpy(this->_layer_outputs.data(), this->_layers[last_layer].GetOutputNextLayer().data(),
-                total * sizeof(float));
+    std::memcpy(
+      this->_layer_outputs.data(), this->_layers[last_layer].GetOutputNextLayer().data(), total * sizeof(float));
   }
 #else
   this->_layer_outputs.leftCols(num_frames).noalias() =
@@ -948,24 +949,30 @@ nam::wavenet::WaveNetConfig nam::wavenet::parse_config_json(const nlohmann::json
 // WaveNetConfig::create()
 std::unique_ptr<nam::DSP> nam::wavenet::WaveNetConfig::create(std::vector<float> weights, double sampleRate)
 {
-  return std::make_unique<nam::wavenet::WaveNet>(in_channels, layer_array_params, head_scale, with_head,
-                                                 std::move(weights), std::move(condition_dsp), sampleRate);
+  return std::make_unique<nam::wavenet::WaveNet>(
+    in_channels, layer_array_params, head_scale, with_head, std::move(weights), std::move(condition_dsp), sampleRate);
 }
 
 namespace
 {
+const std::string SLIMMABLE_METHOD = "slice_channels_uniform";
+
 bool config_is_slimmable_wavenet(const nlohmann::json& config)
 {
   if (config.find("layers") == config.end() || !config["layers"].is_array())
     return false;
-  const std::string recognized_method = "slice_channels_uniform";
   for (const auto& lc : config["layers"])
   {
     if (lc.find("slimmable") == lc.end() || !lc["slimmable"].is_object())
       continue;
     const std::string method = lc["slimmable"].value("method", "");
-    if (method == recognized_method)
-      return true;
+    if (method != SLIMMABLE_METHOD)
+    {
+      if (!method.empty())
+        throw std::runtime_error("SlimmableWavenet: unsupported slimmable method '" + method + "'");
+      continue;
+    }
+    return true;
   }
   return false;
 }
