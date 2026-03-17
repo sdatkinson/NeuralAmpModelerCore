@@ -431,7 +431,7 @@ public:
   /// \param head_size_ Size of the head output (after head rechannel)
   /// \param channels_ Number of channels in each layer
   /// \param bottleneck_ Bottleneck size (internal channel count)
-  /// \param kernel_size_ Kernel size for dilated convolutions
+  /// \param kernel_sizes_ Per-layer kernel sizes, one per layer
   /// \param dilations_ Vector of dilation factors, one per layer
   /// \param activation_configs_ Vector of primary activation configurations, one per layer
   /// \param gating_modes_ Vector of gating modes, one per layer
@@ -452,7 +452,7 @@ public:
   /// \throws std::invalid_argument If dilations, activation_configs, gating_modes, or secondary_activation_configs
   /// sizes don't match
   LayerArrayParams(const int input_size_, const int condition_size_, const int head_size_, const int channels_,
-                   const int bottleneck_, const int kernel_size_, const std::vector<int>&& dilations_,
+                   const int bottleneck_, const std::vector<int>&& kernel_sizes_, const std::vector<int>&& dilations_,
                    const std::vector<activations::ActivationConfig>&& activation_configs_,
                    const std::vector<GatingMode>&& gating_modes_, const bool head_bias_, const int groups_input,
                    const int groups_input_mixin_, const Layer1x1Params& layer1x1_params_,
@@ -467,7 +467,7 @@ public:
   , head_size(head_size_)
   , channels(channels_)
   , bottleneck(bottleneck_)
-  , kernel_size(kernel_size_)
+  , kernel_sizes(std::move(kernel_sizes_))
   , dilations(std::move(dilations_))
   , activation_configs(std::move(activation_configs_))
   , gating_modes(std::move(gating_modes_))
@@ -487,6 +487,15 @@ public:
   , head1x1_post_film_params(head1x1_post_film_params_)
   {
     const size_t num_layers = dilations.size();
+    if (kernel_sizes.empty())
+    {
+      throw std::invalid_argument("LayerArrayParams: kernel_sizes must not be empty");
+    }
+    if (kernel_sizes.size() != num_layers)
+    {
+      throw std::invalid_argument("LayerArrayParams: dilations size (" + std::to_string(num_layers)
+                                  + ") must match kernel_sizes size (" + std::to_string(kernel_sizes.size()) + ")");
+    }
     if (activation_configs.size() != num_layers)
     {
       throw std::invalid_argument("LayerArrayParams: dilations size (" + std::to_string(num_layers)
@@ -511,7 +520,7 @@ public:
   const int head_size; ///< Size of head output (after rechannel)
   const int channels; ///< Number of channels in each layer
   const int bottleneck; ///< Bottleneck size (internal channel count)
-  const int kernel_size; ///< Kernel size for dilated convolutions
+  std::vector<int> kernel_sizes; ///< Per-layer kernel sizes, one per layer
   std::vector<int> dilations; ///< Dilation factors, one per layer
   std::vector<activations::ActivationConfig> activation_configs; ///< Primary activation configurations, one per layer
   std::vector<GatingMode> gating_modes; ///< Gating modes, one per layer
