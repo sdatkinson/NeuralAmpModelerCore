@@ -117,4 +117,3 @@ void test_kernel_size_per_layer_array()
 
 } // namespace test_kernel_sizes
 } // namespace test_wavenet
-

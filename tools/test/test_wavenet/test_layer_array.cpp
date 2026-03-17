@@ -221,11 +221,12 @@ void test_layer_array_different_activations()
   assert(secondary_activation_configs.size() == dilations.size());
 
   auto film_params = make_default_film_params();
-  nam::wavenet::LayerArrayParams params(input_size, condition_size, head_size, channels, bottleneck, kernel_size,
-                                        std::move(dilations), std::move(activation_configs), std::move(gating_modes),
-                                        head_bias, groups, groups_input_mixin, layer1x1_params, head1x1_params,
-                                        std::move(secondary_activation_configs), film_params, film_params, film_params,
-                                        film_params, film_params, film_params, film_params, film_params);
+  std::vector<int> kernel_sizes(dilations.size(), kernel_size);
+  nam::wavenet::LayerArrayParams params(
+    input_size, condition_size, head_size, channels, bottleneck, std::move(kernel_sizes), std::move(dilations),
+    std::move(activation_configs), std::move(gating_modes), head_bias, groups, groups_input_mixin, layer1x1_params,
+    head1x1_params, std::move(secondary_activation_configs), film_params, film_params, film_params, film_params,
+    film_params, film_params, film_params, film_params);
   nam::wavenet::_LayerArray layer_array(params);
 
   const int numFrames = 4;
@@ -303,11 +304,12 @@ void test_layer_array_different_activations()
     dilations_all_relu.size(), nam::wavenet::GatingMode::NONE);
   std::vector<nam::activations::ActivationConfig> all_empty_secondary_configs(
     dilations_all_relu.size(), nam::activations::ActivationConfig{});
+  std::vector<int> kernel_sizes_all_relu(dilations_all_relu.size(), kernel_size);
   nam::wavenet::LayerArrayParams params_all_relu(
-    input_size, condition_size, head_size, channels, bottleneck, kernel_size, std::move(dilations_all_relu),
-    std::move(all_relu_configs), std::move(all_none_gating_modes), head_bias, groups, groups_input_mixin,
-    layer1x1_params, head1x1_params, std::move(all_empty_secondary_configs), film_params, film_params, film_params,
-    film_params, film_params, film_params, film_params, film_params);
+    input_size, condition_size, head_size, channels, bottleneck, std::move(kernel_sizes_all_relu),
+    std::move(dilations_all_relu), std::move(all_relu_configs), std::move(all_none_gating_modes), head_bias, groups,
+    groups_input_mixin, layer1x1_params, head1x1_params, std::move(all_empty_secondary_configs), film_params,
+    film_params, film_params, film_params, film_params, film_params, film_params, film_params);
   nam::wavenet::_LayerArray layer_array_all_relu(params_all_relu);
   layer_array_all_relu.SetMaxBufferSize(numFrames);
 
