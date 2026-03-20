@@ -143,12 +143,13 @@ std::vector<float> extract_slimmed_weights(const std::vector<wavenet::LayerArray
     // ---- Per layer ----
     for (int l = 0; l < num_layers; l++)
     {
+      const int kernel_size = p.kernel_sizes[l];
       const bool gated = p.gating_modes[l] != wavenet::GatingMode::NONE;
       const int full_bg = gated ? 2 * full_bn : full_bn;
       const int slim_bg = gated ? 2 * slim_bn : slim_bn;
 
       // conv: Conv1D(channels -> B_g, K, bias=true)
-      extract_conv1d(src, full_ch, full_bg, slim_ch, slim_bg, p.kernel_size, slim);
+      extract_conv1d(src, full_ch, full_bg, slim_ch, slim_bg, kernel_size, slim);
 
       // input_mixin: Conv1x1(condition_size -> B_g, no bias)
       extract_conv1x1(src, p.condition_size, full_bg, p.condition_size, slim_bg, false, slim);
@@ -257,7 +258,7 @@ std::vector<wavenet::LayerArrayParams> modify_params_for_channels(
     int new_head_size = (i < num_arrays - 1) ? new_channels_per_array[i + 1] : p.head_size;
 
     modified.push_back(wavenet::LayerArrayParams(
-      new_input_size, p.condition_size, new_head_size, new_ch, new_bottleneck, p.kernel_size,
+      new_input_size, p.condition_size, new_head_size, new_ch, new_bottleneck, std::vector<int>(p.kernel_sizes),
       std::vector<int>(p.dilations), std::vector<activations::ActivationConfig>(p.activation_configs),
       std::vector<wavenet::GatingMode>(p.gating_modes), p.head_bias, p.groups_input, p.groups_input_mixin,
       p.layer1x1_params, p.head1x1_params, std::vector<activations::ActivationConfig>(p.secondary_activation_configs),

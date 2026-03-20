@@ -312,8 +312,9 @@ nam::wavenet::_LayerArray::_LayerArray(const LayerArrayParams& params)
   const size_t num_layers = params.dilations.size();
   for (size_t i = 0; i < num_layers; i++)
   {
+    const int kernel_size = params.kernel_sizes[i];
     LayerParams layer_params(
-      params.condition_size, params.channels, params.bottleneck, params.kernel_size, params.dilations[i],
+      params.condition_size, params.channels, params.bottleneck, kernel_size, params.dilations[i],
       params.activation_configs[i], params.gating_modes[i], params.groups_input, params.groups_input_mixin,
       params.layer1x1_params, params.head1x1_params, params.secondary_activation_configs[i],
       params.conv_pre_film_params, params.conv_post_film_params, params.input_mixin_pre_film_params,
@@ -729,9 +730,46 @@ nam::wavenet::WaveNetConfig nam::wavenet::parse_config_json(const nlohmann::json
     const int input_size = layer_config["input_size"];
     const int condition_size = layer_config["condition_size"];
     const int head_size = layer_config["head_size"];
-    const int kernel_size = layer_config["kernel_size"];
     const auto dilations = layer_config["dilations"];
     const size_t num_layers = dilations.size();
+
+    // Parse kernel sizes - support legacy single-value kernel_size or new per-layer kernel_sizes
+    const bool has_kernel_size = layer_config.find("kernel_size") != layer_config.end();
+    const bool has_kernel_sizes = layer_config.find("kernel_sizes") != layer_config.end();
+    std::vector<int> kernel_sizes;
+    if (has_kernel_size && has_kernel_sizes)
+    {
+      throw std::runtime_error("Layer array " + std::to_string(i)
+                               + ": only one of kernel_size (int) or kernel_sizes (array) may be provided");
+    }
+    else if (has_kernel_sizes)
+    {
+      const auto& kernel_sizes_json = layer_config["kernel_sizes"];
+      if (!kernel_sizes_json.is_array())
+      {
+        throw std::runtime_error("Layer array " + std::to_string(i) + ": kernel_sizes must be an array");
+      }
+      for (const auto& ks_json : kernel_sizes_json)
+      {
+        kernel_sizes.push_back(ks_json.get<int>());
+      }
+      if (kernel_sizes.size() != num_layers)
+      {
+        throw std::runtime_error("Layer array " + std::to_string(i) + ": kernel_sizes array size ("
+                                 + std::to_string(kernel_sizes.size()) + ") must match dilations size ("
+                                 + std::to_string(num_layers) + ")");
+      }
+    }
+    else if (has_kernel_size)
+    {
+      const int kernel_size = layer_config["kernel_size"].get<int>();
+      kernel_sizes.resize(num_layers, kernel_size);
+    }
+    else
+    {
+      throw std::runtime_error("Layer array " + std::to_string(i)
+                               + ": either kernel_size (int) or kernel_sizes (array) must be provided");
+    }
 
     // Parse activation config(s) - support both single config and array
     std::vector<activations::ActivationConfig> activation_configs;
@@ -929,7 +967,7 @@ nam::wavenet::WaveNetConfig nam::wavenet::parse_config_json(const nlohmann::json
     }
 
     wc.layer_array_params.push_back(nam::wavenet::LayerArrayParams(
-      input_size, condition_size, head_size, channels, bottleneck, kernel_size, dilations,
+      input_size, condition_size, head_size, channels, bottleneck, std::move(kernel_sizes), dilations,
       std::move(activation_configs), std::move(gating_modes), head_bias, groups, groups_input_mixin, layer1x1_params,
       head1x1_params, std::move(secondary_activation_configs), conv_pre_film_params, conv_post_film_params,
       input_mixin_pre_film_params, input_mixin_post_film_params, activation_pre_film_params,
