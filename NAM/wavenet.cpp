@@ -1111,20 +1111,26 @@ nam::wavenet::WaveNetConfig nam::wavenet::parse_config_json(const nlohmann::json
   {
     const nlohmann::json& hj = config["head"];
     WaveNetHeadParams hp;
-    hp.in_channels = hj.at("in_channels").get<int>();
+    const int implied_in = wc.layer_array_params.back().head_size;
+    // New trainer export omits in_channels (single source: last layer head_size). Legacy .nam may include it.
+    if (hj.find("in_channels") != hj.end() && !hj["in_channels"].is_null())
+    {
+      const int legacy_in = hj["in_channels"].get<int>();
+      if (legacy_in != implied_in)
+      {
+        std::stringstream ss;
+        ss << "WaveNet config: head.in_channels (" << legacy_in << ") must equal last layer's head_size ("
+           << implied_in << ")";
+        throw std::runtime_error(ss.str());
+      }
+    }
+    hp.in_channels = implied_in;
     hp.channels = hj.at("channels").get<int>();
     hp.out_channels = hj.at("out_channels").get<int>();
     hp.kernel_sizes = hj.at("kernel_sizes").get<std::vector<int>>();
     hp.activation_config = nam::activations::ActivationConfig::from_json(hj.at("activation"));
     if (hp.kernel_sizes.empty())
       throw std::runtime_error("WaveNet config: head.kernel_sizes must be non-empty");
-    if (hp.in_channels != wc.layer_array_params.back().head_size)
-    {
-      std::stringstream ss;
-      ss << "WaveNet config: head.in_channels (" << hp.in_channels << ") must equal last layer's head_size ("
-         << wc.layer_array_params.back().head_size << ")";
-      throw std::runtime_error(ss.str());
-    }
     wc.head_params = std::move(hp);
   }
   else

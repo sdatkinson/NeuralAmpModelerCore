@@ -640,7 +640,8 @@ private:
   void ProcessInner(const Eigen::MatrixXf& layer_inputs, const Eigen::MatrixXf& condition, const int num_frames);
 };
 
-/// \brief Parameters for the optional post-stack head (matches Python ``nam.models.wavenet._head.Head`` export).
+/// \brief Parameters for the optional post-stack head (matches Python ``nam.models.wavenet._head.Head``).
+/// JSON export omits ``in_channels`` (implied by last layer array ``head_size``); load sets it from there.
 struct WaveNetHeadParams
 {
   int in_channels;
