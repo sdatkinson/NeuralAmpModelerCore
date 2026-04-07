@@ -2,6 +2,7 @@
 
 #include <Eigen/Dense>
 #include <cassert>
+#include <optional>
 #include <cmath>
 #include <iostream>
 #include <vector>
@@ -143,7 +144,7 @@ std::unique_ptr<nam::wavenet::WaveNet> create_simple_wavenet(
   weights.push_back(head_scale);
 
   return std::make_unique<nam::wavenet::WaveNet>(
-    in_channels, layer_array_params, head_scale, with_head, weights, std::move(condition_dsp), 48000.0);
+    in_channels, layer_array_params, head_scale, with_head, std::nullopt, weights, std::move(condition_dsp), 48000.0);
 }
 
 // Test condition processing with condition_dsp

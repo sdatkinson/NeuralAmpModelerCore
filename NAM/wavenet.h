@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -639,6 +640,41 @@ private:
   void ProcessInner(const Eigen::MatrixXf& layer_inputs, const Eigen::MatrixXf& condition, const int num_frames);
 };
 
+/// \brief Parameters for the optional post-stack head (matches Python ``nam.models.wavenet._head.Head`` export).
+struct WaveNetHeadParams
+{
+  int in_channels;
+  int channels;
+  int out_channels;
+  std::vector<int> kernel_sizes;
+  activations::ActivationConfig activation_config;
+};
+
+/// \brief Post-stack head: repeated (activation → Conv1D) with dilation 1, stride 1, valid (causal streaming) conv.
+class PostStackHead
+{
+public:
+  explicit PostStackHead(const WaveNetHeadParams& params);
+
+  void set_weights_(std::vector<float>::iterator& weights);
+  void SetMaxBufferSize(int maxBufferSize);
+  long receptive_field() const;
+  int in_channels() const { return _in_channels; }
+  int out_channels() const { return _out_channels; }
+
+  /// \param work Input buffer (in_channels × maxBufferSize); first in_channels×num_frames scaled by head_scale;
+  ///             may be modified in place.
+  void process(Eigen::MatrixXf& work, int num_frames);
+
+  const Eigen::MatrixXf& get_last_output() const { return _convs.back().GetOutput(); }
+
+private:
+  std::vector<nam::Conv1D> _convs;
+  std::vector<nam::activations::Activation::Ptr> _activations;
+  int _in_channels;
+  int _out_channels;
+};
+
 /// \brief The main WaveNet model
 ///
 /// WaveNet is a dilated convolutional neural network architecture for audio processing.
@@ -657,13 +693,14 @@ public:
   /// \param in_channels Number of input channels
   /// \param layer_array_params Parameters for each layer array
   /// \param head_scale Scaling factor applied to the final head output
-  /// \param with_head Whether to use a custom "head" module that further processes the output (not currently supported)
+  /// \param with_head Whether to apply the optional post-stack head (Conv1D stack after layer arrays)
+  /// \param head_params Configuration for the post-stack head when ``with_head`` is true
   /// \param weights Model weights (will be consumed during construction)
   /// \param condition_dsp Optional DSP module for processing the conditioning input
   /// \param expected_sample_rate Expected sample rate in Hz (-1.0 if unknown)
   WaveNet(const int in_channels, const std::vector<LayerArrayParams>& layer_array_params, const float head_scale,
-          const bool with_head, std::vector<float> weights, std::unique_ptr<DSP> condition_dsp,
-          const double expected_sample_rate = -1.0);
+          const bool with_head, std::optional<WaveNetHeadParams> head_params, std::vector<float> weights,
+          std::unique_ptr<DSP> condition_dsp, const double expected_sample_rate = -1.0);
 
   /// \brief Destructor
   ~WaveNet() = default;
@@ -725,6 +762,10 @@ private:
 
   float _head_scale;
 
+  std::unique_ptr<PostStackHead> _post_stack_head;
+  /// Scratch (in_channels × maxBufferSize) for scaled head input when ``_post_stack_head`` is used
+  Eigen::MatrixXf _scaled_head_scratch;
+
   int mPrewarmSamples = 0; // Pre-compute during initialization
   int PrewarmSamples() override { return mPrewarmSamples; };
 };
@@ -736,6 +777,7 @@ struct WaveNetConfig : public ModelConfig
   std::vector<LayerArrayParams> layer_array_params;
   float head_scale;
   bool with_head;
+  std::optional<WaveNetHeadParams> head_params;
   std::unique_ptr<DSP> condition_dsp;
 
   // Move-only due to unique_ptr

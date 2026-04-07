@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <optional>
 #include <stdexcept>
 
 namespace nam
@@ -326,6 +327,9 @@ SlimmableWavenet::SlimmableWavenet(std::vector<wavenet::LayerArrayParams> origin
   if (!any_slimmable)
     throw std::runtime_error("SlimmableWavenet: at least one layer array must have allowed_channels");
 
+  if (with_head)
+    throw std::runtime_error("SlimmableWavenet: post-stack head is not supported");
+
   // Build with full channel counts as default (ratio=1.0)
   std::vector<int> full_channels(_original_params.size());
   for (size_t i = 0; i < _original_params.size(); i++)
@@ -360,8 +364,9 @@ void SlimmableWavenet::_rebuild_model(const std::vector<int>& target_channels)
     condition_dsp = get_dsp(_condition_dsp_json);
 
   double sampleRate = _current_sample_rate > 0 ? _current_sample_rate : GetExpectedSampleRate();
-  _active_model = std::make_unique<wavenet::WaveNet>(
-    _in_channels, *params_ptr, _head_scale, _with_head, std::move(weights), std::move(condition_dsp), sampleRate);
+  _active_model = std::make_unique<wavenet::WaveNet>(_in_channels, *params_ptr, _head_scale, _with_head,
+                                                     std::nullopt, std::move(weights), std::move(condition_dsp),
+                                                     sampleRate);
   _current_channels = target_channels;
 
   if (_current_buffer_size > 0)

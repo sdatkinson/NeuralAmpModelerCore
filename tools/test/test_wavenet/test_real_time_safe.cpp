@@ -5,6 +5,7 @@
 #include <cmath>
 #include <functional>
 #include <iostream>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -1032,7 +1033,7 @@ void test_process_realtime_safe()
 
   std::unique_ptr<nam::wavenet::WaveNet> condition_dsp = nullptr;
   auto wavenet = std::make_unique<nam::wavenet::WaveNet>(
-    input_size, layer_array_params, head_scale, with_head, weights, std::move(condition_dsp), 48000.0);
+    input_size, layer_array_params, head_scale, with_head, std::nullopt, weights, std::move(condition_dsp), 48000.0);
 
   const int maxBufferSize = 256;
   wavenet->Reset(48000.0, maxBufferSize);
@@ -1154,7 +1155,7 @@ void test_process_3in_2out_realtime_safe()
   const int in_channels = 3;
   std::unique_ptr<nam::wavenet::WaveNet> condition_dsp = nullptr;
   auto wavenet = std::make_unique<nam::wavenet::WaveNet>(
-    in_channels, layer_array_params, head_scale, with_head, weights, std::move(condition_dsp), 48000.0);
+    in_channels, layer_array_params, head_scale, with_head, std::nullopt, weights, std::move(condition_dsp), 48000.0);
 
   const int maxBufferSize = 256;
   wavenet->Reset(48000.0, maxBufferSize);

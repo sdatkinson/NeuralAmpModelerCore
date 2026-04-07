@@ -18,6 +18,7 @@
 #include "test/test_wavenet/test_real_time_safe.cpp"
 #include "test/test_wavenet/test_condition_processing.cpp"
 #include "test/test_wavenet/test_head1x1.cpp"
+#include "test/test_wavenet/test_output_head.cpp"
 #include "test/test_wavenet/test_layer1x1.cpp"
 #include "test/test_wavenet/test_factory.cpp"
 #include "test/test_gating_activations.cpp"
@@ -159,6 +160,8 @@ int main()
   test_wavenet::test_layer_array::test_layer_array_with_head_input();
   test_wavenet::test_layer_array::test_layer_array_different_activations();
   test_wavenet::test_full::test_wavenet_model();
+  test_wavenet::test_output_head::test_post_stack_head_receptive_field();
+  test_wavenet::test_output_head::test_wavenet_with_post_stack_head_processes();
   test_wavenet::test_full::test_wavenet_multiple_arrays();
   test_wavenet::test_full::test_wavenet_zero_input();
   test_wavenet::test_full::test_wavenet_different_buffer_sizes();
