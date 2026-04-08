@@ -162,6 +162,7 @@ int main()
   test_wavenet::test_full::test_wavenet_model();
   test_wavenet::test_output_head::test_post_stack_head_receptive_field();
   test_wavenet::test_output_head::test_wavenet_with_post_stack_head_processes();
+  test_wavenet::test_output_head::test_wavenet_with_two_layer_post_stack_head_applies_activation_per_layer_input();
   test_wavenet::test_full::test_wavenet_multiple_arrays();
   test_wavenet::test_full::test_wavenet_zero_input();
   test_wavenet::test_full::test_wavenet_different_buffer_sizes();

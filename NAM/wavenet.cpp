@@ -67,11 +67,17 @@ void nam::wavenet::PostStackHead::process(Eigen::MatrixXf& work, const int num_f
   for (size_t i = 0; i < _convs.size(); i++)
   {
     const long in_ch = _convs[i].get_in_channels();
-    _activations[i]->apply(work.data(), (long)(in_ch * num_frames));
     if (i == 0)
+    {
+      _activations[i]->apply(work.data(), (long)(in_ch * num_frames));
       _convs[i].Process(work, num_frames);
+    }
     else
-      _convs[i].Process(_convs[i - 1].GetOutput(), num_frames);
+    {
+      auto& prev = _convs[i - 1].GetOutput();
+      _activations[i]->apply(prev.data(), (long)(in_ch * num_frames));
+      _convs[i].Process(prev, num_frames);
+    }
   }
 }
 
