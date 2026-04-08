@@ -436,6 +436,7 @@ public:
   /// \param dilations_ Vector of dilation factors, one per layer
   /// \param activation_configs_ Vector of primary activation configurations, one per layer
   /// \param gating_modes_ Vector of gating modes, one per layer
+  /// \param head_kernel_size_ Kernel size of the head rechannel conv (>= 1)
   /// \param head_bias_ Whether to use bias in the head rechannel
   /// \param groups_input Number of groups for input convolutions
   /// \param groups_input_mixin_ Number of groups for input mixin convolutions
@@ -452,8 +453,9 @@ public:
   /// \param head1x1_post_film_params_ FiLM parameters after head1x1 convolutions
   /// \throws std::invalid_argument If dilations, activation_configs, gating_modes, or secondary_activation_configs
   /// sizes don't match
-  LayerArrayParams(const int input_size_, const int condition_size_, const int head_size_, const int channels_,
-                   const int bottleneck_, const std::vector<int>&& kernel_sizes_, const std::vector<int>&& dilations_,
+  LayerArrayParams(const int input_size_, const int condition_size_, const int head_size_, const int head_kernel_size_,
+                   const int channels_, const int bottleneck_, const std::vector<int>&& kernel_sizes_,
+                   const std::vector<int>&& dilations_,
                    const std::vector<activations::ActivationConfig>&& activation_configs_,
                    const std::vector<GatingMode>&& gating_modes_, const bool head_bias_, const int groups_input,
                    const int groups_input_mixin_, const Layer1x1Params& layer1x1_params_,
@@ -466,6 +468,7 @@ public:
   : input_size(input_size_)
   , condition_size(condition_size_)
   , head_size(head_size_)
+  , head_kernel_size(head_kernel_size_)
   , channels(channels_)
   , bottleneck(bottleneck_)
   , kernel_sizes(std::move(kernel_sizes_))
@@ -487,6 +490,10 @@ public:
   , _layer1x1_post_film_params(_layer1x1_post_film_params_)
   , head1x1_post_film_params(head1x1_post_film_params_)
   {
+    if (head_kernel_size < 1)
+    {
+      throw std::invalid_argument("LayerArrayParams: head_kernel_size must be >= 1");
+    }
     const size_t num_layers = dilations.size();
     if (kernel_sizes.empty())
     {
@@ -519,6 +526,7 @@ public:
   const int input_size; ///< Input size (number of channels)
   const int condition_size; ///< Size of conditioning input
   const int head_size; ///< Size of head output (after rechannel)
+  const int head_kernel_size; ///< Kernel size of head rechannel convolution (>= 1)
   const int channels; ///< Number of channels in each layer
   const int bottleneck; ///< Bottleneck size (internal channel count)
   std::vector<int> kernel_sizes; ///< Per-layer kernel sizes, one per layer
@@ -629,8 +637,8 @@ private:
   // Size is _head_output_size (= head1x1.out_channels if head1x1 active, else bottleneck)
   Eigen::MatrixXf _head_inputs;
 
-  // Rechannel for the head (_head_output_size -> head_size)
-  Conv1x1 _head_rechannel;
+  // Rechannel for the head (_head_output_size -> head_size), causal Conv1D (dilation 1)
+  Conv1D _head_rechannel;
 
   // Head output size from each layer (head1x1.out_channels if active, else bottleneck)
   const int _head_output_size;

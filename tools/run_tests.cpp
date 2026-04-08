@@ -19,6 +19,7 @@
 #include "test/test_wavenet/test_condition_processing.cpp"
 #include "test/test_wavenet/test_head1x1.cpp"
 #include "test/test_wavenet/test_output_head.cpp"
+#include "test/test_wavenet/test_layer_head_config.cpp"
 #include "test/test_wavenet/test_layer1x1.cpp"
 #include "test/test_wavenet/test_factory.cpp"
 #include "test/test_gating_activations.cpp"
@@ -163,6 +164,8 @@ int main()
   test_wavenet::test_output_head::test_post_stack_head_receptive_field();
   test_wavenet::test_output_head::test_wavenet_with_post_stack_head_processes();
   test_wavenet::test_output_head::test_wavenet_with_two_layer_post_stack_head_applies_activation_per_layer_input();
+  test_wavenet::test_layer_head_config::test_legacy_head_size_and_head_bias_implies_kernel_one();
+  test_wavenet::test_layer_head_config::test_nested_head_with_kernel_size_three();
   test_wavenet::test_full::test_wavenet_multiple_arrays();
   test_wavenet::test_full::test_wavenet_zero_input();
   test_wavenet::test_full::test_wavenet_different_buffer_sizes();

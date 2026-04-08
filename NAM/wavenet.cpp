@@ -375,7 +375,7 @@ void nam::wavenet::_Layer::Process(const Eigen::MatrixXf& input, const Eigen::Ma
 nam::wavenet::_LayerArray::_LayerArray(const LayerArrayParams& params)
 : _rechannel(params.input_size, params.channels, false)
 , _head_rechannel(params.head1x1_params.active ? params.head1x1_params.out_channels : params.bottleneck,
-                  params.head_size, params.head_bias)
+                  params.head_size, params.head_kernel_size, params.head_bias ? 1 : 0, 1, 1)
 , _head_output_size(params.head1x1_params.active ? params.head1x1_params.out_channels : params.bottleneck)
 {
   const size_t num_layers = params.dilations.size();
@@ -414,6 +414,7 @@ long nam::wavenet::_LayerArray::get_receptive_field() const
   long result = 0;
   for (size_t i = 0; i < this->_layers.size(); i++)
     result += this->_layers[i].get_dilation() * (this->_layers[i].get_kernel_size() - 1);
+  result += (long)this->_head_rechannel.get_kernel_size() - 1;
   return result;
 }
 
@@ -500,8 +501,8 @@ void nam::wavenet::_LayerArray::ProcessInner(const Eigen::MatrixXf& layer_inputs
     this->_layers[last_layer].GetOutputNextLayer().leftCols(num_frames);
 #endif
 
-  // Process head rechannel
-  _head_rechannel.process_(this->_head_inputs, num_frames);
+  // Process head rechannel (causal Conv1D)
+  _head_rechannel.Process(this->_head_inputs, num_frames);
 }
 
 
@@ -861,7 +862,41 @@ nam::wavenet::WaveNetConfig nam::wavenet::parse_config_json(const nlohmann::json
 
     const int input_size = layer_config["input_size"];
     const int condition_size = layer_config["condition_size"];
-    const int head_size = layer_config["head_size"];
+
+    int head_size = 0;
+    int head_kernel_size = 1;
+    bool head_bias = false;
+
+    // Prefer nested "head" (matches trainer export). Legacy .nam uses head_size + head_bias (implicit kernel 1).
+    if (layer_config.find("head") != layer_config.end() && !layer_config["head"].is_null())
+    {
+      const auto& head_json = layer_config["head"];
+      if (!head_json.is_object())
+      {
+        throw std::runtime_error("Layer array " + std::to_string(i) + ": 'head' must be a JSON object");
+      }
+      head_size = head_json.at("out_channels").get<int>();
+      head_kernel_size = head_json.at("kernel_size").get<int>();
+      head_bias = head_json.at("bias").get<bool>();
+    }
+    else if (layer_config.find("head_size") != layer_config.end())
+    {
+      head_size = layer_config["head_size"].get<int>();
+      head_kernel_size = 1;
+      head_bias = layer_config.at("head_bias").get<bool>();
+    }
+    else
+    {
+      throw std::runtime_error("Layer array " + std::to_string(i)
+                               + ": expected 'head' object with out_channels, kernel_size, and bias, "
+                                 "or legacy 'head_size' and 'head_bias'");
+    }
+
+    if (head_kernel_size < 1)
+    {
+      throw std::runtime_error("Layer array " + std::to_string(i) + ": head.kernel_size must be >= 1");
+    }
+
     const auto dilations = layer_config["dilations"];
     const size_t num_layers = dilations.size();
 
@@ -1053,8 +1088,6 @@ nam::wavenet::WaveNetConfig nam::wavenet::parse_config_json(const nlohmann::json
       secondary_activation_configs.resize(num_layers, activations::ActivationConfig{});
     }
 
-    const bool head_bias = layer_config["head_bias"];
-
     // Parse head1x1 parameters
     bool head1x1_active = false;
     int head1x1_out_channels = channels;
@@ -1099,7 +1132,7 @@ nam::wavenet::WaveNetConfig nam::wavenet::parse_config_json(const nlohmann::json
     }
 
     wc.layer_array_params.push_back(nam::wavenet::LayerArrayParams(
-      input_size, condition_size, head_size, channels, bottleneck, std::move(kernel_sizes), dilations,
+      input_size, condition_size, head_size, head_kernel_size, channels, bottleneck, std::move(kernel_sizes), dilations,
       std::move(activation_configs), std::move(gating_modes), head_bias, groups, groups_input_mixin, layer1x1_params,
       head1x1_params, std::move(secondary_activation_configs), conv_pre_film_params, conv_post_film_params,
       input_mixin_pre_film_params, input_mixin_post_film_params, activation_pre_film_params,

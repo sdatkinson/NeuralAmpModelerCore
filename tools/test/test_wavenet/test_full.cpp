@@ -35,7 +35,7 @@ static nam::wavenet::LayerArrayParams make_layer_array_params(
   std::vector<nam::activations::ActivationConfig> secondary_activation_configs(
     dilations.size(), secondary_activation_config);
   return nam::wavenet::LayerArrayParams(
-    input_size, condition_size, head_size, channels, bottleneck, std::move(kernel_sizes), std::move(dilations),
+    input_size, condition_size, head_size, 1, channels, bottleneck, std::move(kernel_sizes), std::move(dilations),
     std::move(activation_configs), std::move(gating_modes), head_bias, groups_input, groups_input_mixin,
     layer1x1_params, head1x1_params, std::move(secondary_activation_configs), film_params, film_params, film_params,
     film_params, film_params, film_params, film_params, film_params);

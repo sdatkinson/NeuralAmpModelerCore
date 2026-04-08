@@ -38,7 +38,7 @@ static nam::wavenet::_LayerArray make_layer_array(const int input_size, const in
   std::vector<int> dilations_copy = dilations; // Make a copy since we need to move it
   std::vector<int> kernel_sizes(dilations.size(), kernel_size);
   nam::wavenet::LayerArrayParams params(
-    input_size, condition_size, head_size, channels, bottleneck, std::move(kernel_sizes), std::move(dilations_copy),
+    input_size, condition_size, head_size, 1, channels, bottleneck, std::move(kernel_sizes), std::move(dilations_copy),
     std::move(activation_configs), std::move(gating_modes), head_bias, groups_input, groups_input_mixin,
     layer1x1_params, head1x1_params, std::move(secondary_activation_configs), film_params, film_params, film_params,
     film_params, film_params, film_params, film_params, film_params);
@@ -223,7 +223,7 @@ void test_layer_array_different_activations()
   auto film_params = make_default_film_params();
   std::vector<int> kernel_sizes(dilations.size(), kernel_size);
   nam::wavenet::LayerArrayParams params(
-    input_size, condition_size, head_size, channels, bottleneck, std::move(kernel_sizes), std::move(dilations),
+    input_size, condition_size, head_size, 1, channels, bottleneck, std::move(kernel_sizes), std::move(dilations),
     std::move(activation_configs), std::move(gating_modes), head_bias, groups, groups_input_mixin, layer1x1_params,
     head1x1_params, std::move(secondary_activation_configs), film_params, film_params, film_params, film_params,
     film_params, film_params, film_params, film_params);
@@ -306,7 +306,7 @@ void test_layer_array_different_activations()
     dilations_all_relu.size(), nam::activations::ActivationConfig{});
   std::vector<int> kernel_sizes_all_relu(dilations_all_relu.size(), kernel_size);
   nam::wavenet::LayerArrayParams params_all_relu(
-    input_size, condition_size, head_size, channels, bottleneck, std::move(kernel_sizes_all_relu),
+    input_size, condition_size, head_size, 1, channels, bottleneck, std::move(kernel_sizes_all_relu),
     std::move(dilations_all_relu), std::move(all_relu_configs), std::move(all_none_gating_modes), head_bias, groups,
     groups_input_mixin, layer1x1_params, head1x1_params, std::move(all_empty_secondary_configs), film_params,
     film_params, film_params, film_params, film_params, film_params, film_params, film_params);

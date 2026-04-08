@@ -121,6 +121,11 @@ std::vector<float> extract_slimmed_weights(const std::vector<wavenet::LayerArray
   for (int arr = 0; arr < num_arrays; arr++)
   {
     const auto& p = original_params[arr];
+    if (p.head_kernel_size != 1)
+    {
+      throw std::runtime_error(
+        "SlimmableWavenet: head rechannel kernel_size must be 1 (slimming with head kernel_size > 1 is not implemented)");
+    }
     validate_groups(p);
 
     const int full_ch = p.channels;
@@ -259,7 +264,8 @@ std::vector<wavenet::LayerArrayParams> modify_params_for_channels(
     int new_head_size = (i < num_arrays - 1) ? new_channels_per_array[i + 1] : p.head_size;
 
     modified.push_back(wavenet::LayerArrayParams(
-      new_input_size, p.condition_size, new_head_size, new_ch, new_bottleneck, std::vector<int>(p.kernel_sizes),
+      new_input_size, p.condition_size, new_head_size, p.head_kernel_size, new_ch, new_bottleneck,
+      std::vector<int>(p.kernel_sizes),
       std::vector<int>(p.dilations), std::vector<activations::ActivationConfig>(p.activation_configs),
       std::vector<wavenet::GatingMode>(p.gating_modes), p.head_bias, p.groups_input, p.groups_input_mixin,
       p.layer1x1_params, p.head1x1_params, std::vector<activations::ActivationConfig>(p.secondary_activation_configs),
