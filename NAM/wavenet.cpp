@@ -1158,8 +1158,8 @@ nam::wavenet::WaveNetConfig nam::wavenet::parse_config_json(const nlohmann::json
       if (legacy_in != implied_in)
       {
         std::stringstream ss;
-        ss << "WaveNet config: head.in_channels (" << legacy_in << ") must equal last layer's head_size ("
-           << implied_in << ")";
+        ss << "WaveNet config: head.in_channels (" << legacy_in << ") must equal last layer's head_size (" << implied_in
+           << ")";
         throw std::runtime_error(ss.str());
       }
     }

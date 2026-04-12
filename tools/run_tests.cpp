@@ -197,6 +197,7 @@ int main()
   test_wavenet::test_layer_post_activation_film_blended_realtime_safe();
   test_wavenet::test_layer_array_process_realtime_safe();
   test_wavenet::test_process_realtime_safe();
+  test_wavenet::test_process_with_post_stack_head_realtime_safe();
   test_wavenet::test_process_3in_2out_realtime_safe();
   test_wavenet::test_condition_processing::test_with_condition_dsp();
   test_wavenet::test_condition_processing::test_with_condition_dsp_multichannel();
