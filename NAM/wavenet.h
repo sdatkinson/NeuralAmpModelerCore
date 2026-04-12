@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -435,6 +436,7 @@ public:
   /// \param dilations_ Vector of dilation factors, one per layer
   /// \param activation_configs_ Vector of primary activation configurations, one per layer
   /// \param gating_modes_ Vector of gating modes, one per layer
+  /// \param head_kernel_size_ Kernel size of the head rechannel conv (>= 1)
   /// \param head_bias_ Whether to use bias in the head rechannel
   /// \param groups_input Number of groups for input convolutions
   /// \param groups_input_mixin_ Number of groups for input mixin convolutions
@@ -451,8 +453,9 @@ public:
   /// \param head1x1_post_film_params_ FiLM parameters after head1x1 convolutions
   /// \throws std::invalid_argument If dilations, activation_configs, gating_modes, or secondary_activation_configs
   /// sizes don't match
-  LayerArrayParams(const int input_size_, const int condition_size_, const int head_size_, const int channels_,
-                   const int bottleneck_, const std::vector<int>&& kernel_sizes_, const std::vector<int>&& dilations_,
+  LayerArrayParams(const int input_size_, const int condition_size_, const int head_size_, const int head_kernel_size_,
+                   const int channels_, const int bottleneck_, const std::vector<int>&& kernel_sizes_,
+                   const std::vector<int>&& dilations_,
                    const std::vector<activations::ActivationConfig>&& activation_configs_,
                    const std::vector<GatingMode>&& gating_modes_, const bool head_bias_, const int groups_input,
                    const int groups_input_mixin_, const Layer1x1Params& layer1x1_params_,
@@ -465,6 +468,7 @@ public:
   : input_size(input_size_)
   , condition_size(condition_size_)
   , head_size(head_size_)
+  , head_kernel_size(head_kernel_size_)
   , channels(channels_)
   , bottleneck(bottleneck_)
   , kernel_sizes(std::move(kernel_sizes_))
@@ -486,6 +490,10 @@ public:
   , _layer1x1_post_film_params(_layer1x1_post_film_params_)
   , head1x1_post_film_params(head1x1_post_film_params_)
   {
+    if (head_kernel_size < 1)
+    {
+      throw std::invalid_argument("LayerArrayParams: head_kernel_size must be >= 1");
+    }
     const size_t num_layers = dilations.size();
     if (kernel_sizes.empty())
     {
@@ -518,6 +526,7 @@ public:
   const int input_size; ///< Input size (number of channels)
   const int condition_size; ///< Size of conditioning input
   const int head_size; ///< Size of head output (after rechannel)
+  const int head_kernel_size; ///< Kernel size of head rechannel convolution (>= 1)
   const int channels; ///< Number of channels in each layer
   const int bottleneck; ///< Bottleneck size (internal channel count)
   std::vector<int> kernel_sizes; ///< Per-layer kernel sizes, one per layer
@@ -628,8 +637,8 @@ private:
   // Size is _head_output_size (= head1x1.out_channels if head1x1 active, else bottleneck)
   Eigen::MatrixXf _head_inputs;
 
-  // Rechannel for the head (_head_output_size -> head_size)
-  Conv1x1 _head_rechannel;
+  // Rechannel for the head (_head_output_size -> head_size), causal Conv1D (dilation 1)
+  Conv1D _head_rechannel;
 
   // Head output size from each layer (head1x1.out_channels if active, else bottleneck)
   const int _head_output_size;
@@ -637,6 +646,42 @@ private:
   long _get_channels() const;
   // Common processing logic after head inputs are set
   void ProcessInner(const Eigen::MatrixXf& layer_inputs, const Eigen::MatrixXf& condition, const int num_frames);
+};
+
+/// \brief Parameters for the optional post-stack head (matches Python ``nam.models.wavenet._head.Head``).
+/// JSON export omits ``in_channels`` (implied by last layer array ``head_size``); load sets it from there.
+struct WaveNetHeadParams
+{
+  int in_channels;
+  int channels;
+  int out_channels;
+  std::vector<int> kernel_sizes;
+  activations::ActivationConfig activation_config;
+};
+
+/// \brief Post-stack head: repeated (activation → Conv1D) with dilation 1, stride 1, valid (causal streaming) conv.
+class PostStackHead
+{
+public:
+  explicit PostStackHead(const WaveNetHeadParams& params);
+
+  void set_weights_(std::vector<float>::iterator& weights);
+  void SetMaxBufferSize(int maxBufferSize);
+  long receptive_field() const;
+  int in_channels() const { return _in_channels; }
+  int out_channels() const { return _out_channels; }
+
+  /// \param work Input buffer (in_channels × maxBufferSize); first in_channels×num_frames scaled by head_scale;
+  ///             may be modified in place.
+  void process(Eigen::MatrixXf& work, int num_frames);
+
+  const Eigen::MatrixXf& get_last_output() const { return _convs.back().GetOutput(); }
+
+private:
+  std::vector<nam::Conv1D> _convs;
+  std::vector<nam::activations::Activation::Ptr> _activations;
+  int _in_channels;
+  int _out_channels;
 };
 
 /// \brief The main WaveNet model
@@ -657,13 +702,14 @@ public:
   /// \param in_channels Number of input channels
   /// \param layer_array_params Parameters for each layer array
   /// \param head_scale Scaling factor applied to the final head output
-  /// \param with_head Whether to use a custom "head" module that further processes the output (not currently supported)
+  /// \param with_head Whether to apply the optional post-stack head (Conv1D stack after layer arrays)
+  /// \param head_params Configuration for the post-stack head when ``with_head`` is true
   /// \param weights Model weights (will be consumed during construction)
   /// \param condition_dsp Optional DSP module for processing the conditioning input
   /// \param expected_sample_rate Expected sample rate in Hz (-1.0 if unknown)
   WaveNet(const int in_channels, const std::vector<LayerArrayParams>& layer_array_params, const float head_scale,
-          const bool with_head, std::vector<float> weights, std::unique_ptr<DSP> condition_dsp,
-          const double expected_sample_rate = -1.0);
+          const bool with_head, std::optional<WaveNetHeadParams> head_params, std::vector<float> weights,
+          std::unique_ptr<DSP> condition_dsp, const double expected_sample_rate = -1.0);
 
   /// \brief Destructor
   ~WaveNet() = default;
@@ -725,6 +771,10 @@ private:
 
   float _head_scale;
 
+  std::unique_ptr<PostStackHead> _post_stack_head;
+  /// Scratch (in_channels × maxBufferSize) for scaled head input when ``_post_stack_head`` is used
+  Eigen::MatrixXf _scaled_head_scratch;
+
   int mPrewarmSamples = 0; // Pre-compute during initialization
   int PrewarmSamples() override { return mPrewarmSamples; };
 };
@@ -736,6 +786,7 @@ struct WaveNetConfig : public ModelConfig
   std::vector<LayerArrayParams> layer_array_params;
   float head_scale;
   bool with_head;
+  std::optional<WaveNetHeadParams> head_params;
   std::unique_ptr<DSP> condition_dsp;
 
   // Move-only due to unique_ptr

@@ -4,6 +4,7 @@
 #include <cassert>
 #include <cmath>
 #include <iostream>
+#include <optional>
 #include <vector>
 
 #include "NAM/wavenet.h"
@@ -34,7 +35,7 @@ static nam::wavenet::LayerArrayParams make_layer_array_params(
   std::vector<nam::activations::ActivationConfig> secondary_activation_configs(
     dilations.size(), secondary_activation_config);
   return nam::wavenet::LayerArrayParams(
-    input_size, condition_size, head_size, channels, bottleneck, std::move(kernel_sizes), std::move(dilations),
+    input_size, condition_size, head_size, 1, channels, bottleneck, std::move(kernel_sizes), std::move(dilations),
     std::move(activation_configs), std::move(gating_modes), head_bias, groups_input, groups_input_mixin,
     layer1x1_params, head1x1_params, std::move(secondary_activation_configs), film_params, film_params, film_params,
     film_params, film_params, film_params, film_params, film_params);
@@ -82,7 +83,7 @@ void test_wavenet_model()
 
   std::unique_ptr<nam::wavenet::WaveNet> condition_dsp = nullptr;
   auto wavenet = std::make_unique<nam::wavenet::WaveNet>(
-    input_size, layer_array_params, head_scale, with_head, weights, std::move(condition_dsp), 48000.0);
+    input_size, layer_array_params, head_scale, with_head, std::nullopt, weights, std::move(condition_dsp), 48000.0);
 
   const int numFrames = 4;
   const int maxBufferSize = 64;
@@ -151,7 +152,7 @@ void test_wavenet_multiple_arrays()
 
   std::unique_ptr<nam::wavenet::WaveNet> condition_dsp = nullptr;
   auto wavenet = std::make_unique<nam::wavenet::WaveNet>(
-    input_size, layer_array_params, head_scale, with_head, weights, std::move(condition_dsp), 48000.0);
+    input_size, layer_array_params, head_scale, with_head, std::nullopt, weights, std::move(condition_dsp), 48000.0);
 
   const int numFrames = 4;
   const int maxBufferSize = 64;
@@ -204,7 +205,7 @@ void test_wavenet_zero_input()
 
   std::unique_ptr<nam::wavenet::WaveNet> condition_dsp = nullptr;
   auto wavenet = std::make_unique<nam::wavenet::WaveNet>(
-    input_size, layer_array_params, head_scale, with_head, weights, std::move(condition_dsp), 48000.0);
+    input_size, layer_array_params, head_scale, with_head, std::nullopt, weights, std::move(condition_dsp), 48000.0);
 
   const int numFrames = 4;
   wavenet->Reset(48000.0, numFrames);
@@ -256,7 +257,7 @@ void test_wavenet_different_buffer_sizes()
 
   std::unique_ptr<nam::wavenet::WaveNet> condition_dsp = nullptr;
   auto wavenet = std::make_unique<nam::wavenet::WaveNet>(
-    input_size, layer_array_params, head_scale, with_head, weights, std::move(condition_dsp), 48000.0);
+    input_size, layer_array_params, head_scale, with_head, std::nullopt, weights, std::move(condition_dsp), 48000.0);
 
   // Test with different buffer sizes
   wavenet->Reset(48000.0, 64);
@@ -331,7 +332,7 @@ void test_wavenet_prewarm()
 
   std::unique_ptr<nam::wavenet::WaveNet> condition_dsp = nullptr;
   auto wavenet = std::make_unique<nam::wavenet::WaveNet>(
-    input_size, layer_array_params, head_scale, with_head, weights, std::move(condition_dsp), 48000.0);
+    input_size, layer_array_params, head_scale, with_head, std::nullopt, weights, std::move(condition_dsp), 48000.0);
 
   // Test that prewarm can be called without errors
   wavenet->Reset(48000.0, 64);

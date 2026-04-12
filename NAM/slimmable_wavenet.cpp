@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <optional>
 #include <stdexcept>
 
 namespace nam
@@ -120,6 +121,12 @@ std::vector<float> extract_slimmed_weights(const std::vector<wavenet::LayerArray
   for (int arr = 0; arr < num_arrays; arr++)
   {
     const auto& p = original_params[arr];
+    if (p.head_kernel_size != 1)
+    {
+      throw std::runtime_error(
+        "SlimmableWavenet: head rechannel kernel_size must be 1 (slimming with head kernel_size > 1 is not "
+        "implemented)");
+    }
     validate_groups(p);
 
     const int full_ch = p.channels;
@@ -258,8 +265,9 @@ std::vector<wavenet::LayerArrayParams> modify_params_for_channels(
     int new_head_size = (i < num_arrays - 1) ? new_channels_per_array[i + 1] : p.head_size;
 
     modified.push_back(wavenet::LayerArrayParams(
-      new_input_size, p.condition_size, new_head_size, new_ch, new_bottleneck, std::vector<int>(p.kernel_sizes),
-      std::vector<int>(p.dilations), std::vector<activations::ActivationConfig>(p.activation_configs),
+      new_input_size, p.condition_size, new_head_size, p.head_kernel_size, new_ch, new_bottleneck,
+      std::vector<int>(p.kernel_sizes), std::vector<int>(p.dilations),
+      std::vector<activations::ActivationConfig>(p.activation_configs),
       std::vector<wavenet::GatingMode>(p.gating_modes), p.head_bias, p.groups_input, p.groups_input_mixin,
       p.layer1x1_params, p.head1x1_params, std::vector<activations::ActivationConfig>(p.secondary_activation_configs),
       p.conv_pre_film_params, p.conv_post_film_params, p.input_mixin_pre_film_params, p.input_mixin_post_film_params,
@@ -326,6 +334,9 @@ SlimmableWavenet::SlimmableWavenet(std::vector<wavenet::LayerArrayParams> origin
   if (!any_slimmable)
     throw std::runtime_error("SlimmableWavenet: at least one layer array must have allowed_channels");
 
+  if (with_head)
+    throw std::runtime_error("SlimmableWavenet: post-stack head is not supported");
+
   // Build with full channel counts as default (ratio=1.0)
   std::vector<int> full_channels(_original_params.size());
   for (size_t i = 0; i < _original_params.size(); i++)
@@ -360,8 +371,8 @@ void SlimmableWavenet::_rebuild_model(const std::vector<int>& target_channels)
     condition_dsp = get_dsp(_condition_dsp_json);
 
   double sampleRate = _current_sample_rate > 0 ? _current_sample_rate : GetExpectedSampleRate();
-  _active_model = std::make_unique<wavenet::WaveNet>(
-    _in_channels, *params_ptr, _head_scale, _with_head, std::move(weights), std::move(condition_dsp), sampleRate);
+  _active_model = std::make_unique<wavenet::WaveNet>(_in_channels, *params_ptr, _head_scale, _with_head, std::nullopt,
+                                                     std::move(weights), std::move(condition_dsp), sampleRate);
   _current_channels = target_channels;
 
   if (_current_buffer_size > 0)

@@ -2,6 +2,7 @@
 
 #include <Eigen/Dense>
 #include <cassert>
+#include <optional>
 #include <cmath>
 #include <iostream>
 #include <vector>
@@ -35,7 +36,7 @@ static nam::wavenet::LayerArrayParams make_layer_array_params(
   std::vector<nam::activations::ActivationConfig> secondary_activation_configs(
     dilations.size(), secondary_activation_config);
   return nam::wavenet::LayerArrayParams(
-    input_size, condition_size, head_size, channels, bottleneck, std::move(kernel_sizes), std::move(dilations),
+    input_size, condition_size, head_size, 1, channels, bottleneck, std::move(kernel_sizes), std::move(dilations),
     std::move(activation_configs), std::move(gating_modes), head_bias, groups_input, groups_input_mixin,
     layer1x1_params, head1x1_params, std::move(secondary_activation_configs), film_params, film_params, film_params,
     film_params, film_params, film_params, film_params, film_params);
@@ -143,7 +144,7 @@ std::unique_ptr<nam::wavenet::WaveNet> create_simple_wavenet(
   weights.push_back(head_scale);
 
   return std::make_unique<nam::wavenet::WaveNet>(
-    in_channels, layer_array_params, head_scale, with_head, weights, std::move(condition_dsp), 48000.0);
+    in_channels, layer_array_params, head_scale, with_head, std::nullopt, weights, std::move(condition_dsp), 48000.0);
 }
 
 // Test condition processing with condition_dsp
