@@ -5,7 +5,7 @@
 
 #include "json.hpp"
 
-#include "NAM/wavenet.h"
+#include "NAM/wavenet/model.h"
 
 namespace test_wavenet
 {
@@ -60,7 +60,7 @@ void test_nested_head_with_kernel_size_three()
   assert(p.head_kernel_size == 3);
   assert(p.head_bias == true);
 
-  nam::wavenet::_LayerArray array(p);
+  nam::wavenet::detail::LayerArray array(p);
   assert(array.get_receptive_field() == 2); // one dilated layer: 0 + (3-1) head rechannel
 }
 

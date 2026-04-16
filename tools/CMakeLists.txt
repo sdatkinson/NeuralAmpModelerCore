@@ -1,4 +1,6 @@
-file(GLOB_RECURSE NAM_SOURCES ../NAM/*.cpp ../NAM/*.c ../NAM*.h)
+file(GLOB NAM_SOURCES_TOP "${CMAKE_CURRENT_SOURCE_DIR}/../NAM/*.cpp" "${CMAKE_CURRENT_SOURCE_DIR}/../NAM/*.c")
+file(GLOB NAM_SOURCES_SUB "${CMAKE_CURRENT_SOURCE_DIR}/../NAM/*/*.cpp")
+set(NAM_SOURCES ${NAM_SOURCES_TOP} ${NAM_SOURCES_SUB})
 
 # TODO: add loadmodel and run_tests to TOOLS?
 set(TOOLS benchmodel)

@@ -9,11 +9,11 @@ WaveNet API
    :project: NeuralAmpModelerCore
    :members:
 
-.. doxygenclass:: nam::wavenet::_LayerArray
+.. doxygenclass:: nam::wavenet::detail::LayerArray
    :project: NeuralAmpModelerCore
    :members:
 
-.. doxygenclass:: nam::wavenet::_Layer
+.. doxygenclass:: nam::wavenet::detail::Layer
    :project: NeuralAmpModelerCore
    :members:
 

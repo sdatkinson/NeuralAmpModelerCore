@@ -7,7 +7,7 @@
 #include <optional>
 #include <vector>
 
-#include "NAM/wavenet.h"
+#include "NAM/wavenet/model.h"
 
 namespace test_wavenet
 {
@@ -41,13 +41,13 @@ static nam::wavenet::LayerArrayParams make_layer_array_params(
 
 void test_post_stack_head_receptive_field()
 {
-  nam::wavenet::WaveNetHeadParams p;
+  nam::wavenet::HeadParams p;
   p.in_channels = 2;
   p.channels = 3;
   p.out_channels = 1;
   p.kernel_sizes = {3, 5};
   p.activation_config = nam::activations::ActivationConfig::simple(nam::activations::ActivationType::Tanh);
-  nam::wavenet::PostStackHead head(p);
+  nam::wavenet::detail::Head head(p);
   // Python: 1 + (3-1) + (5-1) = 7
   assert(head.receptive_field() == 7);
 }
@@ -78,7 +78,7 @@ void test_wavenet_with_post_stack_head_processes()
   std::vector<nam::wavenet::LayerArrayParams> layer_array_params;
   layer_array_params.push_back(std::move(layer_params));
 
-  nam::wavenet::WaveNetHeadParams hp;
+  nam::wavenet::HeadParams hp;
   hp.in_channels = 1;
   hp.channels = 1;
   hp.out_channels = 1;
@@ -95,7 +95,7 @@ void test_wavenet_with_post_stack_head_processes()
 
   std::unique_ptr<nam::wavenet::WaveNet> condition_dsp = nullptr;
   auto wavenet = std::make_unique<nam::wavenet::WaveNet>(input_size, layer_array_params, head_scale, with_head,
-                                                         std::optional<nam::wavenet::WaveNetHeadParams>(std::move(hp)),
+                                                         std::optional<nam::wavenet::HeadParams>(std::move(hp)),
                                                          std::move(weights), std::move(condition_dsp), 48000.0);
 
   const int numFrames = 8;
@@ -143,7 +143,7 @@ void test_wavenet_with_two_layer_post_stack_head_applies_activation_per_layer_in
   std::vector<nam::wavenet::LayerArrayParams> layer_array_params;
   layer_array_params.push_back(std::move(layer_params));
 
-  nam::wavenet::WaveNetHeadParams hp;
+  nam::wavenet::HeadParams hp;
   hp.in_channels = 1;
   hp.channels = 1;
   hp.out_channels = 1;
@@ -167,7 +167,7 @@ void test_wavenet_with_two_layer_post_stack_head_applies_activation_per_layer_in
 
   std::unique_ptr<nam::wavenet::WaveNet> condition_dsp = nullptr;
   auto wavenet = std::make_unique<nam::wavenet::WaveNet>(input_size, layer_array_params, head_scale, with_head,
-                                                         std::optional<nam::wavenet::WaveNetHeadParams>(std::move(hp)),
+                                                         std::optional<nam::wavenet::HeadParams>(std::move(hp)),
                                                          std::move(weights), std::move(condition_dsp), 48000.0);
 
   const int numFrames = 8;

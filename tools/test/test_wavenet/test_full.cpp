@@ -7,7 +7,7 @@
 #include <optional>
 #include <vector>
 
-#include "NAM/wavenet.h"
+#include "NAM/wavenet/model.h"
 
 namespace test_wavenet
 {

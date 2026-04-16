@@ -7,7 +7,7 @@
 #include <iostream>
 #include <vector>
 
-#include "NAM/wavenet.h"
+#include "NAM/wavenet/model.h"
 #include "NAM/dsp.h"
 
 namespace test_wavenet
