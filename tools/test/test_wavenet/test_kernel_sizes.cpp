@@ -5,7 +5,7 @@
 
 #include "json.hpp"
 
-#include "NAM/wavenet.h"
+#include "NAM/wavenet/model.h"
 
 namespace test_wavenet
 {
@@ -55,7 +55,7 @@ void test_kernel_size_int_compat()
   }
 
   // Verify that receptive field computation uses the (uniform) kernel size
-  nam::wavenet::_LayerArray array(p);
+  nam::wavenet::detail::LayerArray array(p);
   const long receptive_field = array.get_receptive_field();
 
   long expected_receptive_field = 0;
@@ -104,7 +104,7 @@ void test_kernel_size_per_layer_array()
   assert(p.dilations == expected_dilations);
 
   // Verify that receptive field computation uses the per-layer kernel sizes
-  nam::wavenet::_LayerArray array(p);
+  nam::wavenet::detail::LayerArray array(p);
   const long receptive_field = array.get_receptive_field();
 
   long expected_receptive_field = 0;

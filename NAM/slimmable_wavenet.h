@@ -7,7 +7,7 @@
 #include "json.hpp"
 #include "model_config.h"
 #include "slimmable.h"
-#include "wavenet.h"
+#include "wavenet/model.h"
 
 namespace nam
 {
