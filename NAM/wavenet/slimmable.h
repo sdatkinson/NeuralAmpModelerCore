@@ -3,11 +3,11 @@
 #include <memory>
 #include <vector>
 
-#include "dsp.h"
+#include "../dsp.h"
 #include "json.hpp"
-#include "model_config.h"
-#include "slimmable.h"
-#include "wavenet/model.h"
+#include "../model_config.h"
+#include "../slimmable.h"
+#include "model.h"
 
 namespace nam
 {

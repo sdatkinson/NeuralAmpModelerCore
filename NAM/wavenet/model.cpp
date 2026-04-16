@@ -9,7 +9,7 @@
 
 #include "../get_dsp.h"
 #include "../registry.h"
-#include "../slimmable_wavenet.h"
+#include "slimmable.h"
 #include "model.h"
 
 // detail::Head (WaveNet post-stack head) =====================================

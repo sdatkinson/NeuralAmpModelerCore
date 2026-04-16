@@ -1,5 +1,5 @@
-#include "slimmable_wavenet.h"
-#include "get_dsp.h"
+#include "slimmable.h"
+#include "../get_dsp.h"
 
 #include <algorithm>
 #include <cmath>
