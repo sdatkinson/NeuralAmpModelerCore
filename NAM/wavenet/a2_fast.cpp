@@ -13,11 +13,14 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstddef>
 #include <cstring>
+#include <iterator>
 #include <memory>
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <Eigen/Dense>
@@ -424,29 +427,6 @@ void A2FastModel<Channels>::_layer_forward_k(Layer& L, const float* cond, int nu
   const int base = L.write_pos - num_frames;
   auto tap_base_phys = [&](int taps_back) { return base - taps_back * D; };
 #endif
-
-  // Bias is now seeded into z by tap 0 of the ch<=4 path, so fuse_post_conv
-  // skips that add; the Eigen ch>=8 path still folds bias in via colwise +=.
-  auto fuse_post_conv = [&](int f, float* zf) {
-    const float cf = cond[f];
-    for (int b = 0; b < Channels; b++)
-      zf[b] += L.mixin_w[b] * cf;
-    for (int b = 0; b < Channels; b++)
-      zf[b] = (zf[b] >= 0.0f) ? zf[b] : zf[b] * kLeakySlope;
-    float* hsum = &_head_sum[static_cast<size_t>(f) * Channels];
-    for (int b = 0; b < Channels; b++)
-      hsum[b] += zf[b];
-    float* lin = &_layer_in[static_cast<size_t>(f) * Channels];
-    for (int c = 0; c < Channels; c++)
-      lin[c] += L.l1x1_b[c];
-    for (int b = 0; b < Channels; b++)
-    {
-      const float zb = zf[b];
-      const float* wcol = &L.l1x1_w[static_cast<size_t>(b) * Channels];
-      for (int c = 0; c < Channels; c++)
-        lin[c] += wcol[c] * zb;
-    }
-  };
 
   // Two conv strategies, dispatched at compile time on Channels:
   //

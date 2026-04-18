@@ -6,11 +6,15 @@
 
 #if defined(NAM_ENABLE_A2_FAST)
 
+#include <algorithm>
 #include <cassert>
 #include <cmath>
+#include <cstdint>
 #include <iostream>
 #include <memory>
 #include <random>
+#include <string>
+#include <utility>
 #include <vector>
 
 #include "json.hpp"
