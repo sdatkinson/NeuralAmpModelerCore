@@ -134,6 +134,8 @@ private:
   std::vector<float> _layer_in; // current layer input / next layer input (in-place residual)
   std::vector<float> _head_sum; // accumulates activations across all layers
   std::vector<float> _z;        // per-layer conv output accumulator (tap-major)
+  std::vector<float> _cond;     // float32 copy of the double NAM_SAMPLE input, reused each block
+  std::vector<float> _head_out; // float32 head output before writing to NAM_SAMPLE
 
   int _prewarm_samples = 0;
 
@@ -290,6 +292,8 @@ void A2FastModel<Channels>::SetMaxBufferSize(int maxBufferSize)
   _layer_in.assign(static_cast<size_t>(Channels) * maxBufferSize, 0.0f);
   _head_sum.assign(static_cast<size_t>(Channels) * maxBufferSize, 0.0f);
   _z.assign(static_cast<size_t>(Channels) * maxBufferSize, 0.0f);
+  _cond.assign(static_cast<size_t>(maxBufferSize), 0.0f);
+  _head_out.assign(static_cast<size_t>(maxBufferSize), 0.0f);
 
   for (auto& L : _layers)
   {
@@ -690,7 +694,7 @@ void A2FastModel<Channels>::process(NAM_SAMPLE** input, NAM_SAMPLE** output, int
 
   // Rechannel: layer_in[c, f] = _rechannel_w[c] * input[f] for c in Channels.
   // Also prepare float cond buffer (input copied to float for inner loops).
-  std::vector<float> cond(num_frames);
+  float* cond = _cond.data();
   for (int f = 0; f < num_frames; f++)
   {
     const float x = static_cast<float>(in0[f]);
@@ -704,11 +708,11 @@ void A2FastModel<Channels>::process(NAM_SAMPLE** input, NAM_SAMPLE** output, int
   std::memset(_head_sum.data(), 0, static_cast<size_t>(num_frames) * Channels * sizeof(float));
 
   for (int li = 0; li < kNumLayers; li++)
-    _layer_forward(li, cond.data(), num_frames);
+    _layer_forward(li, cond, num_frames);
 
   // Output.
-  std::vector<float> head_out(num_frames);
-  _head_forward(head_out.data(), num_frames);
+  float* head_out = _head_out.data();
+  _head_forward(head_out, num_frames);
   for (int f = 0; f < num_frames; f++)
     out0[f] = static_cast<NAM_SAMPLE>(head_out[f]);
 }

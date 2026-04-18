@@ -19,6 +19,8 @@
 #include "NAM/wavenet/a2_fast.h"
 #include "NAM/wavenet/model.h"
 
+#include "allocation_tracking.h"
+
 namespace test_a2_fast
 {
 namespace
@@ -252,6 +254,73 @@ void test_matches_generic_nano()
 void test_matches_generic_standard()
 {
   test_matches_generic(8);
+}
+
+// Real-time safety: once the DSP has been Reset (buffers sized, prewarmed),
+// subsequent process() calls must not allocate or free heap memory. Uses the
+// same allocation-tracking infrastructure as the generic WaveNet RT-safety
+// tests (tools/test/allocation_tracking.{h,cpp}) — overridden malloc/free and
+// global new/delete increment counters while tracking is enabled.
+void test_process_realtime_safe(int channels)
+{
+  const auto cfg = build_a2_config(channels);
+  const int weight_count = a2_weight_count(channels);
+  const auto weights = make_deterministic_weights(weight_count, /*seed=*/0xA2FA500u + channels);
+
+  auto fast_cfg = nam::wavenet::a2_fast::create_a2_fast_config(cfg, 48000.0);
+  std::vector<float> w_fast = weights;
+  auto fast_dsp = fast_cfg->create(std::move(w_fast), 48000.0);
+
+  // Exercise several block sizes all within a single pre-sized state so the
+  // internal "num_frames > max_buffer_size" guard in process() never fires
+  // (which would legitimately reallocate).
+  const int max_buffer = 256;
+  fast_dsp->Reset(48000.0, max_buffer);
+
+  const int total = 4 * max_buffer;
+  const auto input = make_test_input(total, 48000.0);
+  std::vector<NAM_SAMPLE> output(total, 0.0);
+
+  // Warm up caches / any lazy init with one untracked pass.
+  {
+    const NAM_SAMPLE* in = input.data();
+    NAM_SAMPLE* out = output.data();
+    const NAM_SAMPLE* in_arr[] = {in};
+    NAM_SAMPLE* out_arr[] = {out};
+    fast_dsp->process(const_cast<NAM_SAMPLE**>(in_arr), out_arr, max_buffer);
+  }
+
+  for (int block : {1, 32, 64, 128, 256})
+  {
+    std::string test_name = "A2FastModel<" + std::to_string(channels) + ">::process block="
+                            + std::to_string(block);
+    allocation_tracking::run_allocation_test_no_allocations(
+      nullptr,
+      [&]() {
+        int pos = 0;
+        while (pos + block <= total)
+        {
+          const NAM_SAMPLE* in = input.data() + pos;
+          NAM_SAMPLE* out = output.data() + pos;
+          const NAM_SAMPLE* in_arr[] = {in};
+          NAM_SAMPLE* out_arr[] = {out};
+          fast_dsp->process(const_cast<NAM_SAMPLE**>(in_arr), out_arr, block);
+          pos += block;
+        }
+      },
+      nullptr,
+      test_name.c_str());
+  }
+}
+
+void test_process_realtime_safe_nano()
+{
+  test_process_realtime_safe(3);
+}
+
+void test_process_realtime_safe_standard()
+{
+  test_process_realtime_safe(8);
 }
 
 } // namespace test_a2_fast
