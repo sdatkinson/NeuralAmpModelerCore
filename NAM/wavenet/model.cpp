@@ -12,6 +12,10 @@
 #include "slimmable.h"
 #include "model.h"
 
+#if defined(NAM_ENABLE_A2_FAST)
+#include "a2_fast.h"
+#endif
+
 // detail::Head (WaveNet post-stack head) =====================================
 
 nam::wavenet::detail::Head::Head(const HeadParams& params)
@@ -1217,6 +1221,11 @@ std::unique_ptr<nam::ModelConfig> nam::wavenet::create_config(const nlohmann::js
 {
   if (config_is_slimmable_wavenet(config))
     return nam::slimmable_wavenet::create_config(config, sampleRate);
+
+#if defined(NAM_ENABLE_A2_FAST)
+  if (int a2_channels = 0; nam::wavenet::a2_fast::is_a2_shape(config, &a2_channels))
+    return nam::wavenet::a2_fast::create_a2_fast_config(config, sampleRate);
+#endif
 
   auto wc = std::make_unique<WaveNetConfig>();
   auto parsed = parse_config_json(config, sampleRate);

@@ -33,6 +33,7 @@
 #include "test/test_container.cpp"
 #include "test/test_render_slim.cpp"
 #include "test/test_slimmable_wavenet.cpp"
+#include "test/test_a2_fast.cpp"
 
 int main()
 {
@@ -309,6 +310,20 @@ int main()
   test_slimmable_wavenet::test_wavenet_without_slimmable_loads_as_regular();
   test_slimmable_wavenet::test_unsupported_method_throws();
   test_slimmable_wavenet::test_slimmed_matches_small_model();
+
+#if defined(NAM_ENABLE_A2_FAST)
+  // A2 fast-path WaveNet: detector coverage + numerical match against generic.
+  test_a2_fast::test_detector_matches_nano();
+  test_a2_fast::test_detector_matches_standard();
+  test_a2_fast::test_detector_rejects_wrong_channels();
+  test_a2_fast::test_detector_rejects_wrong_kernel_sizes();
+  test_a2_fast::test_detector_rejects_wrong_activation();
+  test_a2_fast::test_detector_rejects_gating();
+  test_a2_fast::test_matches_generic_nano();
+  test_a2_fast::test_matches_generic_standard();
+  test_a2_fast::test_process_realtime_safe_nano();
+  test_a2_fast::test_process_realtime_safe_standard();
+#endif
 
   std::cout << "Success!" << std::endl;
 #ifdef ADDASSERT
