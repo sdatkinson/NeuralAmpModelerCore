@@ -1,4 +1,6 @@
-file(GLOB_RECURSE NAM_SOURCES ../NAM/*.cpp ../NAM/*.c ../NAM*.h)
+file(GLOB NAM_SOURCES_TOP "${CMAKE_CURRENT_SOURCE_DIR}/../NAM/*.cpp" "${CMAKE_CURRENT_SOURCE_DIR}/../NAM/*.c")
+file(GLOB NAM_SOURCES_SUB "${CMAKE_CURRENT_SOURCE_DIR}/../NAM/*/*.cpp")
+set(NAM_SOURCES ${NAM_SOURCES_TOP} ${NAM_SOURCES_SUB})
 
 # TODO: add loadmodel and run_tests to TOOLS?
 set(TOOLS benchmodel)
@@ -41,6 +43,25 @@ else()
 	)
 endif()
 add_executable(benchmodel_bufsize benchmodel_bufsize.cpp ${NAM_SOURCES})
+add_executable(bench_a2_fast bench_a2_fast.cpp ${NAM_SOURCES})
+target_compile_features(bench_a2_fast PUBLIC cxx_std_20)
+set_target_properties(bench_a2_fast PROPERTIES
+	CXX_VISIBILITY_PRESET hidden
+	INTERPROCEDURAL_OPTIMIZATION TRUE
+	PREFIX ""
+)
+if (MSVC)
+	target_compile_options(bench_a2_fast PRIVATE
+		"$<$<CONFIG:DEBUG>:/W4>"
+		"$<$<CONFIG:RELEASE>:/O2>"
+	)
+else()
+	target_compile_options(bench_a2_fast PRIVATE
+		-Wall -Wextra -Wpedantic -Wstrict-aliasing -Wunreachable-code -Wno-unused-parameter
+		"$<$<CONFIG:DEBUG>:-Og;-ggdb;-Werror>"
+		"$<$<CONFIG:RELEASE>:-Ofast>"
+	)
+endif()
 add_executable(run_tests run_tests.cpp test/allocation_tracking.cpp ${NAM_SOURCES})
 # Compile run_tests without optimizations to ensure allocation tracking works correctly
 # Also ensure assertions are enabled (NDEBUG is not defined) so tests actually run

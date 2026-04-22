@@ -8,7 +8,7 @@
 #include "json.hpp"
 
 #include "NAM/get_dsp.h"
-#include "NAM/wavenet.h"
+#include "NAM/wavenet/model.h"
 
 namespace test_wavenet
 {

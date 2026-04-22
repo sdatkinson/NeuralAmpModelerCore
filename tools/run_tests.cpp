@@ -18,6 +18,8 @@
 #include "test/test_wavenet/test_real_time_safe.cpp"
 #include "test/test_wavenet/test_condition_processing.cpp"
 #include "test/test_wavenet/test_head1x1.cpp"
+#include "test/test_wavenet/test_output_head.cpp"
+#include "test/test_wavenet/test_layer_head_config.cpp"
 #include "test/test_wavenet/test_layer1x1.cpp"
 #include "test/test_wavenet/test_factory.cpp"
 #include "test/test_gating_activations.cpp"
@@ -28,6 +30,10 @@
 #include "test/test_wavenet_configurable_gating.cpp"
 #include "test/test_noncontiguous_blocks.cpp"
 #include "test/test_extensible.cpp"
+#include "test/test_container.cpp"
+#include "test/test_render_slim.cpp"
+#include "test/test_slimmable_wavenet.cpp"
+#include "test/test_a2_fast.cpp"
 
 int main()
 {
@@ -156,6 +162,11 @@ int main()
   test_wavenet::test_layer_array::test_layer_array_with_head_input();
   test_wavenet::test_layer_array::test_layer_array_different_activations();
   test_wavenet::test_full::test_wavenet_model();
+  test_wavenet::test_output_head::test_post_stack_head_receptive_field();
+  test_wavenet::test_output_head::test_wavenet_with_post_stack_head_processes();
+  test_wavenet::test_output_head::test_wavenet_with_two_layer_post_stack_head_applies_activation_per_layer_input();
+  test_wavenet::test_layer_head_config::test_legacy_head_size_and_head_bias_implies_kernel_one();
+  test_wavenet::test_layer_head_config::test_nested_head_with_kernel_size_three();
   test_wavenet::test_full::test_wavenet_multiple_arrays();
   test_wavenet::test_full::test_wavenet_zero_input();
   test_wavenet::test_full::test_wavenet_different_buffer_sizes();
@@ -187,6 +198,7 @@ int main()
   test_wavenet::test_layer_post_activation_film_blended_realtime_safe();
   test_wavenet::test_layer_array_process_realtime_safe();
   test_wavenet::test_process_realtime_safe();
+  test_wavenet::test_process_with_post_stack_head_realtime_safe();
   test_wavenet::test_process_3in_2out_realtime_safe();
   test_wavenet::test_condition_processing::test_with_condition_dsp();
   test_wavenet::test_condition_processing::test_with_condition_dsp_multichannel();
@@ -267,6 +279,51 @@ int main()
 
   // Extensibility: external architecture registration and get_dsp (issue #230)
   test_extensible::run_extensibility_tests();
+
+  // Container / SlimmableContainer tests
+  test_container::test_container_loads_from_json();
+  test_container::test_container_processes_audio();
+  test_container::test_container_slimmable_selects_submodel();
+  test_container::test_container_boundary_values();
+  test_container::test_container_empty_submodels_throws();
+  test_container::test_container_last_max_value_must_cover_one();
+  test_container::test_container_unsorted_submodels_throws();
+  test_container::test_container_sample_rate_mismatch_throws();
+  test_container::test_container_load_from_file();
+  test_container::test_container_default_is_max_size();
+
+  // Render --slim tests
+  test_render_slim::test_slim_changes_output();
+  test_render_slim::test_slim_rejects_non_slimmable();
+  test_render_slim::test_slim_boundary_values();
+  test_render_slim::test_slim_applied_before_processing();
+
+  // SlimmableWavenet tests
+  test_slimmable_wavenet::test_loads_from_file();
+  test_slimmable_wavenet::test_implements_slimmable();
+  test_slimmable_wavenet::test_processes_audio();
+  test_slimmable_wavenet::test_slimming_changes_output();
+  test_slimmable_wavenet::test_boundary_values();
+  test_slimmable_wavenet::test_default_is_max_size();
+  test_slimmable_wavenet::test_ratio_mapping();
+  test_slimmable_wavenet::test_from_json();
+  test_slimmable_wavenet::test_wavenet_without_slimmable_loads_as_regular();
+  test_slimmable_wavenet::test_unsupported_method_throws();
+  test_slimmable_wavenet::test_slimmed_matches_small_model();
+
+#if defined(NAM_ENABLE_A2_FAST)
+  // A2 fast-path WaveNet: detector coverage + numerical match against generic.
+  test_a2_fast::test_detector_matches_nano();
+  test_a2_fast::test_detector_matches_standard();
+  test_a2_fast::test_detector_rejects_wrong_channels();
+  test_a2_fast::test_detector_rejects_wrong_kernel_sizes();
+  test_a2_fast::test_detector_rejects_wrong_activation();
+  test_a2_fast::test_detector_rejects_gating();
+  test_a2_fast::test_matches_generic_nano();
+  test_a2_fast::test_matches_generic_standard();
+  test_a2_fast::test_process_realtime_safe_nano();
+  test_a2_fast::test_process_realtime_safe_standard();
+#endif
 
   std::cout << "Success!" << std::endl;
 #ifdef ADDASSERT

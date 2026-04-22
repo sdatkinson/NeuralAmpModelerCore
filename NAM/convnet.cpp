@@ -341,8 +341,8 @@ nam::convnet::ConvNetConfig nam::convnet::parse_config_json(const nlohmann::json
 // ConvNetConfig::create()
 std::unique_ptr<nam::DSP> nam::convnet::ConvNetConfig::create(std::vector<float> weights, double sampleRate)
 {
-  return std::make_unique<nam::convnet::ConvNet>(in_channels, out_channels, channels, dilations, batchnorm, activation,
-                                                 weights, sampleRate, groups);
+  return std::make_unique<nam::convnet::ConvNet>(
+    in_channels, out_channels, channels, dilations, batchnorm, activation, weights, sampleRate, groups);
 }
 
 // Config parser for ConfigParserRegistry

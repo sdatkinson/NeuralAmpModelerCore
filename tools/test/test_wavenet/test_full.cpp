@@ -4,9 +4,10 @@
 #include <cassert>
 #include <cmath>
 #include <iostream>
+#include <optional>
 #include <vector>
 
-#include "NAM/wavenet.h"
+#include "NAM/wavenet/model.h"
 
 namespace test_wavenet
 {
@@ -21,10 +22,10 @@ static nam::wavenet::_FiLMParams make_default_film_params()
 // Helper function to create LayerArrayParams with default FiLM parameters
 static nam::wavenet::LayerArrayParams make_layer_array_params(
   const int input_size, const int condition_size, const int head_size, const int channels, const int bottleneck,
-  const int kernel_size, std::vector<int>&& dilations, const nam::activations::ActivationConfig& activation_config,
-  const nam::wavenet::GatingMode gating_mode, const bool head_bias, const int groups_input,
-  const int groups_input_mixin, const nam::wavenet::Layer1x1Params& layer1x1_params,
-  const nam::wavenet::Head1x1Params& head1x1_params,
+  std::vector<int>&& kernel_sizes, std::vector<int>&& dilations,
+  const nam::activations::ActivationConfig& activation_config, const nam::wavenet::GatingMode gating_mode,
+  const bool head_bias, const int groups_input, const int groups_input_mixin,
+  const nam::wavenet::Layer1x1Params& layer1x1_params, const nam::wavenet::Head1x1Params& head1x1_params,
   const nam::activations::ActivationConfig& secondary_activation_config)
 {
   auto film_params = make_default_film_params();
@@ -33,11 +34,11 @@ static nam::wavenet::LayerArrayParams make_layer_array_params(
   std::vector<nam::wavenet::GatingMode> gating_modes(dilations.size(), gating_mode);
   std::vector<nam::activations::ActivationConfig> secondary_activation_configs(
     dilations.size(), secondary_activation_config);
-  return nam::wavenet::LayerArrayParams(input_size, condition_size, head_size, channels, bottleneck, kernel_size,
-                                        std::move(dilations), std::move(activation_configs), std::move(gating_modes),
-                                        head_bias, groups_input, groups_input_mixin, layer1x1_params, head1x1_params,
-                                        std::move(secondary_activation_configs), film_params, film_params, film_params,
-                                        film_params, film_params, film_params, film_params, film_params);
+  return nam::wavenet::LayerArrayParams(
+    input_size, condition_size, head_size, 1, channels, bottleneck, std::move(kernel_sizes), std::move(dilations),
+    std::move(activation_configs), std::move(gating_modes), head_bias, groups_input, groups_input_mixin,
+    layer1x1_params, head1x1_params, std::move(secondary_activation_configs), film_params, film_params, film_params,
+    film_params, film_params, film_params, film_params, film_params);
 }
 // Test full WaveNet model
 void test_wavenet_model()
@@ -49,6 +50,7 @@ void test_wavenet_model()
   const int bottleneck = channels;
   const int kernel_size = 1;
   std::vector<int> dilations{1};
+  std::vector<int> kernel_sizes(dilations.size(), kernel_size);
   const auto activation = nam::activations::ActivationConfig::simple(nam::activations::ActivationType::ReLU);
   const nam::wavenet::GatingMode gating_mode = nam::wavenet::GatingMode::NONE;
   const bool head_bias = false;
@@ -62,8 +64,8 @@ void test_wavenet_model()
   nam::wavenet::Head1x1Params head1x1_params(head1x1_active, channels, 1);
   nam::activations::ActivationConfig empty_config{};
   nam::wavenet::LayerArrayParams params = make_layer_array_params(
-    input_size, condition_size, head_size, channels, bottleneck, kernel_size, std::move(dilations), activation,
-    gating_mode, head_bias, groups, groups_input_mixin, layer1x1_params, head1x1_params, empty_config);
+    input_size, condition_size, head_size, channels, bottleneck, std::move(kernel_sizes), std::move(dilations),
+    activation, gating_mode, head_bias, groups, groups_input_mixin, layer1x1_params, head1x1_params, empty_config);
   std::vector<nam::wavenet::LayerArrayParams> layer_array_params;
   layer_array_params.push_back(std::move(params));
 
@@ -81,7 +83,7 @@ void test_wavenet_model()
 
   std::unique_ptr<nam::wavenet::WaveNet> condition_dsp = nullptr;
   auto wavenet = std::make_unique<nam::wavenet::WaveNet>(
-    input_size, layer_array_params, head_scale, with_head, weights, std::move(condition_dsp), 48000.0);
+    input_size, layer_array_params, head_scale, with_head, std::nullopt, weights, std::move(condition_dsp), 48000.0);
 
   const int numFrames = 4;
   const int maxBufferSize = 64;
@@ -128,16 +130,18 @@ void test_wavenet_multiple_arrays()
   const bool head1x1_active = false;
 
   nam::wavenet::Head1x1Params head1x1_params(head1x1_active, channels, 1);
-  layer_array_params.push_back(make_layer_array_params(input_size, condition_size, head_size, channels, bottleneck,
-                                                       kernel_size, std::move(dilations1), activation, gating_mode,
-                                                       head_bias, groups, groups_input_mixin, layer1x1_params,
-                                                       head1x1_params, nam::activations::ActivationConfig{}));
+  std::vector<int> kernel_sizes1(dilations1.size(), kernel_size);
+  layer_array_params.push_back(
+    make_layer_array_params(input_size, condition_size, head_size, channels, bottleneck, std::move(kernel_sizes1),
+                            std::move(dilations1), activation, gating_mode, head_bias, groups, groups_input_mixin,
+                            layer1x1_params, head1x1_params, nam::activations::ActivationConfig{}));
   // Second array (head_size of first must match channels of second)
   std::vector<int> dilations2{1};
-  layer_array_params.push_back(make_layer_array_params(head_size, condition_size, head_size, channels, bottleneck,
-                                                       kernel_size, std::move(dilations2), activation, gating_mode,
-                                                       head_bias, groups, groups_input_mixin, layer1x1_params,
-                                                       head1x1_params, nam::activations::ActivationConfig{}));
+  std::vector<int> kernel_sizes2(dilations2.size(), kernel_size);
+  layer_array_params.push_back(
+    make_layer_array_params(head_size, condition_size, head_size, channels, bottleneck, std::move(kernel_sizes2),
+                            std::move(dilations2), activation, gating_mode, head_bias, groups, groups_input_mixin,
+                            layer1x1_params, head1x1_params, nam::activations::ActivationConfig{}));
 
   std::vector<float> weights;
   // Array 0: rechannel, layer, head_rechannel
@@ -148,7 +152,7 @@ void test_wavenet_multiple_arrays()
 
   std::unique_ptr<nam::wavenet::WaveNet> condition_dsp = nullptr;
   auto wavenet = std::make_unique<nam::wavenet::WaveNet>(
-    input_size, layer_array_params, head_scale, with_head, weights, std::move(condition_dsp), 48000.0);
+    input_size, layer_array_params, head_scale, with_head, std::nullopt, weights, std::move(condition_dsp), 48000.0);
 
   const int numFrames = 4;
   const int maxBufferSize = 64;
@@ -178,6 +182,7 @@ void test_wavenet_zero_input()
   const int bottleneck = channels;
   const int kernel_size = 1;
   std::vector<int> dilations{1};
+  std::vector<int> kernel_sizes(dilations.size(), kernel_size);
   const auto activation = nam::activations::ActivationConfig::simple(nam::activations::ActivationType::ReLU);
   const nam::wavenet::GatingMode gating_mode = nam::wavenet::GatingMode::NONE;
   const bool head_bias = false;
@@ -190,7 +195,7 @@ void test_wavenet_zero_input()
   nam::wavenet::Head1x1Params head1x1_params(head1x1_active, channels, 1);
 
   nam::wavenet::LayerArrayParams params =
-    make_layer_array_params(input_size, condition_size, head_size, channels, bottleneck, kernel_size,
+    make_layer_array_params(input_size, condition_size, head_size, channels, bottleneck, std::move(kernel_sizes),
                             std::move(dilations), activation, gating_mode, head_bias, groups, groups_input_mixin,
                             layer1x1_params, head1x1_params, nam::activations::ActivationConfig{});
   std::vector<nam::wavenet::LayerArrayParams> layer_array_params;
@@ -200,7 +205,7 @@ void test_wavenet_zero_input()
 
   std::unique_ptr<nam::wavenet::WaveNet> condition_dsp = nullptr;
   auto wavenet = std::make_unique<nam::wavenet::WaveNet>(
-    input_size, layer_array_params, head_scale, with_head, weights, std::move(condition_dsp), 48000.0);
+    input_size, layer_array_params, head_scale, with_head, std::nullopt, weights, std::move(condition_dsp), 48000.0);
 
   const int numFrames = 4;
   wavenet->Reset(48000.0, numFrames);
@@ -229,6 +234,7 @@ void test_wavenet_different_buffer_sizes()
   const int bottleneck = channels;
   const int kernel_size = 1;
   std::vector<int> dilations{1};
+  std::vector<int> kernel_sizes(dilations.size(), kernel_size);
   const auto activation = nam::activations::ActivationConfig::simple(nam::activations::ActivationType::ReLU);
   const nam::wavenet::GatingMode gating_mode = nam::wavenet::GatingMode::NONE;
   const bool head_bias = false;
@@ -241,7 +247,7 @@ void test_wavenet_different_buffer_sizes()
   nam::wavenet::Head1x1Params head1x1_params(head1x1_active, channels, 1);
 
   nam::wavenet::LayerArrayParams params =
-    make_layer_array_params(input_size, condition_size, head_size, channels, bottleneck, kernel_size,
+    make_layer_array_params(input_size, condition_size, head_size, channels, bottleneck, std::move(kernel_sizes),
                             std::move(dilations), activation, gating_mode, head_bias, groups, groups_input_mixin,
                             layer1x1_params, head1x1_params, nam::activations::ActivationConfig{});
   std::vector<nam::wavenet::LayerArrayParams> layer_array_params;
@@ -251,7 +257,7 @@ void test_wavenet_different_buffer_sizes()
 
   std::unique_ptr<nam::wavenet::WaveNet> condition_dsp = nullptr;
   auto wavenet = std::make_unique<nam::wavenet::WaveNet>(
-    input_size, layer_array_params, head_scale, with_head, weights, std::move(condition_dsp), 48000.0);
+    input_size, layer_array_params, head_scale, with_head, std::nullopt, weights, std::move(condition_dsp), 48000.0);
 
   // Test with different buffer sizes
   wavenet->Reset(48000.0, 64);
@@ -283,6 +289,7 @@ void test_wavenet_prewarm()
   const int bottleneck = channels;
   const int kernel_size = 3;
   std::vector<int> dilations{1, 2, 4};
+  std::vector<int> kernel_sizes(dilations.size(), kernel_size);
   const auto activation = nam::activations::ActivationConfig::simple(nam::activations::ActivationType::ReLU);
   const nam::wavenet::GatingMode gating_mode = nam::wavenet::GatingMode::NONE;
   const bool head_bias = false;
@@ -296,7 +303,7 @@ void test_wavenet_prewarm()
   nam::wavenet::Head1x1Params head1x1_params(head1x1_active, channels, 1);
 
   nam::wavenet::LayerArrayParams params =
-    make_layer_array_params(input_size, condition_size, head_size, channels, bottleneck, kernel_size,
+    make_layer_array_params(input_size, condition_size, head_size, channels, bottleneck, std::move(kernel_sizes),
                             std::move(dilations), activation, gating_mode, head_bias, groups, groups_input_mixin,
                             layer1x1_params, head1x1_params, nam::activations::ActivationConfig{});
   std::vector<nam::wavenet::LayerArrayParams> layer_array_params;
@@ -325,7 +332,7 @@ void test_wavenet_prewarm()
 
   std::unique_ptr<nam::wavenet::WaveNet> condition_dsp = nullptr;
   auto wavenet = std::make_unique<nam::wavenet::WaveNet>(
-    input_size, layer_array_params, head_scale, with_head, weights, std::move(condition_dsp), 48000.0);
+    input_size, layer_array_params, head_scale, with_head, std::nullopt, weights, std::move(condition_dsp), 48000.0);
 
   // Test that prewarm can be called without errors
   wavenet->Reset(48000.0, 64);

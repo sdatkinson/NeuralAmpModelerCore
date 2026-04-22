@@ -5,10 +5,11 @@
 #include <cmath>
 #include <functional>
 #include <iostream>
+#include <optional>
 #include <string>
 #include <vector>
 
-#include "NAM/wavenet.h"
+#include "NAM/wavenet/model.h"
 #include "NAM/conv1d.h"
 #include "../allocation_tracking.h"
 
@@ -23,53 +24,27 @@ static nam::wavenet::_FiLMParams make_default_film_params()
 }
 
 // Helper function to create a Layer with default FiLM parameters
-static nam::wavenet::_Layer make_layer(const int condition_size, const int channels, const int bottleneck,
-                                       const int kernel_size, const int dilation,
-                                       const nam::activations::ActivationConfig& activation_config,
-                                       const nam::wavenet::GatingMode gating_mode, const int groups_input,
-                                       const int groups_input_mixin,
-                                       const nam::wavenet::Layer1x1Params& layer1x1_params,
-                                       const nam::wavenet::Head1x1Params& head1x1_params,
-                                       const nam::activations::ActivationConfig& secondary_activation_config)
+static nam::wavenet::detail::Layer make_layer(const int condition_size, const int channels, const int bottleneck,
+                                              const int kernel_size, const int dilation,
+                                              const nam::activations::ActivationConfig& activation_config,
+                                              const nam::wavenet::GatingMode gating_mode, const int groups_input,
+                                              const int groups_input_mixin,
+                                              const nam::wavenet::Layer1x1Params& layer1x1_params,
+                                              const nam::wavenet::Head1x1Params& head1x1_params,
+                                              const nam::activations::ActivationConfig& secondary_activation_config)
 {
   auto film_params = make_default_film_params();
   nam::wavenet::LayerParams layer_params(condition_size, channels, bottleneck, kernel_size, dilation, activation_config,
                                          gating_mode, groups_input, groups_input_mixin, layer1x1_params, head1x1_params,
                                          secondary_activation_config, film_params, film_params, film_params,
                                          film_params, film_params, film_params, film_params, film_params);
-  return nam::wavenet::_Layer(layer_params);
+  return nam::wavenet::detail::Layer(layer_params);
 }
 
 // Helper function to create a LayerArray with default FiLM parameters
-static nam::wavenet::_LayerArray make_layer_array(const int input_size, const int condition_size, const int head_size,
-                                                  const int channels, const int bottleneck, const int kernel_size,
-                                                  const std::vector<int>& dilations,
-                                                  const nam::activations::ActivationConfig& activation_config,
-                                                  const nam::wavenet::GatingMode gating_mode, const bool head_bias,
-                                                  const int groups_input, const int groups_input_mixin,
-                                                  const nam::wavenet::Layer1x1Params& layer1x1_params,
-                                                  const nam::wavenet::Head1x1Params& head1x1_params,
-                                                  const nam::activations::ActivationConfig& secondary_activation_config)
-{
-  auto film_params = make_default_film_params();
-  // Duplicate activation_config, gating_mode, and secondary_activation_config for each layer (based on dilations size)
-  std::vector<nam::activations::ActivationConfig> activation_configs(dilations.size(), activation_config);
-  std::vector<nam::wavenet::GatingMode> gating_modes(dilations.size(), gating_mode);
-  std::vector<nam::activations::ActivationConfig> secondary_activation_configs(
-    dilations.size(), secondary_activation_config);
-  std::vector<int> dilations_copy = dilations; // Make a copy since we need to move it
-  nam::wavenet::LayerArrayParams params(
-    input_size, condition_size, head_size, channels, bottleneck, kernel_size, std::move(dilations_copy),
-    std::move(activation_configs), std::move(gating_modes), head_bias, groups_input, groups_input_mixin,
-    layer1x1_params, head1x1_params, std::move(secondary_activation_configs), film_params, film_params, film_params,
-    film_params, film_params, film_params, film_params, film_params);
-  return nam::wavenet::_LayerArray(params);
-}
-
-// Helper function to create LayerArrayParams with default FiLM parameters
-static nam::wavenet::LayerArrayParams make_layer_array_params(
+static nam::wavenet::detail::LayerArray make_layer_array(
   const int input_size, const int condition_size, const int head_size, const int channels, const int bottleneck,
-  const int kernel_size, std::vector<int>&& dilations, const nam::activations::ActivationConfig& activation_config,
+  const int kernel_size, const std::vector<int>& dilations, const nam::activations::ActivationConfig& activation_config,
   const nam::wavenet::GatingMode gating_mode, const bool head_bias, const int groups_input,
   const int groups_input_mixin, const nam::wavenet::Layer1x1Params& layer1x1_params,
   const nam::wavenet::Head1x1Params& head1x1_params,
@@ -81,15 +56,40 @@ static nam::wavenet::LayerArrayParams make_layer_array_params(
   std::vector<nam::wavenet::GatingMode> gating_modes(dilations.size(), gating_mode);
   std::vector<nam::activations::ActivationConfig> secondary_activation_configs(
     dilations.size(), secondary_activation_config);
-  return nam::wavenet::LayerArrayParams(input_size, condition_size, head_size, channels, bottleneck, kernel_size,
-                                        std::move(dilations), std::move(activation_configs), std::move(gating_modes),
-                                        head_bias, groups_input, groups_input_mixin, layer1x1_params, head1x1_params,
-                                        std::move(secondary_activation_configs), film_params, film_params, film_params,
-                                        film_params, film_params, film_params, film_params, film_params);
+  std::vector<int> dilations_copy = dilations; // Make a copy since we need to move it
+  std::vector<int> kernel_sizes(dilations.size(), kernel_size);
+  nam::wavenet::LayerArrayParams params(
+    input_size, condition_size, head_size, 1, channels, bottleneck, std::move(kernel_sizes), std::move(dilations_copy),
+    std::move(activation_configs), std::move(gating_modes), head_bias, groups_input, groups_input_mixin,
+    layer1x1_params, head1x1_params, std::move(secondary_activation_configs), film_params, film_params, film_params,
+    film_params, film_params, film_params, film_params, film_params);
+  return nam::wavenet::detail::LayerArray(params);
+}
+
+// Helper function to create LayerArrayParams with default FiLM parameters
+static nam::wavenet::LayerArrayParams make_layer_array_params(
+  const int input_size, const int condition_size, const int head_size, const int channels, const int bottleneck,
+  std::vector<int>&& kernel_sizes, std::vector<int>&& dilations,
+  const nam::activations::ActivationConfig& activation_config, const nam::wavenet::GatingMode gating_mode,
+  const bool head_bias, const int groups_input, const int groups_input_mixin,
+  const nam::wavenet::Layer1x1Params& layer1x1_params, const nam::wavenet::Head1x1Params& head1x1_params,
+  const nam::activations::ActivationConfig& secondary_activation_config)
+{
+  auto film_params = make_default_film_params();
+  // Duplicate activation_config, gating_mode, and secondary_activation_config for each layer (based on dilations size)
+  std::vector<nam::activations::ActivationConfig> activation_configs(dilations.size(), activation_config);
+  std::vector<nam::wavenet::GatingMode> gating_modes(dilations.size(), gating_mode);
+  std::vector<nam::activations::ActivationConfig> secondary_activation_configs(
+    dilations.size(), secondary_activation_config);
+  return nam::wavenet::LayerArrayParams(
+    input_size, condition_size, head_size, 1, channels, bottleneck, std::move(kernel_sizes), std::move(dilations),
+    std::move(activation_configs), std::move(gating_modes), head_bias, groups_input, groups_input_mixin,
+    layer1x1_params, head1x1_params, std::move(secondary_activation_configs), film_params, film_params, film_params,
+    film_params, film_params, film_params, film_params, film_params);
 }
 
 // Helper function to create a Layer with all FiLMs active
-static nam::wavenet::_Layer make_layer_all_films(
+static nam::wavenet::detail::Layer make_layer_all_films(
   const int condition_size, const int channels, const int bottleneck, const int kernel_size, const int dilation,
   const nam::activations::ActivationConfig& activation_config, const nam::wavenet::GatingMode gating_mode,
   const int groups_input, const int groups_input_mixin, const nam::wavenet::Layer1x1Params& layer1x1_params,
@@ -104,7 +104,7 @@ static nam::wavenet::_Layer make_layer_all_films(
                                          gating_mode, groups_input, groups_input_mixin, layer1x1_params, head1x1_params,
                                          secondary_activation_config, film_params, film_params, film_params,
                                          film_params, film_params, film_params, film_params, head1x1_post_film_params);
-  return nam::wavenet::_Layer(layer_params);
+  return nam::wavenet::detail::Layer(layer_params);
 }
 
 // Test that pre-allocated Eigen operations with noalias() don't allocate
@@ -737,7 +737,7 @@ void test_layer_post_activation_film_gated_realtime_safe()
     inactive_film, // _1x1_post_film
     inactive_film // head1x1_post_film
   );
-  auto layer = nam::wavenet::_Layer(layer_params);
+  auto layer = nam::wavenet::detail::Layer(layer_params);
 
   // Set weights - Order: conv, input_mixin, 1x1, then FiLMs
   // NOTE: In GATED mode, conv and input_mixin output 2*bottleneck channels!
@@ -844,7 +844,7 @@ void test_layer_post_activation_film_blended_realtime_safe()
     inactive_film, // _1x1_post_film
     inactive_film // head1x1_post_film
   );
-  auto layer = nam::wavenet::_Layer(layer_params);
+  auto layer = nam::wavenet::detail::Layer(layer_params);
 
   // Set weights - Order: conv, input_mixin, 1x1, then FiLMs
   // NOTE: In BLENDED mode, conv and input_mixin output 2*bottleneck channels!
@@ -1003,19 +1003,21 @@ void test_process_realtime_safe()
   std::vector<nam::wavenet::LayerArrayParams> layer_array_params;
   // First layer array
   std::vector<int> dilations1{1};
+  std::vector<int> kernel_sizes1(dilations1.size(), kernel_size);
   const int bottleneck = channels;
   nam::wavenet::Layer1x1Params layer1x1_params(true, 1);
   nam::wavenet::Head1x1Params head1x1_params(false, channels, 1);
-  layer_array_params.push_back(make_layer_array_params(input_size, condition_size, head_size, channels, bottleneck,
-                                                       kernel_size, std::move(dilations1), activation, gating_mode,
-                                                       head_bias, groups, groups_input_mixin, layer1x1_params,
-                                                       head1x1_params, nam::activations::ActivationConfig{}));
+  layer_array_params.push_back(
+    make_layer_array_params(input_size, condition_size, head_size, channels, bottleneck, std::move(kernel_sizes1),
+                            std::move(dilations1), activation, gating_mode, head_bias, groups, groups_input_mixin,
+                            layer1x1_params, head1x1_params, nam::activations::ActivationConfig{}));
   // Second layer array (head_size of first must match channels of second)
   std::vector<int> dilations2{1};
-  layer_array_params.push_back(make_layer_array_params(head_size, condition_size, head_size, channels, bottleneck,
-                                                       kernel_size, std::move(dilations2), activation, gating_mode,
-                                                       head_bias, groups, groups_input_mixin, layer1x1_params,
-                                                       head1x1_params, nam::activations::ActivationConfig{}));
+  std::vector<int> kernel_sizes2(dilations2.size(), kernel_size);
+  layer_array_params.push_back(
+    make_layer_array_params(head_size, condition_size, head_size, channels, bottleneck, std::move(kernel_sizes2),
+                            std::move(dilations2), activation, gating_mode, head_bias, groups, groups_input_mixin,
+                            layer1x1_params, head1x1_params, nam::activations::ActivationConfig{}));
 
   // Weights: Array 0: rechannel(1), layer(conv:1+1, input_mixin:1, 1x1:1+1), head_rechannel(1)
   //          Array 1: same structure
@@ -1029,7 +1031,7 @@ void test_process_realtime_safe()
 
   std::unique_ptr<nam::wavenet::WaveNet> condition_dsp = nullptr;
   auto wavenet = std::make_unique<nam::wavenet::WaveNet>(
-    input_size, layer_array_params, head_scale, with_head, weights, std::move(condition_dsp), 48000.0);
+    input_size, layer_array_params, head_scale, with_head, std::nullopt, weights, std::move(condition_dsp), 48000.0);
 
   const int maxBufferSize = 256;
   wavenet->Reset(48000.0, maxBufferSize);
@@ -1086,10 +1088,11 @@ void test_process_3in_2out_realtime_safe()
 
   std::vector<nam::wavenet::LayerArrayParams> layer_array_params;
   std::vector<int> dilations1{1};
-  layer_array_params.push_back(make_layer_array_params(input_size, condition_size, head_size, channels, bottleneck,
-                                                       kernel_size, std::move(dilations1), activation, gating_mode,
-                                                       head_bias, groups, groups_input_mixin, layer1x1_params,
-                                                       head1x1_params, nam::activations::ActivationConfig{}));
+  std::vector<int> kernel_sizes1(dilations1.size(), kernel_size);
+  layer_array_params.push_back(
+    make_layer_array_params(input_size, condition_size, head_size, channels, bottleneck, std::move(kernel_sizes1),
+                            std::move(dilations1), activation, gating_mode, head_bias, groups, groups_input_mixin,
+                            layer1x1_params, head1x1_params, nam::activations::ActivationConfig{}));
 
   // Calculate weights:
   // _rechannel: Conv1x1(3, 4, bias=false) = 3*4 = 12 weights
@@ -1150,7 +1153,7 @@ void test_process_3in_2out_realtime_safe()
   const int in_channels = 3;
   std::unique_ptr<nam::wavenet::WaveNet> condition_dsp = nullptr;
   auto wavenet = std::make_unique<nam::wavenet::WaveNet>(
-    in_channels, layer_array_params, head_scale, with_head, weights, std::move(condition_dsp), 48000.0);
+    in_channels, layer_array_params, head_scale, with_head, std::nullopt, weights, std::move(condition_dsp), 48000.0);
 
   const int maxBufferSize = 256;
   wavenet->Reset(48000.0, maxBufferSize);
@@ -1188,6 +1191,80 @@ void test_process_3in_2out_realtime_safe()
         assert(std::isfinite(output[ch][i]));
       }
     }
+  }
+}
+
+// WaveNet::process() with optional post-stack head (multi-layer detail::Head) must not allocate or free.
+void test_process_with_post_stack_head_realtime_safe()
+{
+  const int input_size = 1;
+  const int condition_size = 1;
+  const int head_size = 1;
+  const int channels = 1;
+  const int bottleneck = channels;
+  const int kernel_size = 1;
+  std::vector<int> dilations{1};
+  std::vector<int> kernel_sizes(dilations.size(), kernel_size);
+  const auto activation = nam::activations::ActivationConfig::simple(nam::activations::ActivationType::ReLU);
+  const nam::wavenet::GatingMode gating_mode = nam::wavenet::GatingMode::NONE;
+  const bool head_bias = false;
+  const float head_scale = 1.0f;
+  const bool with_head = true;
+  const int groups = 1;
+  const int groups_input_mixin = 1;
+
+  nam::wavenet::Layer1x1Params layer1x1_params(true, 1);
+  nam::wavenet::Head1x1Params head1x1_params(false, channels, 1);
+  std::vector<nam::wavenet::LayerArrayParams> layer_array_params;
+  layer_array_params.push_back(
+    make_layer_array_params(input_size, condition_size, head_size, channels, bottleneck, std::move(kernel_sizes),
+                            std::move(dilations), activation, gating_mode, head_bias, groups, groups_input_mixin,
+                            layer1x1_params, head1x1_params, nam::activations::ActivationConfig{}));
+
+  nam::wavenet::HeadParams head_params;
+  head_params.in_channels = 1;
+  head_params.channels = 1;
+  head_params.out_channels = 1;
+  head_params.kernel_sizes = {1, 1};
+  head_params.activation_config = nam::activations::ActivationConfig::simple(nam::activations::ActivationType::ReLU);
+
+  std::vector<float> weights;
+  weights.push_back(1.0f); // Rechannel
+  weights.insert(weights.end(), {1.0f, 0.0f, 1.0f, 1.0f, 0.0f}); // Layer 0
+  weights.push_back(1.0f); // Head rechannel
+  weights.push_back(-1.0f); // Post-stack head layer 0 conv weight
+  weights.push_back(0.0f); // Post-stack head layer 0 conv bias
+  weights.push_back(2.0f); // Post-stack head layer 1 conv weight
+  weights.push_back(0.0f); // Post-stack head layer 1 conv bias
+  weights.push_back(head_scale);
+
+  std::unique_ptr<nam::wavenet::WaveNet> condition_dsp = nullptr;
+  auto wavenet =
+    std::make_unique<nam::wavenet::WaveNet>(input_size, layer_array_params, head_scale, with_head,
+                                            std::optional<nam::wavenet::HeadParams>(std::move(head_params)),
+                                            std::move(weights), std::move(condition_dsp), 48000.0);
+
+  const int maxBufferSize = 256;
+  wavenet->Reset(48000.0, maxBufferSize);
+
+  const std::vector<int> buffer_sizes{1, 8, 16, 32, 64, 128, 256};
+  for (const int buffer_size : buffer_sizes)
+  {
+    std::vector<NAM_SAMPLE> input(buffer_size, -0.25f);
+    std::vector<NAM_SAMPLE> output(buffer_size, 0.0f);
+
+    const std::string test_name = "WaveNet process (post-stack head) - Buffer size " + std::to_string(buffer_size);
+    run_allocation_test_no_allocations(
+      nullptr,
+      [&]() {
+        NAM_SAMPLE* input_ptrs[] = {input.data()};
+        NAM_SAMPLE* output_ptrs[] = {output.data()};
+        wavenet->process(input_ptrs, output_ptrs, buffer_size);
+      },
+      nullptr, test_name.c_str());
+
+    for (int i = 0; i < buffer_size; i++)
+      assert(std::isfinite(output[i]));
   }
 }
 } // namespace test_wavenet

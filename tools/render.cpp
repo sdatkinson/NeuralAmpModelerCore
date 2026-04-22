@@ -2,13 +2,16 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <string>
 #include <vector>
 
 #include "NAM/dsp.h"
 #include "NAM/get_dsp.h"
+#include "NAM/slimmable.h"
 #include "wav.h"
 
 namespace
@@ -35,7 +38,7 @@ bool SaveWavFloat32(const char* fileName, const float* samples, size_t numSample
   const uint32_t fmtSize = 16;
   out.write("fmt ", 4);
   out.write(reinterpret_cast<const char*>(&fmtSize), 4);
-  const uint16_t audioFormat = 3;  // IEEE float
+  const uint16_t audioFormat = 3; // IEEE float
   out.write(reinterpret_cast<const char*>(&audioFormat), 2);
   const uint16_t numChannels = 1;
   out.write(reinterpret_cast<const char*>(&numChannels), 2);
@@ -56,19 +59,51 @@ bool SaveWavFloat32(const char* fileName, const float* samples, size_t numSample
   return out.good();
 }
 
-}  // namespace
+} // namespace
 
 int main(int argc, char* argv[])
 {
-  if (argc < 3 || argc > 4)
+  // Parse optional --slim <value> from the arguments
+  double slimValue = -1.0;
+  bool hasSlim = false;
+  std::vector<char*> positionalArgs;
+  positionalArgs.push_back(argv[0]);
+
+  for (int i = 1; i < argc; i++)
   {
-    std::cerr << "Usage: render <model.nam> <input.wav> [output.wav]\n";
+    std::string arg(argv[i]);
+    if (arg == "--slim")
+    {
+      if (i + 1 >= argc)
+      {
+        std::cerr << "Error: --slim requires a value between 0.0 and 1.0\n";
+        return 1;
+      }
+      char* end = nullptr;
+      slimValue = std::strtod(argv[i + 1], &end);
+      if (end == argv[i + 1] || *end != '\0' || slimValue < 0.0 || slimValue > 1.0)
+      {
+        std::cerr << "Error: --slim value must be a number between 0.0 and 1.0\n";
+        return 1;
+      }
+      hasSlim = true;
+      i++; // skip the value
+    }
+    else
+    {
+      positionalArgs.push_back(argv[i]);
+    }
+  }
+
+  if (positionalArgs.size() < 3 || positionalArgs.size() > 4)
+  {
+    std::cerr << "Usage: render [--slim <0.0-1.0>] <model.nam> <input.wav> [output.wav]\n";
     return 1;
   }
 
-  const char* modelPath = argv[1];
-  const char* inputPath = argv[2];
-  const char* outputPath = (argc >= 4) ? argv[3] : "output.wav";
+  const char* modelPath = positionalArgs[1];
+  const char* inputPath = positionalArgs[2];
+  const char* outputPath = (positionalArgs.size() >= 4) ? positionalArgs[3] : "output.wav";
 
   std::cerr << "Loading model [" << modelPath << "]\n";
   auto model = nam::get_dsp(std::filesystem::path(modelPath));
@@ -78,6 +113,18 @@ int main(int argc, char* argv[])
     return 1;
   }
   std::cerr << "Model loaded successfully\n";
+
+  if (hasSlim)
+  {
+    auto* slimmable = dynamic_cast<nam::SlimmableModel*>(model.get());
+    if (!slimmable)
+    {
+      std::cerr << "Error: --slim requires a model that implements the SlimmableModel interface\n";
+      return 1;
+    }
+    std::cerr << "Setting slimmable size to " << slimValue << "\n";
+    slimmable->SetSlimmableSize(slimValue);
+  }
 
   std::vector<float> inputAudio;
   double inputSampleRate = 0.0;
@@ -91,8 +138,8 @@ int main(int argc, char* argv[])
   const double expectedRate = model->GetExpectedSampleRate();
   if (expectedRate > 0 && std::abs(inputSampleRate - expectedRate) > 0.5)
   {
-    std::cerr << "Error: Input WAV sample rate (" << inputSampleRate
-              << " Hz) does not match model expected rate (" << expectedRate << " Hz)\n";
+    std::cerr << "Error: Input WAV sample rate (" << inputSampleRate << " Hz) does not match model expected rate ("
+              << expectedRate << " Hz)\n";
     return 1;
   }
 

@@ -6,7 +6,7 @@
 #include <iostream>
 #include <vector>
 
-#include "NAM/wavenet.h"
+#include "NAM/wavenet/model.h"
 
 namespace test_wavenet
 {
@@ -19,13 +19,13 @@ static nam::wavenet::_FiLMParams make_default_film_params()
 }
 
 // Helper function to create a Layer with default FiLM parameters
-static nam::wavenet::_Layer make_layer(const int condition_size, const int channels, const int bottleneck,
-                                       const int kernel_size, const int dilation,
-                                       const nam::activations::ActivationConfig& activation_config,
-                                       const nam::wavenet::GatingMode gating_mode, const int groups_input,
-                                       const int groups_input_mixin, const int groups_1x1,
-                                       const nam::wavenet::Head1x1Params& head1x1_params,
-                                       const nam::activations::ActivationConfig& secondary_activation_config)
+static nam::wavenet::detail::Layer make_layer(const int condition_size, const int channels, const int bottleneck,
+                                              const int kernel_size, const int dilation,
+                                              const nam::activations::ActivationConfig& activation_config,
+                                              const nam::wavenet::GatingMode gating_mode, const int groups_input,
+                                              const int groups_input_mixin, const int groups_1x1,
+                                              const nam::wavenet::Head1x1Params& head1x1_params,
+                                              const nam::activations::ActivationConfig& secondary_activation_config)
 {
   auto film_params = make_default_film_params();
   // Create layer1x1_params with active=true and groups=groups_1x1 for backward compatibility
@@ -34,7 +34,7 @@ static nam::wavenet::_Layer make_layer(const int condition_size, const int chann
                                          gating_mode, groups_input, groups_input_mixin, layer1x1_params, head1x1_params,
                                          secondary_activation_config, film_params, film_params, film_params,
                                          film_params, film_params, film_params, film_params, film_params);
-  return nam::wavenet::_Layer(layer_params);
+  return nam::wavenet::detail::Layer(layer_params);
 }
 void test_gated()
 {

@@ -31,7 +31,7 @@ void nam::DSP::prewarm()
 {
   if (mMaxBufferSize == 0)
   {
-    SetMaxBufferSize(4096);
+    SetMaxBufferSize(NAM_DEFAULT_MAX_BUFFER_SIZE);
   }
   const int prewarmSamples = PrewarmSamples();
   if (prewarmSamples == 0)
@@ -467,6 +467,9 @@ Eigen::MatrixXf nam::Conv1x1::process(const Eigen::MatrixXf& input, const int nu
 void nam::Conv1x1::process_(const Eigen::Ref<const Eigen::MatrixXf>& input, const int num_frames)
 {
   assert(num_frames <= _output.cols());
+#ifdef NAM_USE_INLINE_GEMM
+  bool bias_fused = false;
+#endif
 
   if (this->_is_depthwise)
   {
@@ -495,8 +498,19 @@ void nam::Conv1x1::process_(const Eigen::Ref<const Eigen::MatrixXf>& input, cons
       for (int f = 0; f < num_frames; f++)
       {
         const float in_val = input_ptr[f * in_stride];
-        output_ptr[f * 2]     = w0 * in_val;
+        output_ptr[f * 2] = w0 * in_val;
         output_ptr[f * 2 + 1] = w1 * in_val;
+      }
+    }
+    else if (out_ch == 3 && in_ch == 1)
+    {
+      const float w0 = weight_ptr[0], w1 = weight_ptr[1], w2 = weight_ptr[2];
+      for (int f = 0; f < num_frames; f++)
+      {
+        const float in_val = input_ptr[f * in_stride];
+        output_ptr[f * 3] = w0 * in_val;
+        output_ptr[f * 3 + 1] = w1 * in_val;
+        output_ptr[f * 3 + 2] = w2 * in_val;
       }
     }
     else if (out_ch == 4 && in_ch == 1)
@@ -506,7 +520,7 @@ void nam::Conv1x1::process_(const Eigen::Ref<const Eigen::MatrixXf>& input, cons
       for (int f = 0; f < num_frames; f++)
       {
         const float in_val = input_ptr[f * in_stride];
-        output_ptr[f * 4]     = w0 * in_val;
+        output_ptr[f * 4] = w0 * in_val;
         output_ptr[f * 4 + 1] = w1 * in_val;
         output_ptr[f * 4 + 2] = w2 * in_val;
         output_ptr[f * 4 + 3] = w3 * in_val;
@@ -521,6 +535,28 @@ void nam::Conv1x1::process_(const Eigen::Ref<const Eigen::MatrixXf>& input, cons
         output_ptr[f] = w0 * in_col[0] + w1 * in_col[1];
       }
     }
+    else if (out_ch == 1 && in_ch == 3)
+    {
+      const float w0 = weight_ptr[0], w1 = weight_ptr[1], w2 = weight_ptr[2];
+      if (this->_do_bias)
+      {
+        const float b0 = this->_bias(0);
+        for (int f = 0; f < num_frames; f++)
+        {
+          const float* __restrict__ in_col = input_ptr + f * in_stride;
+          output_ptr[f] = w0 * in_col[0] + w1 * in_col[1] + w2 * in_col[2] + b0;
+        }
+        bias_fused = true;
+      }
+      else
+      {
+        for (int f = 0; f < num_frames; f++)
+        {
+          const float* __restrict__ in_col = input_ptr + f * in_stride;
+          output_ptr[f] = w0 * in_col[0] + w1 * in_col[1] + w2 * in_col[2];
+        }
+      }
+    }
     else if (out_ch == 2 && in_ch == 2)
     {
       // 2x2 fully unrolled
@@ -531,7 +567,7 @@ void nam::Conv1x1::process_(const Eigen::Ref<const Eigen::MatrixXf>& input, cons
         const float* __restrict__ in_col = input_ptr + f * in_stride;
         const float i0 = in_col[0];
         const float i1 = in_col[1];
-        output_ptr[f * 2]     = w00 * i0 + w01 * i1;
+        output_ptr[f * 2] = w00 * i0 + w01 * i1;
         output_ptr[f * 2 + 1] = w10 * i0 + w11 * i1;
       }
     }
@@ -548,7 +584,7 @@ void nam::Conv1x1::process_(const Eigen::Ref<const Eigen::MatrixXf>& input, cons
         const float i1 = in_col[1];
         const float i2 = in_col[2];
         const float i3 = in_col[3];
-        output_ptr[f * 2]     = w00 * i0 + w01 * i1 + w02 * i2 + w03 * i3;
+        output_ptr[f * 2] = w00 * i0 + w01 * i1 + w02 * i2 + w03 * i3;
         output_ptr[f * 2 + 1] = w10 * i0 + w11 * i1 + w12 * i2 + w13 * i3;
       }
     }
@@ -559,8 +595,7 @@ void nam::Conv1x1::process_(const Eigen::Ref<const Eigen::MatrixXf>& input, cons
       for (int f = 0; f < num_frames; f++)
       {
         const float* __restrict__ in_col = input_ptr + f * in_stride;
-        output_ptr[f] = w0 * in_col[0] + w1 * in_col[1]
-                      + w2 * in_col[2] + w3 * in_col[3];
+        output_ptr[f] = w0 * in_col[0] + w1 * in_col[1] + w2 * in_col[2] + w3 * in_col[3];
       }
     }
     else if (out_ch == 4 && in_ch == 2)
@@ -572,7 +607,7 @@ void nam::Conv1x1::process_(const Eigen::Ref<const Eigen::MatrixXf>& input, cons
         const float* __restrict__ in_col = input_ptr + f * in_stride;
         const float i0 = in_col[0];
         const float i1 = in_col[1];
-        output_ptr[f * 4]     = w00 * i0 + w01 * i1;
+        output_ptr[f * 4] = w00 * i0 + w01 * i1;
         output_ptr[f * 4 + 1] = w10 * i0 + w11 * i1;
         output_ptr[f * 4 + 2] = w20 * i0 + w21 * i1;
         output_ptr[f * 4 + 3] = w30 * i0 + w31 * i1;
@@ -583,22 +618,40 @@ void nam::Conv1x1::process_(const Eigen::Ref<const Eigen::MatrixXf>& input, cons
       const float w00 = weight_ptr[0], w10 = weight_ptr[1], w20 = weight_ptr[2];
       const float w01 = weight_ptr[3], w11 = weight_ptr[4], w21 = weight_ptr[5];
       const float w02 = weight_ptr[6], w12 = weight_ptr[7], w22 = weight_ptr[8];
-      for (int f = 0; f < num_frames; f++)
+      if (this->_do_bias)
       {
-        const float* __restrict__ in_col = input_ptr + f * in_stride;
-        const float i0 = in_col[0];
-        const float i1 = in_col[1];
-        const float i2 = in_col[2];
-        output_ptr[f * 3]     = w00 * i0 + w01 * i1 + w02 * i2;
-        output_ptr[f * 3 + 1] = w10 * i0 + w11 * i1 + w12 * i2;
-        output_ptr[f * 3 + 2] = w20 * i0 + w21 * i1 + w22 * i2;
+        const float b0 = this->_bias(0), b1 = this->_bias(1), b2 = this->_bias(2);
+        for (int f = 0; f < num_frames; f++)
+        {
+          const float* __restrict__ in_col = input_ptr + f * in_stride;
+          const float i0 = in_col[0];
+          const float i1 = in_col[1];
+          const float i2 = in_col[2];
+          output_ptr[f * 3] = w00 * i0 + w01 * i1 + w02 * i2 + b0;
+          output_ptr[f * 3 + 1] = w10 * i0 + w11 * i1 + w12 * i2 + b1;
+          output_ptr[f * 3 + 2] = w20 * i0 + w21 * i1 + w22 * i2 + b2;
+        }
+        bias_fused = true;
+      }
+      else
+      {
+        for (int f = 0; f < num_frames; f++)
+        {
+          const float* __restrict__ in_col = input_ptr + f * in_stride;
+          const float i0 = in_col[0];
+          const float i1 = in_col[1];
+          const float i2 = in_col[2];
+          output_ptr[f * 3] = w00 * i0 + w01 * i1 + w02 * i2;
+          output_ptr[f * 3 + 1] = w10 * i0 + w11 * i1 + w12 * i2;
+          output_ptr[f * 3 + 2] = w20 * i0 + w21 * i1 + w22 * i2;
+        }
       }
     }
     else if (out_ch == 4 && in_ch == 4)
     {
-      const float w00 = weight_ptr[0],  w10 = weight_ptr[1],  w20 = weight_ptr[2],  w30 = weight_ptr[3];
-      const float w01 = weight_ptr[4],  w11 = weight_ptr[5],  w21 = weight_ptr[6],  w31 = weight_ptr[7];
-      const float w02 = weight_ptr[8],  w12 = weight_ptr[9],  w22 = weight_ptr[10], w32 = weight_ptr[11];
+      const float w00 = weight_ptr[0], w10 = weight_ptr[1], w20 = weight_ptr[2], w30 = weight_ptr[3];
+      const float w01 = weight_ptr[4], w11 = weight_ptr[5], w21 = weight_ptr[6], w31 = weight_ptr[7];
+      const float w02 = weight_ptr[8], w12 = weight_ptr[9], w22 = weight_ptr[10], w32 = weight_ptr[11];
       const float w03 = weight_ptr[12], w13 = weight_ptr[13], w23 = weight_ptr[14], w33 = weight_ptr[15];
       for (int f = 0; f < num_frames; f++)
       {
@@ -607,7 +660,7 @@ void nam::Conv1x1::process_(const Eigen::Ref<const Eigen::MatrixXf>& input, cons
         const float i1 = in_col[1];
         const float i2 = in_col[2];
         const float i3 = in_col[3];
-        output_ptr[f * 4]     = w00 * i0 + w01 * i1 + w02 * i2 + w03 * i3;
+        output_ptr[f * 4] = w00 * i0 + w01 * i1 + w02 * i2 + w03 * i3;
         output_ptr[f * 4 + 1] = w10 * i0 + w11 * i1 + w12 * i2 + w13 * i3;
         output_ptr[f * 4 + 2] = w20 * i0 + w21 * i1 + w22 * i2 + w23 * i3;
         output_ptr[f * 4 + 3] = w30 * i0 + w31 * i1 + w32 * i2 + w33 * i3;
@@ -623,8 +676,8 @@ void nam::Conv1x1::process_(const Eigen::Ref<const Eigen::MatrixXf>& input, cons
         const float i3 = in_col[3], i4 = in_col[4], i5 = in_col[5];
         for (int o = 0; o < 6; o++)
         {
-          out_col[o] = weight_ptr[o] * i0 + weight_ptr[6 + o] * i1 + weight_ptr[12 + o] * i2
-                     + weight_ptr[18 + o] * i3 + weight_ptr[24 + o] * i4 + weight_ptr[30 + o] * i5;
+          out_col[o] = weight_ptr[o] * i0 + weight_ptr[6 + o] * i1 + weight_ptr[12 + o] * i2 + weight_ptr[18 + o] * i3
+                       + weight_ptr[24 + o] * i4 + weight_ptr[30 + o] * i5;
         }
       }
     }
@@ -639,7 +692,8 @@ void nam::Conv1x1::process_(const Eigen::Ref<const Eigen::MatrixXf>& input, cons
         for (int o = 0; o < 8; o++)
         {
           out_col[o] = weight_ptr[o] * i0 + weight_ptr[8 + o] * i1 + weight_ptr[16 + o] * i2 + weight_ptr[24 + o] * i3
-                     + weight_ptr[32 + o] * i4 + weight_ptr[40 + o] * i5 + weight_ptr[48 + o] * i6 + weight_ptr[56 + o] * i7;
+                       + weight_ptr[32 + o] * i4 + weight_ptr[40 + o] * i5 + weight_ptr[48 + o] * i6
+                       + weight_ptr[56 + o] * i7;
         }
       }
     }
@@ -654,7 +708,8 @@ void nam::Conv1x1::process_(const Eigen::Ref<const Eigen::MatrixXf>& input, cons
         for (int o = 0; o < 4; o++)
         {
           out_col[o] = weight_ptr[o] * i0 + weight_ptr[4 + o] * i1 + weight_ptr[8 + o] * i2 + weight_ptr[12 + o] * i3
-                     + weight_ptr[16 + o] * i4 + weight_ptr[20 + o] * i5 + weight_ptr[24 + o] * i6 + weight_ptr[28 + o] * i7;
+                       + weight_ptr[16 + o] * i4 + weight_ptr[20 + o] * i5 + weight_ptr[24 + o] * i6
+                       + weight_ptr[28 + o] * i7;
         }
       }
     }
@@ -673,8 +728,21 @@ void nam::Conv1x1::process_(const Eigen::Ref<const Eigen::MatrixXf>& input, cons
     }
     else
     {
-      // Fall back to Eigen for larger matrices where it's more efficient
-      _output.leftCols(num_frames).noalias() = this->_weight * input.leftCols(num_frames);
+      // Generic inline GEMM for any matrix size (avoids Eigen overhead for small matrices)
+      for (int f = 0; f < num_frames; f++)
+      {
+        const float* __restrict__ in_col = input_ptr + f * in_stride;
+        float* __restrict__ out_col = output_ptr + f * out_ch;
+        for (int o = 0; o < out_ch; o++)
+        {
+          float sum = 0.0f;
+          for (int i = 0; i < in_ch; i++)
+          {
+            sum += weight_ptr[i * out_ch + o] * in_col[i];
+          }
+          out_col[o] = sum;
+        }
+      }
     }
 #else
     // Single GEMM for all cases - block-diagonal zero structure handles grouping
@@ -685,45 +753,59 @@ void nam::Conv1x1::process_(const Eigen::Ref<const Eigen::MatrixXf>& input, cons
   if (this->_do_bias)
   {
 #ifdef NAM_USE_INLINE_GEMM
-    const int out_ch = (int)get_out_channels();
-    float* __restrict__ output_ptr = _output.data();
-    const float* __restrict__ bias_ptr = this->_bias.data();
+    if (!bias_fused)
+    {
+      const int out_ch = (int)get_out_channels();
+      float* __restrict__ output_ptr = _output.data();
+      const float* __restrict__ bias_ptr = this->_bias.data();
 
-    // Specialized paths for common small channel counts
-    if (out_ch == 2)
-    {
-      const float b0 = bias_ptr[0], b1 = bias_ptr[1];
-      for (int f = 0; f < num_frames; f++)
+      // Specialized paths for common small channel counts
+      if (out_ch == 2)
       {
-        const int off = f * 2;
-        output_ptr[off] += b0;
-        output_ptr[off + 1] += b1;
-      }
-    }
-    else if (out_ch == 4)
-    {
-      const float b0 = bias_ptr[0], b1 = bias_ptr[1];
-      const float b2 = bias_ptr[2], b3 = bias_ptr[3];
-      for (int f = 0; f < num_frames; f++)
-      {
-        const int off = f * 4;
-        output_ptr[off] += b0;
-        output_ptr[off + 1] += b1;
-        output_ptr[off + 2] += b2;
-        output_ptr[off + 3] += b3;
-      }
-    }
-    else
-    {
-      for (int f = 0; f < num_frames; f++)
-      {
-        float* __restrict__ out_col = output_ptr + f * out_ch;
-        for (int o = 0; o < out_ch; o++)
+        const float b0 = bias_ptr[0], b1 = bias_ptr[1];
+        for (int f = 0; f < num_frames; f++)
         {
-          out_col[o] += bias_ptr[o];
+          const int off = f * 2;
+          output_ptr[off] += b0;
+          output_ptr[off + 1] += b1;
         }
       }
-    }
+      else if (out_ch == 3)
+      {
+        const float b0 = bias_ptr[0], b1 = bias_ptr[1], b2 = bias_ptr[2];
+        for (int f = 0; f < num_frames; f++)
+        {
+          const int off = f * 3;
+          output_ptr[off] += b0;
+          output_ptr[off + 1] += b1;
+          output_ptr[off + 2] += b2;
+        }
+      }
+      else if (out_ch == 4)
+      {
+        const float b0 = bias_ptr[0], b1 = bias_ptr[1];
+        const float b2 = bias_ptr[2], b3 = bias_ptr[3];
+        for (int f = 0; f < num_frames; f++)
+        {
+          const int off = f * 4;
+          output_ptr[off] += b0;
+          output_ptr[off + 1] += b1;
+          output_ptr[off + 2] += b2;
+          output_ptr[off + 3] += b3;
+        }
+      }
+      else
+      {
+        for (int f = 0; f < num_frames; f++)
+        {
+          float* __restrict__ out_col = output_ptr + f * out_ch;
+          for (int o = 0; o < out_ch; o++)
+          {
+            out_col[o] += bias_ptr[o];
+          }
+        }
+      }
+    } // !bias_fused
 #else
     _output.leftCols(num_frames).colwise() += this->_bias;
 #endif
