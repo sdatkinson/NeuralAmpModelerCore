@@ -39,4 +39,8 @@ pnpm-debug.log*
 
 # Cache
 .cache
-.parcel-cache 
+.parcel-cache
+.vite
+
+# Patch backups from wasm build pipeline
+public/t3k-wasm-module.js.orig

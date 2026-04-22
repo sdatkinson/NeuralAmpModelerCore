@@ -6,7 +6,7 @@
 #include <iostream>
 #include <vector>
 
-#include "NAM/wavenet.h"
+#include "NAM/wavenet/model.h"
 
 namespace test_wavenet
 {
@@ -19,15 +19,13 @@ static nam::wavenet::_FiLMParams make_default_film_params()
 }
 
 // Helper function to create a LayerArray with default FiLM parameters
-static nam::wavenet::_LayerArray make_layer_array(const int input_size, const int condition_size, const int head_size,
-                                                  const int channels, const int bottleneck, const int kernel_size,
-                                                  const std::vector<int>& dilations,
-                                                  const nam::activations::ActivationConfig& activation_config,
-                                                  const nam::wavenet::GatingMode gating_mode, const bool head_bias,
-                                                  const int groups_input, const int groups_input_mixin,
-                                                  const nam::wavenet::Layer1x1Params& layer1x1_params,
-                                                  const nam::wavenet::Head1x1Params& head1x1_params,
-                                                  const nam::activations::ActivationConfig& secondary_activation_config)
+static nam::wavenet::detail::LayerArray make_layer_array(
+  const int input_size, const int condition_size, const int head_size, const int channels, const int bottleneck,
+  const int kernel_size, const std::vector<int>& dilations, const nam::activations::ActivationConfig& activation_config,
+  const nam::wavenet::GatingMode gating_mode, const bool head_bias, const int groups_input,
+  const int groups_input_mixin, const nam::wavenet::Layer1x1Params& layer1x1_params,
+  const nam::wavenet::Head1x1Params& head1x1_params,
+  const nam::activations::ActivationConfig& secondary_activation_config)
 {
   auto film_params = make_default_film_params();
   // Duplicate activation_config, gating_mode, and secondary_activation_config for each layer (based on dilations size)
@@ -36,12 +34,13 @@ static nam::wavenet::_LayerArray make_layer_array(const int input_size, const in
   std::vector<nam::activations::ActivationConfig> secondary_activation_configs(
     dilations.size(), secondary_activation_config);
   std::vector<int> dilations_copy = dilations; // Make a copy since we need to move it
+  std::vector<int> kernel_sizes(dilations.size(), kernel_size);
   nam::wavenet::LayerArrayParams params(
-    input_size, condition_size, head_size, channels, bottleneck, kernel_size, std::move(dilations_copy),
+    input_size, condition_size, head_size, 1, channels, bottleneck, std::move(kernel_sizes), std::move(dilations_copy),
     std::move(activation_configs), std::move(gating_modes), head_bias, groups_input, groups_input_mixin,
     layer1x1_params, head1x1_params, std::move(secondary_activation_configs), film_params, film_params, film_params,
     film_params, film_params, film_params, film_params, film_params);
-  return nam::wavenet::_LayerArray(params);
+  return nam::wavenet::detail::LayerArray(params);
 }
 // Test layer array construction and basic processing
 void test_layer_array_basic()
@@ -220,12 +219,13 @@ void test_layer_array_different_activations()
   assert(secondary_activation_configs.size() == dilations.size());
 
   auto film_params = make_default_film_params();
-  nam::wavenet::LayerArrayParams params(input_size, condition_size, head_size, channels, bottleneck, kernel_size,
-                                        std::move(dilations), std::move(activation_configs), std::move(gating_modes),
-                                        head_bias, groups, groups_input_mixin, layer1x1_params, head1x1_params,
-                                        std::move(secondary_activation_configs), film_params, film_params, film_params,
-                                        film_params, film_params, film_params, film_params, film_params);
-  nam::wavenet::_LayerArray layer_array(params);
+  std::vector<int> kernel_sizes(dilations.size(), kernel_size);
+  nam::wavenet::LayerArrayParams params(
+    input_size, condition_size, head_size, 1, channels, bottleneck, std::move(kernel_sizes), std::move(dilations),
+    std::move(activation_configs), std::move(gating_modes), head_bias, groups, groups_input_mixin, layer1x1_params,
+    head1x1_params, std::move(secondary_activation_configs), film_params, film_params, film_params, film_params,
+    film_params, film_params, film_params, film_params);
+  nam::wavenet::detail::LayerArray layer_array(params);
 
   const int numFrames = 4;
   layer_array.SetMaxBufferSize(numFrames);
@@ -302,12 +302,13 @@ void test_layer_array_different_activations()
     dilations_all_relu.size(), nam::wavenet::GatingMode::NONE);
   std::vector<nam::activations::ActivationConfig> all_empty_secondary_configs(
     dilations_all_relu.size(), nam::activations::ActivationConfig{});
+  std::vector<int> kernel_sizes_all_relu(dilations_all_relu.size(), kernel_size);
   nam::wavenet::LayerArrayParams params_all_relu(
-    input_size, condition_size, head_size, channels, bottleneck, kernel_size, std::move(dilations_all_relu),
-    std::move(all_relu_configs), std::move(all_none_gating_modes), head_bias, groups, groups_input_mixin,
-    layer1x1_params, head1x1_params, std::move(all_empty_secondary_configs), film_params, film_params, film_params,
-    film_params, film_params, film_params, film_params, film_params);
-  nam::wavenet::_LayerArray layer_array_all_relu(params_all_relu);
+    input_size, condition_size, head_size, 1, channels, bottleneck, std::move(kernel_sizes_all_relu),
+    std::move(dilations_all_relu), std::move(all_relu_configs), std::move(all_none_gating_modes), head_bias, groups,
+    groups_input_mixin, layer1x1_params, head1x1_params, std::move(all_empty_secondary_configs), film_params,
+    film_params, film_params, film_params, film_params, film_params, film_params, film_params);
+  nam::wavenet::detail::LayerArray layer_array_all_relu(params_all_relu);
   layer_array_all_relu.SetMaxBufferSize(numFrames);
 
   // Create weights for all-NONE version (simpler, no gating)
