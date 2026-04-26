@@ -1,5 +1,7 @@
 #include <fstream>
 #include <iostream>
+#include <mutex>
+#include <regex>
 #include <sstream>
 #include <stdexcept>
 
@@ -11,6 +13,47 @@
 
 namespace nam
 {
+namespace
+{
+
+class CoreVersionSupportChecker : public IVersionSupportChecker
+{
+public:
+  Supported support(const std::string& version) const override
+  {
+    static const std::regex semver_regex(R"(^\d+\.\d+\.\d+$)");
+    if (!std::regex_match(version, semver_regex))
+      return Supported::NO;
+
+    const Version parsed = ParseVersion(version);
+    const Version latest = ParseVersion(LATEST_FULLY_SUPPORTED_NAM_FILE_VERSION);
+    const Version earliest = ParseVersion(EARLIEST_SUPPORTED_NAM_FILE_VERSION);
+
+    if (parsed < earliest)
+      return Supported::NO;
+    if (parsed.major > latest.major || parsed.minor > latest.minor)
+      return Supported::NO;
+    if (latest < parsed)
+      return Supported::PARTIAL;
+    return Supported::YES;
+  }
+};
+
+std::vector<std::shared_ptr<const IVersionSupportChecker>>& version_support_registry()
+{
+  static std::vector<std::shared_ptr<const IVersionSupportChecker>> registry{
+      std::make_shared<CoreVersionSupportChecker>()};
+  return registry;
+}
+
+std::mutex& version_support_registry_mutex()
+{
+  static std::mutex registry_mutex;
+  return registry_mutex;
+}
+
+} // namespace
+
 Version ParseVersion(const std::string& versionStr)
 {
   // Split the version string into major, minor, and patch components
@@ -47,32 +90,40 @@ Version ParseVersion(const std::string& versionStr)
   return Version(major, minor, patch);
 }
 
+void register_version_support_checker(std::shared_ptr<const IVersionSupportChecker> checker)
+{
+  if (!checker)
+    throw std::invalid_argument("version support checker cannot be null");
+  std::lock_guard<std::mutex> lock(version_support_registry_mutex());
+  version_support_registry().push_back(std::move(checker));
+}
+
+Supported is_version_supported(const std::string version)
+{
+  std::lock_guard<std::mutex> lock(version_support_registry_mutex());
+  Supported best_support = Supported::NO;
+  for (const auto& checker : version_support_registry())
+  {
+    const auto candidate_support = checker->support(version);
+    if (static_cast<int>(candidate_support) > static_cast<int>(best_support))
+      best_support = candidate_support;
+  }
+  return best_support;
+}
+
 void verify_config_version(const std::string versionStr)
 {
-  Version version = ParseVersion(versionStr);
-  Version currentVersion = ParseVersion(LATEST_FULLY_SUPPORTED_NAM_FILE_VERSION);
-  Version earliestSupportedVersion = ParseVersion(EARLIEST_SUPPORTED_NAM_FILE_VERSION);
-
-  if (version < earliestSupportedVersion)
+  const Supported support = is_version_supported(versionStr);
+  if (support == Supported::NO)
   {
     std::stringstream ss;
-    ss << "Model config is an unsupported version " << versionStr << ". The earliest supported version is "
-       << earliestSupportedVersion.toString()
-       << ". Try either converting the model to a more recent version, or "
-          "update your version of the NAM plugin.";
+    ss << "Model config is an unsupported version " << versionStr << ".";
     throw std::runtime_error(ss.str());
   }
-  if (version.major > currentVersion.major || version.minor > currentVersion.minor)
+  if (support == Supported::PARTIAL)
   {
     std::stringstream ss;
-    ss << "Model config is an unsupported version " << versionStr << ". The latest fully-supported version is "
-       << currentVersion.toString();
-    throw std::runtime_error(ss.str());
-  }
-  else if (currentVersion < version)
-  {
     std::cerr << "Model config is a partially-supported version " << versionStr
-              << ". The latest fully-supported version is " << currentVersion.toString()
               << ". Continuing with partial support." << std::endl;
   }
 }
