@@ -19,14 +19,12 @@ namespace
 class CoreVersionSupportChecker : public IVersionSupportChecker
 {
 public:
-  bool matches(const std::string& version) const override
-  {
-    static const std::regex semver_regex(R"(^\d+\.\d+\.\d+$)");
-    return std::regex_match(version, semver_regex);
-  }
-
   Supported support(const std::string& version) const override
   {
+    static const std::regex semver_regex(R"(^\d+\.\d+\.\d+$)");
+    if (!std::regex_match(version, semver_regex))
+      return Supported::NO;
+
     const Version parsed = ParseVersion(version);
     const Version latest = ParseVersion(LATEST_FULLY_SUPPORTED_NAM_FILE_VERSION);
     const Version earliest = ParseVersion(EARLIEST_SUPPORTED_NAM_FILE_VERSION);
@@ -106,8 +104,6 @@ Supported is_version_supported(const std::string version)
   Supported best_support = Supported::NO;
   for (const auto& checker : version_support_registry())
   {
-    if (!checker->matches(version))
-      continue;
     const auto candidate_support = checker->support(version);
     if (static_cast<int>(candidate_support) > static_cast<int>(best_support))
       best_support = candidate_support;

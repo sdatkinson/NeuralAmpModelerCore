@@ -19,7 +19,6 @@ class IVersionSupportChecker
 {
 public:
   virtual ~IVersionSupportChecker() = default;
-  virtual bool matches(const std::string& version) const = 0;
   virtual Supported support(const std::string& version) const = 0;
 };
 
