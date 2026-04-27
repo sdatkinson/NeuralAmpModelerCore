@@ -19,9 +19,11 @@ namespace slimmable_wavenet
 /// Stores the full WaveNet LayerArrayParams and weights. Each layer array has its
 /// own allowed_channels list (from the "slimmable" config field). On SetSlimmableSize(),
 /// maps the ratio to a channel count per array, extracts a weight subset, builds
-/// modified LayerArrayParams, and constructs a replacement WaveNet in a staging slot.
-/// The next call to process() swaps the staged model into place so the real-time thread
-/// never runs process() on a WaveNet that another thread is replacing.
+/// modified LayerArrayParams, and constructs a replacement WaveNet published to an
+/// staging slot via std::atomic_* on std::shared_ptr (release). process() exchanges that
+/// slot (acquire/release) and
+/// installs the new WaveNet before running DSP so another thread never frees the model
+/// in use and the handoff is data-race-free in the C++ memory model.
 class SlimmableWavenet : public DSP, public SlimmableModel
 {
 public:
@@ -54,11 +56,21 @@ private:
   bool _with_head;
   nlohmann::json _condition_dsp_json;
   std::vector<float> _full_weights;
-  std::unique_ptr<DSP> _active_model;
-  /// Built on SetSlimmableSize(); committed at the start of process().
-  std::unique_ptr<DSP> _staging_model;
+  /// Shared ownership so a staged model can be moved onto the active slot without
+  /// transferring from a concurrent writer.
+  std::shared_ptr<DSP> _active_model;
+
+  struct StagedSlimModel
+  {
+    std::shared_ptr<DSP> model;
+    std::vector<int> channels;
+  };
+  /// Published with std::atomic_store_explicit (release); consumed with
+  /// std::atomic_exchange_explicit at the start of process() (acq_rel). Plain shared_ptr
+  /// plus the atomic_* free functions avoids libc++ rejecting std::atomic<std::shared_ptr<>>.
+  std::shared_ptr<StagedSlimModel> _pending_staged;
+
   std::vector<int> _current_channels;
-  std::vector<int> _staging_channels;
   int _current_buffer_size = 0;
   double _current_sample_rate = 0.0;
 

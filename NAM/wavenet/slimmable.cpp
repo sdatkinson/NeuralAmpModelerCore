@@ -377,10 +377,9 @@ void SlimmableWavenet::_rebuild_model(const std::vector<int>& target_channels)
   if (target_channels == _current_channels && _active_model)
     return;
 
-  _staging_model.reset();
-  _staging_channels.clear();
+  std::atomic_store_explicit(&_pending_staged, std::shared_ptr<StagedSlimModel>{}, std::memory_order_release);
 
-  _active_model = _create_wavenet_for_channels(target_channels);
+  _active_model = std::shared_ptr<DSP>(_create_wavenet_for_channels(target_channels));
   _current_channels = target_channels;
 
   if (_current_buffer_size > 0)
@@ -391,27 +390,33 @@ void SlimmableWavenet::_stage_rebuild_model(const std::vector<int>& target_chann
 {
   if (target_channels == _current_channels && _active_model)
   {
-    _staging_model.reset();
-    _staging_channels.clear();
+    std::atomic_store_explicit(&_pending_staged, std::shared_ptr<StagedSlimModel>{}, std::memory_order_release);
     return;
   }
 
-  if (_staging_model && target_channels == _staging_channels)
-    return;
+  if (auto pending = std::atomic_load_explicit(&_pending_staged, std::memory_order_acquire))
+  {
+    if (pending->channels == target_channels)
+      return;
+  }
 
-  _staging_model = _create_wavenet_for_channels(target_channels);
-  _staging_channels = target_channels;
+  auto pack = std::make_shared<StagedSlimModel>();
+  pack->model = std::shared_ptr<DSP>(_create_wavenet_for_channels(target_channels));
+  pack->channels = target_channels;
 
   if (_current_buffer_size > 0)
-    _staging_model->Reset(_current_sample_rate, _current_buffer_size);
+    pack->model->Reset(_current_sample_rate, _current_buffer_size);
+
+  std::atomic_store_explicit(&_pending_staged, std::move(pack), std::memory_order_release);
 }
 
 void SlimmableWavenet::process(NAM_SAMPLE** input, NAM_SAMPLE** output, const int num_frames)
 {
-  if (_staging_model)
+  if (auto pack = std::atomic_exchange_explicit(
+        &_pending_staged, std::shared_ptr<StagedSlimModel>{}, std::memory_order_acq_rel))
   {
-    _active_model = std::move(_staging_model);
-    _current_channels = std::move(_staging_channels);
+    _active_model = std::move(pack->model);
+    _current_channels = std::move(pack->channels);
   }
   if (_active_model)
     _active_model->process(input, output, num_frames);
@@ -421,8 +426,8 @@ void SlimmableWavenet::prewarm()
 {
   if (_active_model)
     _active_model->prewarm();
-  if (_staging_model)
-    _staging_model->prewarm();
+  if (auto pending = std::atomic_load_explicit(&_pending_staged, std::memory_order_acquire))
+    pending->model->prewarm();
 }
 
 void SlimmableWavenet::Reset(const double sampleRate, const int maxBufferSize)
@@ -431,8 +436,8 @@ void SlimmableWavenet::Reset(const double sampleRate, const int maxBufferSize)
   _current_buffer_size = maxBufferSize;
   if (_active_model)
     _active_model->Reset(sampleRate, maxBufferSize);
-  if (_staging_model)
-    _staging_model->Reset(sampleRate, maxBufferSize);
+  if (auto pending = std::atomic_load_explicit(&_pending_staged, std::memory_order_acquire))
+    pending->model->Reset(sampleRate, maxBufferSize);
 }
 
 void SlimmableWavenet::SetSlimmableSize(const double val)
