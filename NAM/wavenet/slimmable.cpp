@@ -344,11 +344,8 @@ SlimmableWavenet::SlimmableWavenet(std::vector<wavenet::LayerArrayParams> origin
   _rebuild_model(full_channels);
 }
 
-void SlimmableWavenet::_rebuild_model(const std::vector<int>& target_channels)
+std::unique_ptr<DSP> SlimmableWavenet::_create_wavenet_for_channels(const std::vector<int>& target_channels)
 {
-  if (target_channels == _current_channels && _active_model)
-    return;
-
   std::vector<float> weights;
   std::vector<wavenet::LayerArrayParams> modified_params;
   const std::vector<wavenet::LayerArrayParams>* params_ptr;
@@ -371,16 +368,51 @@ void SlimmableWavenet::_rebuild_model(const std::vector<int>& target_channels)
     condition_dsp = get_dsp(_condition_dsp_json);
 
   double sampleRate = _current_sample_rate > 0 ? _current_sample_rate : GetExpectedSampleRate();
-  _active_model = std::make_unique<wavenet::WaveNet>(_in_channels, *params_ptr, _head_scale, _with_head, std::nullopt,
-                                                     std::move(weights), std::move(condition_dsp), sampleRate);
+  return std::make_unique<wavenet::WaveNet>(_in_channels, *params_ptr, _head_scale, _with_head, std::nullopt,
+                                            std::move(weights), std::move(condition_dsp), sampleRate);
+}
+
+void SlimmableWavenet::_rebuild_model(const std::vector<int>& target_channels)
+{
+  if (target_channels == _current_channels && _active_model)
+    return;
+
+  _staging_model.reset();
+  _staging_channels.clear();
+
+  _active_model = _create_wavenet_for_channels(target_channels);
   _current_channels = target_channels;
 
   if (_current_buffer_size > 0)
     _active_model->Reset(_current_sample_rate, _current_buffer_size);
 }
 
+void SlimmableWavenet::_stage_rebuild_model(const std::vector<int>& target_channels)
+{
+  if (target_channels == _current_channels && _active_model)
+  {
+    _staging_model.reset();
+    _staging_channels.clear();
+    return;
+  }
+
+  if (_staging_model && target_channels == _staging_channels)
+    return;
+
+  _staging_model = _create_wavenet_for_channels(target_channels);
+  _staging_channels = target_channels;
+
+  if (_current_buffer_size > 0)
+    _staging_model->Reset(_current_sample_rate, _current_buffer_size);
+}
+
 void SlimmableWavenet::process(NAM_SAMPLE** input, NAM_SAMPLE** output, const int num_frames)
 {
+  if (_staging_model)
+  {
+    _active_model = std::move(_staging_model);
+    _current_channels = std::move(_staging_channels);
+  }
   if (_active_model)
     _active_model->process(input, output, num_frames);
 }
@@ -389,6 +421,8 @@ void SlimmableWavenet::prewarm()
 {
   if (_active_model)
     _active_model->prewarm();
+  if (_staging_model)
+    _staging_model->prewarm();
 }
 
 void SlimmableWavenet::Reset(const double sampleRate, const int maxBufferSize)
@@ -397,6 +431,8 @@ void SlimmableWavenet::Reset(const double sampleRate, const int maxBufferSize)
   _current_buffer_size = maxBufferSize;
   if (_active_model)
     _active_model->Reset(sampleRate, maxBufferSize);
+  if (_staging_model)
+    _staging_model->Reset(sampleRate, maxBufferSize);
 }
 
 void SlimmableWavenet::SetSlimmableSize(const double val)
@@ -413,7 +449,7 @@ void SlimmableWavenet::SetSlimmableSize(const double val)
       target[i] = ratio_to_channels(val, allowed);
   }
 
-  _rebuild_model(target);
+  _stage_rebuild_model(target);
 }
 
 // ============================================================================

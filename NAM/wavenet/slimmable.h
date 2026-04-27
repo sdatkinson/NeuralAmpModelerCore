@@ -19,7 +19,9 @@ namespace slimmable_wavenet
 /// Stores the full WaveNet LayerArrayParams and weights. Each layer array has its
 /// own allowed_channels list (from the "slimmable" config field). On SetSlimmableSize(),
 /// maps the ratio to a channel count per array, extracts a weight subset, builds
-/// modified LayerArrayParams, and reconstructs the WaveNet.
+/// modified LayerArrayParams, and constructs a replacement WaveNet in a staging slot.
+/// The next call to process() swaps the staged model into place so the real-time thread
+/// never runs process() on a WaveNet that another thread is replacing.
 class SlimmableWavenet : public DSP, public SlimmableModel
 {
 public:
@@ -53,11 +55,16 @@ private:
   nlohmann::json _condition_dsp_json;
   std::vector<float> _full_weights;
   std::unique_ptr<DSP> _active_model;
+  /// Built on SetSlimmableSize(); committed at the start of process().
+  std::unique_ptr<DSP> _staging_model;
   std::vector<int> _current_channels;
+  std::vector<int> _staging_channels;
   int _current_buffer_size = 0;
   double _current_sample_rate = 0.0;
 
+  std::unique_ptr<DSP> _create_wavenet_for_channels(const std::vector<int>& target_channels);
   void _rebuild_model(const std::vector<int>& target_channels);
+  void _stage_rebuild_model(const std::vector<int>& target_channels);
 };
 
 // Config / registration
