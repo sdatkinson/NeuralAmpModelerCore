@@ -5,10 +5,10 @@ on:
 
 jobs:
   build-ubuntu:
-    name: Build Ubuntu
+    name: Build Ubuntu (libstdc++)
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3.3.0
+    - uses: actions/checkout@v4
       with:
         submodules: recursive
     
@@ -54,4 +54,50 @@ jobs:
         ./build_inline/tools/benchmodel ./example_models/wavenet.nam
         ./build_inline/tools/benchmodel ./example_models/lstm.nam
         ./build_inline/tools/render ./example_models/wavenet.nam ./example_audio/input.wav ./example_audio/output.wav
+
+  build-ubuntu-libcxx:
+    name: Build Ubuntu (libc++)
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    # If libc++-dev is removed or renamed on a future ubuntu-latest image, pin versioned
+    # packages (e.g. libc++-18-dev libc++abi-18-dev) or add the LLVM apt repository.
+    - name: Install Clang and libc++
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y clang libc++-dev libc++abi-dev
+
+    - name: Create build directories
+      run: mkdir -p build_libcxx build_inline_libcxx
+
+    - name: Build Tools
+      working-directory: ${{github.workspace}}/build_libcxx
+      env:
+        CXX: clang++
+      run: |
+        cmake .. -DCMAKE_BUILD_TYPE=Debug -DNAM_USE_LIBCXX_LINUX=ON
+        cmake --build . -j4
+
+    - name: Build Tools (Inline GEMM)
+      working-directory: ${{github.workspace}}/build_inline_libcxx
+      env:
+        CXX: clang++
+      run: |
+        cmake .. -DCMAKE_BUILD_TYPE=Debug -DNAM_USE_LIBCXX_LINUX=ON -DCMAKE_CXX_FLAGS="-DNAM_USE_INLINE_GEMM"
+        cmake --build . -j4
+
+    - name: Run tests
+      working-directory: ${{github.workspace}}
+      run: |
+        ./build_libcxx/tools/run_tests
+        ./build_libcxx/tools/benchmodel ./example_models/wavenet.nam
+        ./build_libcxx/tools/benchmodel ./example_models/lstm.nam
+        ./build_libcxx/tools/render ./example_models/wavenet.nam ./example_audio/input.wav ./example_audio/output.wav
+        ./build_inline_libcxx/tools/run_tests
+        ./build_inline_libcxx/tools/benchmodel ./example_models/wavenet.nam
+        ./build_inline_libcxx/tools/benchmodel ./example_models/lstm.nam
+        ./build_inline_libcxx/tools/render ./example_models/wavenet.nam ./example_audio/input.wav ./example_audio/output.wav
 

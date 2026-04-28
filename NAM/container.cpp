@@ -93,7 +93,6 @@ void ContainerModel::SetSlimmableSize(const double val)
   {
     return;
   }
-
   // Setting _active_index puts the model in the RT path, so prewarm before doing that
   const double sr = mHaveExternalSampleRate ? mExternalSampleRate : mExpectedSampleRate;
   _submodels[active_index].model->ResetAndPrewarm(sr, GetMaxBufferSize());
