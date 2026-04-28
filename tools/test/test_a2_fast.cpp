@@ -6,24 +6,24 @@
 
 #if defined(NAM_ENABLE_A2_FAST)
 
-#include <algorithm>
-#include <cassert>
-#include <cmath>
-#include <cstdint>
-#include <iostream>
-#include <memory>
-#include <random>
-#include <string>
-#include <utility>
-#include <vector>
+  #include <algorithm>
+  #include <cassert>
+  #include <cmath>
+  #include <cstdint>
+  #include <iostream>
+  #include <memory>
+  #include <random>
+  #include <string>
+  #include <utility>
+  #include <vector>
 
-#include "json.hpp"
+  #include "json.hpp"
 
-#include "NAM/dsp.h"
-#include "NAM/wavenet/a2_fast.h"
-#include "NAM/wavenet/model.h"
+  #include "NAM/dsp.h"
+  #include "NAM/wavenet/a2_fast.h"
+  #include "NAM/wavenet/model.h"
 
-#include "allocation_tracking.h"
+  #include "allocation_tracking.h"
 
 namespace test_a2_fast
 {
@@ -98,7 +98,7 @@ int a2_weight_count(int channels)
   {
     const int K = nam::wavenet::a2_fast::kKernelSizes[i];
     total += bn * channels * K + bn; // conv1d weights + bias
-    total += bn;                     // input mixin (no bias)
+    total += bn; // input mixin (no bias)
     total += channels * bn + channels; // layer1x1 + bias
   }
   total += channels * nam::wavenet::a2_fast::kHeadKernelSize + 1; // head rechannel + bias
@@ -123,8 +123,7 @@ std::vector<NAM_SAMPLE> make_test_input(int num_frames, double sample_rate)
   for (int i = 0; i < num_frames; i++)
   {
     const double t = static_cast<double>(i) / sample_rate;
-    in[i] = static_cast<NAM_SAMPLE>(0.25 * std::sin(2.0 * M_PI * 220.0 * t)
-                                    + 0.10 * std::sin(2.0 * M_PI * 1230.0 * t));
+    in[i] = static_cast<NAM_SAMPLE>(0.25 * std::sin(2.0 * M_PI * 220.0 * t) + 0.10 * std::sin(2.0 * M_PI * 1230.0 * t));
   }
   return in;
 }
@@ -296,8 +295,7 @@ void test_process_realtime_safe(int channels)
 
   for (int block : {1, 32, 64, 128, 256})
   {
-    std::string test_name = "A2FastModel<" + std::to_string(channels) + ">::process block="
-                            + std::to_string(block);
+    std::string test_name = "A2FastModel<" + std::to_string(channels) + ">::process block=" + std::to_string(block);
     allocation_tracking::run_allocation_test_no_allocations(
       nullptr,
       [&]() {
@@ -312,8 +310,7 @@ void test_process_realtime_safe(int channels)
           pos += block;
         }
       },
-      nullptr,
-      test_name.c_str());
+      nullptr, test_name.c_str());
   }
 }
 

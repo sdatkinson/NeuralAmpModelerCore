@@ -6,7 +6,7 @@
 #ifdef _LIBCPP_VERSION
 // libc++: std::atomic<std::shared_ptr<T>> is not viable; staging uses deprecated atomic_* free functions.
 #else
-#include <atomic>
+  #include <atomic>
 #endif
 
 #include "../dsp.h"

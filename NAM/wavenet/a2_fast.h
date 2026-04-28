@@ -14,11 +14,11 @@
 
 #if defined(NAM_ENABLE_A2_FAST)
 
-#include <array>
-#include <memory>
+  #include <array>
+  #include <memory>
 
-#include "../model_config.h"
-#include "json.hpp"
+  #include "../model_config.h"
+  #include "json.hpp"
 
 namespace nam
 {
