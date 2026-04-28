@@ -51,7 +51,8 @@ ContainerModel::ContainerModel(std::vector<Submodel> submodels, const double exp
 
 void ContainerModel::process(NAM_SAMPLE** input, NAM_SAMPLE** output, const int num_frames)
 {
-  _active_model().process(input, output, num_frames);
+  const size_t active_index = _active_index.load(std::memory_order_acquire);
+  _submodels[active_index].model->process(input, output, num_frames);
 }
 
 void ContainerModel::prewarm()
@@ -69,7 +70,7 @@ void ContainerModel::Reset(const double sampleRate, const int maxBufferSize)
 
 void ContainerModel::SetSlimmableSize(const double val)
 {
-  auto active_index = _submodels.size() - 1;
+  size_t active_index = _submodels.size() - 1;
   for (size_t i = 0; i < _submodels.size(); ++i)
   {
     if (val < _submodels[i].max_value)
@@ -78,7 +79,17 @@ void ContainerModel::SetSlimmableSize(const double val)
       break;
     }
   }
-  if (active_index == _active_index) // No change to active model, so nothing to do
+
+  // Fast path: no change to active model.
+  if (active_index == _active_index.load(std::memory_order_acquire))
+  {
+    return;
+  }
+
+  // Plugin host can deliver param changes from both UI/controller and processor paths.
+  // Serialize reset+prewarm so only one thread can perform model activation at a time.
+  std::lock_guard<std::mutex> lock(_slim_set_mutex);
+  if (active_index == _active_index.load(std::memory_order_acquire))
   {
     return;
   }
@@ -87,7 +98,7 @@ void ContainerModel::SetSlimmableSize(const double val)
   _submodels[active_index].model->ResetAndPrewarm(sr, GetMaxBufferSize());
 
   // Finally set when we're ready:
-  _active_index = active_index;
+  _active_index.store(active_index, std::memory_order_release);
 }
 
 // =============================================================================
