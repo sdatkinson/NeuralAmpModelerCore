@@ -291,6 +291,49 @@ bool is_full_size(const std::vector<wavenet::LayerArrayParams>& params, const st
 
 } // anonymous namespace
 
+#ifdef _LIBCPP_VERSION
+void SlimmableWavenet::_pending_clear_release()
+{
+  std::atomic_store_explicit(&_pending_staged, std::shared_ptr<StagedSlimModel>{}, std::memory_order_release);
+}
+
+std::shared_ptr<SlimmableWavenet::StagedSlimModel> SlimmableWavenet::_pending_load_acquire() const
+{
+  return std::atomic_load_explicit(&_pending_staged, std::memory_order_acquire);
+}
+
+void SlimmableWavenet::_pending_store_release(std::shared_ptr<StagedSlimModel> p)
+{
+  std::atomic_store_explicit(&_pending_staged, std::move(p), std::memory_order_release);
+}
+
+std::shared_ptr<SlimmableWavenet::StagedSlimModel> SlimmableWavenet::_pending_exchange_take_acq_rel()
+{
+  return std::atomic_exchange_explicit(
+    &_pending_staged, std::shared_ptr<StagedSlimModel>{}, std::memory_order_acq_rel);
+}
+#else
+void SlimmableWavenet::_pending_clear_release()
+{
+  _pending_staged.store({}, std::memory_order_release);
+}
+
+std::shared_ptr<SlimmableWavenet::StagedSlimModel> SlimmableWavenet::_pending_load_acquire() const
+{
+  return _pending_staged.load(std::memory_order_acquire);
+}
+
+void SlimmableWavenet::_pending_store_release(std::shared_ptr<StagedSlimModel> p)
+{
+  _pending_staged.store(std::move(p), std::memory_order_release);
+}
+
+std::shared_ptr<SlimmableWavenet::StagedSlimModel> SlimmableWavenet::_pending_exchange_take_acq_rel()
+{
+  return _pending_staged.exchange({}, std::memory_order_acq_rel);
+}
+#endif
+
 // ============================================================================
 // SlimmableWavenet
 // ============================================================================
@@ -377,7 +420,7 @@ void SlimmableWavenet::_rebuild_model(const std::vector<int>& target_channels)
   if (target_channels == _current_channels && _active_model)
     return;
 
-  std::atomic_store_explicit(&_pending_staged, std::shared_ptr<StagedSlimModel>{}, std::memory_order_release);
+  _pending_clear_release();
 
   _active_model = std::shared_ptr<DSP>(_create_wavenet_for_channels(target_channels));
   _current_channels = target_channels;
@@ -390,11 +433,11 @@ void SlimmableWavenet::_stage_rebuild_model(const std::vector<int>& target_chann
 {
   if (target_channels == _current_channels && _active_model)
   {
-    std::atomic_store_explicit(&_pending_staged, std::shared_ptr<StagedSlimModel>{}, std::memory_order_release);
+    _pending_clear_release();
     return;
   }
 
-  if (auto pending = std::atomic_load_explicit(&_pending_staged, std::memory_order_acquire))
+  if (auto pending = _pending_load_acquire())
   {
     if (pending->channels == target_channels)
       return;
@@ -407,13 +450,12 @@ void SlimmableWavenet::_stage_rebuild_model(const std::vector<int>& target_chann
   if (_current_buffer_size > 0)
     pack->model->Reset(_current_sample_rate, _current_buffer_size);
 
-  std::atomic_store_explicit(&_pending_staged, std::move(pack), std::memory_order_release);
+  _pending_store_release(std::move(pack));
 }
 
 void SlimmableWavenet::process(NAM_SAMPLE** input, NAM_SAMPLE** output, const int num_frames)
 {
-  if (auto pack = std::atomic_exchange_explicit(
-        &_pending_staged, std::shared_ptr<StagedSlimModel>{}, std::memory_order_acq_rel))
+  if (auto pack = _pending_exchange_take_acq_rel())
   {
     _active_model = std::move(pack->model);
     _current_channels = std::move(pack->channels);
@@ -426,7 +468,7 @@ void SlimmableWavenet::prewarm()
 {
   if (_active_model)
     _active_model->prewarm();
-  if (auto pending = std::atomic_load_explicit(&_pending_staged, std::memory_order_acquire))
+  if (auto pending = _pending_load_acquire())
     pending->model->prewarm();
 }
 
@@ -436,7 +478,7 @@ void SlimmableWavenet::Reset(const double sampleRate, const int maxBufferSize)
   _current_buffer_size = maxBufferSize;
   if (_active_model)
     _active_model->Reset(sampleRate, maxBufferSize);
-  if (auto pending = std::atomic_load_explicit(&_pending_staged, std::memory_order_acquire))
+  if (auto pending = _pending_load_acquire())
     pending->model->Reset(sampleRate, maxBufferSize);
 }
 
