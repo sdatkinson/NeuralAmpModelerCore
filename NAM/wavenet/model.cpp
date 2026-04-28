@@ -13,7 +13,7 @@
 #include "model.h"
 
 #if defined(NAM_ENABLE_A2_FAST)
-#include "a2_fast.h"
+  #include "a2_fast.h"
 #endif
 
 // detail::Head (WaveNet post-stack head) =====================================

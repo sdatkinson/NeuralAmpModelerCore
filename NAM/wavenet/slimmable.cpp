@@ -309,8 +309,7 @@ void SlimmableWavenet::_pending_store_release(std::shared_ptr<StagedSlimModel> p
 
 std::shared_ptr<SlimmableWavenet::StagedSlimModel> SlimmableWavenet::_pending_exchange_take_acq_rel()
 {
-  return std::atomic_exchange_explicit(
-    &_pending_staged, std::shared_ptr<StagedSlimModel>{}, std::memory_order_acq_rel);
+  return std::atomic_exchange_explicit(&_pending_staged, std::shared_ptr<StagedSlimModel>{}, std::memory_order_acq_rel);
 }
 #else
 void SlimmableWavenet::_pending_clear_release()

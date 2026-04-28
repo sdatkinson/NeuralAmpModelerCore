@@ -253,19 +253,16 @@ void test_version_too_early()
 
 void test_is_version_supported_core_behavior()
 {
-  assert(nam::is_version_supported(nam::LATEST_FULLY_SUPPORTED_NAM_FILE_VERSION)
-         == nam::Supported::YES);
+  assert(nam::is_version_supported(nam::LATEST_FULLY_SUPPORTED_NAM_FILE_VERSION) == nam::Supported::YES);
 
   nam::Version patchBeyondLatest = nam::ParseVersion(nam::LATEST_FULLY_SUPPORTED_NAM_FILE_VERSION);
   patchBeyondLatest.patch++;
-  assert(nam::is_version_supported(patchBeyondLatest.toString())
-         == nam::Supported::PARTIAL);
+  assert(nam::is_version_supported(patchBeyondLatest.toString()) == nam::Supported::PARTIAL);
 
   nam::Version minorBeyondLatest = nam::ParseVersion(nam::LATEST_FULLY_SUPPORTED_NAM_FILE_VERSION);
   minorBeyondLatest.minor++;
   minorBeyondLatest.patch = 0;
-  assert(nam::is_version_supported(minorBeyondLatest.toString())
-         == nam::Supported::NO);
+  assert(nam::is_version_supported(minorBeyondLatest.toString()) == nam::Supported::NO);
 }
 
 void test_register_custom_version_support_checker()

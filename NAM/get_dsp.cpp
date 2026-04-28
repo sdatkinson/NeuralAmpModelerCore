@@ -42,7 +42,7 @@ public:
 std::vector<std::shared_ptr<const IVersionSupportChecker>>& version_support_registry()
 {
   static std::vector<std::shared_ptr<const IVersionSupportChecker>> registry{
-      std::make_shared<CoreVersionSupportChecker>()};
+    std::make_shared<CoreVersionSupportChecker>()};
   return registry;
 }
 
@@ -123,8 +123,8 @@ void verify_config_version(const std::string versionStr)
   if (support == Supported::PARTIAL)
   {
     std::stringstream ss;
-    std::cerr << "Model config is a partially-supported version " << versionStr
-              << ". Continuing with partial support." << std::endl;
+    std::cerr << "Model config is a partially-supported version " << versionStr << ". Continuing with partial support."
+              << std::endl;
   }
 }
 
