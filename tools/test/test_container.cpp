@@ -314,6 +314,8 @@ void test_container_default_is_max_size()
   NAM_SAMPLE* in_ptr = input.data();
   NAM_SAMPLE* out_ptr;
 
+  // Ensure both predictions start from identical model state.
+  dsp->ResetAndPrewarm(sample_rate, buffer_size);
   // Process with default (should be max size)
   out_ptr = out_default.data();
   dsp->process(&in_ptr, &out_ptr, buffer_size);
@@ -322,6 +324,7 @@ void test_container_default_is_max_size()
   auto* slimmable = dynamic_cast<nam::SlimmableModel*>(dsp.get());
   assert(slimmable != nullptr);
   slimmable->SetSlimmableSize(1.0);
+  dsp->ResetAndPrewarm(sample_rate, buffer_size);
   out_ptr = out_max.data();
   dsp->process(&in_ptr, &out_ptr, buffer_size);
 
