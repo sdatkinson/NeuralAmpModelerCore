@@ -69,18 +69,25 @@ void ContainerModel::Reset(const double sampleRate, const int maxBufferSize)
 
 void ContainerModel::SetSlimmableSize(const double val)
 {
-  _active_index = _submodels.size() - 1;
+  auto active_index = _submodels.size() - 1;
   for (size_t i = 0; i < _submodels.size(); ++i)
   {
     if (val < _submodels[i].max_value)
     {
-      _active_index = i;
+      active_index = i;
       break;
     }
   }
-
+  if (active_index == _active_index) // No change to active model, so nothing to do
+  {
+    return;
+  }
+  // Setting _active_index puts the model in the RT path, so prewarm before doing that
   const double sr = mHaveExternalSampleRate ? mExternalSampleRate : mExpectedSampleRate;
-  _active_model().ResetAndPrewarm(sr, GetMaxBufferSize());
+  _submodels[active_index].model->ResetAndPrewarm(sr, GetMaxBufferSize());
+
+  // Finally set when we're ready:
+  _active_index = active_index;
 }
 
 // =============================================================================
