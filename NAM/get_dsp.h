@@ -1,11 +1,27 @@
 #pragma once
 
 #include <fstream>
+#include <memory>
+#include <vector>
 
 #include "dsp.h"
 
 namespace nam
 {
+enum class Supported
+{
+  NO = 0,
+  PARTIAL = 1,
+  YES = 2
+};
+
+class IVersionSupportChecker
+{
+public:
+  virtual ~IVersionSupportChecker() = default;
+  virtual Supported support(const std::string& version) const = 0;
+};
+
 class Version
 {
 public:
@@ -39,6 +55,10 @@ public:
 };
 
 Version ParseVersion(const std::string& versionStr);
+
+void register_version_support_checker(std::shared_ptr<const IVersionSupportChecker> checker);
+
+Supported is_version_supported(const std::string version);
 
 void verify_config_version(const std::string versionStr);
 

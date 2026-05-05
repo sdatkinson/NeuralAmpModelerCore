@@ -273,6 +273,8 @@ int main()
   test_get_dsp::test_version_patch_one_beyond_supported();
   test_get_dsp::test_version_minor_one_beyond_supported();
   test_get_dsp::test_version_too_early();
+  test_get_dsp::test_is_version_supported_core_behavior();
+  test_get_dsp::test_register_custom_version_support_checker();
 
   // Finally, some end-to-end tests.
   test_get_dsp::test_load_and_process_nam_files();

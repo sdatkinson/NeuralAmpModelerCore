@@ -12,26 +12,26 @@
 
 #if defined(NAM_ENABLE_A2_FAST)
 
-#include <algorithm>
-#include <chrono>
-#include <cmath>
-#include <cstdlib>
-#include <cstring>
-#include <filesystem>
-#include <fstream>
-#include <iomanip>
-#include <iostream>
-#include <memory>
-#include <sstream>
-#include <string>
-#include <utility>
-#include <vector>
+  #include <algorithm>
+  #include <chrono>
+  #include <cmath>
+  #include <cstdlib>
+  #include <cstring>
+  #include <filesystem>
+  #include <fstream>
+  #include <iomanip>
+  #include <iostream>
+  #include <memory>
+  #include <sstream>
+  #include <string>
+  #include <utility>
+  #include <vector>
 
-#include "json.hpp"
+  #include "json.hpp"
 
-#include "NAM/dsp.h"
-#include "NAM/wavenet/a2_fast.h"
-#include "NAM/wavenet/model.h"
+  #include "NAM/dsp.h"
+  #include "NAM/wavenet/a2_fast.h"
+  #include "NAM/wavenet/model.h"
 
 using clock_t_hr = std::chrono::high_resolution_clock;
 using ns = std::chrono::nanoseconds;
@@ -220,8 +220,8 @@ void bench_model(const LoadedModel& m, const Options& o)
   auto fmt_us = [](double ms) { return ms * 1000.0; };
   std::cout << "\n== " << m.path << "  (" << arch << ", Channels=" << channels << ") ==\n";
   std::cout << "   audio=" << std::fixed << std::setprecision(0) << (1000.0 * total / m.sample_rate) << "ms @ "
-            << static_cast<int>(m.sample_rate) << "Hz, block=" << o.buffer_size << ", iters=" << o.iterations
-            << " (" << fast_s.n << " blocks timed each)\n";
+            << static_cast<int>(m.sample_rate) << "Hz, block=" << o.buffer_size << ", iters=" << o.iterations << " ("
+            << fast_s.n << " blocks timed each)\n";
   std::cout << "   per-block audio deadline: " << std::fixed << std::setprecision(1) << block_audio_us << " us\n";
   std::cout << std::fixed << std::setprecision(2);
   std::cout << "                  min     p50     p99     p99.9   max    mean\n";

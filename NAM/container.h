@@ -1,6 +1,8 @@
 #pragma once
 
+#include <atomic>
 #include <memory>
+#include <mutex>
 #include <stdexcept>
 #include <vector>
 
@@ -42,9 +44,8 @@ protected:
 
 private:
   std::vector<Submodel> _submodels;
-  size_t _active_index = 0;
-
-  DSP& _active_model() { return *_submodels[_active_index].model; }
+  std::atomic<size_t> _active_index{0};
+  std::mutex _slim_set_mutex;
 };
 
 // Config / registration
