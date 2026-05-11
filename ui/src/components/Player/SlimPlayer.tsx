@@ -10,6 +10,7 @@ const SlimPlayerFC: React.FC<T3kSlimPlayerProps> = ({
   id,
   getData,
   size = 40,
+  disabled = false,
 }) => {
   const {
     audioState,
@@ -116,6 +117,18 @@ const SlimPlayerFC: React.FC<T3kSlimPlayerProps> = ({
     setPlaying,
     onPlayDemo,
   ]);
+
+  if (disabled) {
+    return (
+      <button
+        disabled
+        className='p-0 focus:outline-none cursor-not-allowed opacity-50'
+        aria-label='Play (disabled)'
+      >
+        <Play size={size} />
+      </button>
+    );
+  }
 
   return (
     <button

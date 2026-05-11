@@ -1,9 +1,12 @@
 import { ReactNode } from 'react';
 
+export type ModelArchitecture = '1' | '2' | 'custom';
+
 export interface Model {
   name: string;
   url: string;
   default?: boolean;
+  architecture?: ModelArchitecture;
 }
 
 export interface IR {
@@ -189,6 +192,11 @@ export interface T3kPlayerProps {
   inputs?: NonEmptyArray<Input>;
   isLoading?: boolean;
   previewMode?: PREVIEW_MODE;
+  // When set, only models whose `architecture` matches this value are playable.
+  // If no qualifying models remain, the player renders in a disabled state.
+  architecture?: ModelArchitecture;
+  // When true, the player renders in a disabled state regardless of model contents.
+  disabled?: boolean;
   onPlayDemo?: ({
     model,
     ir,
@@ -229,5 +237,4 @@ export interface T3kAcordianPlayerProps extends T3kPlayerProps {
     irs: NonEmptyArray<IR>;
     inputs: NonEmptyArray<Input>;
   }>;
-  disabled?: boolean;
 }

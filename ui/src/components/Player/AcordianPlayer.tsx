@@ -15,6 +15,7 @@ import { usePlayerCore } from '../../hooks/usePlayerCore';
 import { PlayerSettings } from './PlayerSettings';
 import { getDefault } from '../../utils/player';
 import { DemoPlaybar } from '../ui/DemoPlaybar';
+import { DisabledPlaybar } from '../ui/DisabledPlaybar';
 import { LivePlaybar } from '../ui/LivePlaybar';
 
 const PlayerFC: React.FC<T3kAcordianPlayerProps> = ({
@@ -66,19 +67,26 @@ const PlayerFC: React.FC<T3kAcordianPlayerProps> = ({
   });
 
   const handleToggleExpand = useCallback(async () => {
-    if (!models) await resolveData();
+    if (disabled) return;
+    if (!models) {
+      try {
+        await resolveData();
+      } catch {
+        return;
+      }
+    }
     setExpanded(prev => !prev);
-  }, [models, resolveData]);
+  }, [disabled, models, resolveData]);
 
   return (
     <div className='neural-amp-modeler'>
       <div
         className={`bg-zinc-900 border border-t-0 border-zinc-700 text-white px-4 sm:px-6 pt-0 pb-0 rounded-xl w-full flex flex-col gap-0 rounded-t-none ${expanded ? 'pb-4 lg:pb-8' : 'pb-0'}`}
       >
-        <div
-          className={`flex items-center gap-4 overflow-hidden min-h-[80px] ${disabled ? 'opacity-50 touch-none cursor-not-allowed' : ''}`}
-        >
-          {core.sourceMode === 'demo' ? (
+        <div className='flex items-center gap-4 overflow-hidden min-h-[80px]'>
+          {disabled ? (
+            <DisabledPlaybar infoSlot={infoSlot} />
+          ) : core.sourceMode === 'demo' ? (
             <DemoPlaybar
               togglePlay={core.togglePlay}
               isThisPlayerActive={core.isThisPlayerActive}
@@ -103,17 +111,18 @@ const PlayerFC: React.FC<T3kAcordianPlayerProps> = ({
             />
           )}
 
-          <button
-            onClick={handleToggleExpand}
-            className={`p-0 focus:outline-none flex-shrink-0 ${disabled ? 'cursor-not-allowed' : ''}`}
-            aria-label='Toggle accordion'
-            disabled={disabled}
-          >
-            {expanded ? <ChevronUp size={24} /> : <ChevronDown size={24} />}
-          </button>
+          {!disabled && (
+            <button
+              onClick={handleToggleExpand}
+              className={`p-0 focus:outline-none flex-shrink-0`}
+              aria-label='Toggle accordion'
+            >
+              {expanded ? <ChevronUp size={24} /> : <ChevronDown size={24} />}
+            </button>
+          )}
         </div>
 
-        {expanded && (
+        {expanded && !disabled && (
           <>
             <div className='flex flex-col gap-6'>
               {/* Toggle between demo and live */}

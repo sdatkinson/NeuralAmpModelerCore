@@ -1,3 +1,5 @@
+import { Model, ModelArchitecture } from '../types';
+
 export const upperCaseFirst = (str: string) =>
   str.charAt(0).toUpperCase() + str.slice(1);
 
@@ -14,4 +16,11 @@ export function formatTime(time: number): string {
 
 export function getDefault<T extends { default?: boolean }>(items: T[]): T {
   return items.find(item => item.default) || items[0];
+}
+
+export function filterModelsByArchitecture(
+  models: Model[],
+  architecture: ModelArchitecture
+): Model[] {
+  return models.filter(m => m.architecture === architecture);
 }
