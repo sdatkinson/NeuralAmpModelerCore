@@ -1,6 +1,7 @@
 #include <cassert>
 #include <cmath>
 #include <fstream>
+#include <functional>
 #include <iostream>
 #include <memory>
 #include <stdexcept>
@@ -15,6 +16,70 @@
 
 namespace test_container
 {
+
+class CountingDSP : public nam::DSP
+{
+public:
+  explicit CountingDSP(NAM_SAMPLE process_value)
+  : DSP(1, 1, 48000.0)
+  , process_value(process_value)
+  {
+  }
+
+  void Reset(const double sampleRate, const int maxBufferSize) override
+  {
+    if (on_reset)
+      on_reset();
+
+    reset_count++;
+    reset_sample_rate = sampleRate;
+    reset_buffer_size = maxBufferSize;
+    DSP::Reset(sampleRate, maxBufferSize);
+  }
+
+  void prewarm() override { prewarm_count++; }
+
+  void process(NAM_SAMPLE** input, NAM_SAMPLE** output, const int num_frames) override
+  {
+    (void)input;
+    process_count++;
+    for (int i = 0; i < num_frames; i++)
+      output[0][i] = process_value;
+  }
+
+  const NAM_SAMPLE process_value;
+  int reset_count = 0;
+  int prewarm_count = 0;
+  int process_count = 0;
+  double reset_sample_rate = 0.0;
+  int reset_buffer_size = 0;
+  std::function<void()> on_reset;
+};
+
+std::unique_ptr<nam::container::ContainerModel> build_counting_container(CountingDSP*& small, CountingDSP*& large)
+{
+  auto small_model = std::make_unique<CountingDSP>((NAM_SAMPLE)1.0);
+  auto large_model = std::make_unique<CountingDSP>((NAM_SAMPLE)2.0);
+
+  small = small_model.get();
+  large = large_model.get();
+
+  std::vector<nam::container::Submodel> submodels;
+  submodels.push_back({0.5, std::move(small_model)});
+  submodels.push_back({1.0, std::move(large_model)});
+
+  return std::make_unique<nam::container::ContainerModel>(std::move(submodels), 48000.0);
+}
+
+NAM_SAMPLE process_one_sample(nam::DSP* dsp)
+{
+  NAM_SAMPLE input = (NAM_SAMPLE)0.0;
+  NAM_SAMPLE output = (NAM_SAMPLE)-1.0;
+  NAM_SAMPLE* in_ptr = &input;
+  NAM_SAMPLE* out_ptr = &output;
+  dsp->process(&in_ptr, &out_ptr, 1);
+  return output;
+}
 
 // Helper: load a .nam file as JSON
 nlohmann::json load_nam_json(const std::string& path)
@@ -331,6 +396,42 @@ void test_container_default_is_max_size()
   // Both should produce the same output (same model active)
   for (int i = 0; i < buffer_size; i++)
     assert(std::abs(out_default[i] - out_max[i]) < 1e-6);
+}
+
+void test_container_reset_only_resets_active_submodel()
+{
+  CountingDSP* small = nullptr;
+  CountingDSP* large = nullptr;
+  auto dsp = build_counting_container(small, large);
+
+  dsp->Reset(44100.0, 128);
+
+  assert(small->reset_count == 0);
+  assert(small->prewarm_count == 0);
+
+  assert(large->reset_count == 1);
+  assert(large->prewarm_count == 1);
+  assert(large->reset_sample_rate == 44100.0);
+  assert(large->reset_buffer_size == 128);
+}
+
+void test_container_switch_resets_before_activation()
+{
+  CountingDSP* small = nullptr;
+  CountingDSP* large = nullptr;
+  auto dsp = build_counting_container(small, large);
+  dsp->Reset(48000.0, 64);
+
+  NAM_SAMPLE value_during_reset = (NAM_SAMPLE)-1.0;
+  small->on_reset = [&]() { value_during_reset = process_one_sample(dsp.get()); };
+
+  auto* slimmable = dynamic_cast<nam::SlimmableModel*>(dsp.get());
+  assert(slimmable != nullptr);
+  slimmable->SetSlimmableSize(0.0);
+
+  assert(small->reset_count == 1);
+  assert(value_during_reset == large->process_value);
+  assert(process_one_sample(dsp.get()) == small->process_value);
 }
 
 } // namespace test_container

@@ -57,15 +57,22 @@ void ContainerModel::process(NAM_SAMPLE** input, NAM_SAMPLE** output, const int 
 
 void ContainerModel::prewarm()
 {
-  for (auto& sm : _submodels)
-    sm.model->prewarm();
+  const size_t active_index = _active_index.load(std::memory_order_acquire);
+  _submodels[active_index].model->prewarm();
 }
 
 void ContainerModel::Reset(const double sampleRate, const int maxBufferSize)
 {
-  DSP::Reset(sampleRate, maxBufferSize);
-  for (auto& sm : _submodels)
-    sm.model->Reset(sampleRate, maxBufferSize);
+  std::lock_guard<std::mutex> lock(_slim_set_mutex);
+
+  // Update this container's reset state without dispatching through DSP::Reset(),
+  // which would prewarm the active child before the child receives these settings.
+  mExternalSampleRate = sampleRate;
+  mHaveExternalSampleRate = true;
+  SetMaxBufferSize(maxBufferSize);
+
+  const size_t active_index = _active_index.load(std::memory_order_acquire);
+  _submodels[active_index].model->Reset(sampleRate, maxBufferSize);
 }
 
 void ContainerModel::SetSlimmableSize(const double val)
@@ -87,15 +94,15 @@ void ContainerModel::SetSlimmableSize(const double val)
   }
 
   // Plugin host can deliver param changes from both UI/controller and processor paths.
-  // Serialize reset+prewarm so only one thread can perform model activation at a time.
+  // Serialize reset so only one thread can perform model activation at a time.
   std::lock_guard<std::mutex> lock(_slim_set_mutex);
   if (active_index == _active_index.load(std::memory_order_acquire))
   {
     return;
   }
-  // Setting _active_index puts the model in the RT path, so prewarm before doing that
+  // Setting _active_index puts the model in the RT path, so reset before doing that.
   const double sr = mHaveExternalSampleRate ? mExternalSampleRate : mExpectedSampleRate;
-  _submodels[active_index].model->ResetAndPrewarm(sr, GetMaxBufferSize());
+  _submodels[active_index].model->Reset(sr, GetMaxBufferSize());
 
   // Finally set when we're ready:
   _active_index.store(active_index, std::memory_order_release);
