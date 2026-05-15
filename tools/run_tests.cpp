@@ -293,6 +293,8 @@ int main()
   test_container::test_container_sample_rate_mismatch_throws();
   test_container::test_container_load_from_file();
   test_container::test_container_default_is_max_size();
+  test_container::test_container_reset_only_resets_active_submodel();
+  test_container::test_container_switch_resets_before_activation();
 
   // Render --slim tests
   test_render_slim::test_slim_changes_output();
