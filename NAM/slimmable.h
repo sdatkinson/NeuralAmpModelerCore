@@ -15,6 +15,9 @@ public:
 
   /// \brief Set the slimmable size of the model
   /// \param val Value between 0.0 (minimum size) and 1.0 (maximum size)
+  ///
+  /// Thread-safe
+  /// Not real-time safe
   virtual void SetSlimmableSize(const double val) = 0;
 };
 
