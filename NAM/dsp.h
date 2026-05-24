@@ -352,6 +352,10 @@ public:
   long get_out_channels() const;
   long get_in_channels() const;
 
+  // Function pointer to a shape-specialized GEMM kernel. Public so the dispatch table
+  // in dsp.cpp can return values of this type without exposing internals.
+  using ProcessKernel = void (*)(const float* weight, const float* in, float* out, int num_frames, int in_stride);
+
 protected:
   // Non-depthwise: full weight matrix (out_channels x in_channels)
   Eigen::MatrixXf _weight;
@@ -362,6 +366,12 @@ protected:
   int _channels = 0; // Used for depthwise case (in_channels == out_channels)
   Eigen::VectorXf _bias;
   int _num_groups;
+
+  // Set at construction time when (in_channels, out_channels, groups) matches a
+  // registered template specialization. When non-null, used by both the Eigen and
+  // inline-GEMM process_ paths in preference to the generic dense kernel.
+  // nullptr -> fall back to generic.
+  ProcessKernel _kernel = nullptr;
 
 private:
   Eigen::MatrixXf _output;

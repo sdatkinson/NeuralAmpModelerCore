@@ -50,6 +50,42 @@ set_target_properties(bench_a2_fast PROPERTIES
 	INTERPROCEDURAL_OPTIMIZATION TRUE
 	PREFIX ""
 )
+add_executable(bench_conv1x1_groups bench_conv1x1_groups.cpp ${NAM_SOURCES})
+target_compile_features(bench_conv1x1_groups PUBLIC cxx_std_20)
+set_target_properties(bench_conv1x1_groups PROPERTIES
+	CXX_VISIBILITY_PRESET hidden
+	INTERPROCEDURAL_OPTIMIZATION TRUE
+	PREFIX ""
+)
+if (MSVC)
+	target_compile_options(bench_conv1x1_groups PRIVATE
+		"$<$<CONFIG:DEBUG>:/W4>"
+		"$<$<CONFIG:RELEASE>:/O2>"
+	)
+else()
+	target_compile_options(bench_conv1x1_groups PRIVATE
+		-Wall -Wextra -Wno-unused-parameter
+		"$<$<CONFIG:RELEASE>:-Ofast>"
+	)
+endif()
+add_executable(check_conv1d_grouped check_conv1d_grouped.cpp ${NAM_SOURCES})
+target_compile_features(check_conv1d_grouped PUBLIC cxx_std_20)
+set_target_properties(check_conv1d_grouped PROPERTIES
+	CXX_VISIBILITY_PRESET hidden
+	INTERPROCEDURAL_OPTIMIZATION TRUE
+	PREFIX ""
+)
+if (MSVC)
+	target_compile_options(check_conv1d_grouped PRIVATE
+		"$<$<CONFIG:DEBUG>:/W4>"
+		"$<$<CONFIG:RELEASE>:/O2>"
+	)
+else()
+	target_compile_options(check_conv1d_grouped PRIVATE
+		-Wall -Wextra -Wno-unused-parameter
+		"$<$<CONFIG:RELEASE>:-O2>"
+	)
+endif()
 if (MSVC)
 	target_compile_options(bench_a2_fast PRIVATE
 		"$<$<CONFIG:DEBUG>:/W4>"

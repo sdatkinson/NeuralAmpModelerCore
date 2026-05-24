@@ -339,6 +339,106 @@ static nam::ConfigParserHelper _register_Linear("Linear", nam::linear::create_co
 
 // Conv1x1 ====================================================================
 
+namespace
+{
+// Templated dense/grouped 1x1 kernel.
+// OutCh, InCh, Groups are compile-time constants so the compiler unrolls every loop
+// and folds all index arithmetic. Off-block-diagonal zeros are never visited.
+// Weight memory layout is col-major (out_channels rows x in_channels cols) -
+// matching Eigen::MatrixXf default storage in nam::Conv1x1::_weight.
+template <int OutCh, int InCh, int Groups>
+void templated_conv1x1_kernel(const float* __restrict__ weight, const float* __restrict__ in, float* __restrict__ out,
+                              int num_frames, int in_stride)
+{
+  static_assert(OutCh % Groups == 0, "OutCh must be divisible by Groups");
+  static_assert(InCh % Groups == 0, "InCh must be divisible by Groups");
+  constexpr int OutPerG = OutCh / Groups;
+  constexpr int InPerG = InCh / Groups;
+  for (int f = 0; f < num_frames; f++)
+  {
+    const float* __restrict__ in_col = in + f * in_stride;
+    float* __restrict__ out_col = out + f * OutCh;
+    for (int g = 0; g < Groups; g++)
+    {
+      constexpr int row_offset_per_group = OutPerG;
+      constexpr int col_offset_per_group = InPerG;
+      const int o_base = g * row_offset_per_group;
+      const int i_base = g * col_offset_per_group;
+      for (int o = 0; o < OutPerG; o++)
+      {
+        float sum = 0.0f;
+        for (int i = 0; i < InPerG; i++)
+        {
+          sum += weight[(i_base + i) * OutCh + (o_base + o)] * in_col[i_base + i];
+        }
+        out_col[o_base + o] = sum;
+      }
+    }
+  }
+}
+
+// Map (out_channels, in_channels, groups) -> templated kernel function pointer.
+// Returns nullptr when no specialization is registered; caller falls back to the
+// generic Eigen / inline-GEMM path.
+nam::Conv1x1::ProcessKernel pick_conv1x1_kernel(int out_channels, int in_channels, int groups)
+{
+  using K = nam::Conv1x1::ProcessKernel;
+  // Square shapes (the layer1x1 / head1x1 / FiLM cases that dominate WaveNet).
+  // Depthwise (groups == channels) is handled by the dedicated _is_depthwise path
+  // and is intentionally not registered here.
+  if (out_channels == 4 && in_channels == 4)
+  {
+    if (groups == 1)
+      return static_cast<K>(&templated_conv1x1_kernel<4, 4, 1>);
+    if (groups == 2)
+      return static_cast<K>(&templated_conv1x1_kernel<4, 4, 2>);
+  }
+  if (out_channels == 6 && in_channels == 6)
+  {
+    if (groups == 1)
+      return static_cast<K>(&templated_conv1x1_kernel<6, 6, 1>);
+    if (groups == 2)
+      return static_cast<K>(&templated_conv1x1_kernel<6, 6, 2>);
+    if (groups == 3)
+      return static_cast<K>(&templated_conv1x1_kernel<6, 6, 3>);
+  }
+  if (out_channels == 8 && in_channels == 8)
+  {
+    if (groups == 1)
+      return static_cast<K>(&templated_conv1x1_kernel<8, 8, 1>);
+    if (groups == 2)
+      return static_cast<K>(&templated_conv1x1_kernel<8, 8, 2>);
+    if (groups == 4)
+      return static_cast<K>(&templated_conv1x1_kernel<8, 8, 4>);
+  }
+  if (out_channels == 12 && in_channels == 12)
+  {
+    if (groups == 1)
+      return static_cast<K>(&templated_conv1x1_kernel<12, 12, 1>);
+    if (groups == 2)
+      return static_cast<K>(&templated_conv1x1_kernel<12, 12, 2>);
+    if (groups == 3)
+      return static_cast<K>(&templated_conv1x1_kernel<12, 12, 3>);
+    if (groups == 4)
+      return static_cast<K>(&templated_conv1x1_kernel<12, 12, 4>);
+    if (groups == 6)
+      return static_cast<K>(&templated_conv1x1_kernel<12, 12, 6>);
+  }
+  if (out_channels == 16 && in_channels == 16)
+  {
+    if (groups == 1)
+      return static_cast<K>(&templated_conv1x1_kernel<16, 16, 1>);
+    if (groups == 2)
+      return static_cast<K>(&templated_conv1x1_kernel<16, 16, 2>);
+    if (groups == 4)
+      return static_cast<K>(&templated_conv1x1_kernel<16, 16, 4>);
+    if (groups == 8)
+      return static_cast<K>(&templated_conv1x1_kernel<16, 16, 8>);
+  }
+  return nullptr;
+}
+} // namespace
+
 nam::Conv1x1::Conv1x1(const int in_channels, const int out_channels, const bool _bias, const int groups)
 {
   // Validate that channels divide evenly by groups
@@ -376,6 +476,9 @@ nam::Conv1x1::Conv1x1(const int in_channels, const int out_channels, const bool 
     this->_weight.resize(out_channels, in_channels);
     this->_weight.setZero();
     this->_channels = 0;
+    // Look up a shape-specialized templated kernel. Skips zeros for grouped cases and
+    // bypasses Eigen GEMM for small dense cases. nullptr -> fall back to generic kernel.
+    this->_kernel = pick_conv1x1_kernel(out_channels, in_channels, groups);
   }
 
   if (_bias)
@@ -452,9 +555,14 @@ Eigen::MatrixXf nam::Conv1x1::process(const Eigen::MatrixXf& input, const int nu
     // Each channel is scaled by its corresponding weight
     result.noalias() = this->_depthwise_weight.asDiagonal() * input.leftCols(num_frames);
   }
+  else if (this->_kernel != nullptr)
+  {
+    // Shape-specialized templated kernel (constexpr-unrolled, skips off-diagonal zeros).
+    this->_kernel(this->_weight.data(), input.data(), result.data(), num_frames, (int)input.outerStride());
+  }
   else
   {
-    // Single GEMM for all cases - block-diagonal zero structure handles grouping
+    // Generic fallback: single dense GEMM through the block-diagonal zero structure.
     result.noalias() = this->_weight * input.leftCols(num_frames);
   }
 
@@ -476,6 +584,12 @@ void nam::Conv1x1::process_(const Eigen::Ref<const Eigen::MatrixXf>& input, cons
     // Depthwise convolution: efficient element-wise multiplication
     // Each channel is scaled by its corresponding weight
     _output.leftCols(num_frames).noalias() = this->_depthwise_weight.asDiagonal() * input.leftCols(num_frames);
+  }
+  else if (this->_kernel != nullptr)
+  {
+    // Shape-specialized templated kernel (constexpr-unrolled, skips off-diagonal zeros
+    // for grouped cases). Bias is applied after this block by the shared bias path.
+    this->_kernel(this->_weight.data(), input.data(), _output.data(), num_frames, (int)input.outerStride());
   }
   else
   {
@@ -745,7 +859,9 @@ void nam::Conv1x1::process_(const Eigen::Ref<const Eigen::MatrixXf>& input, cons
       }
     }
 #else
-    // Single GEMM for all cases - block-diagonal zero structure handles grouping
+    // Single GEMM for all cases - block-diagonal zero structure handles grouping.
+    // Per-group Eigen blocks were tried but small-block GEMM overhead dominates;
+    // see the inline-GEMM path above for grouped-specific kernels.
     _output.leftCols(num_frames).noalias() = this->_weight * input.leftCols(num_frames);
 #endif
   }

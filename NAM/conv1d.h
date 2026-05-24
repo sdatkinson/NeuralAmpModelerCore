@@ -117,6 +117,11 @@ public:
   /// \return true if bias is present, false otherwise
   bool has_bias() const { return this->_bias.size() > 0; };
 
+  // Function pointer to a shape-specialized per-tap GEMM kernel that accumulates into
+  // the output buffer (out += weight * in). Public so the dispatch table in conv1d.cpp
+  // can return values of this type without exposing internals.
+  using TapKernel = void (*)(const float* weight, const float* in, float* out, int num_frames);
+
 protected:
   // conv[kernel](cout, cin) - used for non-depthwise convolutions
   std::vector<Eigen::MatrixXf> _weight;
@@ -128,6 +133,12 @@ protected:
   Eigen::VectorXf _bias;
   int _dilation;
   int _num_groups;
+
+  // Set at construction time when (in_channels, out_channels, groups) matches a
+  // registered template specialization. When non-null, the non-depthwise Process /
+  // process_ paths invoke this per tap instead of running a dense Eigen / inline GEMM
+  // through the block-diagonal zero structure. nullptr -> fall back to generic.
+  TapKernel _tap_kernel = nullptr;
 
 private:
   RingBuffer _input_buffer; // Ring buffer for input (channels x buffer_size)

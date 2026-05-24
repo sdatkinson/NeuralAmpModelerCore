@@ -4,6 +4,104 @@
 
 namespace nam
 {
+namespace
+{
+// Templated per-tap accumulating kernel for Conv1D.
+// OutCh, InCh, Groups are compile-time constants so the compiler unrolls every loop
+// and folds all index arithmetic. Off-block-diagonal zeros are never visited.
+// Weight memory layout is col-major (out_channels rows x in_channels cols), matching
+// Eigen::MatrixXf default storage in nam::Conv1D::_weight[k].
+// Input layout is assumed contiguous (channels rows x num_frames cols, col-major), as
+// the existing inline-GEMM cascade also assumes.
+template <int OutCh, int InCh, int Groups>
+void templated_conv1d_tap_kernel(const float* __restrict__ weight, const float* __restrict__ in,
+                                 float* __restrict__ out, int num_frames)
+{
+  static_assert(OutCh % Groups == 0, "OutCh must be divisible by Groups");
+  static_assert(InCh % Groups == 0, "InCh must be divisible by Groups");
+  constexpr int OutPerG = OutCh / Groups;
+  constexpr int InPerG = InCh / Groups;
+  for (int f = 0; f < num_frames; f++)
+  {
+    const float* __restrict__ in_col = in + f * InCh;
+    float* __restrict__ out_col = out + f * OutCh;
+    for (int g = 0; g < Groups; g++)
+    {
+      const int o_base = g * OutPerG;
+      const int i_base = g * InPerG;
+      for (int o = 0; o < OutPerG; o++)
+      {
+        float sum = 0.0f;
+        for (int i = 0; i < InPerG; i++)
+        {
+          sum += weight[(i_base + i) * OutCh + (o_base + o)] * in_col[i_base + i];
+        }
+        out_col[o_base + o] += sum;
+      }
+    }
+  }
+}
+
+// Map (out_channels, in_channels, groups) -> templated tap-kernel function pointer.
+// Returns nullptr for unregistered shapes; caller falls back to existing inline /
+// Eigen GEMM cascade. Depthwise (groups == channels) is handled by Conv1D's existing
+// _is_depthwise path and is intentionally not registered here.
+nam::Conv1D::TapKernel pick_conv1d_tap_kernel(int out_channels, int in_channels, int groups)
+{
+  using K = nam::Conv1D::TapKernel;
+  if (out_channels == 4 && in_channels == 4)
+  {
+    if (groups == 1)
+      return static_cast<K>(&templated_conv1d_tap_kernel<4, 4, 1>);
+    if (groups == 2)
+      return static_cast<K>(&templated_conv1d_tap_kernel<4, 4, 2>);
+  }
+  if (out_channels == 6 && in_channels == 6)
+  {
+    if (groups == 1)
+      return static_cast<K>(&templated_conv1d_tap_kernel<6, 6, 1>);
+    if (groups == 2)
+      return static_cast<K>(&templated_conv1d_tap_kernel<6, 6, 2>);
+    if (groups == 3)
+      return static_cast<K>(&templated_conv1d_tap_kernel<6, 6, 3>);
+  }
+  if (out_channels == 8 && in_channels == 8)
+  {
+    if (groups == 1)
+      return static_cast<K>(&templated_conv1d_tap_kernel<8, 8, 1>);
+    if (groups == 2)
+      return static_cast<K>(&templated_conv1d_tap_kernel<8, 8, 2>);
+    if (groups == 4)
+      return static_cast<K>(&templated_conv1d_tap_kernel<8, 8, 4>);
+  }
+  if (out_channels == 12 && in_channels == 12)
+  {
+    if (groups == 1)
+      return static_cast<K>(&templated_conv1d_tap_kernel<12, 12, 1>);
+    if (groups == 2)
+      return static_cast<K>(&templated_conv1d_tap_kernel<12, 12, 2>);
+    if (groups == 3)
+      return static_cast<K>(&templated_conv1d_tap_kernel<12, 12, 3>);
+    if (groups == 4)
+      return static_cast<K>(&templated_conv1d_tap_kernel<12, 12, 4>);
+    if (groups == 6)
+      return static_cast<K>(&templated_conv1d_tap_kernel<12, 12, 6>);
+  }
+  if (out_channels == 16 && in_channels == 16)
+  {
+    if (groups == 1)
+      return static_cast<K>(&templated_conv1d_tap_kernel<16, 16, 1>);
+    if (groups == 2)
+      return static_cast<K>(&templated_conv1d_tap_kernel<16, 16, 2>);
+    if (groups == 4)
+      return static_cast<K>(&templated_conv1d_tap_kernel<16, 16, 4>);
+    if (groups == 8)
+      return static_cast<K>(&templated_conv1d_tap_kernel<16, 16, 8>);
+  }
+  return nullptr;
+}
+} // namespace
+
 // Conv1D =====================================================================
 
 void Conv1D::set_weights_(std::vector<float>::iterator& weights)
@@ -86,6 +184,7 @@ void Conv1D::set_size_(const int in_channels, const int out_channels, const int 
       this->_depthwise_weight[i].setZero();
     }
     this->_weight.clear(); // Not used for depthwise
+    this->_tap_kernel = nullptr;
   }
   else
   {
@@ -99,6 +198,10 @@ void Conv1D::set_size_(const int in_channels, const int out_channels, const int 
     }
     this->_depthwise_weight.clear(); // Not used for non-depthwise
     this->_channels = 0;
+    // Look up a shape-specialized templated per-tap kernel. Skips zeros for grouped
+    // cases and bypasses Eigen GEMM for small dense cases. nullptr -> fall back to
+    // existing inline / Eigen GEMM cascade.
+    this->_tap_kernel = pick_conv1d_tap_kernel(out_channels, in_channels, groups);
   }
 
   if (do_bias)
@@ -250,6 +353,21 @@ void Conv1D::Process(const Eigen::MatrixXf& input, const int num_frames)
         this->_depthwise_weight[k].asDiagonal() * input_block.leftCols(num_frames);
     }
 #endif
+  }
+  else if (this->_tap_kernel != nullptr)
+  {
+    // Shape-specialized templated per-tap kernel (constexpr-unrolled, skips off-diagonal
+    // zeros for grouped cases). Accumulates across taps so output must be zeroed first.
+    _output.leftCols(num_frames).setZero();
+    const size_t kernel_size = this->_weight.size();
+    float* __restrict__ output_ptr = _output.data();
+    for (size_t k = 0; k < kernel_size; k++)
+    {
+      const long offset = this->_dilation * (k + 1 - (long)kernel_size);
+      const long lookback = -offset;
+      auto input_block = _input_buffer.Read(num_frames, lookback);
+      this->_tap_kernel(this->_weight[k].data(), input_block.data(), output_ptr, num_frames);
+    }
   }
   else
   {
@@ -734,6 +852,20 @@ void Conv1D::process_(const Eigen::MatrixXf& input, Eigen::MatrixXf& output, con
       else
         output.middleCols(j_start, ncols).noalias() +=
           this->_depthwise_weight[k].asDiagonal() * input.middleCols(i_start + offset, ncols);
+    }
+  }
+  else if (this->_tap_kernel != nullptr && input.outerStride() == input.rows() && output.outerStride() == output.rows())
+  {
+    // Shape-specialized templated per-tap kernel; accumulates so zero the output slice first.
+    // Guarded by the stride check because the kernel assumes contiguous column-major storage.
+    output.middleCols(j_start, ncols).setZero();
+    float* __restrict__ out_ptr = output.data() + j_start * output.rows();
+    const size_t kernel_size = this->_weight.size();
+    for (size_t k = 0; k < kernel_size; k++)
+    {
+      const long offset = this->_dilation * (k + 1 - (long)kernel_size);
+      const float* __restrict__ in_ptr = input.data() + (i_start + offset) * input.rows();
+      this->_tap_kernel(this->_weight[k].data(), in_ptr, out_ptr, (int)ncols);
     }
   }
   else
