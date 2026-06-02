@@ -48,7 +48,7 @@ namespace
 //   - condition_size == input_size == out_channels == 1
 //   - LeakyReLU(0.01) on every layer, no gating, no FiLM, no head1x1
 //   - layer1x1 active (groups=1), head rechannel conv k=16 bias=true
-//   - head_scale == 0.01, no post-stack head
+//   - no post-stack head
 //
 // Weight storage: column-major per kernel tap. For a (out_ch × in_ch) matrix
 // at tap k, element (row=i, col=j) lives at w[k][j * out_ch + i]. All 1×1
@@ -763,11 +763,10 @@ bool is_a2_shape(const nlohmann::json& config, int* channels)
   if (head_it != config.end() && !head_it->is_null())
     return false;
 
-  // head_scale must be exactly 0.01
+  // head_scale is loaded from the trailing weight, but require the field to
+  // stay schema-compatible with the generic WaveNet parser.
   auto hs_it = config.find("head_scale");
   if (hs_it == config.end() || !hs_it->is_number())
-    return false;
-  if (!close_to(hs_it->get<float>(), kHeadScale))
     return false;
 
   // in_channels defaults to 1, must be 1

@@ -31,7 +31,7 @@ namespace a2_fast
 constexpr int kNumLayers = 23;
 /// \brief Kernel size of the layer-array head rechannel convolution.
 constexpr int kHeadKernelSize = 16;
-/// \brief Head scale factor used by every A2 model.
+/// \brief Default head scale used by synthetic A2 configs; real models load this from weights.
 constexpr float kHeadScale = 0.01f;
 /// \brief LeakyReLU negative-slope used by every layer.
 constexpr float kLeakySlope = 0.01f;
