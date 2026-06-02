@@ -319,6 +319,7 @@ int main()
   // A2 fast-path WaveNet: detector coverage + numerical match against generic.
   test_a2_fast::test_detector_matches_nano();
   test_a2_fast::test_detector_matches_standard();
+  test_a2_fast::test_detector_accepts_nonstandard_head_scale();
   test_a2_fast::test_detector_rejects_wrong_channels();
   test_a2_fast::test_detector_rejects_wrong_kernel_sizes();
   test_a2_fast::test_detector_rejects_wrong_activation();

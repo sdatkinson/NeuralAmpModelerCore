@@ -83,7 +83,7 @@ nlohmann::json build_a2_config(int channels)
 
   json config;
   config["layers"] = json::array({layer});
-  config["head_scale"] = nam::wavenet::a2_fast::kHeadScale;
+  config["head_scale"] = 0.01f;
   return config;
 }
 
@@ -185,6 +185,15 @@ void test_detector_matches_nano()
 void test_detector_matches_standard()
 {
   auto cfg = build_a2_config(8);
+  int ch = 0;
+  assert(nam::wavenet::a2_fast::is_a2_shape(cfg, &ch));
+  assert(ch == 8);
+}
+
+void test_detector_accepts_nonstandard_head_scale()
+{
+  auto cfg = build_a2_config(8);
+  cfg["head_scale"] = 0.0042f;
   int ch = 0;
   assert(nam::wavenet::a2_fast::is_a2_shape(cfg, &ch));
   assert(ch == 8);
