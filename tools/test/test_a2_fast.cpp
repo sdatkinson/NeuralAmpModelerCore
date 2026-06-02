@@ -83,7 +83,7 @@ nlohmann::json build_a2_config(int channels)
 
   json config;
   config["layers"] = json::array({layer});
-  config["head_scale"] = nam::wavenet::a2_fast::kHeadScale;
+  config["head_scale"] = 0.01f;
   return config;
 }
 

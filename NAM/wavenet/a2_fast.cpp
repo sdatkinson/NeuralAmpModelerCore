@@ -120,7 +120,7 @@ private:
 
   // Head scale is stored as the trailing float in the weights stream (the generic
   // WaveNet reads it the same way, overriding the JSON head_scale field).
-  float _head_scale = kHeadScale;
+  float _head_scale = 1.0f;
 
   // Head ring buffer (Channels rows, col-major). Same ring layout as per-layer.
   std::vector<float> _head_history;
