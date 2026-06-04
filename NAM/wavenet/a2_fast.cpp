@@ -344,17 +344,18 @@ void A2FastModel<Channels>::SetMaxBufferSize(int maxBufferSize)
 
 // -----------------------------------------------------------------------------
 // Ring-write helpers.
-//   Mode 1: pow2 + tail mirror. Constant-time per block (one short memcpy
-//   into the ring, one mirror refresh).
-//   Mode 0: linear with periodic memmove rewind. When write_pos nears the
-//   end of history, memmove the trailing max_lookback cols back to offset 0
-//   and reset write_pos. That memmove is the jitter spike we're measuring.
+//   Mode 1: pow2 + tail mirror, mirror-on-demand. Reads in _layer_forward_k
+//   use `tap_base + f` without masking, so the mirror region at
+//   [pow2_size, pow2_size + mbs) must cover any reads that overflow past
+//   pow2_size. After each write, predict where the next call's tap reads will
+//   land and mirror only the columns that actually overflow — frequently zero.
+//   Avoids the full mbs*Channels*4 memcpy that a naive refresh would do.
+//   Mode 0: linear with periodic memmove rewind.
 // -----------------------------------------------------------------------------
 template <int Channels>
 void A2FastModel<Channels>::_ring_write(Layer& L, int num_frames)
 {
   #if NAM_A2_RING_MODE == 1
-  const int mbs = GetMaxBufferSize();
   float* const hist = L.history;
   const float* const src = _layer_in.data();
   const int wp = L.write_pos;
@@ -365,9 +366,26 @@ void A2FastModel<Channels>::_ring_write(Layer& L, int num_frames)
     std::memcpy(hist, src + static_cast<size_t>(first) * Channels,
                 static_cast<size_t>(num_frames - first) * Channels * sizeof(float));
   }
-  std::memcpy(
-    hist + static_cast<size_t>(L.pow2_size) * Channels, hist, static_cast<size_t>(mbs) * Channels * sizeof(float));
-  L.write_pos = (wp + num_frames) & L.pow2_mask;
+  const int new_wp = (wp + num_frames) & L.pow2_mask;
+
+  // Mirror-on-demand: for each tap, predict the read range in the next call
+  // and mirror only the columns that would overflow past pow2_size.
+  int mirror_needed = 0;
+  const int K = L.kernel_size;
+  const int D = L.dilation;
+  for (int k = 0; k < K; k++)
+  {
+    const int taps_back = K - 1 - k;
+    const int tap_base = (new_wp - num_frames - taps_back * D) & L.pow2_mask;
+    const int read_end = tap_base + num_frames - 1;
+    if (read_end >= L.pow2_size)
+      mirror_needed = std::max(mirror_needed, read_end - L.pow2_size + 1);
+  }
+  if (mirror_needed > 0)
+    std::memcpy(hist + static_cast<size_t>(L.pow2_size) * Channels, hist,
+                static_cast<size_t>(mirror_needed) * Channels * sizeof(float));
+
+  L.write_pos = new_wp;
   #else
   if (L.write_pos + num_frames > L.history_cols)
   {
