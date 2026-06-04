@@ -590,16 +590,68 @@ void A2FastModel<Channels>::_layer_forward_k(Layer& L, const float* cond, int nu
     Eigen::Map<MatCDyn> hslot_block(&_head_history[static_cast<size_t>(head_wp) * Channels], Channels, num_frames);
     Eigen::Map<MatCDyn> lin_block(_layer_in.data(), Channels, num_frames);
 
-    // Conv: one 8x8 × 8xN GEMM per tap. Tap 0 assigns into ztile (no setZero needed).
-    for (int k = 0; k < K; k++)
+    // Conv: T=4 frame-tiled, tap-major.
+    //
+    // For each tile of T=4 frames, accumulate all K taps and all Channels input
+    // channels into T*Channels output accumulators kept in local storage. The
+    // inner loop body is:
+    //
+    //   a[f][o] += Wcol[o] * h[f]   (o vectorized, h[f] scalar broadcast)
+    //
+    // where Wcol = W[:,cp] is stride-1 in o and h[f] = history[col+f][cp] is a
+    // scalar. On AArch64 the compiler emits vmlaq_n_f32 (SIMD FMA with scalar
+    // broadcast) with weight vector Wcol reused across all T frames — the same
+    // weight amortisation as an explicit NEON microkernel, without intrinsics.
+    // Equivalent SIMD broadcast-FMA instructions are emitted on x86 (AVX) and
+    // other SIMD targets automatically.
     {
-      const int tap_base = tap_base_phys(K - 1 - k);
-      Eigen::Map<const MatCC> W(&L.conv_w[static_cast<size_t>(k) * Channels * Channels]);
-      Eigen::Map<const MatCDyn> input_block(&L.history[static_cast<size_t>(tap_base) * Channels], Channels, num_frames);
-      if (k == 0)
-        ztile.noalias() = W * input_block;
-      else
-        ztile.noalias() += W * input_block;
+      float* z = _z.data();
+      constexpr int T = 4;
+      const int nF4 = (num_frames / T) * T;
+
+      for (int f = 0; f < nF4; f += T)
+      {
+        float a[T][Channels]{};  // zero-init; register-allocated by compiler
+
+        for (int k = 0; k < K; k++)
+        {
+          const float* W = &L.conv_w[static_cast<size_t>(k) * Channels * Channels];
+          const float* hb = L.history + static_cast<size_t>(tap_base_phys(K - 1 - k) + f) * Channels;
+          for (int cp = 0; cp < Channels; cp++)
+          {
+            const float* Wcol = W + cp * Channels; // stride-1 → vectorized over o
+            const float h0 = hb[cp],                   h1 = hb[Channels + cp],
+                         h2 = hb[2 * Channels + cp],   h3 = hb[3 * Channels + cp];
+            for (int o = 0; o < Channels; o++)
+            {
+              a[0][o] += Wcol[o] * h0;
+              a[1][o] += Wcol[o] * h1;
+              a[2][o] += Wcol[o] * h2;
+              a[3][o] += Wcol[o] * h3;
+            }
+          }
+        }
+        for (int ti = 0; ti < T; ti++)
+          std::memcpy(z + static_cast<size_t>(f + ti) * Channels, a[ti], Channels * sizeof(float));
+      }
+
+      // Scalar tail for any frames past the T-aligned boundary.
+      for (int f = nF4; f < num_frames; f++)
+      {
+        float* zf = z + static_cast<size_t>(f) * Channels;
+        for (int o = 0; o < Channels; o++) zf[o] = 0.0f;
+        for (int k = 0; k < K; k++)
+        {
+          const float* W = &L.conv_w[static_cast<size_t>(k) * Channels * Channels];
+          const float* h = L.history + static_cast<size_t>(tap_base_phys(K - 1 - k) + f) * Channels;
+          for (int cp = 0; cp < Channels; cp++)
+          {
+            const float hv = h[cp];
+            const float* Wcol = W + cp * Channels;
+            for (int o = 0; o < Channels; o++) zf[o] += Wcol[o] * hv;
+          }
+        }
+      }
     }
 
     // Post-conv: bias, mixin, LeakyReLU, head accumulate, 1x1 residual.
