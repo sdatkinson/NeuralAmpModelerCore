@@ -91,7 +91,8 @@ private:
     std::array<float, Channels> l1x1_b{};
 
     // Conv1D input history ring buffer, column-major (Channels rows).
-    std::vector<float> history;
+    // Points into A2FastModel::_history_arena; do not free.
+    float* history = nullptr;
   #if NAM_A2_RING_MODE == 1
     // pow2 ring + tail mirror. Storage = (pow2_size + max_buffer_size) cols.
     // write_pos is kept in [0, pow2_size), reads use (pos & pow2_mask) and are
@@ -132,6 +133,12 @@ private:
   int _head_history_cols = 0;
   int _head_write_pos = 0;
   #endif
+
+  // Single contiguous allocation for all 23 layers' history buffers.
+  // Placing them in one arena rather than 23 separate vectors distributes
+  // their base addresses across cache sets, reducing L1 set-conflict misses
+  // on narrow caches (e.g. Cortex-A8 with 16KB / 4-way = 4KB set stride).
+  std::vector<float> _history_arena;
 
   // Working buffers (all Channels rows, max_buffer_size cols, col-major).
   std::vector<float> _layer_in; // current layer input / next layer input (in-place residual)
@@ -298,18 +305,29 @@ void A2FastModel<Channels>::SetMaxBufferSize(int maxBufferSize)
   _cond.assign(static_cast<size_t>(maxBufferSize), 0.0f);
   _head_out.assign(static_cast<size_t>(maxBufferSize), 0.0f);
 
-  for (auto& L : _layers)
+  // Compute per-layer slot sizes, then allocate one contiguous arena.
+  std::array<size_t, kNumLayers> slot_sizes{};
+  size_t arena_total = 0;
+  for (int i = 0; i < kNumLayers; i++)
   {
+    Layer& L = _layers[i];
   #if NAM_A2_RING_MODE == 1
     L.pow2_size = next_pow2(L.max_lookback + maxBufferSize);
     L.pow2_mask = L.pow2_size - 1;
-    L.history.assign(static_cast<size_t>(Channels) * (L.pow2_size + maxBufferSize), 0.0f);
-    L.write_pos = L.max_lookback;
+    slot_sizes[i] = static_cast<size_t>(Channels) * (L.pow2_size + maxBufferSize);
   #else
     L.history_cols = 2 * L.max_lookback + maxBufferSize;
-    L.history.assign(static_cast<size_t>(Channels) * L.history_cols, 0.0f);
-    L.write_pos = L.max_lookback;
+    slot_sizes[i] = static_cast<size_t>(Channels) * L.history_cols;
   #endif
+    L.write_pos = L.max_lookback;
+    arena_total += slot_sizes[i];
+  }
+  _history_arena.assign(arena_total, 0.0f);
+  size_t arena_offset = 0;
+  for (int i = 0; i < kNumLayers; i++)
+  {
+    _layers[i].history = _history_arena.data() + arena_offset;
+    arena_offset += slot_sizes[i];
   }
 
   const int head_lookback = kHeadKernelSize - 1;
@@ -338,7 +356,7 @@ void A2FastModel<Channels>::_ring_write(Layer& L, int num_frames)
 {
   #if NAM_A2_RING_MODE == 1
   const int mbs = GetMaxBufferSize();
-  float* const hist = L.history.data();
+  float* const hist = L.history;
   const float* const src = _layer_in.data();
   const int wp = L.write_pos;
   const int first = std::min(num_frames, L.pow2_size - wp);
@@ -355,11 +373,11 @@ void A2FastModel<Channels>::_ring_write(Layer& L, int num_frames)
   if (L.write_pos + num_frames > L.history_cols)
   {
     const int keep = L.max_lookback;
-    std::memmove(L.history.data(), L.history.data() + static_cast<size_t>(L.write_pos - keep) * Channels,
+    std::memmove(L.history, L.history + static_cast<size_t>(L.write_pos - keep) * Channels,
                  static_cast<size_t>(keep) * Channels * sizeof(float));
     L.write_pos = keep;
   }
-  std::memcpy(L.history.data() + static_cast<size_t>(L.write_pos) * Channels, _layer_in.data(),
+  std::memcpy(L.history + static_cast<size_t>(L.write_pos) * Channels, _layer_in.data(),
               static_cast<size_t>(num_frames) * Channels * sizeof(float));
   L.write_pos += num_frames;
   #endif
