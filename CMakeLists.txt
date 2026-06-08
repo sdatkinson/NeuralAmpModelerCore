@@ -5,6 +5,13 @@ project(NAM VERSION 0.4.0)
 
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
+# Default to a Release build: without this, an empty CMAKE_BUILD_TYPE compiles
+# with no optimization flags at all, which is 10x+ slower for Eigen-heavy code.
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+	set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type (Release, Debug, RelWithDebInfo, MinSizeRel)" FORCE)
+	message(STATUS "No build type specified; defaulting to Release")
+endif()
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED OFF)
 set(CMAKE_CXX_EXTENSIONS OFF)

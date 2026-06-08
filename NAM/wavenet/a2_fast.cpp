@@ -150,7 +150,8 @@ private:
 
   void _load_weights(std::vector<float>& weights);
   void _ring_write(Layer& L, int num_frames);
-  void _layer_forward(int layer_idx, const float* cond, int num_frames, bool is_first, int head_wp);
+  void _layer_forward(int layer_idx, const float* cond, int num_frames, bool is_first, bool is_last,
+                      int head_wp);
   void _head_forward(float* output, int num_frames);
 
   // Compile-time-specialized per-layer kernel. KernelSize is lifted to a
@@ -158,7 +159,10 @@ private:
   // FMAs across taps. For the A2 shape we only need K=6 and K=15.
   // IsFirst: true for layer 0 only. Selects = vs += when writing the head
   // accumulator directly into _head_history, avoiding a separate zeroing pass.
-  template <int KernelSize, bool IsFirst>
+  // IsLast: true for the final layer only. Its layer1x1 residual output feeds
+  // no downstream layer (the model output flows through _head_history ->
+  // _head_forward), so the 1x1 projection + residual store are dead and elided.
+  template <int KernelSize, bool IsFirst, bool IsLast>
   void _layer_forward_k(Layer& L, const float* cond, int num_frames, int head_wp);
 };
 
@@ -410,7 +414,7 @@ void A2FastModel<Channels>::_ring_write(Layer& L, int num_frames)
 // clang fully unrolls and can schedule FMAs across taps. Called from the
 // runtime dispatcher below for each A2 kernel size (6 and 15).
 template <int Channels>
-template <int KernelSize, bool IsFirst>
+template <int KernelSize, bool IsFirst, bool IsLast>
 void A2FastModel<Channels>::_layer_forward_k(Layer& L, const float* cond, int num_frames, int head_wp)
 {
   constexpr int K = KernelSize;
@@ -553,11 +557,13 @@ void A2FastModel<Channels>::_layer_forward_k(Layer& L, const float* cond, int nu
         hslot[1] += a1;
         hslot[2] += a2;
       }
-      // layer1x1 residual.
-      float* lin = &_layer_in[static_cast<size_t>(f) * 3];
-      lin[0] += lb0 + lw00 * a0 + lw10 * a1 + lw20 * a2;
-      lin[1] += lb1 + lw01 * a0 + lw11 * a1 + lw21 * a2;
-      lin[2] += lb2 + lw02 * a0 + lw12 * a1 + lw22 * a2;
+      // layer1x1 residual (elided on the final layer: its output is dead).
+      if constexpr (!IsLast) {
+        float* lin = &_layer_in[static_cast<size_t>(f) * 3];
+        lin[0] += lb0 + lw00 * a0 + lw10 * a1 + lw20 * a2;
+        lin[1] += lb1 + lw01 * a0 + lw11 * a1 + lw21 * a2;
+        lin[2] += lb2 + lw02 * a0 + lw12 * a1 + lw22 * a2;
+      }
     }
   }
   else
@@ -662,8 +668,11 @@ void A2FastModel<Channels>::_layer_forward_k(Layer& L, const float* cond, int nu
       hslot_block = ztile;
     else
       hslot_block += ztile;
-    lin_block.noalias() += l1x1_mat * ztile; // 8x8 × 8xN GEMM
-    lin_block.colwise() += l1x1_b_vec;
+    // layer1x1 residual (elided on the final layer: its output is dead).
+    if constexpr (!IsLast) {
+      lin_block.noalias() += l1x1_mat * ztile; // 8x8 × 8xN GEMM
+      lin_block.colwise() += l1x1_b_vec;
+    }
   }
 }
 
@@ -672,19 +681,22 @@ void A2FastModel<Channels>::_layer_forward_k(Layer& L, const float* cond, int nu
 // here means something passed the detector that shouldn't have.
 template <int Channels>
 void A2FastModel<Channels>::_layer_forward(int layer_idx, const float* cond, int num_frames, bool is_first,
-                                           int head_wp)
+                                           bool is_last, int head_wp)
 {
   Layer& L = _layers[layer_idx];
   _ring_write(L, num_frames);
+  // is_first and is_last are mutually exclusive (>1 layer), so three combos.
   switch (L.kernel_size)
   {
     case 6:
-      if (is_first) _layer_forward_k<6, true>(L, cond, num_frames, head_wp);
-      else          _layer_forward_k<6, false>(L, cond, num_frames, head_wp);
+      if (is_first)     _layer_forward_k<6, true, false>(L, cond, num_frames, head_wp);
+      else if (is_last) _layer_forward_k<6, false, true>(L, cond, num_frames, head_wp);
+      else              _layer_forward_k<6, false, false>(L, cond, num_frames, head_wp);
       break;
     case 15:
-      if (is_first) _layer_forward_k<15, true>(L, cond, num_frames, head_wp);
-      else          _layer_forward_k<15, false>(L, cond, num_frames, head_wp);
+      if (is_first)     _layer_forward_k<15, true, false>(L, cond, num_frames, head_wp);
+      else if (is_last) _layer_forward_k<15, false, true>(L, cond, num_frames, head_wp);
+      else              _layer_forward_k<15, false, false>(L, cond, num_frames, head_wp);
       break;
     default: throw std::runtime_error("A2FastModel: unexpected kernel_size " + std::to_string(L.kernel_size));
   }
@@ -764,9 +776,9 @@ void A2FastModel<Channels>::process(NAM_SAMPLE** input, NAM_SAMPLE** output, int
 
   // Layer forward: layer 0 assigns into _head_history (IsFirst=true),
   // layers 1-22 accumulate (IsFirst=false). No separate _head_sum buffer needed.
-  _layer_forward(0, cond, num_frames, /*is_first=*/true, head_wp);
+  _layer_forward(0, cond, num_frames, /*is_first=*/true, /*is_last=*/false, head_wp);
   for (int li = 1; li < kNumLayers; li++)
-    _layer_forward(li, cond, num_frames, /*is_first=*/false, head_wp);
+    _layer_forward(li, cond, num_frames, /*is_first=*/false, /*is_last=*/li == kNumLayers - 1, head_wp);
 
   // Advance the write position past this buffer's worth of frames.
   #if NAM_A2_RING_MODE == 1
