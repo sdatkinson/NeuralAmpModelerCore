@@ -5,6 +5,11 @@ project(NAM VERSION 0.4.0)
 
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+	set(CMAKE_BUILD_TYPE Debug CACHE STRING "Build type (Release, Debug, RelWithDebInfo, MinSizeRel)" FORCE)
+	message(STATUS "No build type specified; defaulting to Debug")
+endif()
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED OFF)
 set(CMAKE_CXX_EXTENSIONS OFF)
