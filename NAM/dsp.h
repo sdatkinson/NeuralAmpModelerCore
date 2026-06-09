@@ -39,7 +39,6 @@ namespace wavenet
 class WaveNet;
 } // namespace wavenet
 
-
 /// \brief Base class for all DSP models
 ///
 /// DSP provides the common interface for all neural network-based audio processing models.
