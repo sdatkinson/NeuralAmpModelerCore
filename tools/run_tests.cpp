@@ -26,6 +26,7 @@
 #include "test/test_wavenet_gating_compatibility.cpp"
 #include "test/test_blending_detailed.cpp"
 #include "test/test_input_buffer_verification.cpp"
+#include "test/test_linear.cpp"
 #include "test/test_lstm.cpp"
 #include "test/test_wavenet_configurable_gating.cpp"
 #include "test/test_noncontiguous_blocks.cpp"
@@ -83,6 +84,11 @@ int main()
   test_dsp::test_has_output_level();
   test_dsp::test_set_input_level();
   test_dsp::test_set_output_level();
+
+  test_linear::test_direct_known_values();
+  test_linear::test_fft_matches_direct_irregular_chunks();
+  test_linear::test_auto_selection();
+  test_linear::test_parse_implementation();
 
   test_ring_buffer::test_construct();
   test_ring_buffer::test_reset();

@@ -3,7 +3,7 @@ file(GLOB NAM_SOURCES_SUB "${CMAKE_CURRENT_SOURCE_DIR}/../NAM/*/*.cpp")
 set(NAM_SOURCES ${NAM_SOURCES_TOP} ${NAM_SOURCES_SUB})
 
 # TODO: add loadmodel and run_tests to TOOLS?
-set(TOOLS benchmodel)
+set(TOOLS benchmodel bench_linear)
 
 add_custom_target(tools ALL
 	DEPENDS ${TOOLS} render)
@@ -18,6 +18,7 @@ include_directories(tools ${AUDIO_DSP_TOOLS_DIR}/dsp)
 
 add_executable(loadmodel loadmodel.cpp ${NAM_SOURCES})
 add_executable(benchmodel benchmodel.cpp ${NAM_SOURCES})
+add_executable(bench_linear bench_linear.cpp ${NAM_SOURCES})
 add_executable(render render.cpp ${NAM_SOURCES} ${AUDIO_DSP_TOOLS_WAV_SOURCES})
 target_compile_features(render PUBLIC cxx_std_20)
 # AudioDSPTools wav.cpp has sign-compare issues; don't fail build
@@ -81,31 +82,33 @@ endif()
 
 source_group(NAM ${CMAKE_CURRENT_SOURCE_DIR} FILES ${NAM_SOURCES})
 
-target_compile_features(${TOOLS} PUBLIC cxx_std_20)
+foreach(TOOL_TARGET IN LISTS TOOLS)
+	target_compile_features(${TOOL_TARGET} PUBLIC cxx_std_20)
 
-set_target_properties(${TOOLS}
-	PROPERTIES
-	CXX_VISIBILITY_PRESET hidden
-	INTERPROCEDURAL_OPTIMIZATION TRUE
-	PREFIX ""
-)
-
-if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
-	target_compile_definitions(${TOOLS} PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
-endif()
-
-if (MSVC)
-	target_compile_options(${TOOLS} PRIVATE
-		"$<$<CONFIG:DEBUG>:/W4>"
-		"$<$<CONFIG:RELEASE>:/O2>"
+	set_target_properties(${TOOL_TARGET}
+		PROPERTIES
+		CXX_VISIBILITY_PRESET hidden
+		INTERPROCEDURAL_OPTIMIZATION TRUE
+		PREFIX ""
 	)
-else()
-	target_compile_options(${TOOLS} PRIVATE
-		-Wall -Wextra -Wpedantic -Wstrict-aliasing -Wunreachable-code -Weffc++ -Wno-unused-parameter
-		"$<$<CONFIG:DEBUG>:-Og;-ggdb;-Werror>"
-		"$<$<CONFIG:RELEASE>:-Ofast>"
-	)
-endif()
+
+	if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
+		target_compile_definitions(${TOOL_TARGET} PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
+	endif()
+
+	if (MSVC)
+		target_compile_options(${TOOL_TARGET} PRIVATE
+			"$<$<CONFIG:DEBUG>:/W4>"
+			"$<$<CONFIG:RELEASE>:/O2>"
+		)
+	else()
+		target_compile_options(${TOOL_TARGET} PRIVATE
+			-Wall -Wextra -Wpedantic -Wstrict-aliasing -Wunreachable-code -Weffc++ -Wno-unused-parameter
+			"$<$<CONFIG:DEBUG>:-Og;-ggdb;-Werror>"
+			"$<$<CONFIG:RELEASE>:-Ofast>"
+		)
+	endif()
+endforeach()
 
 # There's an error in eigen's
 # /Users/steve/src/NeuralAmpModelerCore/Dependencies/eigen/Eigen/src/Core/products/GeneralBlockPanelKernel.h
