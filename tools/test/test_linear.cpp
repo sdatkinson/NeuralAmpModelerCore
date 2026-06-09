@@ -8,6 +8,8 @@
 #include <stdexcept>
 #include <vector>
 
+#include "allocation_tracking.h"
+
 namespace test_linear
 {
 namespace
@@ -57,6 +59,41 @@ std::vector<float> make_weights(const int receptive_field, const bool bias)
 void assert_near(const NAM_SAMPLE actual, const NAM_SAMPLE expected, const NAM_SAMPLE tolerance)
 {
   assert(std::abs(actual - expected) <= tolerance);
+}
+
+void assert_process_realtime_safe(const int receptive_field, const nam::LinearImplementation requested_implementation,
+                                  const nam::LinearImplementation expected_active_implementation, const char* test_name)
+{
+  const int max_buffer_size = 512;
+  const auto weights = make_weights(receptive_field, true);
+  nam::Linear model(1, 1, receptive_field, true, weights, 48000.0, requested_implementation);
+  model.Reset(48000.0, max_buffer_size);
+  assert(model.GetActiveImplementation() == expected_active_implementation);
+
+  std::vector<NAM_SAMPLE> input(max_buffer_size);
+  std::vector<NAM_SAMPLE> output(max_buffer_size);
+  for (int i = 0; i < max_buffer_size; i++)
+    input[i] = (NAM_SAMPLE)(0.1 * std::sin(0.021 * i) + 0.03 * std::cos(0.017 * i));
+
+  NAM_SAMPLE* input_ptrs[1] = {input.data()};
+  NAM_SAMPLE* output_ptrs[1] = {output.data()};
+
+  model.process(input_ptrs, output_ptrs, max_buffer_size);
+
+  const int block_sizes[] = {1, 7, 32, 64, 128, 256, 3, 511, 512};
+  allocation_tracking::run_allocation_test_no_allocations(
+    nullptr,
+    [&]() {
+      for (int pass = 0; pass < 8; pass++)
+      {
+        for (const int block_size : block_sizes)
+          model.process(input_ptrs, output_ptrs, block_size);
+      }
+    },
+    nullptr, test_name);
+
+  for (int i = 0; i < max_buffer_size; i++)
+    assert(std::isfinite(output[i]));
 }
 
 } // namespace
@@ -131,6 +168,30 @@ void test_parse_implementation()
     threw = true;
   }
   assert(threw);
+}
+
+void test_direct_process_realtime_safe()
+{
+  assert_process_realtime_safe(
+    512, nam::LinearImplementation::Direct, nam::LinearImplementation::Direct, "Linear direct process real-time safe");
+}
+
+void test_fft_process_realtime_safe()
+{
+  assert_process_realtime_safe(
+    4096, nam::LinearImplementation::FFT, nam::LinearImplementation::FFT, "Linear FFT process real-time safe");
+}
+
+void test_auto_direct_process_realtime_safe()
+{
+  assert_process_realtime_safe(128, nam::LinearImplementation::Auto, nam::LinearImplementation::Direct,
+                               "Linear auto direct process real-time safe");
+}
+
+void test_auto_fft_process_realtime_safe()
+{
+  assert_process_realtime_safe(
+    4096, nam::LinearImplementation::Auto, nam::LinearImplementation::FFT, "Linear auto FFT process real-time safe");
 }
 
 } // namespace test_linear

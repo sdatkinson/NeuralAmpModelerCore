@@ -89,6 +89,10 @@ int main()
   test_linear::test_fft_matches_direct_irregular_chunks();
   test_linear::test_auto_selection();
   test_linear::test_parse_implementation();
+  test_linear::test_direct_process_realtime_safe();
+  test_linear::test_fft_process_realtime_safe();
+  test_linear::test_auto_direct_process_realtime_safe();
+  test_linear::test_auto_fft_process_realtime_safe();
 
   test_ring_buffer::test_construct();
   test_ring_buffer::test_reset();

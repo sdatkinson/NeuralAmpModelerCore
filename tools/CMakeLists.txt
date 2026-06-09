@@ -3,7 +3,7 @@ file(GLOB NAM_SOURCES_SUB "${CMAKE_CURRENT_SOURCE_DIR}/../NAM/*/*.cpp")
 set(NAM_SOURCES ${NAM_SOURCES_TOP} ${NAM_SOURCES_SUB})
 
 # TODO: add loadmodel and run_tests to TOOLS?
-set(TOOLS benchmodel bench_linear)
+set(TOOLS benchmodel)
 
 add_custom_target(tools ALL
 	DEPENDS ${TOOLS} render)
@@ -18,7 +18,6 @@ include_directories(tools ${AUDIO_DSP_TOOLS_DIR}/dsp)
 
 add_executable(loadmodel loadmodel.cpp ${NAM_SOURCES})
 add_executable(benchmodel benchmodel.cpp ${NAM_SOURCES})
-add_executable(bench_linear bench_linear.cpp ${NAM_SOURCES})
 add_executable(render render.cpp ${NAM_SOURCES} ${AUDIO_DSP_TOOLS_WAV_SOURCES})
 target_compile_features(render PUBLIC cxx_std_20)
 # AudioDSPTools wav.cpp has sign-compare issues; don't fail build
