@@ -267,10 +267,10 @@ std::unique_ptr<DSP> get_dsp_with_current_prewarm_default(dspData& conf)
 
 std::unique_ptr<DSP> get_dsp(dspData& conf, DspLoadOptions options)
 {
-  if (options.prewarm)
+  if (!options.prewarm.has_value())
     return get_dsp_with_current_prewarm_default(conf);
 
-  ScopedPrewarmOnResetDefault scoped_prewarm_default(false);
+  ScopedPrewarmOnResetDefault scoped_prewarm_default(*options.prewarm);
   auto dsp = get_dsp_with_current_prewarm_default(conf);
   if (dsp != nullptr)
     dsp->SetPrewarmOnReset(scoped_prewarm_default.PreviousPrewarmOnReset());

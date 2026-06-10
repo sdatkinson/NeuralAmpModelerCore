@@ -2,6 +2,7 @@
 
 #include <fstream>
 #include <memory>
+#include <optional>
 #include <vector>
 
 #include "dsp.h"
@@ -68,11 +69,12 @@ const std::string EARLIEST_SUPPORTED_NAM_FILE_VERSION = "0.5.0";
 /// \brief Options that control DSP loading behavior
 struct DspLoadOptions
 {
-  /// \brief Whether Reset() calls made during loading may prewarm constructed models
+  /// \brief Whether to override the current prewarm-on-reset context during loading
   ///
-  /// Set this to false to avoid expensive prewarm work during get_dsp(). The returned model is restored to the
-  /// caller's previous prewarm-on-reset default before get_dsp() returns.
-  bool prewarm = true;
+  /// std::nullopt leaves the current thread-local context unchanged. Set this to false to avoid expensive prewarm work
+  /// during get_dsp(), or true to force prewarm during get_dsp(). When an override is provided, the returned model is
+  /// restored to the caller's previous prewarm-on-reset default before get_dsp() returns.
+  std::optional<bool> prewarm = std::nullopt;
 };
 
 /// \brief Get NAM from a .nam file at the provided location

@@ -289,7 +289,9 @@ int main()
   test_get_dsp::test_is_version_supported_core_behavior();
   test_get_dsp::test_register_custom_version_support_checker();
   test_get_dsp::test_get_dsp_default_allows_constructor_reset_prewarm();
+  test_get_dsp::test_get_dsp_default_inherits_scoped_prewarm_default();
   test_get_dsp::test_get_dsp_prewarm_option_suppresses_constructor_reset_prewarm();
+  test_get_dsp::test_get_dsp_prewarm_option_forces_constructor_reset_prewarm();
   test_get_dsp::test_get_dsp_with_returned_config_constructs_once();
 
   // Finally, some end-to-end tests.

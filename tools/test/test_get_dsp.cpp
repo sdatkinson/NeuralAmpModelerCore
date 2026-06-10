@@ -332,6 +332,20 @@ void test_get_dsp_default_allows_constructor_reset_prewarm()
   assert(typed->GetPrewarmOnReset());
 }
 
+void test_get_dsp_default_inherits_scoped_prewarm_default()
+{
+  gConstructorResetConstructCount = 0;
+
+  nam::ScopedPrewarmOnResetDefault scoped_default(false);
+  auto dsp = nam::get_dsp(build_constructor_reset_config());
+  auto* typed = dynamic_cast<ConstructorResetDSP*>(dsp.get());
+
+  assert(typed != nullptr);
+  assert(gConstructorResetConstructCount == 1);
+  assert(typed->prewarm_count == 0);
+  assert(!typed->GetPrewarmOnReset());
+}
+
 void test_get_dsp_prewarm_option_suppresses_constructor_reset_prewarm()
 {
   gConstructorResetConstructCount = 0;
@@ -345,6 +359,25 @@ void test_get_dsp_prewarm_option_suppresses_constructor_reset_prewarm()
   assert(gConstructorResetConstructCount == 1);
   assert(typed->prewarm_count == 0);
   assert(typed->GetPrewarmOnReset());
+
+  typed->Reset(48000.0, 16);
+  assert(typed->prewarm_count == 1);
+}
+
+void test_get_dsp_prewarm_option_forces_constructor_reset_prewarm()
+{
+  gConstructorResetConstructCount = 0;
+
+  nam::ScopedPrewarmOnResetDefault scoped_default(false);
+  nam::DspLoadOptions options;
+  options.prewarm = true;
+  auto dsp = nam::get_dsp(build_constructor_reset_config(), options);
+  auto* typed = dynamic_cast<ConstructorResetDSP*>(dsp.get());
+
+  assert(typed != nullptr);
+  assert(gConstructorResetConstructCount == 1);
+  assert(typed->prewarm_count == 1);
+  assert(!typed->GetPrewarmOnReset());
 
   typed->Reset(48000.0, 16);
   assert(typed->prewarm_count == 1);
