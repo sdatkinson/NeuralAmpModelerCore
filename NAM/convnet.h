@@ -151,6 +151,8 @@ public:
   /// \param maxBufferSize Maximum number of frames to process in a single call
   void SetMaxBufferSize(const int maxBufferSize) override;
 
+  int GetPrewarmSamples() override { return mPrewarmSamples; };
+
 protected:
   std::vector<ConvNetBlock> _blocks;
   std::vector<Eigen::MatrixXf> _block_vals;
@@ -162,7 +164,6 @@ protected:
   void _rewind_buffers_() override;
 
   int mPrewarmSamples = 0; // Pre-compute during initialization
-  int PrewarmSamples() override { return mPrewarmSamples; };
 };
 
 /// \brief Configuration for a ConvNet model
