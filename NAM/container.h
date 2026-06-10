@@ -38,9 +38,7 @@ public:
   void prewarm() override;
   void Reset(const double sampleRate, const int maxBufferSize) override;
   void SetSlimmableSize(const double val) override;
-
-protected:
-  int PrewarmSamples() override { return 0; }
+  int GetPrewarmSamples() override;
 
 private:
   std::vector<Submodel> _submodels;

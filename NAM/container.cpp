@@ -108,6 +108,13 @@ void ContainerModel::SetSlimmableSize(const double val)
   _active_index.store(active_index, std::memory_order_release);
 }
 
+int ContainerModel::GetPrewarmSamples()
+{
+  const size_t active_index = _active_index.load(std::memory_order_acquire);
+
+  return _submodels[active_index].model->GetPrewarmSamples();
+}
+
 // =============================================================================
 // Config / factory
 // =============================================================================

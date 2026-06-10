@@ -66,6 +66,8 @@ public:
   /// \param weights Iterator to the weights vector. Will be advanced as weights are consumed.
   void set_weights_(std::vector<float>::iterator& weights);
 
+  int GetPrewarmSamples() override { return mPrewarmSamples; };
+
 protected:
   // Element-wise arrays:
   Eigen::MatrixXf _condition_input;
@@ -111,7 +113,7 @@ private:
   Eigen::MatrixXf _scaled_head_scratch;
 
   int mPrewarmSamples = 0; // Pre-compute during initialization
-  int PrewarmSamples() override { return mPrewarmSamples; };
+
 };
 
 /// \brief Configuration for a WaveNet model

@@ -66,10 +66,10 @@ public:
   ~A2FastModel() override = default;
 
   void process(NAM_SAMPLE** input, NAM_SAMPLE** output, int num_frames) override;
+  int GetPrewarmSamples() override { return _prewarm_samples; }
 
 protected:
   void SetMaxBufferSize(int maxBufferSize) override;
-  int PrewarmSamples() override { return _prewarm_samples; }
 
 private:
   struct Layer
