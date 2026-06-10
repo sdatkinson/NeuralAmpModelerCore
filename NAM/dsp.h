@@ -133,8 +133,7 @@ public:
 
   /// \brief General function for resetting the DSP unit
   ///
-  /// This doesn't call prewarm(). If you want to do that, then you might want to use ResetAndPrewarm().
-  /// See https://github.com/sdatkinson/NeuralAmpModelerCore/issues/96 for the reasoning.
+  /// This calls prewarm() after applying the sample rate and max buffer size.
   /// \param sampleRate Current sample rate
   /// \param maxBufferSize Maximum buffer size to process
   virtual void Reset(const double sampleRate, const int maxBufferSize);
