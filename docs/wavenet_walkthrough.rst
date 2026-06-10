@@ -27,8 +27,8 @@ Here's a rundown of what's not exactly the same at an informal level:
   gated activation.
   Here, the gated activation is optional (and is frequently not used, like in the popular 
   A1 standard/lite/feather/nano configurations).
-* NAM adds further modifications: FiLMs, a bottleneck, and an arbitrary
-  "conditioning DSP" module that can be used to embed the input signal in a more
+* In v0.4.0, even more modifications have been added in--FiLMs, a bottlneck, and an
+  arbitrary "conditioning DSP" module that can be used to embed the input signal in a more
   effective way to modulate the layers in the main model.
   It doesn't need to be a WaveNet, but if it were then this feels more like a "cascading 
   (stacked) WaveNet".
