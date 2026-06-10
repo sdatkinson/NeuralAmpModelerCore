@@ -327,8 +327,9 @@ struct dspData
   nlohmann::json config; ///< Model configuration JSON
   nlohmann::json metadata; ///< Model metadata JSON
   std::vector<float> weights; ///< Model weights
-  double expected_sample_rate; ///< Expected sample rate in Hz. Most NAM models implicitly assume data at some sample
-                               ///< rate. Use -1.0 for "I don't know".
+  double expected_sample_rate = NAM_UNKNOWN_EXPECTED_SAMPLE_RATE; ///< Expected sample rate in Hz. Most NAM models
+                                                                  ///< implicitly assume data at some sample rate. Use
+                                                                  ///< -1.0 for "I don't know".
 };
 
 /// \brief Verify that the config version is supported by this plugin version

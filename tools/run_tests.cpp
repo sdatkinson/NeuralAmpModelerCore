@@ -280,6 +280,9 @@ int main()
   test_get_dsp::test_gets_output_level();
   test_get_dsp::test_null_input_level();
   test_get_dsp::test_null_output_level();
+  test_get_dsp::test_get_dsp_without_load_options_preserves_prewarm_only();
+  test_get_dsp::test_get_dsp_applies_load_options();
+  test_get_dsp::test_get_dsp_applies_slimmable_option_before_reset_with_defaults();
   test_get_dsp::test_version_patch_one_beyond_supported();
   test_get_dsp::test_version_minor_one_beyond_supported();
   test_get_dsp::test_version_too_early();
