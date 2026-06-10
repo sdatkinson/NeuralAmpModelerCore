@@ -1,7 +1,19 @@
 cmake_minimum_required(VERSION 3.10)
 
-# Make sure this matches ./NAM/version.h!
-project(NAM VERSION 0.4.0)
+file(READ "${CMAKE_CURRENT_LIST_DIR}/NAM/version.h" _nam_version_header)
+foreach(_component MAJOR MINOR PATCH)
+	string(REGEX MATCH
+		"#define[ \t]+NEURAL_AMP_MODELER_DSP_VERSION_${_component}[ \t]+([0-9]+)"
+		_nam_version_match "${_nam_version_header}"
+	)
+	if(NOT _nam_version_match)
+		message(FATAL_ERROR "Could not parse NEURAL_AMP_MODELER_DSP_VERSION_${_component} from NAM/version.h")
+	endif()
+	set(_nam_version_${_component} "${CMAKE_MATCH_1}")
+endforeach()
+
+set(_nam_project_version "${_nam_version_MAJOR}.${_nam_version_MINOR}.${_nam_version_PATCH}")
+project(NAM VERSION "${_nam_project_version}")
 
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
