@@ -10,11 +10,26 @@
 #include "json.hpp"
 #include "get_dsp.h"
 #include "model_config.h"
+#include "slimmable.h"
 
 namespace nam
 {
+std::vector<float> GetWeights(nlohmann::json const& j);
+
 namespace
 {
+
+struct LoadOptions
+{
+  std::optional<double> expectedSampleRate;
+  std::optional<int> maxBufferSize;
+  std::optional<double> slimmableSize;
+
+  bool requires_initial_reset() const
+  {
+    return expectedSampleRate.has_value() || maxBufferSize.has_value() || slimmableSize.has_value();
+  }
+};
 
 class CoreVersionSupportChecker : public IVersionSupportChecker
 {
@@ -50,6 +65,65 @@ std::mutex& version_support_registry_mutex()
 {
   static std::mutex registry_mutex;
   return registry_mutex;
+}
+
+dspData parse_dsp_data(const nlohmann::json& config, std::optional<double> expectedSampleRate)
+{
+  verify_config_version(config["version"].get<std::string>());
+
+  dspData out;
+  out.version = config["version"].get<std::string>();
+  out.architecture = config["architecture"].get<std::string>();
+  out.config = config["config"];
+  out.metadata = config.value("metadata", nlohmann::json());
+  out.weights = GetWeights(config);
+  out.expected_sample_rate = expectedSampleRate.value_or(nam::get_sample_rate_from_nam_file(config));
+  return out;
+}
+
+void apply_initial_slimmable_size(DSP& dsp, const double slimmableSize)
+{
+  auto* slimmable = dynamic_cast<SlimmableModel*>(&dsp);
+  if (slimmable == nullptr)
+    throw std::runtime_error("Cannot set slimmable size on a model that is not slimmable.");
+  slimmable->SetSlimmableSize(slimmableSize);
+}
+
+void apply_metadata(DSP& dsp, const ModelMetadata& metadata)
+{
+  if (metadata.loudness.has_value())
+    dsp.SetLoudness(metadata.loudness.value());
+  if (metadata.input_level.has_value())
+    dsp.SetInputLevel(metadata.input_level.value());
+  if (metadata.output_level.has_value())
+    dsp.SetOutputLevel(metadata.output_level.value());
+}
+
+void configure_initial_state(DSP& dsp, const ModelMetadata& metadata, const LoadOptions& options)
+{
+  if (options.slimmableSize.has_value())
+    apply_initial_slimmable_size(dsp, options.slimmableSize.value());
+
+  if (options.requires_initial_reset())
+  {
+    const double sampleRate = options.expectedSampleRate.value_or(metadata.sample_rate);
+    const int maxBufferSize = options.maxBufferSize.value_or(NAM_DEFAULT_MAX_BUFFER_SIZE);
+    dsp.Reset(sampleRate, maxBufferSize);
+  }
+  else
+  {
+    // Preserve the historical load behavior when no load-time configuration is requested.
+    dsp.prewarm();
+  }
+}
+
+std::unique_ptr<DSP> create_dsp_with_options(std::unique_ptr<ModelConfig> config, std::vector<float> weights,
+                                             const ModelMetadata& metadata, const LoadOptions& options)
+{
+  auto out = config->create(std::move(weights), metadata.sample_rate);
+  apply_metadata(*out, metadata);
+  configure_initial_state(*out, metadata, options);
+  return out;
 }
 
 } // namespace
@@ -139,51 +213,37 @@ std::vector<float> GetWeights(nlohmann::json const& j)
     throw std::runtime_error("Corrupted model file is missing weights.");
 }
 
-std::unique_ptr<DSP> get_dsp(const std::filesystem::path config_filename)
+std::unique_ptr<DSP> get_dsp(const std::filesystem::path config_filename, std::optional<double> expectedSampleRate,
+                             std::optional<int> maxBufferSize, std::optional<double> slimmableSize)
 {
   dspData temp;
-  return get_dsp(config_filename, temp);
+  return get_dsp(config_filename, temp, expectedSampleRate, maxBufferSize, slimmableSize);
 }
 
-std::unique_ptr<DSP> get_dsp(const nlohmann::json& config)
+std::unique_ptr<DSP> get_dsp(const nlohmann::json& config, std::optional<double> expectedSampleRate,
+                             std::optional<int> maxBufferSize, std::optional<double> slimmableSize)
 {
   dspData temp;
-  return get_dsp(config, temp);
+  return get_dsp(config, temp, expectedSampleRate, maxBufferSize, slimmableSize);
 }
 
-std::unique_ptr<DSP> get_dsp(const std::filesystem::path config_filename, dspData& returnedConfig)
+std::unique_ptr<DSP> get_dsp(const std::filesystem::path config_filename, dspData& returnedConfig,
+                             std::optional<double> expectedSampleRate, std::optional<int> maxBufferSize,
+                             std::optional<double> slimmableSize)
 {
   if (!std::filesystem::exists(config_filename))
     throw std::runtime_error("Config file doesn't exist!\n");
   std::ifstream i(config_filename);
   nlohmann::json j;
   i >> j;
-  get_dsp(j, returnedConfig);
-
-  /*Copy to a new dsp_config object for get_dsp below,
-   since not sure if weights actually get modified as being non-const references on some
-   model constructors inside get_dsp(dsp_config& conf).
-   We need to return unmodified version of dsp_config via returnedConfig.*/
-  dspData conf = returnedConfig;
-
-  return get_dsp(conf);
+  return get_dsp(j, returnedConfig, expectedSampleRate, maxBufferSize, slimmableSize);
 }
 
-std::unique_ptr<DSP> get_dsp(const nlohmann::json& config, dspData& returnedConfig)
+std::unique_ptr<DSP> get_dsp(const nlohmann::json& config, dspData& returnedConfig,
+                             std::optional<double> expectedSampleRate, std::optional<int> maxBufferSize,
+                             std::optional<double> slimmableSize)
 {
-  verify_config_version(config["version"].get<std::string>());
-
-  auto architecture = config["architecture"];
-  nlohmann::json config_json = config["config"];
-  std::vector<float> weights = GetWeights(config);
-
-  // Assign values to returnedConfig
-  returnedConfig.version = config["version"].get<std::string>();
-  returnedConfig.architecture = config["architecture"].get<std::string>();
-  returnedConfig.config = config_json;
-  returnedConfig.metadata = config.value("metadata", nlohmann::json());
-  returnedConfig.weights = weights;
-  returnedConfig.expected_sample_rate = nam::get_sample_rate_from_nam_file(config);
+  returnedConfig = parse_dsp_data(config, expectedSampleRate);
 
   /*Copy to a new dsp_config object for get_dsp below,
    since not sure if weights actually get modified as being non-const references on some
@@ -191,7 +251,7 @@ std::unique_ptr<DSP> get_dsp(const nlohmann::json& config, dspData& returnedConf
    We need to return unmodified version of dsp_config via returnedConfig.*/
   dspData conf = returnedConfig;
 
-  return get_dsp(conf);
+  return get_dsp(conf, expectedSampleRate, maxBufferSize, slimmableSize);
 }
 
 // =============================================================================
@@ -204,44 +264,27 @@ std::unique_ptr<ModelConfig> parse_model_config_json(const std::string& architec
   return ConfigParserRegistry::instance().parse(architecture, config, sample_rate);
 }
 
-namespace
-{
-
-void apply_metadata(DSP& dsp, const ModelMetadata& metadata)
-{
-  if (metadata.loudness.has_value())
-    dsp.SetLoudness(metadata.loudness.value());
-  if (metadata.input_level.has_value())
-    dsp.SetInputLevel(metadata.input_level.value());
-  if (metadata.output_level.has_value())
-    dsp.SetOutputLevel(metadata.output_level.value());
-}
-
-} // anonymous namespace
-
 std::unique_ptr<DSP> create_dsp(std::unique_ptr<ModelConfig> config, std::vector<float> weights,
                                 const ModelMetadata& metadata)
 {
-  auto out = config->create(std::move(weights), metadata.sample_rate);
-  apply_metadata(*out, metadata);
-  // "pre-warm" the model to settle initial conditions
-  // Can this be removed now that it's part of Reset()?
-  out->prewarm();
-  return out;
+  return create_dsp_with_options(std::move(config), std::move(weights), metadata, LoadOptions{});
 }
 
 // =============================================================================
 // get_dsp(dspData&) — now uses unified path
 // =============================================================================
 
-std::unique_ptr<DSP> get_dsp(dspData& conf)
+std::unique_ptr<DSP> get_dsp(dspData& conf, std::optional<double> expectedSampleRate, std::optional<int> maxBufferSize,
+                             std::optional<double> slimmableSize)
 {
   verify_config_version(conf.version);
+  const double effectiveSampleRate = expectedSampleRate.value_or(conf.expected_sample_rate);
+  const LoadOptions options{expectedSampleRate, maxBufferSize, slimmableSize};
 
   // Extract metadata from JSON
   ModelMetadata metadata;
   metadata.version = conf.version;
-  metadata.sample_rate = conf.expected_sample_rate;
+  metadata.sample_rate = effectiveSampleRate;
 
   if (!conf.metadata.is_null())
   {
@@ -255,8 +298,8 @@ std::unique_ptr<DSP> get_dsp(dspData& conf)
     metadata.output_level = extract("output_level_dbu");
   }
 
-  auto model_config = ConfigParserRegistry::instance().parse(conf.architecture, conf.config, conf.expected_sample_rate);
-  return create_dsp(std::move(model_config), std::move(conf.weights), metadata);
+  auto model_config = ConfigParserRegistry::instance().parse(conf.architecture, conf.config, effectiveSampleRate);
+  return create_dsp_with_options(std::move(model_config), std::move(conf.weights), metadata, options);
 }
 
 double get_sample_rate_from_nam_file(const nlohmann::json& j)

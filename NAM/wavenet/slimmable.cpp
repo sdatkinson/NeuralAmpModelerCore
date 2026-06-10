@@ -495,6 +495,12 @@ void SlimmableWavenet::SetSlimmableSize(const double val)
       target[i] = ratio_to_channels(val, allowed);
   }
 
+  if (_current_buffer_size <= 0)
+  {
+    _rebuild_model(target);
+    return;
+  }
+
   _stage_rebuild_model(target);
 }
 

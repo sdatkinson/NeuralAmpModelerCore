@@ -3,6 +3,7 @@
 #include <filesystem>
 #include <iostream>
 #include <memory>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -10,6 +11,8 @@
 #include "json.hpp"
 
 #include "NAM/get_dsp.h"
+#include "NAM/registry.h"
+#include "NAM/slimmable.h"
 
 namespace test_get_dsp
 {
@@ -44,6 +47,65 @@ nam::dspData _GetConfig(const std::string& configStr = basicConfigStr)
   returnedConfig.weights = weights;
 
   return returnedConfig;
+}
+
+class LoadOptionsDSP : public nam::DSP, public nam::SlimmableModel
+{
+public:
+  explicit LoadOptionsDSP(const double expected_sample_rate)
+  : nam::DSP(1, 1, expected_sample_rate)
+  {
+  }
+
+  void Reset(const double sampleRate, const int maxBufferSize) override
+  {
+    reset_count++;
+    reset_sample_rate = sampleRate;
+    reset_buffer_size = maxBufferSize;
+    nam::DSP::Reset(sampleRate, maxBufferSize);
+  }
+
+  void prewarm() override { prewarm_count++; }
+
+  void SetSlimmableSize(const double val) override
+  {
+    slim_set_count++;
+    slim_set_size = val;
+    slim_set_before_reset = reset_count == 0;
+  }
+
+  int reset_count = 0;
+  int prewarm_count = 0;
+  int slim_set_count = 0;
+  double reset_sample_rate = 0.0;
+  int reset_buffer_size = 0;
+  double slim_set_size = -1.0;
+  bool slim_set_before_reset = false;
+};
+
+std::unique_ptr<nam::DSP> LoadOptionsFactory(const nlohmann::json& config, std::vector<float>& weights,
+                                             const double expectedSampleRate)
+{
+  (void)config;
+  (void)weights;
+  return std::make_unique<LoadOptionsDSP>(expectedSampleRate);
+}
+
+namespace
+{
+static nam::factory::Helper _register_LoadOptionsArchitecture("LoadOptionsArchitecture", LoadOptionsFactory);
+}
+
+nlohmann::json load_options_config()
+{
+  return nlohmann::json::parse(R"({
+    "version": "0.7.0",
+    "metadata": {},
+    "architecture": "LoadOptionsArchitecture",
+    "config": {},
+    "weights": [],
+    "sample_rate": 48000
+  })");
 }
 
 void test_gets_input_level()
@@ -82,6 +144,45 @@ void test_null_output_level()
   std::unique_ptr<nam::DSP> dsp = get_dsp(config);
   assert(dsp->HasInputLevel());
   assert(!dsp->HasOutputLevel());
+}
+
+void test_get_dsp_without_load_options_preserves_prewarm_only()
+{
+  auto dsp = nam::get_dsp(load_options_config());
+  auto* loaded = dynamic_cast<LoadOptionsDSP*>(dsp.get());
+  assert(loaded != nullptr);
+  assert(loaded->reset_count == 0);
+  assert(loaded->prewarm_count == 1);
+  assert(std::abs(loaded->GetExpectedSampleRate() - 48000.0) < 1e-9);
+}
+
+void test_get_dsp_applies_load_options()
+{
+  nam::dspData returnedConfig;
+  auto dsp =
+    nam::get_dsp(load_options_config(), returnedConfig, std::optional<double>{44100.0}, std::optional<int>{128});
+  auto* loaded = dynamic_cast<LoadOptionsDSP*>(dsp.get());
+  assert(loaded != nullptr);
+  assert(loaded->reset_count == 1);
+  assert(loaded->prewarm_count == 1);
+  assert(loaded->reset_sample_rate == 44100.0);
+  assert(loaded->reset_buffer_size == 128);
+  assert(std::abs(loaded->GetExpectedSampleRate() - 44100.0) < 1e-9);
+  assert(returnedConfig.expected_sample_rate == 44100.0);
+}
+
+void test_get_dsp_applies_slimmable_option_before_reset_with_defaults()
+{
+  auto dsp = nam::get_dsp(load_options_config(), std::nullopt, std::optional<int>{256}, std::optional<double>{0.25});
+  auto* loaded = dynamic_cast<LoadOptionsDSP*>(dsp.get());
+  assert(loaded != nullptr);
+  assert(loaded->slim_set_count == 1);
+  assert(loaded->slim_set_size == 0.25);
+  assert(loaded->slim_set_before_reset);
+  assert(loaded->reset_count == 1);
+  assert(loaded->prewarm_count == 1);
+  assert(loaded->reset_sample_rate == 48000.0);
+  assert(loaded->reset_buffer_size == 256);
 }
 
 // Helper function to process buffers through a DSP model

@@ -100,6 +100,13 @@ void ContainerModel::SetSlimmableSize(const double val)
   {
     return;
   }
+
+  if (!mHaveExternalSampleRate && GetMaxBufferSize() == 0)
+  {
+    _active_index.store(active_index, std::memory_order_release);
+    return;
+  }
+
   // Setting _active_index puts the model in the RT path, so reset before doing that.
   const double sr = mHaveExternalSampleRate ? mExternalSampleRate : mExpectedSampleRate;
   _submodels[active_index].model->Reset(sr, GetMaxBufferSize());

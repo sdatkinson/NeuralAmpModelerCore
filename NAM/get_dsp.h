@@ -2,6 +2,7 @@
 
 #include <fstream>
 #include <memory>
+#include <optional>
 #include <vector>
 
 #include "dsp.h"
@@ -67,32 +68,60 @@ const std::string EARLIEST_SUPPORTED_NAM_FILE_VERSION = "0.5.0";
 
 /// \brief Get NAM from a .nam file at the provided location
 /// \param config_filename Path to the .nam model file
+/// \param expectedSampleRate Expected sample rate to configure the model with; std::nullopt uses the file default
+/// \param maxBufferSize Maximum buffer size to configure the model with; std::nullopt uses NAM_DEFAULT_MAX_BUFFER_SIZE
+/// \param slimmableSize Slimmable size to configure the model with; std::nullopt uses the model default
 /// \return Unique pointer to a DSP object
-std::unique_ptr<DSP> get_dsp(const std::filesystem::path config_filename);
+std::unique_ptr<DSP> get_dsp(const std::filesystem::path config_filename,
+                             std::optional<double> expectedSampleRate = std::nullopt,
+                             std::optional<int> maxBufferSize = std::nullopt,
+                             std::optional<double> slimmableSize = std::nullopt);
 
 /// \brief Get NAM from a provided configuration struct
 /// \param conf DSP data structure containing model configuration and weights
+/// \param expectedSampleRate Expected sample rate to configure the model with; std::nullopt uses the config default
+/// \param maxBufferSize Maximum buffer size to configure the model with; std::nullopt uses NAM_DEFAULT_MAX_BUFFER_SIZE
+/// \param slimmableSize Slimmable size to configure the model with; std::nullopt uses the model default
 /// \return Unique pointer to a DSP object
-std::unique_ptr<DSP> get_dsp(dspData& conf);
+std::unique_ptr<DSP> get_dsp(dspData& conf, std::optional<double> expectedSampleRate = std::nullopt,
+                             std::optional<int> maxBufferSize = std::nullopt,
+                             std::optional<double> slimmableSize = std::nullopt);
 
 /// \brief Get NAM from a .nam file and store its configuration
 ///
 /// Creates an instance of DSP and also returns a dspData struct that holds the data of the model.
 /// \param config_filename Path to the .nam model file
 /// \param returnedConfig Output parameter that will be filled with the model data
+/// \param expectedSampleRate Expected sample rate to configure the model with; std::nullopt uses the file default
+/// \param maxBufferSize Maximum buffer size to configure the model with; std::nullopt uses NAM_DEFAULT_MAX_BUFFER_SIZE
+/// \param slimmableSize Slimmable size to configure the model with; std::nullopt uses the model default
 /// \return Unique pointer to a DSP object
-std::unique_ptr<DSP> get_dsp(const std::filesystem::path config_filename, dspData& returnedConfig);
+std::unique_ptr<DSP> get_dsp(const std::filesystem::path config_filename, dspData& returnedConfig,
+                             std::optional<double> expectedSampleRate = std::nullopt,
+                             std::optional<int> maxBufferSize = std::nullopt,
+                             std::optional<double> slimmableSize = std::nullopt);
 
 /// \brief Get NAM from a provided configuration JSON object
 /// \param config JSON configuration object
 /// \param returnedConfig Output parameter that will be filled with the model data
+/// \param expectedSampleRate Expected sample rate to configure the model with; std::nullopt uses the file default
+/// \param maxBufferSize Maximum buffer size to configure the model with; std::nullopt uses NAM_DEFAULT_MAX_BUFFER_SIZE
+/// \param slimmableSize Slimmable size to configure the model with; std::nullopt uses the model default
 /// \return Unique pointer to a DSP object
-std::unique_ptr<DSP> get_dsp(const nlohmann::json& config, dspData& returnedConfig);
+std::unique_ptr<DSP> get_dsp(const nlohmann::json& config, dspData& returnedConfig,
+                             std::optional<double> expectedSampleRate = std::nullopt,
+                             std::optional<int> maxBufferSize = std::nullopt,
+                             std::optional<double> slimmableSize = std::nullopt);
 
 /// \brief Get NAM from a provided configuration JSON object (convenience overload)
 /// \param config JSON configuration object
+/// \param expectedSampleRate Expected sample rate to configure the model with; std::nullopt uses the file default
+/// \param maxBufferSize Maximum buffer size to configure the model with; std::nullopt uses NAM_DEFAULT_MAX_BUFFER_SIZE
+/// \param slimmableSize Slimmable size to configure the model with; std::nullopt uses the model default
 /// \return Unique pointer to a DSP object
-std::unique_ptr<DSP> get_dsp(const nlohmann::json& config);
+std::unique_ptr<DSP> get_dsp(const nlohmann::json& config, std::optional<double> expectedSampleRate = std::nullopt,
+                             std::optional<int> maxBufferSize = std::nullopt,
+                             std::optional<double> slimmableSize = std::nullopt);
 
 /// \brief Get sample rate from a .nam file
 /// \param j JSON object from the .nam file

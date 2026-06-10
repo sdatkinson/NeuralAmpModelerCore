@@ -133,8 +133,7 @@ public:
 
   /// \brief General function for resetting the DSP unit
   ///
-  /// This doesn't call prewarm(). If you want to do that, then you might want to use ResetAndPrewarm().
-  /// See https://github.com/sdatkinson/NeuralAmpModelerCore/issues/96 for the reasoning.
+  /// This calls prewarm() after applying the sample rate and max buffer size.
   /// \param sampleRate Current sample rate
   /// \param maxBufferSize Maximum buffer size to process
   virtual void Reset(const double sampleRate, const int maxBufferSize);
@@ -327,8 +326,9 @@ struct dspData
   nlohmann::json config; ///< Model configuration JSON
   nlohmann::json metadata; ///< Model metadata JSON
   std::vector<float> weights; ///< Model weights
-  double expected_sample_rate; ///< Expected sample rate in Hz. Most NAM models implicitly assume data at some sample
-                               ///< rate. Use -1.0 for "I don't know".
+  double expected_sample_rate = NAM_UNKNOWN_EXPECTED_SAMPLE_RATE; ///< Expected sample rate in Hz. Most NAM models
+                                                                  ///< implicitly assume data at some sample rate. Use
+                                                                  ///< -1.0 for "I don't know".
 };
 
 /// \brief Verify that the config version is supported by this plugin version
