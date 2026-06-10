@@ -122,8 +122,9 @@ void nam::lstm::LSTM::process(NAM_SAMPLE** input, NAM_SAMPLE** output, const int
   }
 }
 
-int nam::lstm::LSTM::PrewarmSamples()
+int nam::lstm::LSTM::GetPrewarmSamples()
 {
+  // Hacky, but a half-second seems to work for most models.
   int result = (int)(0.5 * mExpectedSampleRate);
   // If the expected sample rate wasn't provided, it'll be -1.
   // Make sure something still happens.

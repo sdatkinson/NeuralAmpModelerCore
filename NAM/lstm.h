@@ -78,9 +78,7 @@ public:
   /// \param num_frames Number of frames to process
   void process(NAM_SAMPLE** input, NAM_SAMPLE** output, const int num_frames) override;
 
-protected:
-  // Hacky, but a half-second seems to work for most models.
-  int PrewarmSamples() override;
+  int GetPrewarmSamples() override;
 
   Eigen::MatrixXf _head_weight; // (out_channels x hidden_size)
   Eigen::VectorXf _head_bias; // (out_channels)

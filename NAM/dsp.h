@@ -131,6 +131,12 @@ public:
   /// \return true if output level is known, false otherwise
   bool HasOutputLevel();
 
+  /// \brief Get how many samples should be processed for the model to be considered "warmed up"
+  ///
+  /// Override this in subclasses to specify prewarm requirements.
+  /// \return Number of samples needed for prewarm
+  virtual int GetPrewarmSamples() { return 0; };
+
   /// \brief General function for resetting the DSP unit
   ///
   /// This doesn't call prewarm(). If you want to do that, then you might want to use ResetAndPrewarm().
@@ -177,12 +183,6 @@ protected:
   double mExternalSampleRate = -1.0;
   // The largest buffer I expect to be told to process:
   int mMaxBufferSize = 0;
-
-  /// \brief Get how many samples should be processed for the model to be considered "warmed up"
-  ///
-  /// Override this in subclasses to specify prewarm requirements.
-  /// \return Number of samples needed for prewarm
-  virtual int PrewarmSamples() { return 0; };
 
   /// \brief Set the maximum buffer size
   /// \param maxBufferSize Maximum number of frames to process in a single call

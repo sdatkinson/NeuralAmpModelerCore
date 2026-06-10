@@ -613,7 +613,7 @@ nam::wavenet::WaveNet::WaveNet(const int in_channels,
   this->set_weights_(weights);
 
   // Finally, figure out how much pre-warming is needed for this model.
-  mPrewarmSamples = this->_condition_dsp != nullptr ? this->_condition_dsp->PrewarmSamples() : 1;
+  mPrewarmSamples = this->_condition_dsp != nullptr ? this->_condition_dsp->GetPrewarmSamples() : 1;
   for (size_t i = 0; i < this->_layer_arrays.size(); i++)
     mPrewarmSamples += this->_layer_arrays[i].get_receptive_field();
   if (this->_post_stack_head != nullptr)
