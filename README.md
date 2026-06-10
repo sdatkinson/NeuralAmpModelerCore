@@ -24,5 +24,5 @@ This library uses [Eigen](http://eigen.tuxfamily.org) to do the linear algebra r
   <img src="media/tone3000-logo.svg" alt="Tone3000 logo">
 </div>
 
-Development of version 0.4.0 of this library has been generously supported by [TONE3000](https://tone3000.com).
+Development of version 0.4.0 of this library has been generously supported by [TONE3000](https://tone3000.com). 
 **Thank you!**
