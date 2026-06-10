@@ -410,8 +410,10 @@ std::unique_ptr<DSP> SlimmableWavenet::_create_wavenet_for_channels(const std::v
     condition_dsp = get_dsp(_condition_dsp_json);
 
   double sampleRate = _current_sample_rate > 0 ? _current_sample_rate : GetExpectedSampleRate();
-  return std::make_unique<wavenet::WaveNet>(_in_channels, *params_ptr, _head_scale, _with_head, std::nullopt,
-                                            std::move(weights), std::move(condition_dsp), sampleRate);
+  auto model = std::make_unique<wavenet::WaveNet>(_in_channels, *params_ptr, _head_scale, _with_head, std::nullopt,
+                                                  std::move(weights), std::move(condition_dsp), sampleRate);
+  model->SetPrewarmOnReset(GetPrewarmOnReset());
+  return model;
 }
 
 void SlimmableWavenet::_rebuild_model(const std::vector<int>& target_channels)
@@ -479,6 +481,15 @@ void SlimmableWavenet::Reset(const double sampleRate, const int maxBufferSize)
     _active_model->Reset(sampleRate, maxBufferSize);
   if (auto pending = _pending_load_acquire())
     pending->model->Reset(sampleRate, maxBufferSize);
+}
+
+void SlimmableWavenet::SetPrewarmOnReset(const bool prewarmOnReset)
+{
+  DSP::SetPrewarmOnReset(prewarmOnReset);
+  if (_active_model)
+    _active_model->SetPrewarmOnReset(prewarmOnReset);
+  if (auto pending = _pending_load_acquire())
+    pending->model->SetPrewarmOnReset(prewarmOnReset);
 }
 
 void SlimmableWavenet::SetSlimmableSize(const double val)

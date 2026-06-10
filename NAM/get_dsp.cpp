@@ -139,51 +139,42 @@ std::vector<float> GetWeights(nlohmann::json const& j)
     throw std::runtime_error("Corrupted model file is missing weights.");
 }
 
-std::unique_ptr<DSP> get_dsp(const std::filesystem::path config_filename)
-{
-  dspData temp;
-  return get_dsp(config_filename, temp);
-}
-
-std::unique_ptr<DSP> get_dsp(const nlohmann::json& config)
-{
-  dspData temp;
-  return get_dsp(config, temp);
-}
-
-std::unique_ptr<DSP> get_dsp(const std::filesystem::path config_filename, dspData& returnedConfig)
-{
-  if (!std::filesystem::exists(config_filename))
-    throw std::runtime_error("Config file doesn't exist!\n");
-  std::ifstream i(config_filename);
-  nlohmann::json j;
-  i >> j;
-  get_dsp(j, returnedConfig);
-
-  /*Copy to a new dsp_config object for get_dsp below,
-   since not sure if weights actually get modified as being non-const references on some
-   model constructors inside get_dsp(dsp_config& conf).
-   We need to return unmodified version of dsp_config via returnedConfig.*/
-  dspData conf = returnedConfig;
-
-  return get_dsp(conf);
-}
-
-std::unique_ptr<DSP> get_dsp(const nlohmann::json& config, dspData& returnedConfig)
+void populate_dsp_data(const nlohmann::json& config, dspData& returnedConfig)
 {
   verify_config_version(config["version"].get<std::string>());
 
-  auto architecture = config["architecture"];
   nlohmann::json config_json = config["config"];
   std::vector<float> weights = GetWeights(config);
 
-  // Assign values to returnedConfig
   returnedConfig.version = config["version"].get<std::string>();
   returnedConfig.architecture = config["architecture"].get<std::string>();
   returnedConfig.config = config_json;
   returnedConfig.metadata = config.value("metadata", nlohmann::json());
   returnedConfig.weights = weights;
   returnedConfig.expected_sample_rate = nam::get_sample_rate_from_nam_file(config);
+}
+
+std::unique_ptr<DSP> get_dsp(const std::filesystem::path config_filename, DspLoadOptions options)
+{
+  dspData temp;
+  return get_dsp(config_filename, temp, options);
+}
+
+std::unique_ptr<DSP> get_dsp(const nlohmann::json& config, DspLoadOptions options)
+{
+  dspData temp;
+  return get_dsp(config, temp, options);
+}
+
+std::unique_ptr<DSP> get_dsp(const std::filesystem::path config_filename, dspData& returnedConfig,
+                             DspLoadOptions options)
+{
+  if (!std::filesystem::exists(config_filename))
+    throw std::runtime_error("Config file doesn't exist!\n");
+  std::ifstream i(config_filename);
+  nlohmann::json j;
+  i >> j;
+  populate_dsp_data(j, returnedConfig);
 
   /*Copy to a new dsp_config object for get_dsp below,
    since not sure if weights actually get modified as being non-const references on some
@@ -191,7 +182,20 @@ std::unique_ptr<DSP> get_dsp(const nlohmann::json& config, dspData& returnedConf
    We need to return unmodified version of dsp_config via returnedConfig.*/
   dspData conf = returnedConfig;
 
-  return get_dsp(conf);
+  return get_dsp(conf, options);
+}
+
+std::unique_ptr<DSP> get_dsp(const nlohmann::json& config, dspData& returnedConfig, DspLoadOptions options)
+{
+  populate_dsp_data(config, returnedConfig);
+
+  /*Copy to a new dsp_config object for get_dsp below,
+   since not sure if weights actually get modified as being non-const references on some
+   model constructors inside get_dsp(dsp_config& conf).
+   We need to return unmodified version of dsp_config via returnedConfig.*/
+  dspData conf = returnedConfig;
+
+  return get_dsp(conf, options);
 }
 
 // =============================================================================
@@ -224,9 +228,6 @@ std::unique_ptr<DSP> create_dsp(std::unique_ptr<ModelConfig> config, std::vector
 {
   auto out = config->create(std::move(weights), metadata.sample_rate);
   apply_metadata(*out, metadata);
-  // "pre-warm" the model to settle initial conditions
-  // Can this be removed now that it's part of Reset()?
-  out->prewarm();
   return out;
 }
 
@@ -234,7 +235,10 @@ std::unique_ptr<DSP> create_dsp(std::unique_ptr<ModelConfig> config, std::vector
 // get_dsp(dspData&) — now uses unified path
 // =============================================================================
 
-std::unique_ptr<DSP> get_dsp(dspData& conf)
+namespace
+{
+
+std::unique_ptr<DSP> get_dsp_with_current_prewarm_default(dspData& conf)
 {
   verify_config_version(conf.version);
 
@@ -257,6 +261,20 @@ std::unique_ptr<DSP> get_dsp(dspData& conf)
 
   auto model_config = ConfigParserRegistry::instance().parse(conf.architecture, conf.config, conf.expected_sample_rate);
   return create_dsp(std::move(model_config), std::move(conf.weights), metadata);
+}
+
+} // anonymous namespace
+
+std::unique_ptr<DSP> get_dsp(dspData& conf, DspLoadOptions options)
+{
+  if (options.prewarm)
+    return get_dsp_with_current_prewarm_default(conf);
+
+  ScopedPrewarmOnResetDefault scoped_prewarm_default(false);
+  auto dsp = get_dsp_with_current_prewarm_default(conf);
+  if (dsp != nullptr)
+    dsp->SetPrewarmOnReset(scoped_prewarm_default.PreviousPrewarmOnReset());
+  return dsp;
 }
 
 double get_sample_rate_from_nam_file(const nlohmann::json& j)

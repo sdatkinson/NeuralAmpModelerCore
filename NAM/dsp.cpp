@@ -14,8 +14,27 @@
 
 constexpr const long _INPUT_BUFFER_SAFETY_FACTOR = 32;
 
+namespace
+{
+
+thread_local bool gPrewarmOnResetDefault = true;
+
+} // namespace
+
+nam::ScopedPrewarmOnResetDefault::ScopedPrewarmOnResetDefault(const bool prewarmOnReset)
+: mPreviousPrewarmOnReset(gPrewarmOnResetDefault)
+{
+  gPrewarmOnResetDefault = prewarmOnReset;
+}
+
+nam::ScopedPrewarmOnResetDefault::~ScopedPrewarmOnResetDefault()
+{
+  gPrewarmOnResetDefault = mPreviousPrewarmOnReset;
+}
+
 nam::DSP::DSP(const int in_channels, const int out_channels, const double expected_sample_rate)
 : mExpectedSampleRate(expected_sample_rate)
+, mPrewarmOnReset(gPrewarmOnResetDefault)
 , mInChannels(in_channels)
 , mOutChannels(out_channels)
 {
@@ -96,7 +115,18 @@ void nam::DSP::Reset(const double sampleRate, const int maxBufferSize)
   mHaveExternalSampleRate = true;
   SetMaxBufferSize(maxBufferSize);
 
-  prewarm();
+  if (GetPrewarmOnReset())
+    prewarm();
+}
+
+void nam::DSP::SetPrewarmOnReset(const bool prewarmOnReset)
+{
+  mPrewarmOnReset.store(prewarmOnReset, std::memory_order_release);
+}
+
+bool nam::DSP::GetPrewarmOnReset() const
+{
+  return mPrewarmOnReset.load(std::memory_order_acquire);
 }
 
 void nam::DSP::SetLoudness(const double loudness)

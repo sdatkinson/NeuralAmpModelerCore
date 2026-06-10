@@ -1,10 +1,24 @@
 // Tests for dsp
 
 #include "NAM/dsp.h"
+#include <cassert>
 #include <vector>
 
 namespace test_dsp
 {
+class PrewarmCountingDSP : public nam::DSP
+{
+public:
+  PrewarmCountingDSP()
+  : nam::DSP(1, 1, 48000.0)
+  {
+  }
+
+  void prewarm() override { prewarm_count++; }
+
+  int prewarm_count = 0;
+};
+
 // Simplest test: can I construct something!
 void test_construct()
 {
@@ -89,6 +103,46 @@ void test_set_output_level()
   const int out_channels = 2;
   nam::DSP myDsp(in_channels, out_channels, 48000.0);
   myDsp.SetOutputLevel(19.0);
+}
+
+void test_reset_prewarm_on_reset_default()
+{
+  PrewarmCountingDSP dsp;
+  assert(dsp.GetPrewarmOnReset());
+
+  dsp.Reset(48000.0, 64);
+
+  assert(dsp.prewarm_count == 1);
+}
+
+void test_set_prewarm_on_reset()
+{
+  PrewarmCountingDSP dsp;
+
+  dsp.SetPrewarmOnReset(false);
+  dsp.Reset(48000.0, 64);
+  assert(dsp.prewarm_count == 0);
+
+  dsp.SetPrewarmOnReset(true);
+  dsp.Reset(48000.0, 64);
+  assert(dsp.prewarm_count == 1);
+}
+
+void test_scoped_prewarm_on_reset_default()
+{
+  PrewarmCountingDSP before_scope;
+  assert(before_scope.GetPrewarmOnReset());
+
+  {
+    nam::ScopedPrewarmOnResetDefault scoped_default(false);
+    PrewarmCountingDSP in_scope;
+    assert(!in_scope.GetPrewarmOnReset());
+    in_scope.Reset(48000.0, 64);
+    assert(in_scope.prewarm_count == 0);
+  }
+
+  PrewarmCountingDSP after_scope;
+  assert(after_scope.GetPrewarmOnReset());
 }
 
 void test_process_multi_channel()

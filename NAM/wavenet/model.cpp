@@ -689,6 +689,13 @@ void nam::wavenet::WaveNet::SetMaxBufferSize(const int maxBufferSize)
   }
 }
 
+void nam::wavenet::WaveNet::SetPrewarmOnReset(const bool prewarmOnReset)
+{
+  DSP::SetPrewarmOnReset(prewarmOnReset);
+  if (this->_condition_dsp != nullptr)
+    this->_condition_dsp->SetPrewarmOnReset(prewarmOnReset);
+}
+
 void nam::wavenet::WaveNet::_process_condition(const int num_frames)
 {
   if (this->_condition_dsp == nullptr)

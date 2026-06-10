@@ -58,6 +58,8 @@ public:
   /// \param num_frames Number of frames to process
   void process(NAM_SAMPLE** input, NAM_SAMPLE** output, const int num_frames) override;
 
+  void SetPrewarmOnReset(const bool prewarmOnReset) override;
+
   /// \brief Set model weights from a vector
   /// \param weights Vector containing all model weights
   void set_weights_(std::vector<float>& weights);
