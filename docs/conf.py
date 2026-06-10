@@ -4,6 +4,7 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -19,8 +20,25 @@ sys.path.insert(0, os.path.abspath('.'))
 project = 'NeuralAmpModelerCore'
 copyright = '2023-present Steven Atkinson'
 author = 'Neural Amp Modeler Contributors'
-release = '0.4.0'
-version = '0.4.0'
+
+
+def _get_project_version():
+    version_header = Path(__file__).resolve().parent.parent / 'NAM' / 'version.h'
+    contents = version_header.read_text(encoding='utf-8')
+    version_parts = {}
+    for component in ('MAJOR', 'MINOR', 'PATCH'):
+        match = re.search(
+            rf'#define\s+NEURAL_AMP_MODELER_DSP_VERSION_{component}\s+(\d+)',
+            contents,
+        )
+        if match is None:
+            raise RuntimeError(f'Could not parse {component.lower()} version from {version_header}')
+        version_parts[component.lower()] = match.group(1)
+    return f"{version_parts['major']}.{version_parts['minor']}.{version_parts['patch']}"
+
+
+release = _get_project_version()
+version = release
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
