@@ -84,6 +84,9 @@ int main()
   test_dsp::test_has_output_level();
   test_dsp::test_set_input_level();
   test_dsp::test_set_output_level();
+  test_dsp::test_reset_prewarm_on_reset_default();
+  test_dsp::test_set_prewarm_on_reset();
+  test_dsp::test_scoped_prewarm_on_reset_default();
 
   test_linear::test_direct_known_values();
   test_linear::test_fft_matches_direct_irregular_chunks();
@@ -285,6 +288,11 @@ int main()
   test_get_dsp::test_version_too_early();
   test_get_dsp::test_is_version_supported_core_behavior();
   test_get_dsp::test_register_custom_version_support_checker();
+  test_get_dsp::test_get_dsp_default_allows_constructor_reset_prewarm();
+  test_get_dsp::test_get_dsp_default_inherits_scoped_prewarm_default();
+  test_get_dsp::test_get_dsp_prewarm_option_suppresses_constructor_reset_prewarm();
+  test_get_dsp::test_get_dsp_prewarm_option_forces_constructor_reset_prewarm();
+  test_get_dsp::test_get_dsp_with_returned_config_constructs_once();
 
   // Finally, some end-to-end tests.
   test_get_dsp::test_load_and_process_nam_files();

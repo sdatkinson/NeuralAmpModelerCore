@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <filesystem>
 #include <iterator>
 #include <memory>
@@ -38,6 +39,25 @@ namespace wavenet
 /// Forward declaration to allow WaveNet to access protected members of DSP
 class WaveNet;
 } // namespace wavenet
+
+/// \brief Temporarily change the thread-local prewarm-on-reset default for newly constructed DSP objects
+///
+/// Existing DSP objects are not affected. DSP instances constructed while this object is alive on the current thread
+/// copy the scoped default into their instance-level prewarm-on-reset setting.
+class ScopedPrewarmOnResetDefault
+{
+public:
+  explicit ScopedPrewarmOnResetDefault(const bool prewarmOnReset);
+  ~ScopedPrewarmOnResetDefault();
+
+  ScopedPrewarmOnResetDefault(const ScopedPrewarmOnResetDefault&) = delete;
+  ScopedPrewarmOnResetDefault& operator=(const ScopedPrewarmOnResetDefault&) = delete;
+
+  bool PreviousPrewarmOnReset() const { return mPreviousPrewarmOnReset; }
+
+private:
+  bool mPreviousPrewarmOnReset;
+};
 
 /// \brief Base class for all DSP models
 ///
@@ -139,20 +159,19 @@ public:
 
   /// \brief General function for resetting the DSP unit
   ///
-  /// This doesn't call prewarm(). If you want to do that, then you might want to use ResetAndPrewarm().
-  /// See https://github.com/sdatkinson/NeuralAmpModelerCore/issues/96 for the reasoning.
+  /// By default, this calls prewarm() after updating the sample rate and buffer size. Use SetPrewarmOnReset() to
+  /// disable or re-enable that behavior for a DSP instance.
   /// \param sampleRate Current sample rate
   /// \param maxBufferSize Maximum buffer size to process
   virtual void Reset(const double sampleRate, const int maxBufferSize);
 
-  /// \brief Reset the DSP unit, then prewarm
-  /// \param sampleRate Current sample rate
-  /// \param maxBufferSize Maximum buffer size to process
-  void ResetAndPrewarm(const double sampleRate, const int maxBufferSize)
-  {
-    Reset(sampleRate, maxBufferSize);
-    prewarm();
-  }
+  /// \brief Control whether Reset() calls prewarm()
+  /// \param prewarmOnReset true for Reset() to call prewarm(), false to skip prewarm()
+  virtual void SetPrewarmOnReset(const bool prewarmOnReset);
+
+  /// \brief Check whether Reset() calls prewarm()
+  /// \return true if Reset() calls prewarm()
+  bool GetPrewarmOnReset() const;
 
   /// \brief Set the input level
   /// \param inputLevel Input level in dBu
@@ -183,6 +202,7 @@ protected:
   double mExternalSampleRate = -1.0;
   // The largest buffer I expect to be told to process:
   int mMaxBufferSize = 0;
+  std::atomic<bool> mPrewarmOnReset;
 
   /// \brief Set the maximum buffer size
   /// \param maxBufferSize Maximum number of frames to process in a single call

@@ -61,6 +61,13 @@ void ContainerModel::prewarm()
   _submodels[active_index].model->prewarm();
 }
 
+void ContainerModel::SetPrewarmOnReset(const bool prewarmOnReset)
+{
+  DSP::SetPrewarmOnReset(prewarmOnReset);
+  for (auto& submodel : _submodels)
+    submodel.model->SetPrewarmOnReset(prewarmOnReset);
+}
+
 void ContainerModel::Reset(const double sampleRate, const int maxBufferSize)
 {
   std::lock_guard<std::mutex> lock(_slim_set_mutex);

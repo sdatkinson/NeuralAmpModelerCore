@@ -106,7 +106,7 @@ struct ConfigParserHelper
 /// \brief Construct a DSP object from a typed config, weights, and metadata
 ///
 /// This is the single construction path used by both JSON and binary loaders.
-/// Handles construction, metadata application, and prewarm.
+/// Handles construction and metadata application.
 /// \param config Architecture-specific configuration (abstract base)
 /// \param weights Model weights (taken by value to allow move for WaveNet)
 /// \param metadata Model metadata (version, sample rate, loudness, levels)

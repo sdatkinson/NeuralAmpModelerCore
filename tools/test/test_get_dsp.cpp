@@ -10,6 +10,7 @@
 #include "json.hpp"
 
 #include "NAM/get_dsp.h"
+#include "NAM/registry.h"
 
 namespace test_get_dsp
 {
@@ -45,6 +46,50 @@ nam::dspData _GetConfig(const std::string& configStr = basicConfigStr)
 
   return returnedConfig;
 }
+
+namespace
+{
+
+constexpr const char* kConstructorResetArchitecture = "ConstructorResetPrewarmPolicyTest";
+int gConstructorResetConstructCount = 0;
+
+class ConstructorResetDSP : public nam::DSP
+{
+public:
+  explicit ConstructorResetDSP(const double expected_sample_rate)
+  : nam::DSP(1, 1, expected_sample_rate)
+  {
+    gConstructorResetConstructCount++;
+    Reset(expected_sample_rate, 16);
+  }
+
+  void prewarm() override { prewarm_count++; }
+
+  int prewarm_count = 0;
+};
+
+std::unique_ptr<nam::DSP> ConstructorResetFactory(const nlohmann::json& config, std::vector<float>& weights,
+                                                  const double expectedSampleRate)
+{
+  (void)config;
+  (void)weights;
+  return std::make_unique<ConstructorResetDSP>(expectedSampleRate);
+}
+
+static nam::factory::Helper _register_ConstructorResetPrewarmPolicyTest(kConstructorResetArchitecture,
+                                                                        ConstructorResetFactory);
+
+nlohmann::json build_constructor_reset_config()
+{
+  return nlohmann::json{{"version", "0.7.0"},
+                        {"metadata", nlohmann::json::object()},
+                        {"architecture", kConstructorResetArchitecture},
+                        {"config", nlohmann::json::object()},
+                        {"weights", nlohmann::json::array()},
+                        {"sample_rate", 48000}};
+}
+
+} // namespace
 
 void test_gets_input_level()
 {
@@ -272,5 +317,81 @@ void test_register_custom_version_support_checker()
   assert(nam::is_version_supported("DEMO::1.0.0") == nam::Supported::YES);
   assert(nam::is_version_supported("DEMO::1.0.3") == nam::Supported::PARTIAL);
   assert(nam::is_version_supported("DEMO::2.0.0") == nam::Supported::NO);
+}
+
+void test_get_dsp_default_allows_constructor_reset_prewarm()
+{
+  gConstructorResetConstructCount = 0;
+
+  auto dsp = nam::get_dsp(build_constructor_reset_config());
+  auto* typed = dynamic_cast<ConstructorResetDSP*>(dsp.get());
+
+  assert(typed != nullptr);
+  assert(gConstructorResetConstructCount == 1);
+  assert(typed->prewarm_count == 1);
+  assert(typed->GetPrewarmOnReset());
+}
+
+void test_get_dsp_default_inherits_scoped_prewarm_default()
+{
+  gConstructorResetConstructCount = 0;
+
+  nam::ScopedPrewarmOnResetDefault scoped_default(false);
+  auto dsp = nam::get_dsp(build_constructor_reset_config());
+  auto* typed = dynamic_cast<ConstructorResetDSP*>(dsp.get());
+
+  assert(typed != nullptr);
+  assert(gConstructorResetConstructCount == 1);
+  assert(typed->prewarm_count == 0);
+  assert(!typed->GetPrewarmOnReset());
+}
+
+void test_get_dsp_prewarm_option_suppresses_constructor_reset_prewarm()
+{
+  gConstructorResetConstructCount = 0;
+
+  nam::DspLoadOptions options;
+  options.prewarm = false;
+  auto dsp = nam::get_dsp(build_constructor_reset_config(), options);
+  auto* typed = dynamic_cast<ConstructorResetDSP*>(dsp.get());
+
+  assert(typed != nullptr);
+  assert(gConstructorResetConstructCount == 1);
+  assert(typed->prewarm_count == 0);
+  assert(typed->GetPrewarmOnReset());
+
+  typed->Reset(48000.0, 16);
+  assert(typed->prewarm_count == 1);
+}
+
+void test_get_dsp_prewarm_option_forces_constructor_reset_prewarm()
+{
+  gConstructorResetConstructCount = 0;
+
+  nam::ScopedPrewarmOnResetDefault scoped_default(false);
+  nam::DspLoadOptions options;
+  options.prewarm = true;
+  auto dsp = nam::get_dsp(build_constructor_reset_config(), options);
+  auto* typed = dynamic_cast<ConstructorResetDSP*>(dsp.get());
+
+  assert(typed != nullptr);
+  assert(gConstructorResetConstructCount == 1);
+  assert(typed->prewarm_count == 1);
+  assert(!typed->GetPrewarmOnReset());
+
+  typed->Reset(48000.0, 16);
+  assert(typed->prewarm_count == 1);
+}
+
+void test_get_dsp_with_returned_config_constructs_once()
+{
+  gConstructorResetConstructCount = 0;
+
+  nam::dspData returned_config;
+  auto dsp = nam::get_dsp(build_constructor_reset_config(), returned_config);
+
+  assert(dsp != nullptr);
+  assert(gConstructorResetConstructCount == 1);
+  assert(returned_config.architecture == kConstructorResetArchitecture);
 }
 }; // namespace test_get_dsp

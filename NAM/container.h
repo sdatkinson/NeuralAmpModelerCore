@@ -37,6 +37,7 @@ public:
   void process(NAM_SAMPLE** input, NAM_SAMPLE** output, const int num_frames) override;
   void prewarm() override;
   void Reset(const double sampleRate, const int maxBufferSize) override;
+  void SetPrewarmOnReset(const bool prewarmOnReset) override;
   void SetSlimmableSize(const double val) override;
   int GetPrewarmSamples() override;
 
