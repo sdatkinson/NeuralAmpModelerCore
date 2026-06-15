@@ -204,7 +204,7 @@ public:
   /// \param head1x1_post_film_params_ FiLM parameters after head1x1 convolutions
   /// \throws std::invalid_argument If dilations, activation_configs, gating_modes, or secondary_activation_configs
   /// sizes don't match
-  LayerArrayParams(const int input_size_, const int condition_size_, const int head_size_, const int head_kernel_size_,
+  LayerArrayParams(const int input_size_, const int condition_size_, const int head_size_, const int head_dilation_, const int head_kernel_size_,
                    const int channels_, const int bottleneck_, const std::vector<int>&& kernel_sizes_,
                    const std::vector<int>&& dilations_,
                    const std::vector<activations::ActivationConfig>&& activation_configs_,
@@ -219,6 +219,7 @@ public:
   : input_size(input_size_)
   , condition_size(condition_size_)
   , head_size(head_size_)
+  , head_dilation(head_dilation_)
   , head_kernel_size(head_kernel_size_)
   , channels(channels_)
   , bottleneck(bottleneck_)
@@ -277,6 +278,7 @@ public:
   const int input_size; ///< Input size (number of channels)
   const int condition_size; ///< Size of conditioning input
   const int head_size; ///< Size of head output (after rechannel)
+  const int head_dilation;
   const int head_kernel_size; ///< Kernel size of head rechannel convolution (>= 1)
   const int channels; ///< Number of channels in each layer
   const int bottleneck; ///< Bottleneck size (internal channel count)
