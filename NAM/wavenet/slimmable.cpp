@@ -291,27 +291,7 @@ bool is_full_size(const std::vector<wavenet::LayerArrayParams>& params, const st
 
 } // anonymous namespace
 
-#ifdef _LIBCPP_VERSION
-void SlimmableWavenet::_pending_clear_release()
-{
-  std::atomic_store_explicit(&_pending_staged, std::shared_ptr<StagedSlimModel>{}, std::memory_order_release);
-}
-
-std::shared_ptr<SlimmableWavenet::StagedSlimModel> SlimmableWavenet::_pending_load_acquire() const
-{
-  return std::atomic_load_explicit(&_pending_staged, std::memory_order_acquire);
-}
-
-void SlimmableWavenet::_pending_store_release(std::shared_ptr<StagedSlimModel> p)
-{
-  std::atomic_store_explicit(&_pending_staged, std::move(p), std::memory_order_release);
-}
-
-std::shared_ptr<SlimmableWavenet::StagedSlimModel> SlimmableWavenet::_pending_exchange_take_acq_rel()
-{
-  return std::atomic_exchange_explicit(&_pending_staged, std::shared_ptr<StagedSlimModel>{}, std::memory_order_acq_rel);
-}
-#else
+#if NAM_HAS_ATOMIC_SHARED_PTR
 void SlimmableWavenet::_pending_clear_release()
 {
   _pending_staged.store({}, std::memory_order_release);
@@ -330,6 +310,26 @@ void SlimmableWavenet::_pending_store_release(std::shared_ptr<StagedSlimModel> p
 std::shared_ptr<SlimmableWavenet::StagedSlimModel> SlimmableWavenet::_pending_exchange_take_acq_rel()
 {
   return _pending_staged.exchange({}, std::memory_order_acq_rel);
+}
+#else
+void SlimmableWavenet::_pending_clear_release()
+{
+  std::atomic_store_explicit(&_pending_staged, std::shared_ptr<StagedSlimModel>{}, std::memory_order_release);
+}
+
+std::shared_ptr<SlimmableWavenet::StagedSlimModel> SlimmableWavenet::_pending_load_acquire() const
+{
+  return std::atomic_load_explicit(&_pending_staged, std::memory_order_acquire);
+}
+
+void SlimmableWavenet::_pending_store_release(std::shared_ptr<StagedSlimModel> p)
+{
+  std::atomic_store_explicit(&_pending_staged, std::move(p), std::memory_order_release);
+}
+
+std::shared_ptr<SlimmableWavenet::StagedSlimModel> SlimmableWavenet::_pending_exchange_take_acq_rel()
+{
+  return std::atomic_exchange_explicit(&_pending_staged, std::shared_ptr<StagedSlimModel>{}, std::memory_order_acq_rel);
 }
 #endif
 
