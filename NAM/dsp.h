@@ -197,6 +197,10 @@ public:
   /// \param outputLevel Output level in dBu
   void SetOutputLevel(const double outputLevel);
 
+  /// \brief Get the maximum buffer size
+  /// \return Maximum buffer size
+  int GetMaxBufferSize() const { return mMaxBufferSize; };
+
 protected:
   friend class wavenet::WaveNet; // Allow WaveNet to access protected members. Used in condition DSP.
 
@@ -215,10 +219,6 @@ protected:
   /// \brief Set the maximum buffer size
   /// \param maxBufferSize Maximum number of frames to process in a single call
   virtual void SetMaxBufferSize(const int maxBufferSize);
-
-  /// \brief Get the maximum buffer size
-  /// \return Maximum buffer size
-  int GetMaxBufferSize() const { return mMaxBufferSize; };
 
 private:
   const int mInChannels;
