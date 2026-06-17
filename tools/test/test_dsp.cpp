@@ -2,6 +2,7 @@
 
 #include "NAM/dsp.h"
 #include <cassert>
+#include <stdexcept>
 #include <vector>
 
 namespace test_dsp
@@ -17,6 +18,17 @@ public:
   void prewarm() override { prewarm_count++; }
 
   int prewarm_count = 0;
+};
+
+class ThrowingResetDSP : public PrewarmCountingDSP
+{
+public:
+  void Reset(const double sampleRate, const int maxBufferSize) override
+  {
+    (void)sampleRate;
+    (void)maxBufferSize;
+    throw std::runtime_error("Reset failed");
+  }
 };
 
 // Simplest test: can I construct something!
@@ -126,6 +138,36 @@ void test_set_prewarm_on_reset()
   dsp.SetPrewarmOnReset(true);
   dsp.Reset(48000.0, 64);
   assert(dsp.prewarm_count == 1);
+}
+
+void test_reset_and_prewarm_forces_prewarm()
+{
+  PrewarmCountingDSP dsp;
+  dsp.SetPrewarmOnReset(false);
+
+  dsp.ResetAndPrewarm(48000.0, 64);
+
+  assert(dsp.prewarm_count == 1);
+  assert(!dsp.GetPrewarmOnReset());
+}
+
+void test_reset_and_prewarm_restores_prewarm_on_throw()
+{
+  ThrowingResetDSP dsp;
+  dsp.SetPrewarmOnReset(false);
+
+  bool threw = false;
+  try
+  {
+    dsp.ResetAndPrewarm(48000.0, 64);
+  }
+  catch (const std::runtime_error&)
+  {
+    threw = true;
+  }
+
+  assert(threw);
+  assert(!dsp.GetPrewarmOnReset());
 }
 
 void test_scoped_prewarm_on_reset_default()

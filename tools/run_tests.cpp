@@ -86,6 +86,8 @@ int main()
   test_dsp::test_set_output_level();
   test_dsp::test_reset_prewarm_on_reset_default();
   test_dsp::test_set_prewarm_on_reset();
+  test_dsp::test_reset_and_prewarm_forces_prewarm();
+  test_dsp::test_reset_and_prewarm_restores_prewarm_on_throw();
   test_dsp::test_scoped_prewarm_on_reset_default();
 
   test_linear::test_direct_known_values();

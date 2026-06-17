@@ -165,6 +165,14 @@ public:
   /// \param maxBufferSize Maximum buffer size to process
   virtual void Reset(const double sampleRate, const int maxBufferSize);
 
+  /// \brief Reset the DSP unit, then prewarm
+  ///
+  /// Deprecated: ResetAndPrewarm() will be removed in v0.6.0. Reset() prewarms by default; use
+  /// SetPrewarmOnReset() to control whether Reset() calls prewarm().
+  /// \param sampleRate Current sample rate
+  /// \param maxBufferSize Maximum buffer size to process
+  void ResetAndPrewarm(const double sampleRate, const int maxBufferSize);
+
   /// \brief Control whether Reset() calls prewarm()
   /// \param prewarmOnReset true for Reset() to call prewarm(), false to skip prewarm()
   virtual void SetPrewarmOnReset(const bool prewarmOnReset);
