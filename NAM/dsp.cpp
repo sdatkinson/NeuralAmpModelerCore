@@ -19,6 +19,26 @@ namespace
 
 thread_local bool gPrewarmOnResetDefault = true;
 
+class ScopedDSPPrewarmOnReset
+{
+public:
+  ScopedDSPPrewarmOnReset(nam::DSP& dsp, const bool prewarmOnReset)
+  : mDSP(dsp)
+  , mPreviousPrewarmOnReset(dsp.GetPrewarmOnReset())
+  {
+    mDSP.SetPrewarmOnReset(prewarmOnReset);
+  }
+
+  ~ScopedDSPPrewarmOnReset() { mDSP.SetPrewarmOnReset(mPreviousPrewarmOnReset); }
+
+  ScopedDSPPrewarmOnReset(const ScopedDSPPrewarmOnReset&) = delete;
+  ScopedDSPPrewarmOnReset& operator=(const ScopedDSPPrewarmOnReset&) = delete;
+
+private:
+  nam::DSP& mDSP;
+  bool mPreviousPrewarmOnReset;
+};
+
 } // namespace
 
 nam::ScopedPrewarmOnResetDefault::ScopedPrewarmOnResetDefault(const bool prewarmOnReset)
@@ -117,6 +137,12 @@ void nam::DSP::Reset(const double sampleRate, const int maxBufferSize)
 
   if (GetPrewarmOnReset())
     prewarm();
+}
+
+void nam::DSP::ResetAndPrewarm(const double sampleRate, const int maxBufferSize)
+{
+  ScopedDSPPrewarmOnReset scoped_prewarm_on_reset(*this, true);
+  Reset(sampleRate, maxBufferSize);
 }
 
 void nam::DSP::SetPrewarmOnReset(const bool prewarmOnReset)
