@@ -28,6 +28,7 @@
 #include "test/test_input_buffer_verification.cpp"
 #include "test/test_linear.cpp"
 #include "test/test_lstm.cpp"
+#include "test/test_lstm_realtime_safe.cpp"
 #include "test/test_wavenet_configurable_gating.cpp"
 #include "test/test_noncontiguous_blocks.cpp"
 #include "test/test_extensible.cpp"
@@ -243,6 +244,13 @@ int main()
   test_lstm::test_lstm_different_input_size();
   test_lstm::test_lstm_state_evolution();
   test_lstm::test_lstm_no_layers();
+
+  // LSTM real-time safety tests (issue #218)
+  test_lstm_realtime_safe::test_lstm_process_single_layer_realtime_safe();
+  test_lstm_realtime_safe::test_lstm_process_multi_layer_realtime_safe();
+  test_lstm_realtime_safe::test_lstm_process_multichannel_realtime_safe();
+  test_lstm_realtime_safe::test_lstm_process_large_hidden_realtime_safe();
+  test_lstm_realtime_safe::test_lstm_process_consecutive_calls_realtime_safe();
 
   // Gating activations tests
   test_gating_activations::TestGatingActivation::test_basic_functionality();
