@@ -32,6 +32,7 @@
 #include "test/test_noncontiguous_blocks.cpp"
 #include "test/test_extensible.cpp"
 #include "test/test_container.cpp"
+#include "test/test_sequential.cpp"
 #include "test/test_render_slim.cpp"
 #include "test/test_slimmable_wavenet.cpp"
 #include "test/test_a2_fast.cpp"
@@ -315,6 +316,16 @@ int main()
   test_container::test_container_default_is_max_size();
   test_container::test_container_reset_only_resets_active_submodel();
   test_container::test_container_switch_resets_before_activation();
+
+  // Sequential tests
+  test_sequential::test_sequential_loads_nested_models_without_top_level_weights_or_sample_rate();
+  test_sequential::test_sequential_process_matches_manual_series();
+  test_sequential::test_sequential_accepts_layers_model_wrappers_and_pascal_case_name();
+  test_sequential::test_sequential_accepts_nested_sequential_child();
+  test_sequential::test_sequential_empty_models_throw();
+  test_sequential::test_sequential_top_level_weights_throw();
+  test_sequential::test_sequential_sample_rate_mismatch_throws();
+  test_sequential::test_sequential_channel_mismatch_throws();
 
   // Render --slim tests
   test_render_slim::test_slim_changes_output();

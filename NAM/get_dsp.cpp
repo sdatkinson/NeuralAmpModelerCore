@@ -16,6 +16,11 @@ namespace nam
 namespace
 {
 
+bool is_sequential_architecture(const std::string& architecture)
+{
+  return architecture == "sequential" || architecture == "Sequential";
+}
+
 class CoreVersionSupportChecker : public IVersionSupportChecker
 {
 public:
@@ -135,6 +140,8 @@ std::vector<float> GetWeights(nlohmann::json const& j)
   {
     return *it;
   }
+  if (is_sequential_architecture(j.value("architecture", "")))
+    return {};
   else
     throw std::runtime_error("Corrupted model file is missing weights.");
 }
@@ -144,10 +151,11 @@ void populate_dsp_data(const nlohmann::json& config, dspData& returnedConfig)
   verify_config_version(config["version"].get<std::string>());
 
   nlohmann::json config_json = config["config"];
+  const auto architecture = config["architecture"].get<std::string>();
   std::vector<float> weights = GetWeights(config);
 
   returnedConfig.version = config["version"].get<std::string>();
-  returnedConfig.architecture = config["architecture"].get<std::string>();
+  returnedConfig.architecture = architecture;
   returnedConfig.config = config_json;
   returnedConfig.metadata = config.value("metadata", nlohmann::json());
   returnedConfig.weights = weights;
@@ -277,12 +285,60 @@ std::unique_ptr<DSP> get_dsp(dspData& conf, DspLoadOptions options)
   return dsp;
 }
 
+namespace
+{
+
+double combine_sample_rates(const double expected_sample_rate, const double candidate_sample_rate)
+{
+  if (candidate_sample_rate == NAM_UNKNOWN_EXPECTED_SAMPLE_RATE)
+    return expected_sample_rate;
+  if (expected_sample_rate == NAM_UNKNOWN_EXPECTED_SAMPLE_RATE)
+    return candidate_sample_rate;
+  if (candidate_sample_rate != expected_sample_rate)
+  {
+    std::stringstream ss;
+    ss << "Sequential model sample rate mismatch (expected " << expected_sample_rate << ", got "
+       << candidate_sample_rate << ")";
+    throw std::runtime_error(ss.str());
+  }
+  return expected_sample_rate;
+}
+
+double get_sequential_sample_rate_from_nam_file(const nlohmann::json& j)
+{
+  if (!j.contains("config"))
+    return NAM_UNKNOWN_EXPECTED_SAMPLE_RATE;
+
+  const auto& config = j.at("config");
+  const nlohmann::json* models_json = nullptr;
+  if (config.contains("models"))
+    models_json = &config.at("models");
+  else if (config.contains("layers"))
+    models_json = &config.at("layers");
+
+  if (models_json == nullptr || !models_json->is_array())
+    return NAM_UNKNOWN_EXPECTED_SAMPLE_RATE;
+
+  double expected_sample_rate = NAM_UNKNOWN_EXPECTED_SAMPLE_RATE;
+  for (const auto& entry : *models_json)
+  {
+    const auto& model_json = entry.contains("model") ? entry.at("model") : entry;
+    expected_sample_rate = combine_sample_rates(expected_sample_rate, nam::get_sample_rate_from_nam_file(model_json));
+  }
+
+  return expected_sample_rate;
+}
+
+} // anonymous namespace
+
 double get_sample_rate_from_nam_file(const nlohmann::json& j)
 {
   if (j.find("sample_rate") != j.end())
     return j["sample_rate"];
+  else if (is_sequential_architecture(j.value("architecture", "")))
+    return get_sequential_sample_rate_from_nam_file(j);
   else
-    return -1.0;
+    return NAM_UNKNOWN_EXPECTED_SAMPLE_RATE;
 }
 
 }; // namespace nam

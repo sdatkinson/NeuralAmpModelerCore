@@ -33,3 +33,19 @@ The following table shows which versions of NeuralAmpModelerCore support which m
      - 0.6.0
    * - 0.4.1
      - 0.7.0
+
+Format changes
+--------------
+
+0.5.5
+~~~~~
+
+Adds support for ``"sequential"`` models. A sequential model is a serial
+composition of other complete ``.nam`` model objects. The top-level sequential
+object does not contain ``"weights"`` or ``"sample_rate"`` fields; each child
+model carries its own weights and sample rate, and child sample rates must be
+compatible.
+
+Sequential models use either ``config.models`` or ``config.layers`` to list the
+child models in processing order. Each entry may be a child model object
+directly or an object with a ``model`` field containing the child model.

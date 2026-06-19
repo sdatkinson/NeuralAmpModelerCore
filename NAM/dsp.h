@@ -351,7 +351,7 @@ private:
 struct dspData
 {
   std::string version; ///< Data version. Follows conventions established in trainer code.
-  std::string architecture; ///< High-level architecture. Supported: "ConvNet", "LSTM", "Linear", "WaveNet"
+  std::string architecture; ///< High-level architecture, e.g. "ConvNet", "LSTM", "Linear", "WaveNet", "sequential"
   nlohmann::json config; ///< Model configuration JSON
   nlohmann::json metadata; ///< Model metadata JSON
   std::vector<float> weights; ///< Model weights
