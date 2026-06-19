@@ -3,7 +3,9 @@
 #include <cmath>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <stdexcept>
+#include <string>
 #include <vector>
 
 #include "json.hpp"
@@ -33,12 +35,15 @@ nlohmann::json make_linear_model(const std::vector<float>& weights, const int re
   return model;
 }
 
-nlohmann::json make_sequential_model(const nlohmann::json& first_model, const nlohmann::json& second_model)
+nlohmann::json make_sequential_model(const nlohmann::json& first_model, const nlohmann::json& second_model,
+                                     const std::optional<int> weights_version = 2)
 {
   nlohmann::json model;
   model["version"] = "0.5.5";
   model["architecture"] = "sequential";
   model["metadata"] = nlohmann::json::object();
+  if (weights_version.has_value())
+    model["config"]["weights_version"] = weights_version.value();
   model["config"]["models"] = nlohmann::json::array({first_model, second_model});
   return model;
 }
@@ -118,6 +123,19 @@ bool throws_runtime_error(const std::function<void()>& callback)
   return false;
 }
 
+bool throws_runtime_error_containing(const std::function<void()>& callback, const std::string& expected)
+{
+  try
+  {
+    callback();
+  }
+  catch (const std::runtime_error& e)
+  {
+    return std::string(e.what()).find(expected) != std::string::npos;
+  }
+  return false;
+}
+
 } // namespace
 
 void test_sequential_loads_nested_models_without_top_level_weights_or_sample_rate()
@@ -166,6 +184,7 @@ void test_sequential_accepts_layers_model_wrappers_and_pascal_case_name()
   nlohmann::json sequential_model;
   sequential_model["version"] = "0.5.5";
   sequential_model["architecture"] = "Sequential";
+  sequential_model["config"]["weights_version"] = 2;
   sequential_model["config"]["layers"] = nlohmann::json::array({{{"model", first_model}}, {{"model", second_model}}});
 
   auto dsp = nam::get_dsp(sequential_model);
@@ -202,7 +221,23 @@ void test_sequential_top_level_weights_throw()
   auto model = make_sequential_model(make_linear_model({1.0f}, 1), make_linear_model({1.0f}, 1));
   model["weights"] = nlohmann::json::array({1.0f});
 
-  assert(throws_runtime_error([&]() { auto dsp = nam::get_dsp(model); }));
+  assert(throws_runtime_error_containing([&]() { auto dsp = nam::get_dsp(model); }, "weights_version=2"));
+}
+
+void test_sequential_missing_weights_version_is_legacy_and_throws()
+{
+  auto model = make_sequential_model(make_linear_model({1.0f}, 1), make_linear_model({1.0f}, 1), std::nullopt);
+  model["weights"] = nlohmann::json::array({1.0f, 1.0f});
+  model["sample_rate"] = 48000;
+
+  assert(throws_runtime_error_containing([&]() { auto dsp = nam::get_dsp(model); }, "weights_version=1"));
+}
+
+void test_sequential_unsupported_weights_version_throws()
+{
+  auto model = make_sequential_model(make_linear_model({1.0f}, 1), make_linear_model({1.0f}, 1), 3);
+
+  assert(throws_runtime_error_containing([&]() { auto dsp = nam::get_dsp(model); }, "weights_version 3"));
 }
 
 void test_sequential_sample_rate_mismatch_throws()

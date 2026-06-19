@@ -41,11 +41,19 @@ Format changes
 ~~~~~
 
 Adds support for ``"sequential"`` models. A sequential model is a serial
-composition of other complete ``.nam`` model objects. The top-level sequential
-object does not contain ``"weights"`` or ``"sample_rate"`` fields; each child
-model carries its own weights and sample rate, and child sample rates must be
-compatible.
+composition of other models.
 
-Sequential models use either ``config.models`` or ``config.layers`` to list the
-child models in processing order. Each entry may be a child model object
-directly or an object with a ``model`` field containing the child model.
+Sequential model configs may include ``weights_version``:
+
+* Missing ``weights_version`` means version 1: weights are concatenated at the
+  top level of the sequential model. This form is deprecated.
+* ``weights_version: 2`` means each child in ``config.models`` carries its own
+  weights as part of a complete ``.nam`` model object. The top-level sequential
+  object does not contain ``"weights"`` or ``"sample_rate"`` fields; each child
+  model carries its own weights and sample rate, and child sample rates must be
+  compatible.
+
+For ``weights_version: 2``, sequential models use either ``config.models`` or
+``config.layers`` to list child models in processing order. Each entry may be a
+child model object directly or an object with a ``model`` field containing the
+child model.

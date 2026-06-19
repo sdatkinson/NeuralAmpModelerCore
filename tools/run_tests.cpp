@@ -324,6 +324,8 @@ int main()
   test_sequential::test_sequential_accepts_nested_sequential_child();
   test_sequential::test_sequential_empty_models_throw();
   test_sequential::test_sequential_top_level_weights_throw();
+  test_sequential::test_sequential_missing_weights_version_is_legacy_and_throws();
+  test_sequential::test_sequential_unsupported_weights_version_throws();
   test_sequential::test_sequential_sample_rate_mismatch_throws();
   test_sequential::test_sequential_channel_mismatch_throws();
 

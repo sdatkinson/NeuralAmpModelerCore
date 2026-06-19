@@ -122,6 +122,16 @@ void restore_child_prewarm_states(const std::vector<std::unique_ptr<nam::DSP>>& 
     models[i]->SetPrewarmOnReset(prewarm_states[i]);
 }
 
+int get_weights_version(const nlohmann::json& config)
+{
+  const int weights_version = config.value("weights_version", 1);
+  if (weights_version != 1 && weights_version != 2)
+  {
+    throw std::runtime_error("Sequential: unsupported weights_version " + std::to_string(weights_version));
+  }
+  return weights_version;
+}
+
 } // namespace
 
 namespace nam
@@ -237,10 +247,18 @@ void SequentialModel::SetMaxBufferSize(const int maxBufferSize)
 
 std::unique_ptr<DSP> SequentialConfig::create(std::vector<float> weights, double sampleRate)
 {
+  const int weights_version = get_weights_version(raw_config);
+  if (weights_version == 1)
+  {
+    throw std::runtime_error(
+      "Sequential: weights_version=1 uses deprecated top-level concatenated weights and is not supported yet");
+  }
+
   if (!weights.empty())
   {
     throw std::runtime_error(
-      "Sequential: top-level weights are not supported; embed weights in each child model instead");
+      "Sequential: top-level weights are not supported for weights_version=2; embed weights in each child model "
+      "instead");
   }
 
   auto models = build_models(raw_config);
