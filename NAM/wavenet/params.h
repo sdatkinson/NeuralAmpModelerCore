@@ -181,6 +181,7 @@ public:
   /// \param input_size_ Input size (number of channels) to the layer array
   /// \param condition_size_ Size of the conditioning input
   /// \param head_size_ Size of the head output (after head rechannel)
+  /// \param head_dilation_ Dilation of the head rechannel convolution
   /// \param channels_ Number of channels in each layer
   /// \param bottleneck_ Bottleneck size (internal channel count)
   /// \param kernel_sizes_ Per-layer kernel sizes, one per layer
