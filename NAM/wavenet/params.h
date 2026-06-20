@@ -278,7 +278,7 @@ public:
   const int input_size; ///< Input size (number of channels)
   const int condition_size; ///< Size of conditioning input
   const int head_size; ///< Size of head output (after rechannel)
-  const int head_dilation;
+  const int head_dilation; ///< Dilation of the head rechannel convolution
   const int head_kernel_size; ///< Kernel size of head rechannel convolution (>= 1)
   const int channels; ///< Number of channels in each layer
   const int bottleneck; ///< Bottleneck size (internal channel count)

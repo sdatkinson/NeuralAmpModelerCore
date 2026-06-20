@@ -977,6 +977,8 @@ bool is_a2_shape(const nlohmann::json& config, int* channels)
     return false;
   if (lah_it->value("kernel_size", 0) != kHeadKernelSize)
     return false;
+  if (lah_it->value("head_dilation", 1) != 1)
+    return false;
   if (!lah_it->value("bias", false))
     return false;
 
