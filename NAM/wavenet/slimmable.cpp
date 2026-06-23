@@ -105,6 +105,21 @@ int ratio_to_channels(double ratio, const std::vector<int>& allowed)
   return allowed[idx];
 }
 
+std::vector<double> get_ratio_breakpoints(const std::vector<std::vector<int>>& per_array_allowed_channels)
+{
+  std::vector<double> breakpoints{0.0};
+
+  for (const auto& allowed : per_array_allowed_channels)
+  {
+    for (size_t i = 1; i < allowed.size(); ++i)
+      breakpoints.push_back((double)i / (double)allowed.size());
+  }
+
+  std::sort(breakpoints.begin(), breakpoints.end());
+  breakpoints.erase(std::unique(breakpoints.begin(), breakpoints.end()), breakpoints.end());
+  return breakpoints;
+}
+
 // ============================================================================
 // Extract slimmed weights by walking the full weight vector in set_weights_
 // order, using typed LayerArrayParams for dimensions.
@@ -386,6 +401,23 @@ SlimmableWavenet::SlimmableWavenet(std::vector<wavenet::LayerArrayParams> origin
   _rebuild_model(full_channels);
 }
 
+std::vector<int> SlimmableWavenet::_get_channels_for_slimmable_size(const double val) const
+{
+  const size_t num_arrays = _original_params.size();
+  std::vector<int> target(num_arrays);
+
+  for (size_t i = 0; i < num_arrays; i++)
+  {
+    const auto& allowed = _per_array_allowed_channels[i];
+    if (allowed.empty())
+      target[i] = _original_params[i].channels; // Non-slimmable: keep full
+    else
+      target[i] = ratio_to_channels(val, allowed);
+  }
+
+  return target;
+}
+
 std::unique_ptr<DSP> SlimmableWavenet::_create_wavenet_for_channels(const std::vector<int>& target_channels)
 {
   std::vector<float> weights;
@@ -494,19 +526,25 @@ void SlimmableWavenet::SetPrewarmOnReset(const bool prewarmOnReset)
 
 void SlimmableWavenet::SetSlimmableSize(const double val)
 {
-  const size_t num_arrays = _original_params.size();
-  std::vector<int> target(num_arrays);
+  _stage_rebuild_model(_get_channels_for_slimmable_size(val));
+}
 
-  for (size_t i = 0; i < num_arrays; i++)
-  {
-    const auto& allowed = _per_array_allowed_channels[i];
-    if (allowed.empty())
-      target[i] = _original_params[i].channels; // Non-slimmable: keep full
-    else
-      target[i] = ratio_to_channels(val, allowed);
-  }
+std::vector<double> SlimmableWavenet::GetSlimmableSizeBreakpoints() const
+{
+  return get_ratio_breakpoints(_per_array_allowed_channels);
+}
 
-  _stage_rebuild_model(target);
+bool SlimmableWavenet::WillSlimmableSizeChange(const double val) const
+{
+  const auto target = _get_channels_for_slimmable_size(val);
+
+  if (target == _current_channels && _active_model)
+    return false;
+
+  if (auto pending = _pending_load_acquire())
+    return pending->channels != target;
+
+  return true;
 }
 
 // ============================================================================

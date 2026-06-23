@@ -244,6 +244,45 @@ void test_ratio_mapping()
   assert(any_different);
 }
 
+void test_slimmable_breakpoints_and_change_check()
+{
+  auto dsp = nam::get_dsp(std::filesystem::path("example_models/slimmable_wavenet.nam"));
+  assert(dsp != nullptr);
+
+  auto* slimmable = dynamic_cast<nam::SlimmableModel*>(dsp.get());
+  assert(slimmable != nullptr);
+
+  const auto breakpoints = slimmable->GetSlimmableSizeBreakpoints();
+  assert(breakpoints.size() == 3);
+  assert(breakpoints[0] == 0.0);
+  assert(std::abs(breakpoints[1] - (1.0 / 3.0)) < 1e-12);
+  assert(std::abs(breakpoints[2] - (2.0 / 3.0)) < 1e-12);
+
+  // Defaults to the full-size model.
+  assert(!slimmable->WillSlimmableSizeChange(1.0));
+  assert(!slimmable->WillSlimmableSizeChange(0.67));
+  assert(slimmable->WillSlimmableSizeChange(0.66));
+
+  // Staging the same slimmed channel count again should not require another rebuild.
+  slimmable->SetSlimmableSize(0.34);
+  assert(!slimmable->WillSlimmableSizeChange(0.5));
+  assert(slimmable->WillSlimmableSizeChange(0.0));
+
+  const double sample_rate = dsp->GetExpectedSampleRate() > 0 ? dsp->GetExpectedSampleRate() : 48000.0;
+  const int buffer_size = 16;
+  dsp->Reset(sample_rate, buffer_size);
+
+  std::vector<NAM_SAMPLE> input(buffer_size, 0.1);
+  std::vector<NAM_SAMPLE> output(buffer_size);
+  NAM_SAMPLE* in_ptr = input.data();
+  NAM_SAMPLE* out_ptr = output.data();
+  dsp->process(&in_ptr, &out_ptr, buffer_size);
+
+  assert(!slimmable->WillSlimmableSizeChange(0.5));
+  assert(slimmable->WillSlimmableSizeChange(0.0));
+  assert(slimmable->WillSlimmableSizeChange(1.0));
+}
+
 void test_from_json()
 {
 

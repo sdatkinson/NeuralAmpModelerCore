@@ -60,6 +60,8 @@ public:
   void Reset(const double sampleRate, const int maxBufferSize) override;
   void SetPrewarmOnReset(const bool prewarmOnReset) override;
   void SetSlimmableSize(const double val) override;
+  std::vector<double> GetSlimmableSizeBreakpoints() const override;
+  bool WillSlimmableSizeChange(const double val) const override;
 
 protected:
   int GetPrewarmSamples() override { return 0; }
@@ -92,6 +94,7 @@ private:
   int _current_buffer_size = 0;
   double _current_sample_rate = 0.0;
 
+  std::vector<int> _get_channels_for_slimmable_size(const double val) const;
   std::unique_ptr<DSP> _create_wavenet_for_channels(const std::vector<int>& target_channels);
   void _rebuild_model(const std::vector<int>& target_channels);
   void _stage_rebuild_model(const std::vector<int>& target_channels);
