@@ -11,6 +11,70 @@
 
 namespace test_conv_1x1
 {
+void assert_close(const float actual, const float expected)
+{
+  assert(std::abs(actual - expected) < 1.0e-5f);
+}
+
+void test_process_underscore_matches_reference(const int in_channels, const int out_channels, const bool do_bias)
+{
+  nam::Conv1x1 conv(in_channels, out_channels, do_bias);
+  const int num_frames = 5;
+
+  Eigen::MatrixXf reference_weight(out_channels, in_channels);
+  Eigen::VectorXf reference_bias(out_channels);
+  std::vector<float> weights;
+  weights.reserve(out_channels * in_channels + (do_bias ? out_channels : 0));
+
+  for (int o = 0; o < out_channels; o++)
+  {
+    for (int i = 0; i < in_channels; i++)
+    {
+      const float value = 0.17f * static_cast<float>(o + 1) - 0.031f * static_cast<float>(i + 1);
+      reference_weight(o, i) = value;
+      weights.push_back(value);
+    }
+  }
+  for (int o = 0; o < out_channels; o++)
+  {
+    const float value = -0.09f + 0.023f * static_cast<float>(o + 1);
+    reference_bias(o) = value;
+    if (do_bias)
+      weights.push_back(value);
+  }
+
+  auto it = weights.begin();
+  conv.set_weights_(it);
+  conv.SetMaxBufferSize(64);
+
+  Eigen::MatrixXf input(in_channels, num_frames);
+  for (int f = 0; f < num_frames; f++)
+  {
+    for (int i = 0; i < in_channels; i++)
+    {
+      input(i, f) = 0.25f * static_cast<float>(i + 1) - 0.11f * static_cast<float>(f + 1)
+                    + 0.013f * static_cast<float>((i + 1) * (f + 1));
+    }
+  }
+
+  Eigen::MatrixXf expected = reference_weight * input;
+  if (do_bias)
+    expected.colwise() += reference_bias;
+
+  conv.process_(input, num_frames);
+  auto output = conv.GetOutput().leftCols(num_frames);
+
+  assert(output.rows() == out_channels);
+  assert(output.cols() == num_frames);
+  for (int f = 0; f < num_frames; f++)
+  {
+    for (int o = 0; o < out_channels; o++)
+    {
+      assert_close(output(o, f), expected(o, f));
+    }
+  }
+}
+
 // Test basic construction
 void test_construct()
 {
@@ -491,5 +555,20 @@ void test_process_multiple_calls()
   Eigen::MatrixXf output2 = conv.process(input2, 1);
   assert(std::abs(output2(0, 0) - 3.0f) < 0.01f);
   assert(std::abs(output2(1, 0) - 4.0f) < 0.01f);
+}
+
+void test_process_underscore_4x6_matches_reference()
+{
+  test_process_underscore_matches_reference(/*in_channels=*/6, /*out_channels=*/4, /*do_bias=*/false);
+}
+
+void test_process_underscore_8x6_matches_reference()
+{
+  test_process_underscore_matches_reference(/*in_channels=*/6, /*out_channels=*/8, /*do_bias=*/false);
+}
+
+void test_process_underscore_4x4_with_bias_matches_reference()
+{
+  test_process_underscore_matches_reference(/*in_channels=*/4, /*out_channels=*/4, /*do_bias=*/true);
 }
 } // namespace test_conv_1x1

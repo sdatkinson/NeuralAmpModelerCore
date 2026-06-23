@@ -264,7 +264,6 @@ void Conv1D::Process(const Eigen::MatrixXf& input, const int num_frames)
     const int out_ch = (int)get_out_channels();
     const int in_ch = (int)get_in_channels();
     const size_t kernel_size = this->_weight.size();
-    const size_t weight_matrix_size = out_ch * in_ch;
 
     // Fused kernel optimization for kernel_size=3
     // Instead of 3 separate passes over output, fuse into single pass
@@ -282,7 +281,6 @@ void Conv1D::Process(const Eigen::MatrixXf& input, const int num_frames)
       float* __restrict__ output_ptr = _output.data();
 
       // Get weight pointers for all 3 taps
-      const size_t wsize = 16; // 4x4
       const float* __restrict__ w0 = this->_weight[0].data();
       const float* __restrict__ w1 = this->_weight[1].data();
       const float* __restrict__ w2 = this->_weight[2].data();
@@ -598,6 +596,46 @@ void Conv1D::Process(const Eigen::MatrixXf& input, const int num_frames)
                             + weight_ptr[24 + o] * i3 + weight_ptr[32 + o] * i4 + weight_ptr[40 + o] * i5
                             + weight_ptr[48 + o] * i6 + weight_ptr[56 + o] * i7;
             }
+          }
+        }
+        else if (out_ch == 8 && in_ch == 4)
+        {
+          // 8x4 fully unrolled
+          const float w00 = weight_ptr[0], w10 = weight_ptr[1], w20 = weight_ptr[2], w30 = weight_ptr[3];
+          const float w40 = weight_ptr[4], w50 = weight_ptr[5], w60 = weight_ptr[6], w70 = weight_ptr[7];
+          const float w01 = weight_ptr[8], w11 = weight_ptr[9], w21 = weight_ptr[10], w31 = weight_ptr[11];
+          const float w41 = weight_ptr[12], w51 = weight_ptr[13], w61 = weight_ptr[14], w71 = weight_ptr[15];
+          const float w02 = weight_ptr[16], w12 = weight_ptr[17], w22 = weight_ptr[18], w32 = weight_ptr[19];
+          const float w42 = weight_ptr[20], w52 = weight_ptr[21], w62 = weight_ptr[22], w72 = weight_ptr[23];
+          const float w03 = weight_ptr[24], w13 = weight_ptr[25], w23 = weight_ptr[26], w33 = weight_ptr[27];
+          const float w43 = weight_ptr[28], w53 = weight_ptr[29], w63 = weight_ptr[30], w73 = weight_ptr[31];
+          for (int f = 0; f < num_frames; f++)
+          {
+            const int in_off = f * 4;
+            const int out_off = f * 8;
+            const float i0 = input_ptr[in_off];
+            const float i1 = input_ptr[in_off + 1];
+            const float i2 = input_ptr[in_off + 2];
+            const float i3 = input_ptr[in_off + 3];
+            output_ptr[out_off] += w00 * i0 + w01 * i1 + w02 * i2 + w03 * i3;
+            output_ptr[out_off + 1] += w10 * i0 + w11 * i1 + w12 * i2 + w13 * i3;
+            output_ptr[out_off + 2] += w20 * i0 + w21 * i1 + w22 * i2 + w23 * i3;
+            output_ptr[out_off + 3] += w30 * i0 + w31 * i1 + w32 * i2 + w33 * i3;
+            output_ptr[out_off + 4] += w40 * i0 + w41 * i1 + w42 * i2 + w43 * i3;
+            output_ptr[out_off + 5] += w50 * i0 + w51 * i1 + w52 * i2 + w53 * i3;
+            output_ptr[out_off + 6] += w60 * i0 + w61 * i1 + w62 * i2 + w63 * i3;
+            output_ptr[out_off + 7] += w70 * i0 + w71 * i1 + w72 * i2 + w73 * i3;
+          }
+        }
+        else if (out_ch == 1 && in_ch == 4)
+        {
+          // 1x4 fully unrolled
+          const float w0 = weight_ptr[0], w1 = weight_ptr[1], w2 = weight_ptr[2], w3 = weight_ptr[3];
+          for (int f = 0; f < num_frames; f++)
+          {
+            const int in_off = f * 4;
+            output_ptr[f] += w0 * input_ptr[in_off] + w1 * input_ptr[in_off + 1] + w2 * input_ptr[in_off + 2]
+                             + w3 * input_ptr[in_off + 3];
           }
         }
         else

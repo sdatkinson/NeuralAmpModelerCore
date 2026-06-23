@@ -129,6 +129,8 @@ int main()
   test_conv1d::test_process_grouped_dilation();
   test_conv1d::test_process_grouped_channel_isolation();
   test_conv1d::test_get_num_weights_grouped();
+  test_conv1d::test_process_8x4_kernel6_matches_reference();
+  test_conv1d::test_process_1x4_kernel16_matches_reference();
 
   test_conv_1x1::test_construct();
   test_conv_1x1::test_construct_with_groups();
@@ -144,6 +146,9 @@ int main()
   test_conv_1x1::test_process_underscore_grouped();
   test_conv_1x1::test_set_max_buffer_size();
   test_conv_1x1::test_process_multiple_calls();
+  test_conv_1x1::test_process_underscore_4x6_matches_reference();
+  test_conv_1x1::test_process_underscore_8x6_matches_reference();
+  test_conv_1x1::test_process_underscore_4x4_with_bias_matches_reference();
 
   test_film::test_set_max_buffer_size();
   test_film::test_process_bias_only();
