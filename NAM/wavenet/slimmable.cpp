@@ -107,7 +107,7 @@ int ratio_to_channels(double ratio, const std::vector<int>& allowed)
 
 std::vector<double> get_ratio_breakpoints(const std::vector<std::vector<int>>& per_array_allowed_channels)
 {
-  std::vector<double> breakpoints{0.0};
+  std::vector<double> breakpoints;
 
   for (const auto& allowed : per_array_allowed_channels)
   {

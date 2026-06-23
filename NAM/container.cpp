@@ -124,14 +124,10 @@ void ContainerModel::SetSlimmableSize(const double val)
 std::vector<double> ContainerModel::GetSlimmableSizeBreakpoints() const
 {
   std::vector<double> breakpoints;
-  breakpoints.reserve(_submodels.size());
-  breakpoints.push_back(0.0);
+  breakpoints.reserve(_submodels.size() - 1);
 
   for (size_t i = 0; i + 1 < _submodels.size(); ++i)
-  {
-    if (_submodels[i].max_value != breakpoints.back())
-      breakpoints.push_back(_submodels[i].max_value);
-  }
+    breakpoints.push_back(_submodels[i].max_value);
 
   return breakpoints;
 }

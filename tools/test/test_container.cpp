@@ -250,9 +250,8 @@ void test_container_slimmable_breakpoints()
   assert(slimmable != nullptr);
 
   const auto breakpoints = slimmable->GetSlimmableSizeBreakpoints();
-  assert(breakpoints.size() == 2);
-  assert(breakpoints[0] == 0.0);
-  assert(breakpoints[1] == 0.5);
+  assert(breakpoints.size() == 1);
+  assert(breakpoints[0] == 0.5);
 }
 
 void test_container_empty_submodels_throws()

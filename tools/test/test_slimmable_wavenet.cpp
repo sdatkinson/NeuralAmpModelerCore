@@ -253,10 +253,9 @@ void test_slimmable_breakpoints()
   assert(slimmable != nullptr);
 
   const auto breakpoints = slimmable->GetSlimmableSizeBreakpoints();
-  assert(breakpoints.size() == 3);
-  assert(breakpoints[0] == 0.0);
-  assert(std::abs(breakpoints[1] - (1.0 / 3.0)) < 1e-12);
-  assert(std::abs(breakpoints[2] - (2.0 / 3.0)) < 1e-12);
+  assert(breakpoints.size() == 2);
+  assert(std::abs(breakpoints[0] - (1.0 / 3.0)) < 1e-12);
+  assert(std::abs(breakpoints[1] - (2.0 / 3.0)) < 1e-12);
 }
 
 void test_from_json()
