@@ -534,19 +534,6 @@ std::vector<double> SlimmableWavenet::GetSlimmableSizeBreakpoints() const
   return get_ratio_breakpoints(_per_array_allowed_channels);
 }
 
-bool SlimmableWavenet::WillSlimmableSizeChange(const double val) const
-{
-  const auto target = _get_channels_for_slimmable_size(val);
-
-  if (target == _current_channels && _active_model)
-    return false;
-
-  if (auto pending = _pending_load_acquire())
-    return pending->channels != target;
-
-  return true;
-}
-
 // ============================================================================
 // Config / factory / registration
 // ============================================================================

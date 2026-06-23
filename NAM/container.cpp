@@ -136,11 +136,6 @@ std::vector<double> ContainerModel::GetSlimmableSizeBreakpoints() const
   return breakpoints;
 }
 
-bool ContainerModel::WillSlimmableSizeChange(const double val) const
-{
-  return _get_index_for_slimmable_size(val) != _active_index.load(std::memory_order_acquire);
-}
-
 int ContainerModel::GetPrewarmSamples()
 {
   const size_t active_index = _active_index.load(std::memory_order_acquire);

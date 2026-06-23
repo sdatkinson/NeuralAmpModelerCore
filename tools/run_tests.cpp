@@ -307,7 +307,7 @@ int main()
   test_container::test_container_processes_audio();
   test_container::test_container_slimmable_selects_submodel();
   test_container::test_container_boundary_values();
-  test_container::test_container_slimmable_breakpoints_and_change_check();
+  test_container::test_container_slimmable_breakpoints();
   test_container::test_container_empty_submodels_throws();
   test_container::test_container_last_max_value_must_cover_one();
   test_container::test_container_unsorted_submodels_throws();
@@ -331,7 +331,7 @@ int main()
   test_slimmable_wavenet::test_boundary_values();
   test_slimmable_wavenet::test_default_is_max_size();
   test_slimmable_wavenet::test_ratio_mapping();
-  test_slimmable_wavenet::test_slimmable_breakpoints_and_change_check();
+  test_slimmable_wavenet::test_slimmable_breakpoints();
   test_slimmable_wavenet::test_from_json();
   test_slimmable_wavenet::test_wavenet_without_slimmable_loads_as_regular();
   test_slimmable_wavenet::test_unsupported_method_throws();

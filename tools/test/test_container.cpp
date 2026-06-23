@@ -240,7 +240,7 @@ void test_container_boundary_values()
     assert(std::isfinite(output[i]));
 }
 
-void test_container_slimmable_breakpoints_and_change_check()
+void test_container_slimmable_breakpoints()
 {
   CountingDSP* small = nullptr;
   CountingDSP* large = nullptr;
@@ -253,17 +253,6 @@ void test_container_slimmable_breakpoints_and_change_check()
   assert(breakpoints.size() == 2);
   assert(breakpoints[0] == 0.0);
   assert(breakpoints[1] == 0.5);
-
-  // Defaults to the largest submodel.
-  assert(!slimmable->WillSlimmableSizeChange(1.0));
-  assert(!slimmable->WillSlimmableSizeChange(0.5));
-  assert(slimmable->WillSlimmableSizeChange(0.49));
-
-  slimmable->SetSlimmableSize(0.0);
-  assert(!slimmable->WillSlimmableSizeChange(0.0));
-  assert(!slimmable->WillSlimmableSizeChange(0.49));
-  assert(slimmable->WillSlimmableSizeChange(0.5));
-  assert(slimmable->WillSlimmableSizeChange(1.0));
 }
 
 void test_container_empty_submodels_throws()

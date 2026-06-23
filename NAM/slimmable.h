@@ -25,15 +25,6 @@ public:
   /// \brief Get normalized size-control values where the selected slimmed model can change
   /// \return Sorted breakpoints in [0.0, 1.0], including 0.0 when known
   virtual std::vector<double> GetSlimmableSizeBreakpoints() const { return {}; }
-
-  /// \brief Check whether SetSlimmableSize(val) would require selecting or staging a different slimmed model
-  /// \param val Value between 0.0 (minimum size) and 1.0 (maximum size)
-  /// \return true if val maps to a slimmed model that is not already active or staged
-  virtual bool WillSlimmableSizeChange(const double val) const
-  {
-    (void)val;
-    return true;
-  }
 };
 
 } // namespace nam
