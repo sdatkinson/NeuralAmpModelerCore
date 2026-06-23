@@ -10,6 +10,93 @@
 
 namespace test_conv1d
 {
+void assert_close(const float actual, const float expected)
+{
+  assert(std::abs(actual - expected) < 1.0e-4f);
+}
+
+void test_process_matches_reference(const int in_channels, const int out_channels, const int kernel_size,
+                                    const bool do_bias, const int dilation, const int num_frames)
+{
+  nam::Conv1D conv;
+  conv.set_size_(in_channels, out_channels, kernel_size, do_bias, dilation);
+
+  std::vector<Eigen::MatrixXf> reference_weights;
+  reference_weights.reserve(kernel_size);
+  for (int k = 0; k < kernel_size; k++)
+    reference_weights.emplace_back(out_channels, in_channels);
+  Eigen::VectorXf reference_bias(out_channels);
+
+  std::vector<float> weights;
+  weights.reserve(out_channels * in_channels * kernel_size + (do_bias ? out_channels : 0));
+  for (int o = 0; o < out_channels; o++)
+  {
+    for (int i = 0; i < in_channels; i++)
+    {
+      for (int k = 0; k < kernel_size; k++)
+      {
+        const float value = 0.011f * static_cast<float>(o + 1) + 0.007f * static_cast<float>(i + 1)
+                            - 0.003f * static_cast<float>(k + 1);
+        reference_weights[k](o, i) = value;
+        weights.push_back(value);
+      }
+    }
+  }
+  for (int o = 0; o < out_channels; o++)
+  {
+    const float value = -0.05f + 0.019f * static_cast<float>(o + 1);
+    reference_bias(o) = value;
+    if (do_bias)
+      weights.push_back(value);
+  }
+
+  auto it = weights.begin();
+  conv.set_weights_(it);
+  conv.SetMaxBufferSize(64);
+
+  Eigen::MatrixXf input(in_channels, num_frames);
+  for (int f = 0; f < num_frames; f++)
+  {
+    for (int i = 0; i < in_channels; i++)
+    {
+      input(i, f) = 0.21f * static_cast<float>(i + 1) - 0.037f * static_cast<float>(f + 1)
+                    + 0.004f * static_cast<float>((i + 1) * (f + 1));
+    }
+  }
+
+  Eigen::MatrixXf expected(out_channels, num_frames);
+  expected.setZero();
+  for (int f = 0; f < num_frames; f++)
+  {
+    for (int o = 0; o < out_channels; o++)
+    {
+      float sum = do_bias ? reference_bias(o) : 0.0f;
+      for (int k = 0; k < kernel_size; k++)
+      {
+        const int source_frame = f - dilation * (kernel_size - 1 - k);
+        if (source_frame < 0)
+          continue;
+        for (int i = 0; i < in_channels; i++)
+          sum += reference_weights[k](o, i) * input(i, source_frame);
+      }
+      expected(o, f) = sum;
+    }
+  }
+
+  conv.Process(input, num_frames);
+  auto output = conv.GetOutput().leftCols(num_frames);
+
+  assert(output.rows() == out_channels);
+  assert(output.cols() == num_frames);
+  for (int f = 0; f < num_frames; f++)
+  {
+    for (int o = 0; o < out_channels; o++)
+    {
+      assert_close(output(o, f), expected(o, f));
+    }
+  }
+}
+
 // Test basic construction
 void test_construct()
 {
@@ -847,5 +934,17 @@ void test_get_num_weights_grouped()
   expected = 2 * (8 * 8) / groups_4; // = 2 * 64 / 4 = 32
   actual = conv_4groups.get_num_weights();
   assert(actual == expected);
+}
+
+void test_process_8x4_kernel6_matches_reference()
+{
+  test_process_matches_reference(
+    /*in_channels=*/4, /*out_channels=*/8, /*kernel_size=*/6, /*do_bias=*/true, /*dilation=*/3, /*num_frames=*/23);
+}
+
+void test_process_1x4_kernel16_matches_reference()
+{
+  test_process_matches_reference(
+    /*in_channels=*/4, /*out_channels=*/1, /*kernel_size=*/16, /*do_bias=*/true, /*dilation=*/1, /*num_frames=*/23);
 }
 }; // namespace test_conv1d
