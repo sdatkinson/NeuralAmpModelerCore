@@ -24,6 +24,7 @@ public:
 
   /// \brief Get normalized size-control values where the selected slimmed model can change
   /// \return Sorted breakpoints in [0.0, 1.0], including 0.0 when known
+  // TODO: Make this abstract in the next breaking release.
   virtual std::vector<double> GetSlimmableSizeBreakpoints() const { return {}; }
 };
 
