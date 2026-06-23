@@ -1,5 +1,7 @@
 #pragma once
 
+#include <vector>
+
 namespace nam
 {
 
@@ -19,6 +21,11 @@ public:
   /// Thread-safe
   /// Not real-time safe
   virtual void SetSlimmableSize(const double val) = 0;
+
+  /// \brief Get normalized size-control values that divide the selectable slimmed models
+  /// \return Sorted internal breakpoints in (0.0, 1.0); 0.0 and 1.0 are implied bounds
+  // TODO: Make this abstract in the next breaking release.
+  virtual std::vector<double> GetSlimmableSizeBreakpoints() const { return {}; }
 };
 
 } // namespace nam

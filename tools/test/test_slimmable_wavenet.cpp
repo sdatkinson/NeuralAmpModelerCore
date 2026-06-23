@@ -244,6 +244,20 @@ void test_ratio_mapping()
   assert(any_different);
 }
 
+void test_slimmable_breakpoints()
+{
+  auto dsp = nam::get_dsp(std::filesystem::path("example_models/slimmable_wavenet.nam"));
+  assert(dsp != nullptr);
+
+  auto* slimmable = dynamic_cast<nam::SlimmableModel*>(dsp.get());
+  assert(slimmable != nullptr);
+
+  const auto breakpoints = slimmable->GetSlimmableSizeBreakpoints();
+  assert(breakpoints.size() == 2);
+  assert(std::abs(breakpoints[0] - (1.0 / 3.0)) < 1e-12);
+  assert(std::abs(breakpoints[1] - (2.0 / 3.0)) < 1e-12);
+}
+
 void test_from_json()
 {
 
