@@ -85,7 +85,7 @@ void test_nested_head_with_dilation_three()
   assert(wc.layer_array_params.size() == 1);
   const auto& p = wc.layer_array_params[0];
   assert(p.head_size == 1);
-  assert(p.head_kernel_size == 1);
+  assert(p.head_kernel_size == 3);
   assert(p.head_dilation == 3);
   assert(p.head_bias == true);
 
