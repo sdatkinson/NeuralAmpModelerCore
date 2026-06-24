@@ -419,7 +419,7 @@ long nam::wavenet::detail::LayerArray::get_receptive_field() const
   long result = 0;
   for (size_t i = 0; i < this->_layers.size(); i++)
     result += this->_layers[i].get_dilation() * (this->_layers[i].get_kernel_size() - 1);
-  result += (long)this->_head_rechannel.get_kernel_size() - 1;
+  result += this->_head_rechannel.get_dilation() * (long)this->_head_rechannel.get_kernel_size() - 1;
   return result;
 }
 
