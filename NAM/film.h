@@ -4,6 +4,7 @@
 #include <cassert>
 #include <vector>
 
+#include "compiler.h"
 #include "dsp.h"
 
 namespace nam
@@ -87,9 +88,9 @@ public:
 #ifdef NAM_USE_INLINE_GEMM
     // Optimized inline FiLM operation
     const int input_dim = (int)get_input_dim();
-    const float* __restrict__ input_ptr = input.data();
-    const float* __restrict__ scale_shift_ptr = scale_shift.data();
-    float* __restrict__ output_ptr = _output.data();
+    const float* NAM_RESTRICT input_ptr = input.data();
+    const float* NAM_RESTRICT scale_shift_ptr = scale_shift.data();
+    float* NAM_RESTRICT output_ptr = _output.data();
     const int scale_shift_rows = (int)scale_shift.rows();
     // Use outerStride() instead of rows() to correctly handle non-contiguous
     // block expressions (e.g. topRows()) where outerStride > rows
@@ -102,10 +103,10 @@ public:
       {
         for (int f = 0; f < num_frames; f++)
         {
-          const float* __restrict__ in_col = input_ptr + f * input_stride;
-          const float* __restrict__ scale_col = scale_shift_ptr + f * scale_shift_rows;
-          const float* __restrict__ shift_col = scale_col + 3;
-          float* __restrict__ out_col = output_ptr + f * 3;
+          const float* NAM_RESTRICT in_col = input_ptr + f * input_stride;
+          const float* NAM_RESTRICT scale_col = scale_shift_ptr + f * scale_shift_rows;
+          const float* NAM_RESTRICT shift_col = scale_col + 3;
+          float* NAM_RESTRICT out_col = output_ptr + f * 3;
           out_col[0] = in_col[0] * scale_col[0] + shift_col[0];
           out_col[1] = in_col[1] * scale_col[1] + shift_col[1];
           out_col[2] = in_col[2] * scale_col[2] + shift_col[2];
@@ -115,10 +116,10 @@ public:
       {
         for (int f = 0; f < num_frames; f++)
         {
-          const float* __restrict__ in_col = input_ptr + f * input_stride;
-          const float* __restrict__ scale_col = scale_shift_ptr + f * scale_shift_rows;
-          const float* __restrict__ shift_col = scale_col + input_dim;
-          float* __restrict__ out_col = output_ptr + f * input_dim;
+          const float* NAM_RESTRICT in_col = input_ptr + f * input_stride;
+          const float* NAM_RESTRICT scale_col = scale_shift_ptr + f * scale_shift_rows;
+          const float* NAM_RESTRICT shift_col = scale_col + input_dim;
+          float* NAM_RESTRICT out_col = output_ptr + f * input_dim;
 
           int i = 0;
           for (; i + 3 < input_dim; i += 4)
@@ -142,9 +143,9 @@ public:
       {
         for (int f = 0; f < num_frames; f++)
         {
-          const float* __restrict__ in_col = input_ptr + f * input_stride;
-          const float* __restrict__ scale_col = scale_shift_ptr + f * scale_shift_rows;
-          float* __restrict__ out_col = output_ptr + f * 3;
+          const float* NAM_RESTRICT in_col = input_ptr + f * input_stride;
+          const float* NAM_RESTRICT scale_col = scale_shift_ptr + f * scale_shift_rows;
+          float* NAM_RESTRICT out_col = output_ptr + f * 3;
           out_col[0] = in_col[0] * scale_col[0];
           out_col[1] = in_col[1] * scale_col[1];
           out_col[2] = in_col[2] * scale_col[2];
@@ -154,9 +155,9 @@ public:
       {
         for (int f = 0; f < num_frames; f++)
         {
-          const float* __restrict__ in_col = input_ptr + f * input_stride;
-          const float* __restrict__ scale_col = scale_shift_ptr + f * scale_shift_rows;
-          float* __restrict__ out_col = output_ptr + f * input_dim;
+          const float* NAM_RESTRICT in_col = input_ptr + f * input_stride;
+          const float* NAM_RESTRICT scale_col = scale_shift_ptr + f * scale_shift_rows;
+          float* NAM_RESTRICT out_col = output_ptr + f * input_dim;
 
           int i = 0;
           for (; i + 3 < input_dim; i += 4)

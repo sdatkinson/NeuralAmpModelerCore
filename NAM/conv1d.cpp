@@ -1,4 +1,5 @@
 #include "conv1d.h"
+#include "compiler.h"
 #include <cstring>
 #include <stdexcept>
 
@@ -166,15 +167,15 @@ void Conv1D::Process(const Eigen::MatrixXf& input, const int num_frames)
     const size_t kernel_size = this->_depthwise_weight.size();
 #ifdef NAM_USE_INLINE_GEMM
     const int channels = this->_channels;
-    float* __restrict__ output_ptr = _output.data();
+    float* NAM_RESTRICT output_ptr = _output.data();
 
     for (size_t k = 0; k < kernel_size; k++)
     {
       const long offset = this->_dilation * (k + 1 - (long)kernel_size);
       const long lookback = -offset;
       auto input_block = _input_buffer.Read(num_frames, lookback);
-      const float* __restrict__ input_ptr = input_block.data();
-      const float* __restrict__ weight_ptr = this->_depthwise_weight[k].data();
+      const float* NAM_RESTRICT input_ptr = input_block.data();
+      const float* NAM_RESTRICT weight_ptr = this->_depthwise_weight[k].data();
 
       // Specialized paths for common channel counts
       if (channels == 4)
@@ -275,15 +276,15 @@ void Conv1D::Process(const Eigen::MatrixXf& input, const int num_frames)
       auto in1 = _input_buffer.Read(num_frames, dil); // middle (k=1)
       auto in2 = _input_buffer.Read(num_frames, 0); // newest (k=2)
 
-      const float* __restrict__ in0_ptr = in0.data();
-      const float* __restrict__ in1_ptr = in1.data();
-      const float* __restrict__ in2_ptr = in2.data();
-      float* __restrict__ output_ptr = _output.data();
+      const float* NAM_RESTRICT in0_ptr = in0.data();
+      const float* NAM_RESTRICT in1_ptr = in1.data();
+      const float* NAM_RESTRICT in2_ptr = in2.data();
+      float* NAM_RESTRICT output_ptr = _output.data();
 
       // Get weight pointers for all 3 taps
-      const float* __restrict__ w0 = this->_weight[0].data();
-      const float* __restrict__ w1 = this->_weight[1].data();
-      const float* __restrict__ w2 = this->_weight[2].data();
+      const float* NAM_RESTRICT w0 = this->_weight[0].data();
+      const float* NAM_RESTRICT w1 = this->_weight[1].data();
+      const float* NAM_RESTRICT w2 = this->_weight[2].data();
 
       // Cache all weights in registers (48 floats for 3 x 4x4 matrices)
       const float w0_00 = w0[0], w0_10 = w0[1], w0_20 = w0[2], w0_30 = w0[3];
@@ -332,14 +333,14 @@ void Conv1D::Process(const Eigen::MatrixXf& input, const int num_frames)
       auto in1 = _input_buffer.Read(num_frames, dil);
       auto in2 = _input_buffer.Read(num_frames, 0);
 
-      const float* __restrict__ in0_ptr = in0.data();
-      const float* __restrict__ in1_ptr = in1.data();
-      const float* __restrict__ in2_ptr = in2.data();
-      float* __restrict__ output_ptr = _output.data();
+      const float* NAM_RESTRICT in0_ptr = in0.data();
+      const float* NAM_RESTRICT in1_ptr = in1.data();
+      const float* NAM_RESTRICT in2_ptr = in2.data();
+      float* NAM_RESTRICT output_ptr = _output.data();
 
-      const float* __restrict__ w0 = this->_weight[0].data();
-      const float* __restrict__ w1 = this->_weight[1].data();
-      const float* __restrict__ w2 = this->_weight[2].data();
+      const float* NAM_RESTRICT w0 = this->_weight[0].data();
+      const float* NAM_RESTRICT w1 = this->_weight[1].data();
+      const float* NAM_RESTRICT w2 = this->_weight[2].data();
 
       // Cache weights (12 floats total)
       const float w0_00 = w0[0], w0_10 = w0[1], w0_01 = w0[2], w0_11 = w0[3];
@@ -369,8 +370,8 @@ void Conv1D::Process(const Eigen::MatrixXf& input, const int num_frames)
       auto in4 = _input_buffer.Read(num_frames, dil);
       auto in5 = _input_buffer.Read(num_frames, 0);
 
-      const float* __restrict__ in_ptrs[6] = {in0.data(), in1.data(), in2.data(), in3.data(), in4.data(), in5.data()};
-      float* __restrict__ output_ptr = _output.data();
+      const float* NAM_RESTRICT in_ptrs[6] = {in0.data(), in1.data(), in2.data(), in3.data(), in4.data(), in5.data()};
+      float* NAM_RESTRICT output_ptr = _output.data();
 
       // Cache all 54 weights on stack (6 taps x 3x3 matrix, column-major)
       float w[6][9];
@@ -413,9 +414,9 @@ void Conv1D::Process(const Eigen::MatrixXf& input, const int num_frames)
         const long lookback = -offset;
         auto input_block = _input_buffer.Read(num_frames, lookback);
 
-        const float* __restrict__ input_ptr = input_block.data();
-        const float* __restrict__ weight_ptr = this->_weight[k].data();
-        float* __restrict__ output_ptr = _output.data();
+        const float* NAM_RESTRICT input_ptr = input_block.data();
+        const float* NAM_RESTRICT weight_ptr = this->_weight[k].data();
+        float* NAM_RESTRICT output_ptr = _output.data();
 
         // Specialized fully-unrolled paths for common small channel counts
         // These avoid all loop overhead for the tiny matrices in NAM models
@@ -570,8 +571,8 @@ void Conv1D::Process(const Eigen::MatrixXf& input, const int num_frames)
           // 6x6 - unroll weights, loop over frames
           for (int f = 0; f < num_frames; f++)
           {
-            const float* __restrict__ in_col = input_ptr + f * 6;
-            float* __restrict__ out_col = output_ptr + f * 6;
+            const float* NAM_RESTRICT in_col = input_ptr + f * 6;
+            float* NAM_RESTRICT out_col = output_ptr + f * 6;
             const float i0 = in_col[0], i1 = in_col[1], i2 = in_col[2];
             const float i3 = in_col[3], i4 = in_col[4], i5 = in_col[5];
             for (int o = 0; o < 6; o++)
@@ -586,8 +587,8 @@ void Conv1D::Process(const Eigen::MatrixXf& input, const int num_frames)
           // 8x8 - unroll weights, loop over frames
           for (int f = 0; f < num_frames; f++)
           {
-            const float* __restrict__ in_col = input_ptr + f * 8;
-            float* __restrict__ out_col = output_ptr + f * 8;
+            const float* NAM_RESTRICT in_col = input_ptr + f * 8;
+            float* NAM_RESTRICT out_col = output_ptr + f * 8;
             const float i0 = in_col[0], i1 = in_col[1], i2 = in_col[2], i3 = in_col[3];
             const float i4 = in_col[4], i5 = in_col[5], i6 = in_col[6], i7 = in_col[7];
             for (int o = 0; o < 8; o++)
@@ -671,8 +672,8 @@ void Conv1D::Process(const Eigen::MatrixXf& input, const int num_frames)
 #ifdef NAM_USE_INLINE_GEMM
     // Inline bias addition for small channel counts
     const int out_ch = (int)get_out_channels();
-    float* __restrict__ output_ptr = _output.data();
-    const float* __restrict__ bias_ptr = this->_bias.data();
+    float* NAM_RESTRICT output_ptr = _output.data();
+    const float* NAM_RESTRICT bias_ptr = this->_bias.data();
 
     if (out_ch == 2)
     {

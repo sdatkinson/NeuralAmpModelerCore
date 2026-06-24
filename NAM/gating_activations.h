@@ -7,6 +7,7 @@
 #include <functional>
 #include <stdexcept>
 #include "activations.h"
+#include "compiler.h"
 
 namespace nam
 {
@@ -70,14 +71,14 @@ public:
     // Use outerStride() instead of rows() to correctly handle non-contiguous
     // block expressions (e.g. topRows()) where outerStride > rows
     const int input_stride = (int)input.outerStride();
-    const float* __restrict__ input_ptr = input.derived().data();
-    float* __restrict__ output_ptr = output.derived().data();
+    const float* NAM_RESTRICT input_ptr = input.derived().data();
+    float* NAM_RESTRICT output_ptr = output.derived().data();
     const int output_stride = (int)output.outerStride(); // Column stride for output
 
     for (int f = 0; f < num_samples; f++)
     {
-      const float* __restrict__ in_col = input_ptr + f * input_stride;
-      float* __restrict__ out_col = output_ptr + f * output_stride;
+      const float* NAM_RESTRICT in_col = input_ptr + f * input_stride;
+      float* NAM_RESTRICT out_col = output_ptr + f * output_stride;
 
       // Copy input and gating channels to buffers, apply activations, multiply
       for (int c = 0; c < num_channels; c++)
@@ -176,14 +177,14 @@ public:
     // Use outerStride() instead of rows() to correctly handle non-contiguous
     // block expressions (e.g. topRows()) where outerStride > rows
     const int input_stride = (int)input.outerStride();
-    const float* __restrict__ input_ptr = input.derived().data();
-    float* __restrict__ output_ptr = output.derived().data();
+    const float* NAM_RESTRICT input_ptr = input.derived().data();
+    float* NAM_RESTRICT output_ptr = output.derived().data();
     const int output_stride = (int)output.outerStride(); // Column stride for output
 
     for (int f = 0; f < num_samples; f++)
     {
-      const float* __restrict__ in_col = input_ptr + f * input_stride;
-      float* __restrict__ out_col = output_ptr + f * output_stride;
+      const float* NAM_RESTRICT in_col = input_ptr + f * input_stride;
+      float* NAM_RESTRICT out_col = output_ptr + f * output_stride;
 
       // Copy channels to buffers
       for (int c = 0; c < num_channels; c++)
