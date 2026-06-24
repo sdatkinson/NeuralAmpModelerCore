@@ -71,7 +71,7 @@ void test_nested_head_with_dilation_three()
     "layers": [{
       "input_size": 1,
       "condition_size": 1,
-      "head": {"out_channels": 1, "kernel_size": 1, "bias": true},
+      "head": {"out_channels": 1, "kernel_size": 1, "head_dilation": 3, "bias": true},
       "channels": 2,
       "kernel_size": 1,
       "dilations": [1],
