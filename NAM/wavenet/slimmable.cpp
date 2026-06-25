@@ -280,7 +280,7 @@ std::vector<wavenet::LayerArrayParams> modify_params_for_channels(
     int new_head_size = (i < num_arrays - 1) ? new_channels_per_array[i + 1] : p.head_size;
 
     modified.push_back(wavenet::LayerArrayParams(
-      new_input_size, p.condition_size, new_head_size, p.head_kernel_size, new_ch, new_bottleneck,
+      new_input_size, p.condition_size, new_head_size, p.head_dilation, p.head_kernel_size, new_ch, new_bottleneck,
       std::vector<int>(p.kernel_sizes), std::vector<int>(p.dilations),
       std::vector<activations::ActivationConfig>(p.activation_configs),
       std::vector<wavenet::GatingMode>(p.gating_modes), p.head_bias, p.groups_input, p.groups_input_mixin,

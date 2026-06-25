@@ -380,7 +380,7 @@ void nam::wavenet::detail::Layer::Process(const Eigen::MatrixXf& input, const Ei
 nam::wavenet::detail::LayerArray::LayerArray(const LayerArrayParams& params)
 : _rechannel(params.input_size, params.channels, false)
 , _head_rechannel(params.head1x1_params.active ? params.head1x1_params.out_channels : params.bottleneck,
-                  params.head_size, params.head_kernel_size, params.head_bias ? 1 : 0, 1, 1)
+                  params.head_size, params.head_kernel_size, params.head_bias ? 1 : 0, params.head_dilation, 1)
 , _head_output_size(params.head1x1_params.active ? params.head1x1_params.out_channels : params.bottleneck)
 {
   const size_t num_layers = params.dilations.size();
@@ -419,7 +419,7 @@ long nam::wavenet::detail::LayerArray::get_receptive_field() const
   long result = 0;
   for (size_t i = 0; i < this->_layers.size(); i++)
     result += this->_layers[i].get_dilation() * (this->_layers[i].get_kernel_size() - 1);
-  result += (long)this->_head_rechannel.get_kernel_size() - 1;
+  result += this->_head_rechannel.get_dilation() * ((long)this->_head_rechannel.get_kernel_size() - 1);
   return result;
 }
 
@@ -876,6 +876,7 @@ nam::wavenet::WaveNetConfig nam::wavenet::parse_config_json(const nlohmann::json
     const int condition_size = layer_config["condition_size"];
 
     int head_size = 0;
+    int head_dilation = 1;
     int head_kernel_size = 1;
     bool head_bias = false;
 
@@ -888,6 +889,12 @@ nam::wavenet::WaveNetConfig nam::wavenet::parse_config_json(const nlohmann::json
         throw std::runtime_error("Layer array " + std::to_string(i) + ": 'head' must be a JSON object");
       }
       head_size = head_json.at("out_channels").get<int>();
+
+      if (head_json.contains("head_dilation"))
+      {
+        head_dilation = head_json.at("head_dilation").get<int>();
+      }
+
       head_kernel_size = head_json.at("kernel_size").get<int>();
       head_bias = head_json.at("bias").get<bool>();
     }
@@ -1144,7 +1151,7 @@ nam::wavenet::WaveNetConfig nam::wavenet::parse_config_json(const nlohmann::json
     }
 
     wc.layer_array_params.push_back(nam::wavenet::LayerArrayParams(
-      input_size, condition_size, head_size, head_kernel_size, channels, bottleneck, std::move(kernel_sizes), dilations,
+      input_size, condition_size, head_size, head_dilation, head_kernel_size, channels, bottleneck, std::move(kernel_sizes), dilations,
       std::move(activation_configs), std::move(gating_modes), head_bias, groups, groups_input_mixin, layer1x1_params,
       head1x1_params, std::move(secondary_activation_configs), conv_pre_film_params, conv_post_film_params,
       input_mixin_pre_film_params, input_mixin_post_film_params, activation_pre_film_params,
