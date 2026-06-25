@@ -351,6 +351,8 @@ int main()
   test_a2_fast::test_detector_rejects_wrong_kernel_sizes();
   test_a2_fast::test_detector_rejects_wrong_activation();
   test_a2_fast::test_detector_rejects_gating();
+  test_a2_fast::test_detector_rejects_condition_dsp();
+  test_a2_fast::test_detector_rejects_legacy_gated();
   test_a2_fast::test_matches_generic_nano();
   test_a2_fast::test_matches_generic_standard();
   test_a2_fast::test_process_realtime_safe_nano();

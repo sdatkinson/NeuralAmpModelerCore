@@ -228,6 +228,27 @@ void test_detector_rejects_gating()
   assert(!nam::wavenet::a2_fast::is_a2_shape(cfg, nullptr));
 }
 
+// A condition DSP routes the conditioning signal through a nested model; the fast
+// path has no such stage. The nested model holds its own weights, so the parent
+// weight stream is unchanged and only the detector can catch this -- otherwise the
+// fast path would silently produce different audio than the generic WaveNet.
+void test_detector_rejects_condition_dsp()
+{
+  auto cfg = build_a2_config(8);
+  cfg["condition_dsp"] = {{"version", "0.5.0"}, {"architecture", "Linear"},
+                          {"config", nlohmann::json::object()}, {"weights", nlohmann::json::array()}};
+  assert(!nam::wavenet::a2_fast::is_a2_shape(cfg, nullptr));
+}
+
+// Legacy boolean `gated` (pre-gating_mode schema) maps to GATED layers in the
+// generic parser, which the fast path does not implement.
+void test_detector_rejects_legacy_gated()
+{
+  auto cfg = build_a2_config(3);
+  cfg["layers"][0]["gated"] = true;
+  assert(!nam::wavenet::a2_fast::is_a2_shape(cfg, nullptr));
+}
+
 void test_matches_generic(int channels)
 {
   const auto cfg = build_a2_config(channels);

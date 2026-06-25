@@ -763,6 +763,17 @@ bool is_a2_shape(const nlohmann::json& config, int* channels)
   if (head_it != config.end() && !head_it->is_null())
     return false;
 
+  // No conditioning DSP. When given a non-null condition_dsp the generic WaveNet
+  // builds a nested model and routes the conditioning signal through it before the
+  // layer stack; the fast path has no such stage and feeds the raw input as the
+  // condition. The condition DSP carries its own weights, so the parent weight
+  // stream is identical with or without it and the loader cannot detect the
+  // difference -- the detector must reject it here, or the fast path would silently
+  // produce different audio than the model it replaces.
+  auto cond_it = config.find("condition_dsp");
+  if (cond_it != config.end() && !cond_it->is_null())
+    return false;
+
   // head_scale is loaded from the trailing weight, but require the field to
   // stay schema-compatible with the generic WaveNet parser.
   auto hs_it = config.find("head_scale");
@@ -826,6 +837,14 @@ bool is_a2_shape(const nlohmann::json& config, int* channels)
     if (!all_none_strings(*gm_it) || gm_it->size() != kNumLayers)
       return false;
   }
+
+  // Legacy boolean `gated` (the pre-gating_mode schema): the generic parser maps
+  // gated==true to GATED layers, which the fast path does not implement. A genuinely
+  // gated model has a larger weight stream and the loader would throw, but reject it
+  // here so the boundary is enforced by the detector rather than a downstream error.
+  auto gated_it = la.find("gated");
+  if (gated_it != la.end() && gated_it->is_boolean() && gated_it->get<bool>())
+    return false;
 
   // secondary_activation: all null (or field absent)
   auto sa_it = la.find("secondary_activation");
