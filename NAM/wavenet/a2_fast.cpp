@@ -172,7 +172,11 @@ A2FastModel<Channels>::A2FastModel(std::vector<float> weights, double expected_s
 
   _load_weights(weights);
 
-  int prewarm = 0;
+  // Receptive field = 1 (the sample being produced) + sum of per-layer lookbacks +
+  // (head kernel - 1). The leading 1 matches the generic WaveNet's prewarm count
+  // (model.cpp: mPrewarmSamples starts at 1 when there's no condition DSP), so the
+  // fast path warms up by exactly the same number of samples as the model it replaces.
+  int prewarm = 1;
   for (int i = 0; i < kNumLayers; i++)
     prewarm += _layers[i].max_lookback;
   prewarm += kHeadKernelSize - 1;
