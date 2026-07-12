@@ -37,3 +37,8 @@ docs/_build/
 *.DS_Store
 
 example_audio/output.wav
+
+# Local build and benchmark artifacts
+build/
+build_nofused/
+benchmark_reports/tmp_models/

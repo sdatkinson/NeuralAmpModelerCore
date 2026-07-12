@@ -60,6 +60,16 @@ if(NAM_ENABLE_A2_FAST)
 	add_compile_definitions(NAM_ENABLE_A2_FAST)
 endif()
 
+# Build the fused NEON WaveNet engine. When ON, standard-shape WaveNet models
+# (e.g. the A1 standard/lite/feather family and A2 standard) are routed to a
+# fused, register-tiled NEON implementation on AArch64 (Apple Silicon etc.).
+# On other architectures the flag is harmless: the shape detector returns
+# false and all models use the generic path.
+option(NAM_ENABLE_FUSED "Build the fused NEON WaveNet engine" ON)
+if(NAM_ENABLE_FUSED)
+	add_compile_definitions(NAM_ENABLE_FUSED)
+endif()
+
 add_subdirectory(tools)
 
 #file(MAKE_DIRECTORY build/tools)

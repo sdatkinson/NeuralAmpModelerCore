@@ -36,6 +36,7 @@
 #include "test/test_render_slim.cpp"
 #include "test/test_slimmable_wavenet.cpp"
 #include "test/test_a2_fast.cpp"
+#include "test/test_fused.cpp"
 
 int main()
 {
@@ -368,6 +369,21 @@ int main()
   test_a2_fast::test_prewarm_matches_generic_standard();
   test_a2_fast::test_process_realtime_safe_nano();
   test_a2_fast::test_process_realtime_safe_standard();
+#endif
+
+#if defined(NAM_ENABLE_FUSED)
+  // Fused NEON WaveNet engine: detector coverage + numerical match against
+  // generic across shapes, activations, and block sizes.
+  test_fused::test_detector_declines_non_fused_shapes();
+  test_fused::test_detector_accepts_a1_legacy();
+  test_fused::test_a1_standard_matches_generic();
+  test_fused::test_a1_standard_fast_tanh_matches_generic();
+  test_fused::test_a1_lite_feather_match_generic();
+  test_fused::test_activations_match_generic();
+  test_fused::test_mixed_kernel_sizes_and_head_kernel_match_generic();
+  test_fused::test_layer1x1_inactive_matches_generic();
+  test_fused::test_channels_12_20_match_generic();
+  test_fused::test_process_is_realtime_safe();
 #endif
 
   std::cout << "Success!" << std::endl;

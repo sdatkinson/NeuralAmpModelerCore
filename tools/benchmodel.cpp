@@ -25,13 +25,29 @@ int main(int argc, char* argv[])
   double slimValue = -1.0;
   bool hasSlim = false;
   bool useFastTanh = true;
+  double seconds = 2.0;
   std::vector<char*> positionalArgs;
   positionalArgs.push_back(argv[0]);
 
   for (int i = 1; i < argc; i++)
   {
     std::string arg(argv[i]);
-    if (arg == "--slim")
+    if (arg == "--seconds")
+    {
+      if (i + 1 >= argc)
+      {
+        std::cerr << "Error: --seconds requires a positive number\n";
+        return 1;
+      }
+      seconds = std::strtod(argv[i + 1], nullptr);
+      if (seconds <= 0.0)
+      {
+        std::cerr << "Error: --seconds must be positive\n";
+        return 1;
+      }
+      i++; // skip the value
+    }
+    else if (arg == "--slim")
     {
       if (i + 1 >= argc)
       {
@@ -102,7 +118,7 @@ int main(int argc, char* argv[])
 
   size_t bufferSize = AUDIO_BUFFER_SIZE;
   model->Reset(model->GetExpectedSampleRate(), bufferSize);
-  size_t numBuffers = (48000 / bufferSize) * 2;
+  size_t numBuffers = static_cast<size_t>((48000 / bufferSize) * seconds);
 
   // Allocate multi-channel buffers
   const int in_channels = model->NumInputChannels();

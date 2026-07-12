@@ -1,0 +1,140 @@
+================================================================
+NeuralAmpModelerCore Benchmark Report
+================================================================
+
+Date:       2026-07-12 17:24 UTC
+Machine:    Apple M2
+Arch:       arm64
+OS:         macOS 27.0 (build 26A5378j)
+CPU cores:  8
+RAM:        16.0 GB
+
+Build:
+  Directory:  build/
+  Type:       Release (-Ofast)
+  Compiler:   Apple clang version 21.0.0 (clang-2100.3.20.102)
+  CMake:      cmake version 4.3.4
+  A2 fast:    ON (NAM_ENABLE_A2_FAST)
+
+Git:
+  NeuralAmpModelerCore: 9c7b185 (v0.5.3)
+
+Benchmark methodology:
+  benchmodel:         2s audio @ 48kHz, buffer=64, fast tanh enabled, 10 runs
+  benchmodel_bufsize: 2s audio, 5 iterations per buffer size, fast tanh enabled
+  bench_a2_fast:      2s audio, buffer=64, 10 iterations, per-block timing (us)
+
+Build commands:
+  cd NeuralAmpModelerCore/build
+  cmake .. -DCMAKE_BUILD_TYPE=Release
+  cmake --build . --target benchmodel benchmodel_bufsize bench_a2_fast -j8
+
+================================================================
+1. benchmodel — example models (median wall time for 2s audio)
+================================================================
+
+Model                                   Median        Min        Max       Mean      RTF
+--------------------------------------------------------------------------------
+lstm.nam                                8.017ms     7.658ms     8.111ms     7.964ms   249.4x
+my_model.nam                           83.582ms    82.760ms    86.642ms    84.118ms    23.9x
+slimmable_container.nam                29.819ms    27.618ms    33.222ms    29.555ms    67.0x
+slimmable_wavenet.nam                  20.491ms    20.024ms    21.453ms    20.584ms    97.6x
+wavenet.nam                             6.387ms     6.226ms     6.709ms     6.434ms   313.1x
+wavenet_a1_standard.nam                86.197ms    84.139ms    91.861ms    86.765ms    23.2x
+wavenet_a2_max.nam                     77.875ms    77.392ms   115.734ms    81.670ms    25.6x
+wavenet_condition_dsp.nam              12.734ms    12.570ms    12.935ms    12.742ms   157.0x
+
+  RTF = 2000ms audio / processing time. Higher is faster.
+  All models process 2 seconds of audio (96,000 samples @ 48kHz) in buffer=64 chunks.
+
+================================================================
+2. bench_a2_fast — A2 fast path vs generic WaveNet
+================================================================
+
+Models generated with A2 shape signature (channels=3 nano, channels=8 standard).
+Note: wavenet_a2_max.nam is a feature superset test case and does NOT match the
+A2 fast-path shape detector; use purpose-built A2-shaped models for this benchmark.
+
+== a2_nano.nam  (A2 nano, Channels=3) ==
+   audio=2000ms @ 48000Hz, block=64, iters=10 (15000 blocks timed each)
+   per-block audio deadline: 1333.3 us
+                  min     p50     p99     p99.9   max    mean
+   fast    (us):    5.88    6.12   10.08   34.79  122.62    6.51
+   generic (us):   42.42   43.71   76.46  167.00  267.62   46.54
+   RTF (p50):  fast=217.69x  generic=30.51x  speedup=7.14x
+
+== a2_standard.nam  (A2 standard, Channels=8) ==
+   audio=2000ms @ 48000Hz, block=64, iters=10 (15000 blocks timed each)
+   per-block audio deadline: 1333.3 us
+                  min     p50     p99     p99.9   max    mean
+   fast    (us):   44.62   45.17   76.50  152.92  208.46   47.92
+   generic (us):   51.62   53.04   86.88  166.96  209.08   56.22
+   RTF (p50):  fast=29.52x  generic=25.14x  speedup=1.17x
+
+================================================================
+3. benchmodel_bufsize — buffer size sweep
+================================================================
+
+--- wavenet_a1_standard.nam ---
+Buffer         Avg Time (us)          RTF
+----------------------------------------------
+16                  108719.0        18.3x
+32                   88881.5        22.5x
+64                   81707.5        24.4x
+128                  76863.0        26.0x
+256                  72917.6        27.4x
+512                  69474.1        28.7x
+1024                 66738.2        29.9x
+
+--- wavenet.nam ---
+Buffer         Avg Time (us)          RTF
+----------------------------------------------
+16                    9814.2       203.7x
+32                    6769.9       295.4x
+64                    5321.7       375.8x
+128                   4446.5       449.7x
+256                   4188.6       477.4x
+512                   4030.2       496.2x
+1024                  3921.3       510.0x
+
+--- lstm.nam ---
+Buffer         Avg Time (us)          RTF
+----------------------------------------------
+16                    8675.0       230.5x
+32                    8978.6       222.7x
+64                    9325.2       214.4x
+128                   8758.4       228.3x
+256                   8582.6       233.0x
+512                   8532.6       234.3x
+1024                  8610.8       232.2x
+
+--- a2_standard.nam (via dispatcher, not bench_a2_fast) ---
+Buffer         Avg Time (us)          RTF
+----------------------------------------------
+16                  109809.0        18.2x
+32                   89100.8        22.4x
+64                   78363.0        25.5x
+128                  73456.6        27.2x
+256                  70778.1        28.2x
+512                  68142.7        29.3x
+1024                 68512.8        29.1x
+
+================================================================
+Summary
+================================================================
+
+Fastest model (benchmodel):  wavenet.nam at ~6.4ms for 2s audio (313x RTF)
+Slowest model (benchmodel):  wavenet_a1_standard.nam at ~86ms (23x RTF)
+
+A2 fast path speedup:
+  - A2 nano (3 ch):     7.1x faster than generic at p50
+  - A2 standard (8 ch): 1.2x faster than generic at p50
+
+Buffer size effect:
+  - Small models (wavenet.nam) benefit strongly from larger buffers
+  - Large models (wavenet_a1, a2_standard) are relatively insensitive to buffer size
+  - LSTM performance is flat across buffer sizes (stateful, fixed per-sample cost)
+
+================================================================
+Report complete.
+================================================================

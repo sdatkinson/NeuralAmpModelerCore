@@ -1,0 +1,99 @@
+================================================================
+NeuralAmpModelerCore Benchmark Report
+================================================================
+
+Date:       2026-07-12 18:20:34 UTC
+Machine:    Apple M2
+Arch:       arm64
+OS:         macOS 27.0
+CPU cores:  8
+RAM:        16.0 GB
+
+Build: Release, A2 fast ON
+Git:   9c7b185 (v0.5.3)
+
+================================================================
+1. benchmodel — example models (10 runs)
+================================================================
+Model                                   Median        Min        Max       Mean      RTF
+--------------------------------------------------------------------------------
+lstm.nam                                8.193ms     7.992ms     8.713ms     8.258ms   244.1x
+my_model.nam                           38.725ms    38.534ms    40.635ms    39.138ms    51.6x
+slimmable_container.nam                28.457ms    28.089ms    28.876ms    28.435ms    70.2x
+slimmable_wavenet.nam                  19.040ms    18.760ms    19.417ms    19.055ms   105.0x
+wavenet.nam                             6.057ms     5.908ms     6.396ms     6.128ms   330.1x
+wavenet_a1_standard.nam                39.060ms    38.506ms    39.318ms    38.996ms    51.2x
+wavenet_a2_max.nam                     79.765ms    77.769ms    87.159ms    80.769ms    25.0x
+wavenet_condition_dsp.nam              13.724ms    13.433ms    14.049ms    13.721ms   145.7x
+
+================================================================
+2. bench_a2_fast — A2 fast vs generic
+================================================================
+
+== /Users/rik/code.local/nam/NeuralAmpModelerPlugin/.claude/worktrees/neural-amp-apple-optimization-c3adc0/NeuralAmpModelerCore/benchmark_reports/tmp_models/a2_nano.nam  (A2 nano, Channels=3) ==
+   audio=2000ms @ 48000Hz, block=64, iters=10 (15000 blocks timed each)
+   per-block audio deadline: 1333.3 us
+                  min     p50     p99     p99.9   max    mean
+   fast    (us):    5.88    6.33    9.79   35.04   94.08    6.48
+   generic (us):   42.21   43.83   69.92  166.83  285.38   45.64
+   RTF (p50):  fast=210.54x  generic=30.42x  speedup=6.92x
+
+== /Users/rik/code.local/nam/NeuralAmpModelerPlugin/.claude/worktrees/neural-amp-apple-optimization-c3adc0/NeuralAmpModelerCore/benchmark_reports/tmp_models/a2_standard.nam  (A2 standard, Channels=8) ==
+   audio=2000ms @ 48000Hz, block=64, iters=10 (15000 blocks timed each)
+   per-block audio deadline: 1333.3 us
+                  min     p50     p99     p99.9   max    mean
+   fast    (us):   44.96   45.33   71.75  164.04  376.46   47.24
+   generic (us):   51.50   52.54   84.46  199.34  327.08   55.00
+   RTF (p50):  fast=29.41x  generic=25.38x  speedup=1.16x
+
+================================================================
+3. benchmodel_bufsize — buffer size sweep
+================================================================
+
+--- wavenet_a1_standard.nam ---
+Buffer         Avg Time (us)          RTF
+----------------------------------------------
+16                   40578.0        49.2x
+32                   40104.5        49.8x
+64                   39258.8        50.9x
+128                  38384.8        52.1x
+256                  37782.0        52.9x
+512                  54677.8        36.5x
+1024                 39633.0        50.4x
+
+--- wavenet.nam ---
+Buffer         Avg Time (us)          RTF
+----------------------------------------------
+16                    9860.0       202.8x
+32                    6589.2       303.5x
+64                    5164.3       387.2x
+128                  15677.1       127.5x
+256                   4095.3       488.3x
+512                   4020.0       497.5x
+1024                  3833.4       521.7x
+
+--- lstm.nam ---
+Buffer         Avg Time (us)          RTF
+----------------------------------------------
+16                    8514.8       234.8x
+32                    8621.8       231.9x
+64                    8319.2       240.4x
+128                   8570.4       233.3x
+256                   8271.4       241.7x
+512                   8622.4       231.9x
+1024                  8394.7       238.2x
+
+--- a2_standard.nam ---
+Buffer         Avg Time (us)          RTF
+----------------------------------------------
+16                   43189.8        46.3x
+32                   40768.2        49.0x
+64                   40225.9        49.7x
+128                  39783.5        50.2x
+256                  39106.1        51.1x
+512                  38534.6        51.9x
+1024                 38618.5        51.7x
+
+================================================================
+Report complete.
+================================================================
