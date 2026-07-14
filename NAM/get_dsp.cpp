@@ -1,6 +1,6 @@
 #include <fstream>
 #include <iostream>
-#include <mutex>
+#include "threading.h"
 #include <regex>
 #include <sstream>
 #include <stdexcept>
@@ -46,9 +46,9 @@ std::vector<std::shared_ptr<const IVersionSupportChecker>>& version_support_regi
   return registry;
 }
 
-std::mutex& version_support_registry_mutex()
+nam::Mutex& version_support_registry_mutex()
 {
-  static std::mutex registry_mutex;
+  static nam::Mutex registry_mutex;
   return registry_mutex;
 }
 
@@ -94,13 +94,13 @@ void register_version_support_checker(std::shared_ptr<const IVersionSupportCheck
 {
   if (!checker)
     throw std::invalid_argument("version support checker cannot be null");
-  std::lock_guard<std::mutex> lock(version_support_registry_mutex());
+  nam::LockGuard<nam::Mutex> lock(version_support_registry_mutex());
   version_support_registry().push_back(std::move(checker));
 }
 
 Supported is_version_supported(const std::string version)
 {
-  std::lock_guard<std::mutex> lock(version_support_registry_mutex());
+  nam::LockGuard<nam::Mutex> lock(version_support_registry_mutex());
   Supported best_support = Supported::NO;
   for (const auto& checker : version_support_registry())
   {
