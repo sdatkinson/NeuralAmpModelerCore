@@ -1,6 +1,8 @@
 #pragma once
 
+#ifndef NAM_NO_FILESYSTEM
 #include <filesystem>
+#endif
 #include <iterator>
 #include <memory>
 #include <string>
