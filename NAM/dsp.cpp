@@ -1,8 +1,10 @@
 #include <algorithm> // std::max_element
 #include <cmath> // pow, tanh, expf
 #include <cstring>
+#ifndef NAM_NO_FILESYSTEM
 #include <filesystem>
 #include <fstream>
+#endif
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
