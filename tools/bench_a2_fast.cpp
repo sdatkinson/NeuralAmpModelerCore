@@ -12,9 +12,9 @@
 
 #if defined(NAM_ENABLE_A2_FAST)
 
+  #include <cmath>
   #include <algorithm>
   #include <chrono>
-  #include <cmath>
   #include <cstdlib>
   #include <cstring>
   #include <filesystem>

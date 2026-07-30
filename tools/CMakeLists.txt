@@ -20,8 +20,6 @@ add_executable(loadmodel loadmodel.cpp ${NAM_SOURCES})
 add_executable(benchmodel benchmodel.cpp ${NAM_SOURCES})
 add_executable(render render.cpp ${NAM_SOURCES} ${AUDIO_DSP_TOOLS_WAV_SOURCES})
 target_compile_features(render PUBLIC cxx_std_20)
-# AudioDSPTools wav.cpp has sign-compare issues; don't fail build
-set_source_files_properties(${AUDIO_DSP_TOOLS_WAV_SOURCES} PROPERTIES COMPILE_FLAGS "-Wno-error")
 set_target_properties(render PROPERTIES
 	CXX_VISIBILITY_PRESET hidden
 	INTERPROCEDURAL_OPTIMIZATION TRUE
@@ -36,6 +34,8 @@ if (MSVC)
 		"$<$<CONFIG:RELEASE>:/O2>"
 	)
 else()
+	# AudioDSPTools wav.cpp has sign-compare issues; don't fail build
+	set_source_files_properties(${AUDIO_DSP_TOOLS_WAV_SOURCES} PROPERTIES COMPILE_FLAGS "-Wno-error")
 	target_compile_options(render PRIVATE
 		-Wall -Wextra -Wpedantic -Wstrict-aliasing -Wunreachable-code -Weffc++ -Wno-unused-parameter
 		"$<$<CONFIG:DEBUG>:-Og;-ggdb;-Werror>"
@@ -61,11 +61,24 @@ else()
 		"$<$<CONFIG:DEBUG>:-Og;-ggdb;-Werror>"
 		"$<$<CONFIG:RELEASE>:-Ofast>"
 	)
+	# Compile run_tests without optimizations to ensure allocation tracking works correctly
+	# Also ensure assertions are enabled (NDEBUG is not defined) so tests actually run
+	set_target_properties(run_tests PROPERTIES COMPILE_OPTIONS "-O0")
+	# There's an error in eigen's
+	# /Users/steve/src/NeuralAmpModelerCore/Dependencies/eigen/Eigen/src/Core/products/GeneralBlockPanelKernel.h
+	# Don't let this break my build on debug:
+	set_source_files_properties(../NAM/dsp.cpp PROPERTIES COMPILE_FLAGS "-Wno-error")
+	set_source_files_properties(../NAM/conv1d.cpp PROPERTIES COMPILE_FLAGS "-Wno-error")
 endif()
 add_executable(run_tests run_tests.cpp test/allocation_tracking.cpp ${NAM_SOURCES})
-# Compile run_tests without optimizations to ensure allocation tracking works correctly
-# Also ensure assertions are enabled (NDEBUG is not defined) so tests actually run
-set_target_properties(run_tests PROPERTIES COMPILE_OPTIONS "-O0")
+
+# Only allow allocation tracking on Linux and macOS. Not on Windows and not on embedded.
+if (CMAKE_SYSTEM_NAME STREQUAL "Linux" OR CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+	target_compile_definitions(run_tests PRIVATE NAM_ALLOC_TRACKING_ENABLED=1)
+else()
+	target_compile_definitions(run_tests PRIVATE NAM_ALLOC_TRACKING_ENABLED=0)
+endif()
+
 # Ensure assertions are enabled for run_tests by removing NDEBUG if it was set
 # Release/RelWithDebInfo/MinSizeRel build types automatically define NDEBUG
 # We use a compile option to undefine it, which works on GCC, Clang, and MSVC
@@ -106,9 +119,3 @@ else()
 		"$<$<CONFIG:RELEASE>:-Ofast>"
 	)
 endif()
-
-# There's an error in eigen's
-# /Users/steve/src/NeuralAmpModelerCore/Dependencies/eigen/Eigen/src/Core/products/GeneralBlockPanelKernel.h
-# Don't let this break my build on debug:
-set_source_files_properties(../NAM/dsp.cpp PROPERTIES COMPILE_FLAGS "-Wno-error")
-set_source_files_properties(../NAM/conv1d.cpp PROPERTIES COMPILE_FLAGS "-Wno-error")

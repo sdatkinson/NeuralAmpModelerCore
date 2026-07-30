@@ -299,11 +299,17 @@ public:
 
     // Set some weights to make the layers produce different outputs
     std::vector<float> weights;
-    // Add weights for conv layer (simplified - just enough to make it non-zero)
-    const int conv_weights = channels * 2 * bottleneck * kernelSize; // 2*bottleneck for gated
+    // Add weights for conv layer (2*bottleneck outputs for gated), including bias
+    const int conv_out_channels = 2 * bottleneck;
+    const int conv_weights = channels * conv_out_channels * kernelSize;
+    const int conv_bias = conv_out_channels;
     for (int i = 0; i < conv_weights; i++)
     {
       weights.push_back(0.1f * i);
+    }
+    for (int i = 0; i < conv_bias; i++)
+    {
+      weights.push_back(0.01f * i);
     }
     // Add weights for input mixin
     const int mixin_weights = conditionSize * 2 * bottleneck;
@@ -311,11 +317,16 @@ public:
     {
       weights.push_back(0.05f * i);
     }
-    // Add weights for 1x1 conv
+    // Add weights for 1x1 conv, including bias
     const int conv1x1_weights = bottleneck * channels;
+    const int conv1x1_bias = channels;
     for (int i = 0; i < conv1x1_weights; i++)
     {
       weights.push_back(0.02f * i);
+    }
+    for (int i = 0; i < conv1x1_bias; i++)
+    {
+      weights.push_back(0.03f * i);
     }
 
     // Set weights for all layers
@@ -327,6 +338,8 @@ public:
 
     weights_iter = weights.begin();
     layer_relu.set_weights_(weights_iter);
+
+    assert(weights_iter == weights.end());
 
     // Create some test input data
     Eigen::MatrixXf input(channels, num_frames);

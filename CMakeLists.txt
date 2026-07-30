@@ -44,6 +44,7 @@ elseif (CMAKE_SYSTEM_NAME STREQUAL "Linux")
 	endif()
 elseif (CMAKE_SYSTEM_NAME STREQUAL "Windows")
 	add_compile_definitions(NOMINMAX WIN32_LEAN_AND_MEAN)
+	add_compile_definitions(_USE_MATH_DEFINES)
 else()
 	message(FATAL_ERROR "Unrecognized Platform!")
 endif()
@@ -62,9 +63,13 @@ endif()
 
 add_subdirectory(tools)
 
-#file(MAKE_DIRECTORY build/tools)
-
-#add_custom_target(copy_tools ALL
-#	${CMAKE_COMMAND} -E copy "$<TARGET_FILE:tools>" tools/
-#	DEPENDS tools
-#)
+# Copy example assets after build
+add_custom_target(copy_tools ALL
+	COMMAND ${CMAKE_COMMAND} -E copy_directory
+	"${CMAKE_CURRENT_SOURCE_DIR}/example_models"
+	"${CMAKE_CURRENT_BINARY_DIR}/tools/example_models"
+	COMMAND ${CMAKE_COMMAND} -E copy_directory
+	"${CMAKE_CURRENT_SOURCE_DIR}/example_audio"
+	"${CMAKE_CURRENT_BINARY_DIR}/tools/example_audio"
+	DEPENDS tools
+)
