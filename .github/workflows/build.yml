@@ -101,3 +101,35 @@ jobs:
         ./build_inline_libcxx/tools/benchmodel ./example_models/lstm.nam
         ./build_inline_libcxx/tools/render ./example_models/wavenet.nam ./example_audio/input.wav ./example_audio/output.wav
 
+  build-windows:
+    name: Build Windows
+    runs-on: windows-2022
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    - name: Install CMake
+      uses: jwlawson/actions-setup-cmake@v1
+      with:
+        cmake-version: "3.27.5"
+    - name: Build Tools
+      working-directory: ${{github.workspace}}/build
+      run: |
+        cmake .. -DCMAKE_BUILD_TYPE=Debug
+        cmake --build . --config Debug
+    - name: Build Tools (Inline GEMM)
+      working-directory: ${{github.workspace}}/build_inline
+      run: |
+        cmake .. -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS="-DNAM_USE_INLINE_GEMM"
+        cmake --build . --config Debug
+    - name: Run tests
+      working-directory: ${{github.workspace}}
+      run: |
+        ./build/tools/run_tests
+        ./build/tools/benchmodel ./example_models/wavenet.nam
+        ./build/tools/benchmodel ./example_models/lstm.nam
+        ./build/tools/render ./example_models/wavenet.nam ./example_audio/input.wav ./example_audio/output.wav
+        ./build_inline/tools/run_tests
+        ./build_inline/tools/benchmodel ./example_models/wavenet.nam
+        ./build_inline/tools/benchmodel ./example_models/lstm.nam
+        ./build_inline/tools/render ./example_models/wavenet.nam ./example_audio/input.wav ./example_audio/output.wav
