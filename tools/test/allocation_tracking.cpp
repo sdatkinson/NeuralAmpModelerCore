@@ -17,6 +17,7 @@ void (*original_free)(void*) = nullptr;
 void* (*original_realloc)(void*, size_t) = nullptr;
 } // namespace allocation_tracking
 
+#if NAM_ALLOC_TRACKING_ENABLED
 // Override malloc/free to track Eigen allocations (Eigen uses malloc directly)
 extern "C" {
 void* malloc(size_t size)
@@ -88,3 +89,4 @@ void operator delete[](void* ptr) noexcept
     ++allocation_tracking::g_deallocation_count;
   std::free(ptr);
 }
+#endif
