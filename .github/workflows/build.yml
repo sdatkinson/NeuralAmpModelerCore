@@ -121,11 +121,11 @@ jobs:
     - name: Run tests
       working-directory: ${{github.workspace}}
       run: |
-        ./build/tools/run_tests.exe
-        ./build/tools/benchmodel.exe ./example_models/wavenet.nam
-        ./build/tools/benchmodel.exe ./example_models/lstm.nam
-        ./build/tools/render.exe ./example_models/wavenet.nam ./example_audio/input.wav ./example_audio/output.wav
-        ./build_inline/tools/run_tests.exe
-        ./build_inline/tools/benchmodel.exe ./example_models/wavenet.nam
-        ./build_inline/tools/benchmodel.exe ./example_models/lstm.nam
-        ./build_inline/tools/render.exe ./example_models/wavenet.nam ./example_audio/input.wav ./example_audio/output.wav
+        ./build/tools/Debug/run_tests.exe
+        ./build/tools/Debug/benchmodel.exe ./example_models/wavenet.nam
+        ./build/tools/Debug/benchmodel.exe ./example_models/lstm.nam
+        ./build/tools/Debug/render.exe ./example_models/wavenet.nam ./example_audio/input.wav ./example_audio/output.wav
+        ./build_inline/tools/Debug/run_tests.exe
+        ./build_inline/tools/Debug/benchmodel.exe ./example_models/wavenet.nam
+        ./build_inline/tools/Debug/benchmodel.exe ./example_models/lstm.nam
+        ./build_inline/tools/Debug/render.exe ./example_models/wavenet.nam ./example_audio/input.wav ./example_audio/output.wav
