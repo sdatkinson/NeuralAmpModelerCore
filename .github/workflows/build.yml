@@ -108,10 +108,6 @@ jobs:
     - uses: actions/checkout@v4
       with:
         submodules: recursive
-    - name: Install CMake
-      uses: jwlawson/actions-setup-cmake@v1
-      with:
-        cmake-version: "3.27.5"
     - name: Build Tools
       working-directory: ${{github.workspace}}/build
       run: |
@@ -125,11 +121,11 @@ jobs:
     - name: Run tests
       working-directory: ${{github.workspace}}
       run: |
-        ./build/tools/run_tests
-        ./build/tools/benchmodel ./example_models/wavenet.nam
-        ./build/tools/benchmodel ./example_models/lstm.nam
-        ./build/tools/render ./example_models/wavenet.nam ./example_audio/input.wav ./example_audio/output.wav
-        ./build_inline/tools/run_tests
-        ./build_inline/tools/benchmodel ./example_models/wavenet.nam
-        ./build_inline/tools/benchmodel ./example_models/lstm.nam
-        ./build_inline/tools/render ./example_models/wavenet.nam ./example_audio/input.wav ./example_audio/output.wav
+        ./build/tools/run_tests.exe
+        ./build/tools/benchmodel.exe ./example_models/wavenet.nam
+        ./build/tools/benchmodel.exe ./example_models/lstm.nam
+        ./build/tools/render.exe ./example_models/wavenet.nam ./example_audio/input.wav ./example_audio/output.wav
+        ./build_inline/tools/run_tests.exe
+        ./build_inline/tools/benchmodel.exe ./example_models/wavenet.nam
+        ./build_inline/tools/benchmodel.exe ./example_models/lstm.nam
+        ./build_inline/tools/render.exe ./example_models/wavenet.nam ./example_audio/input.wav ./example_audio/output.wav
