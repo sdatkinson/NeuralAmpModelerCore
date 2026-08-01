@@ -44,6 +44,7 @@ else()
 endif()
 add_executable(benchmodel_bufsize benchmodel_bufsize.cpp ${NAM_SOURCES})
 add_executable(bench_a2_fast bench_a2_fast.cpp ${NAM_SOURCES})
+add_executable(run_tests run_tests.cpp test/allocation_tracking.cpp ${NAM_SOURCES})
 target_compile_features(bench_a2_fast PUBLIC cxx_std_20)
 set_target_properties(bench_a2_fast PROPERTIES
 	CXX_VISIBILITY_PRESET hidden
@@ -70,7 +71,6 @@ else()
 	set_source_files_properties(../NAM/dsp.cpp PROPERTIES COMPILE_FLAGS "-Wno-error")
 	set_source_files_properties(../NAM/conv1d.cpp PROPERTIES COMPILE_FLAGS "-Wno-error")
 endif()
-add_executable(run_tests run_tests.cpp test/allocation_tracking.cpp ${NAM_SOURCES})
 
 # Only allow allocation tracking on Linux and macOS. Not on Windows and not on embedded.
 if (CMAKE_SYSTEM_NAME STREQUAL "Linux" OR CMAKE_SYSTEM_NAME STREQUAL "Darwin")
