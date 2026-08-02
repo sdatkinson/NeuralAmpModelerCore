@@ -77,16 +77,32 @@ struct DspLoadOptions
   std::optional<bool> prewarm = std::nullopt;
 };
 
+// A note on exceptions: `.nam` files are untrusted input (they're downloaded from the
+// internet), and the functions below are the load path for them. Malformed input is reported
+// by throwing--most commonly a `std::runtime_error` raised by a `NAM/json_util.h` validation
+// helper, but some code paths still surface a raw `nlohmann::json` parse/type/out-of-range
+// exception (`nlohmann::detail::exception`, which derives from `std::exception` but NOT from
+// `std::runtime_error`). Callers should therefore `catch (const std::exception&)`, not
+// `catch (const std::runtime_error&)`--the latter will miss some malformed-input cases and
+// the exception will propagate past the handler (`std::terminate()` if nothing else catches
+// it).
+
 /// \brief Get NAM from a .nam file at the provided location
 /// \param config_filename Path to the .nam model file
 /// \param options Loading options
 /// \return Unique pointer to a DSP object
+/// \throws std::exception (typically std::runtime_error, but see the note above) if the file
+///         doesn't exist or the model file is malformed (missing/invalid required fields,
+///         unsupported version, etc.)
 std::unique_ptr<DSP> get_dsp(const std::filesystem::path config_filename, DspLoadOptions options = DspLoadOptions());
 
 /// \brief Get NAM from a provided configuration struct
 /// \param conf DSP data structure containing model configuration and weights
 /// \param options Loading options
 /// \return Unique pointer to a DSP object
+/// \throws std::exception (typically std::runtime_error, but see the note above) if the model
+///         configuration is malformed (missing/invalid required fields, unsupported version,
+///         etc.)
 std::unique_ptr<DSP> get_dsp(dspData& conf, DspLoadOptions options = DspLoadOptions());
 
 /// \brief Get NAM from a .nam file and store its configuration
@@ -96,6 +112,9 @@ std::unique_ptr<DSP> get_dsp(dspData& conf, DspLoadOptions options = DspLoadOpti
 /// \param returnedConfig Output parameter that will be filled with the model data
 /// \param options Loading options
 /// \return Unique pointer to a DSP object
+/// \throws std::exception (typically std::runtime_error, but see the note above) if the file
+///         doesn't exist or the model file is malformed (missing/invalid required fields,
+///         unsupported version, etc.)
 std::unique_ptr<DSP> get_dsp(const std::filesystem::path config_filename, dspData& returnedConfig,
                              DspLoadOptions options = DspLoadOptions());
 
@@ -104,6 +123,9 @@ std::unique_ptr<DSP> get_dsp(const std::filesystem::path config_filename, dspDat
 /// \param returnedConfig Output parameter that will be filled with the model data
 /// \param options Loading options
 /// \return Unique pointer to a DSP object
+/// \throws std::exception (typically std::runtime_error, but see the note above) if the model
+///         configuration is malformed (missing/invalid required fields, unsupported version,
+///         etc.)
 std::unique_ptr<DSP> get_dsp(const nlohmann::json& config, dspData& returnedConfig,
                              DspLoadOptions options = DspLoadOptions());
 
@@ -111,6 +133,9 @@ std::unique_ptr<DSP> get_dsp(const nlohmann::json& config, dspData& returnedConf
 /// \param config JSON configuration object
 /// \param options Loading options
 /// \return Unique pointer to a DSP object
+/// \throws std::exception (typically std::runtime_error, but see the note above) if the model
+///         configuration is malformed (missing/invalid required fields, unsupported version,
+///         etc.)
 std::unique_ptr<DSP> get_dsp(const nlohmann::json& config, DspLoadOptions options = DspLoadOptions());
 
 /// \brief Get sample rate from a .nam file

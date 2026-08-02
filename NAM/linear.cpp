@@ -5,6 +5,7 @@
 #include <complex>
 #include <stdexcept>
 
+#include "json_util.h"
 #include "registry.h"
 
 #include <unsupported/Eigen/FFT>
@@ -305,12 +306,15 @@ std::string nam::linear::implementation_to_string(const LinearImplementation imp
 
 nam::linear::LinearConfig nam::linear::parse_config_json(const nlohmann::json& config)
 {
+  static constexpr const char* kContext = "Linear config";
+
   LinearConfig c;
-  c.receptive_field = config["receptive_field"];
-  c.bias = config["bias"];
-  // Default to 1 channel in/out for backward compatibility
-  c.in_channels = config.value("in_channels", 1);
-  c.out_channels = config.value("out_channels", 1);
+  c.receptive_field = nam::util::RequireDimension(config, "receptive_field", kContext);
+  c.bias = nam::util::RequireValue<bool>(config, "bias", kContext);
+  // Default to 1 channel in/out for backward compatibility, but a present-and-hostile value
+  // feeds a buffer resize()--validate it when present.
+  c.in_channels = nam::util::OptionalDimension(config, "in_channels", kContext, 1);
+  c.out_channels = nam::util::OptionalDimension(config, "out_channels", kContext, 1);
   c.implementation = parse_implementation(config.value("implementation", "auto"));
   return c;
 }

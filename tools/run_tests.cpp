@@ -28,6 +28,7 @@
 #include "test/test_input_buffer_verification.cpp"
 #include "test/test_linear.cpp"
 #include "test/test_lstm.cpp"
+#include "test/test_model_validation.cpp"
 #include "test/test_lstm_realtime_safe.cpp"
 #include "test/test_wavenet_configurable_gating.cpp"
 #include "test/test_noncontiguous_blocks.cpp"
@@ -312,6 +313,29 @@ int main()
 
   // Finally, some end-to-end tests.
   test_get_dsp::test_load_and_process_nam_files();
+
+  // Model-file validation: malformed .nam configs must throw std::runtime_error, not
+  // trigger undefined behavior (see NAM/json_util.h).
+  test_model_validation::test_missing_version_throws();
+  test_model_validation::test_missing_architecture_throws();
+  test_model_validation::test_missing_config_throws();
+  test_model_validation::test_wavenet_missing_layers_throws();
+  test_model_validation::test_wavenet_negative_channels_throws();
+  test_model_validation::test_wavenet_absurdly_large_channels_throws();
+  test_model_validation::test_wavenet_empty_dilations_throws();
+  test_model_validation::test_linear_missing_receptive_field_throws();
+  test_model_validation::test_wavenet_empty_layer1x1_throws();
+  test_model_validation::test_wavenet_head1x1_missing_fields_throws();
+  test_model_validation::test_wavenet_activation_missing_type_throws();
+  test_model_validation::test_wavenet_zero_groups_input_throws();
+  test_model_validation::test_wavenet_zero_film_groups_throws();
+  test_model_validation::test_wavenet_negative_kernel_size_throws();
+  test_model_validation::test_wavenet_overlong_dilations_throws();
+  test_model_validation::test_wavenet_non_integral_channels_throws();
+  test_model_validation::test_dimension_boundary_at_max_accepted();
+  test_model_validation::test_dimension_boundary_beyond_max_throws();
+  test_model_validation::test_valid_wavenet_config_still_loads();
+  test_model_validation::test_valid_linear_config_still_loads();
 
   // Extensibility: external architecture registration and get_dsp (issue #230)
   test_extensible::run_extensibility_tests();
