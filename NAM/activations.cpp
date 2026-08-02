@@ -91,7 +91,19 @@ nam::activations::ActivationConfig nam::activations::ActivationConfig::from_json
   // If it's an object, parse type and parameters
   if (j.is_object())
   {
-    std::string type_str = j["type"].get<std::string>();
+    // `j` is a const reference, so `j["type"]` would resolve to nlohmann's const
+    // `operator[]`, which asserts (UB under -DNDEBUG) if "type" is missing. Look it up
+    // through `find()` instead so a missing field throws instead of crashing.
+    const auto type_it = j.find("type");
+    if (type_it == j.end())
+    {
+      throw std::runtime_error("Activation config: missing required field 'type'");
+    }
+    if (!type_it->is_string())
+    {
+      throw std::runtime_error("Activation config: field 'type' must be a string");
+    }
+    std::string type_str = type_it->get<std::string>();
     auto it = type_map.find(type_str);
     if (it == type_map.end())
     {

@@ -8,6 +8,7 @@
 #include <Eigen/Dense>
 
 #include "../get_dsp.h"
+#include "../json_util.h"
 #include "../registry.h"
 #include "slimmable.h"
 #include "model.h"
@@ -851,14 +852,29 @@ nam::wavenet::WaveNetConfig nam::wavenet::parse_config_json(const nlohmann::json
     }
   }
 
-  for (size_t i = 0; i < config["layers"].size(); i++)
+  const nlohmann::json& layers_json = nam::util::RequireField(config, "layers", "WaveNet config");
+  if (!layers_json.is_array())
   {
-    nlohmann::json layer_config = config["layers"][i];
+    throw std::runtime_error("WaveNet config: 'layers' must be an array");
+  }
+  if (layers_json.size() > static_cast<size_t>(nam::util::kMaxModelArrayLength))
+  {
+    throw std::runtime_error("WaveNet config: 'layers' has " + std::to_string(layers_json.size())
+                             + " elements, which exceeds the limit of "
+                             + std::to_string(nam::util::kMaxModelArrayLength));
+  }
+  for (size_t i = 0; i < layers_json.size(); i++)
+  {
+    nlohmann::json layer_config = layers_json[i];
+    const std::string layer_context = "WaveNet layer array " + std::to_string(i);
 
-    const int groups = layer_config.value("groups_input", 1); // defaults to 1
-    const int groups_input_mixin = layer_config.value("groups_input_mixin", 1); // defaults to 1
+    // "groups_input"/"groups_input_mixin" default to 1, but a present-and-hostile value (e.g.
+    // 0) would divide-by-zero downstream (channels % groups), so validate when present.
+    const int groups = nam::util::OptionalDimension(layer_config, "groups_input", layer_context.c_str(), 1);
+    const int groups_input_mixin =
+      nam::util::OptionalDimension(layer_config, "groups_input_mixin", layer_context.c_str(), 1);
 
-    const int channels = layer_config["channels"];
+    const int channels = nam::util::RequireDimension(layer_config, "channels", layer_context.c_str());
     const int bottleneck = layer_config.value("bottleneck", channels); // defaults to channels if not present
 
     // Parse layer1x1 parameters
@@ -866,14 +882,15 @@ nam::wavenet::WaveNetConfig nam::wavenet::parse_config_json(const nlohmann::json
     int layer1x1_groups = 1;
     if (layer_config.find("layer1x1") != layer_config.end())
     {
-      const auto& layer1x1_config = layer_config["layer1x1"];
-      layer1x1_active = layer1x1_config["active"];
-      layer1x1_groups = layer1x1_config["groups"];
+      const nlohmann::json& layer1x1_config = layer_config["layer1x1"];
+      const std::string layer1x1_context = layer_context + ".layer1x1";
+      layer1x1_active = nam::util::RequireValue<bool>(layer1x1_config, "active", layer1x1_context.c_str());
+      layer1x1_groups = nam::util::RequireDimension(layer1x1_config, "groups", layer1x1_context.c_str());
     }
     nam::wavenet::Layer1x1Params layer1x1_params(layer1x1_active, layer1x1_groups);
 
-    const int input_size = layer_config["input_size"];
-    const int condition_size = layer_config["condition_size"];
+    const int input_size = nam::util::RequireDimension(layer_config, "input_size", layer_context.c_str());
+    const int condition_size = nam::util::RequireDimension(layer_config, "condition_size", layer_context.c_str());
 
     int head_size = 0;
     int head_dilation = 1;
@@ -883,26 +900,27 @@ nam::wavenet::WaveNetConfig nam::wavenet::parse_config_json(const nlohmann::json
     // Prefer nested "head" (matches trainer export). Legacy .nam uses head_size + head_bias (implicit kernel 1).
     if (layer_config.find("head") != layer_config.end() && !layer_config["head"].is_null())
     {
-      const auto& head_json = layer_config["head"];
+      const nlohmann::json& head_json = layer_config["head"];
       if (!head_json.is_object())
       {
         throw std::runtime_error("Layer array " + std::to_string(i) + ": 'head' must be a JSON object");
       }
-      head_size = head_json.at("out_channels").get<int>();
+      const std::string head_context = layer_context + ".head";
+      head_size = nam::util::RequireDimension(head_json, "out_channels", head_context.c_str());
 
       if (head_json.contains("head_dilation"))
       {
-        head_dilation = head_json.at("head_dilation").get<int>();
+        head_dilation = nam::util::RequireDimension(head_json, "head_dilation", head_context.c_str());
       }
 
-      head_kernel_size = head_json.at("kernel_size").get<int>();
-      head_bias = head_json.at("bias").get<bool>();
+      head_kernel_size = nam::util::RequireDimension(head_json, "kernel_size", head_context.c_str());
+      head_bias = nam::util::RequireValue<bool>(head_json, "bias", head_context.c_str());
     }
     else if (layer_config.find("head_size") != layer_config.end())
     {
-      head_size = layer_config["head_size"].get<int>();
+      head_size = nam::util::RequireDimension(layer_config, "head_size", layer_context.c_str());
       head_kernel_size = 1;
-      head_bias = layer_config.at("head_bias").get<bool>();
+      head_bias = nam::util::RequireValue<bool>(layer_config, "head_bias", layer_context.c_str());
     }
     else
     {
@@ -916,7 +934,8 @@ nam::wavenet::WaveNetConfig nam::wavenet::parse_config_json(const nlohmann::json
       throw std::runtime_error("Layer array " + std::to_string(i) + ": head.kernel_size must be >= 1");
     }
 
-    const auto dilations = layer_config["dilations"];
+    const std::vector<int> dilations = nam::util::RequireIntArray(
+      layer_config, "dilations", layer_context.c_str(), 1, nam::util::kMaxModelDimension, /*allowEmpty=*/false);
     const size_t num_layers = dilations.size();
 
     // Parse kernel sizes - support legacy single-value kernel_size or new per-layer kernel_sizes
@@ -930,15 +949,11 @@ nam::wavenet::WaveNetConfig nam::wavenet::parse_config_json(const nlohmann::json
     }
     else if (has_kernel_sizes)
     {
-      const auto& kernel_sizes_json = layer_config["kernel_sizes"];
-      if (!kernel_sizes_json.is_array())
-      {
-        throw std::runtime_error("Layer array " + std::to_string(i) + ": kernel_sizes must be an array");
-      }
-      for (const auto& ks_json : kernel_sizes_json)
-      {
-        kernel_sizes.push_back(ks_json.get<int>());
-      }
+      // A negative/zero kernel size becomes a huge size_t in a downstream resize(); require
+      // >= 1, like head.kernel_size above. allowEmpty is left true here because emptiness (vs.
+      // the required dilations-length match) is checked explicitly below.
+      kernel_sizes = nam::util::RequireIntArray(
+        layer_config, "kernel_sizes", layer_context.c_str(), 1, nam::util::kMaxModelDimension, /*allowEmpty=*/true);
       if (kernel_sizes.size() != num_layers)
       {
         throw std::runtime_error("Layer array " + std::to_string(i) + ": kernel_sizes array size ("
@@ -948,7 +963,7 @@ nam::wavenet::WaveNetConfig nam::wavenet::parse_config_json(const nlohmann::json
     }
     else if (has_kernel_size)
     {
-      const int kernel_size = layer_config["kernel_size"].get<int>();
+      const int kernel_size = nam::util::RequireDimension(layer_config, "kernel_size", layer_context.c_str());
       kernel_sizes.resize(num_layers, kernel_size);
     }
     else
@@ -959,9 +974,11 @@ nam::wavenet::WaveNetConfig nam::wavenet::parse_config_json(const nlohmann::json
 
     // Parse activation config(s) - support both single config and array
     std::vector<activations::ActivationConfig> activation_configs;
-    if (layer_config["activation"].is_array())
+    const nlohmann::json& activation_json_field =
+      nam::util::RequireField(layer_config, "activation", layer_context.c_str());
+    if (activation_json_field.is_array())
     {
-      for (const auto& activation_json : layer_config["activation"])
+      for (const auto& activation_json : activation_json_field)
       {
         activation_configs.push_back(activations::ActivationConfig::from_json(activation_json));
       }
@@ -976,7 +993,7 @@ nam::wavenet::WaveNetConfig nam::wavenet::parse_config_json(const nlohmann::json
     {
       // Single activation config - duplicate it for all layers
       const activations::ActivationConfig activation_config =
-        activations::ActivationConfig::from_json(layer_config["activation"]);
+        activations::ActivationConfig::from_json(activation_json_field);
       activation_configs.resize(num_layers, activation_config);
     }
 
@@ -1113,15 +1130,16 @@ nam::wavenet::WaveNetConfig nam::wavenet::parse_config_json(const nlohmann::json
     int head1x1_groups = 1;
     if (layer_config.find("head1x1") != layer_config.end())
     {
-      const auto& head1x1_config = layer_config["head1x1"];
-      head1x1_active = head1x1_config["active"];
-      head1x1_out_channels = head1x1_config["out_channels"];
-      head1x1_groups = head1x1_config["groups"];
+      const nlohmann::json& head1x1_config = layer_config["head1x1"];
+      const std::string head1x1_context = layer_context + ".head1x1";
+      head1x1_active = nam::util::RequireValue<bool>(head1x1_config, "active", head1x1_context.c_str());
+      head1x1_out_channels = nam::util::RequireDimension(head1x1_config, "out_channels", head1x1_context.c_str());
+      head1x1_groups = nam::util::RequireDimension(head1x1_config, "groups", head1x1_context.c_str());
     }
     nam::wavenet::Head1x1Params head1x1_params(head1x1_active, head1x1_out_channels, head1x1_groups);
 
     // Helper function to parse FiLM parameters
-    auto parse_film_params = [&layer_config](const std::string& key) -> nam::wavenet::_FiLMParams {
+    auto parse_film_params = [&layer_config, &layer_context](const std::string& key) -> nam::wavenet::_FiLMParams {
       if (layer_config.find(key) == layer_config.end() || layer_config[key] == false)
       {
         return nam::wavenet::_FiLMParams(false, false);
@@ -1129,7 +1147,8 @@ nam::wavenet::WaveNetConfig nam::wavenet::parse_config_json(const nlohmann::json
       const nlohmann::json& film_config = layer_config[key];
       bool active = film_config.value("active", true);
       bool shift = film_config.value("shift", true);
-      int film_groups = film_config.value("groups", 1);
+      // Validated for the same reason as groups_input: a zero here reaches `x % groups` downstream.
+      int film_groups = nam::util::OptionalDimension(film_config, "groups", layer_context.c_str(), 1);
       return nam::wavenet::_FiLMParams(active, shift, film_groups);
     };
 
@@ -1151,16 +1170,17 @@ nam::wavenet::WaveNetConfig nam::wavenet::parse_config_json(const nlohmann::json
     }
 
     wc.layer_array_params.push_back(nam::wavenet::LayerArrayParams(
-      input_size, condition_size, head_size, head_dilation, head_kernel_size, channels, bottleneck, std::move(kernel_sizes), dilations,
-      std::move(activation_configs), std::move(gating_modes), head_bias, groups, groups_input_mixin, layer1x1_params,
-      head1x1_params, std::move(secondary_activation_configs), conv_pre_film_params, conv_post_film_params,
-      input_mixin_pre_film_params, input_mixin_post_film_params, activation_pre_film_params,
-      activation_post_film_params, _layer1x1_post_film_params, head1x1_post_film_params));
+      input_size, condition_size, head_size, head_dilation, head_kernel_size, channels, bottleneck,
+      std::move(kernel_sizes), std::move(dilations), std::move(activation_configs), std::move(gating_modes), head_bias,
+      groups, groups_input_mixin, layer1x1_params, head1x1_params, std::move(secondary_activation_configs),
+      conv_pre_film_params, conv_post_film_params, input_mixin_pre_film_params, input_mixin_post_film_params,
+      activation_pre_film_params, activation_post_film_params, _layer1x1_post_film_params, head1x1_post_film_params));
   }
 
   wc.with_head = config.find("head") != config.end() && !config["head"].is_null();
-  wc.head_scale = config["head_scale"];
-  wc.in_channels = config.value("in_channels", 1);
+  wc.head_scale = nam::util::RequireValue<float>(config, "head_scale", "WaveNet config");
+  // Optional, defaults to 1, but a present-and-hostile value feeds a buffer resize()--validate it.
+  wc.in_channels = nam::util::OptionalDimension(config, "in_channels", "WaveNet config", 1);
 
   if (wc.layer_array_params.empty())
     throw std::runtime_error("WaveNet config requires at least one layer array");
@@ -1183,10 +1203,13 @@ nam::wavenet::WaveNetConfig nam::wavenet::parse_config_json(const nlohmann::json
       }
     }
     hp.in_channels = implied_in;
-    hp.channels = hj.at("channels").get<int>();
-    hp.out_channels = hj.at("out_channels").get<int>();
-    hp.kernel_sizes = hj.at("kernel_sizes").get<std::vector<int>>();
-    hp.activation_config = nam::activations::ActivationConfig::from_json(hj.at("activation"));
+    static constexpr const char* kHeadContext = "WaveNet config head";
+    hp.channels = nam::util::RequireDimension(hj, "channels", kHeadContext);
+    hp.out_channels = nam::util::RequireDimension(hj, "out_channels", kHeadContext);
+    hp.kernel_sizes = nam::util::RequireIntArray(hj, "kernel_sizes", kHeadContext, 1, nam::util::kMaxModelDimension,
+                                                 /*allowEmpty=*/true);
+    hp.activation_config =
+      nam::activations::ActivationConfig::from_json(nam::util::RequireField(hj, "activation", kHeadContext));
     if (hp.kernel_sizes.empty())
       throw std::runtime_error("WaveNet config: head.kernel_sizes must be non-empty");
     wc.head_params = std::move(hp);

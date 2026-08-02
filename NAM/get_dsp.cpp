@@ -9,6 +9,7 @@
 #include "registry.h"
 #include "json.hpp"
 #include "get_dsp.h"
+#include "json_util.h"
 #include "model_config.h"
 
 namespace nam
@@ -141,13 +142,17 @@ std::vector<float> GetWeights(nlohmann::json const& j)
 
 void populate_dsp_data(const nlohmann::json& config, dspData& returnedConfig)
 {
-  verify_config_version(config["version"].get<std::string>());
+  static constexpr const char* kContext = "Model file";
 
-  nlohmann::json config_json = config["config"];
+  const std::string version = nam::util::RequireValue<std::string>(config, "version", kContext);
+  verify_config_version(version);
+
+  const nlohmann::json& config_json = nam::util::RequireField(config, "config", kContext);
+  const std::string architecture = nam::util::RequireValue<std::string>(config, "architecture", kContext);
   std::vector<float> weights = GetWeights(config);
 
-  returnedConfig.version = config["version"].get<std::string>();
-  returnedConfig.architecture = config["architecture"].get<std::string>();
+  returnedConfig.version = version;
+  returnedConfig.architecture = architecture;
   returnedConfig.config = config_json;
   returnedConfig.metadata = config.value("metadata", nlohmann::json());
   returnedConfig.weights = weights;
