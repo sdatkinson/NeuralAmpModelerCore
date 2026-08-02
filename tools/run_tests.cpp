@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include "test/test_activations.cpp"
+#include "test/test_activations_realtime_safe.cpp"
 #include "test/test_conv1d.cpp"
 #include "test/test_conv_1x1.cpp"
 #include "test/test_convnet.cpp"
@@ -62,6 +63,9 @@ int main()
   test_activations::TestPReLU::test_wrong_number_of_channels_matrix();
   test_activations::TestPReLU::test_wrong_size_array();
   test_activations::TestPReLU::test_valid_array_size();
+
+  test_activations_realtime_safe::test_prelu_apply_matrix_realtime_safe();
+  test_activations_realtime_safe::test_prelu_apply_pointer_realtime_safe();
 
   // Typed ActivationConfig tests
   test_activations::TestTypedActivationConfig::test_simple_config();

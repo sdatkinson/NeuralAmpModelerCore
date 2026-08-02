@@ -427,8 +427,10 @@ long nam::wavenet::detail::LayerArray::get_receptive_field() const
 void nam::wavenet::detail::LayerArray::Process(const Eigen::MatrixXf& layer_inputs, const Eigen::MatrixXf& condition,
                                                const int num_frames)
 {
-  // Zero head inputs accumulator (first layer array)
-  this->_head_inputs.setZero();
+  // Zero head inputs accumulator (first layer array). Only the first num_frames columns are ever
+  // read this call, so zeroing the whole maxBufferSize-wide buffer is wasted work when the host
+  // processes blocks smaller than the maximum it reserved.
+  this->_head_inputs.leftCols(num_frames).setZero();
   ProcessInner(layer_inputs, condition, num_frames);
 }
 
@@ -776,12 +778,12 @@ void nam::wavenet::WaveNet::process(NAM_SAMPLE** input, NAM_SAMPLE** output, con
   if (this->_post_stack_head != nullptr)
   {
     assert(final_head_outputs.rows() == this->_post_stack_head->in_channels());
-    const int head_in = this->_post_stack_head->in_channels();
-    for (int ch = 0; ch < head_in; ch++)
-    {
-      for (int s = 0; s < num_frames; s++)
-        this->_scaled_head_scratch(ch, s) = this->_head_scale * final_head_outputs(ch, s);
-    }
+    // _scaled_head_scratch is sized (in_channels, maxBufferSize), and the assert above pins
+    // final_head_outputs to the same row count, so this is a straight scaled copy of the block.
+    // Expressed as one Eigen expression rather than a nested loop: the manual loop walked the
+    // column-major matrix with a row-major access pattern, striding by in_channels per step.
+    this->_scaled_head_scratch.leftCols(num_frames).noalias() =
+      this->_head_scale * final_head_outputs.leftCols(num_frames);
     this->_post_stack_head->process(this->_scaled_head_scratch, num_frames);
     const Eigen::MatrixXf& head_out = this->_post_stack_head->get_last_output();
     assert(head_out.rows() == out_channels);
