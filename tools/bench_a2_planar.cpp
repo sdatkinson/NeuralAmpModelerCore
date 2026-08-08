@@ -20,9 +20,18 @@
 // measured; --submodel picks it by width, not by position, so a reordering in
 // the trainer cannot silently change what is being measured.
 //
-// Only compiled when NAM_ENABLE_A2_FAST is defined.
+// There is only something to measure where the planar kernels exist, so on any
+// other target this builds to a main() that says so and exits. The target is
+// still built everywhere, deliberately: a tool that silently vanishes from some
+// configurations is a tool nobody notices has stopped compiling.
+
+#include <iostream>
 
 #if defined(NAM_ENABLE_A2_FAST)
+  #include "NAM/wavenet/a2_planar.h" // defines NAM_A2_PLANAR where it applies
+#endif
+
+#if defined(NAM_A2_PLANAR)
 
   #include <algorithm>
   #include <chrono>
@@ -31,7 +40,6 @@
   #include <cstring>
   #include <fstream>
   #include <iomanip>
-  #include <iostream>
   #include <memory>
   #include <string>
   #include <utility>
@@ -41,7 +49,6 @@
 
   #include "NAM/dsp.h"
   #include "NAM/wavenet/a2_fast.h"
-  #include "NAM/wavenet/a2_planar.h"
 
 using hr_clock = std::chrono::high_resolution_clock;
 
@@ -326,14 +333,15 @@ int main(int argc, char** argv)
   return ok ? 0 : 1;
 }
 
-#else // NAM_ENABLE_A2_FAST
-
-  #include <iostream>
+#else // NAM_A2_PLANAR
 
 int main()
 {
-  std::cerr << "bench_a2_planar: built without NAM_ENABLE_A2_FAST\n";
-  return 2;
+  // Not an error: there is simply no planar kernel in this build to compare
+  // against, either because NAM_ENABLE_A2_FAST is off, because the target is
+  // not Apple Silicon, or because NAM_DISABLE_A2_PLANAR was set.
+  std::cout << "bench_a2_planar: this build has no planar A2 kernel; nothing to measure.\n";
+  return 0;
 }
 
-#endif // NAM_ENABLE_A2_FAST
+#endif // NAM_A2_PLANAR
