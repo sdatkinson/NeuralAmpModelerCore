@@ -9,6 +9,7 @@
   #endif
 
   #include "a2_fast.h"
+  #include "a2_planar.h"
 
   #include <algorithm>
   #include <array>
@@ -698,11 +699,15 @@ struct A2FastConfig : public ModelConfig
 
   std::unique_ptr<DSP> create(std::vector<float> weights, double sampleRate) override
   {
-    if (channels == 3)
-      return std::make_unique<A2FastModel<3>>(std::move(weights), sampleRate);
-    if (channels == 8)
-      return std::make_unique<A2FastModel<8>>(std::move(weights), sampleRate);
-    throw std::runtime_error("A2FastConfig: unsupported channel count " + std::to_string(channels));
+  #if defined(NAM_A2_PLANAR)
+    // On AArch64, prefer the planar NEON kernels. They are bit-identical to the
+    // reference model below -- same float32 bits out, sample for sample -- so
+    // this is a speed choice and nothing else. A channel count they do not cover
+    // returns nullptr and falls through.
+    if (auto planar = create_a2_planar_model(channels, weights, sampleRate))
+      return planar;
+  #endif
+    return create_a2_fast_reference_model(channels, std::move(weights), sampleRate);
   }
 };
 
@@ -907,6 +912,15 @@ bool is_a2_shape(const nlohmann::json& config, int* channels)
   if (channels)
     *channels = ch;
   return true;
+}
+
+std::unique_ptr<DSP> create_a2_fast_reference_model(int channels, std::vector<float> weights, double sampleRate)
+{
+  if (channels == 3)
+    return std::make_unique<A2FastModel<3>>(std::move(weights), sampleRate);
+  if (channels == 8)
+    return std::make_unique<A2FastModel<8>>(std::move(weights), sampleRate);
+  throw std::runtime_error("create_a2_fast_reference_model: unsupported channel count " + std::to_string(channels));
 }
 
 std::unique_ptr<ModelConfig> create_a2_fast_config(const nlohmann::json& config, double sampleRate)
