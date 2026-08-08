@@ -6,8 +6,9 @@
 // tolerance -- across a spread of block sizes, including ones that exercise the
 // partial-tile and single-frame tails.
 //
-// Built only where the planar kernels exist (AArch64 with the A2 fast path on).
-// Everywhere else the test bodies compile to nothing.
+// Built only where the planar kernels exist (Apple Silicon with the A2 fast
+// path on). Everywhere else the test bodies compile to nothing, so run_tests
+// calls them unconditionally and they cost nothing on other targets.
 
 #if defined(NAM_ENABLE_A2_FAST)
 

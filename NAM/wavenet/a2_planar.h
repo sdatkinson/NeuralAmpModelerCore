@@ -1,6 +1,6 @@
 #pragma once
 
-// Planar NEON kernels for the A2 fast path (AArch64 only).
+// Planar NEON kernels for the A2 fast path (Apple Silicon only).
 //
 // These are drop-in replacements for A2FastModel<3> and A2FastModel<8> that
 // produce **bit-identical** output: not "within a tolerance", not "below the
@@ -12,14 +12,31 @@
 // per-frame scalar reduction verbatim. Nothing is reassociated, which is what
 // makes the bit-identity claim hold rather than being a lucky accident.
 //
-// Availability is decided here rather than at the call site: NAM_A2_PLANAR is
-// defined only when the A2 fast path is built for AArch64. Everywhere else this
-// header declares nothing and a2_fast keeps its existing behaviour. Define
-// NAM_DISABLE_A2_PLANAR to opt out on AArch64 too (useful for A/B measurement).
+// -----------------------------------------------------------------------------
+// Where this is active, and where it is not
+//
+// NAM_A2_PLANAR is defined only when the A2 fast path is being built for Apple
+// Silicon. On every other target -- x86, and also every *other* AArch64 target
+// -- this header declares nothing, a2_planar.cpp compiles to an object with no
+// symbols, the call site in a2_fast.cpp is preprocessed away, and the A2 path
+// is byte for byte the code that is there today. There is nothing to regress.
+//
+// The gate is __APPLE__ rather than plain __aarch64__ on purpose. The kernels
+// are almost certainly correct and probably faster on any AArch64 part, but
+// they have only been built and measured on Apple Silicon, and two things there
+// are toolchain-dependent rather than architectural: the tile widths are M2
+// measurements, and bit-identity relies on the compiler contracting a*b+c into
+// an FMA in a2_fast's own 3-channel branch, which clang and gcc do by default
+// and MSVC at /fp:precise does not. Rather than claim a target nobody has run,
+// the gate stops at the one that has been.
+//
+// NAM_DISABLE_A2_PLANAR opts out on Apple Silicon too, which is what makes an
+// A/B measurement against the reference a one-flag change.
+// -----------------------------------------------------------------------------
 
 #if defined(NAM_ENABLE_A2_FAST)
 
-  #if (defined(__aarch64__) || defined(_M_ARM64)) && !defined(NAM_DISABLE_A2_PLANAR)
+  #if defined(__APPLE__) && defined(__aarch64__) && !defined(NAM_DISABLE_A2_PLANAR)
     #define NAM_A2_PLANAR 1
   #endif
 
