@@ -62,6 +62,32 @@ else()
 		"$<$<CONFIG:RELEASE>:-Ofast>"
 	)
 endif()
+add_executable(bench_a2_planar bench_a2_planar.cpp ${NAM_SOURCES})
+target_compile_features(bench_a2_planar PUBLIC cxx_std_20)
+# No INTERPROCEDURAL_OPTIMIZATION here: link-time inlining of the whole library
+# into the benchmark's own loop is not what a plugin build does, and measurably
+# changes the result (about 3% on the 8-channel kernel on an M2).
+set_target_properties(bench_a2_planar PROPERTIES
+	CXX_VISIBILITY_PRESET hidden
+	PREFIX ""
+)
+if (MSVC)
+	target_compile_options(bench_a2_planar PRIVATE
+		"$<$<CONFIG:DEBUG>:/W4>"
+		"$<$<CONFIG:RELEASE>:/O2>"
+	)
+else()
+	# -O3, not -Ofast. -ffast-math lets the compiler contract a multiply and an
+	# add into an FMA across statement boundaries, which is exactly the freedom
+	# this tool is checking has not been taken; measuring under it would make the
+	# parity result meaningless.
+	target_compile_options(bench_a2_planar PRIVATE
+		-Wall -Wextra -Wpedantic -Wstrict-aliasing -Wunreachable-code -Wno-unused-parameter
+		"$<$<CONFIG:DEBUG>:-Og;-ggdb;-Werror>"
+		"$<$<CONFIG:RELEASE>:-O3>"
+	)
+endif()
+
 add_executable(run_tests run_tests.cpp test/allocation_tracking.cpp ${NAM_SOURCES})
 # Compile run_tests without optimizations to ensure allocation tracking works correctly
 # Also ensure assertions are enabled (NDEBUG is not defined) so tests actually run

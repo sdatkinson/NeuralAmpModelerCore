@@ -52,6 +52,19 @@ bool is_a2_shape(const nlohmann::json& config, int* channels);
 /// \pre is_a2_shape(config, ...) returned true.
 std::unique_ptr<ModelConfig> create_a2_fast_config(const nlohmann::json& config, double sampleRate);
 
+/// \brief Build the portable A2 fast-path model, bypassing any
+/// architecture-specific kernel.
+///
+/// The config built above may hand back a specialised implementation on some
+/// targets (see a2_planar.h). This always returns the portable one, so a test
+/// can assert that a specialised kernel agrees with the reference it claims to
+/// reproduce.
+///
+/// \param channels 3 (A2 nano) or 8 (A2 standard); anything else throws.
+/// \param weights The A2 weight stream.
+/// \param sampleRate Expected sample rate, passed through to DSP.
+std::unique_ptr<DSP> create_a2_fast_reference_model(int channels, std::vector<float> weights, double sampleRate);
+
 } // namespace a2_fast
 } // namespace wavenet
 } // namespace nam

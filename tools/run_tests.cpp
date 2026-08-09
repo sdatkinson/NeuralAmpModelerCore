@@ -37,6 +37,7 @@
 #include "test/test_render_slim.cpp"
 #include "test/test_slimmable_wavenet.cpp"
 #include "test/test_a2_fast.cpp"
+#include "test/test_a2_planar.cpp"
 
 int main()
 {
@@ -375,6 +376,12 @@ int main()
   test_a2_fast::test_prewarm_matches_generic_standard();
   test_a2_fast::test_process_realtime_safe_nano();
   test_a2_fast::test_process_realtime_safe_standard();
+
+  // Planar NEON A2 kernels: bit-identity against the reference fast path.
+  // No-ops where the planar kernels are not built.
+  test_a2_planar::test_bit_identical_nano();
+  test_a2_planar::test_bit_identical_standard();
+  test_a2_planar::test_factory_selects_planar();
 #endif
 
   std::cout << "Success!" << std::endl;
