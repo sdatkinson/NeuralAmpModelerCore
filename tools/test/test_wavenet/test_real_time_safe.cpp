@@ -59,10 +59,10 @@ static nam::wavenet::detail::LayerArray make_layer_array(
   std::vector<int> dilations_copy = dilations; // Make a copy since we need to move it
   std::vector<int> kernel_sizes(dilations.size(), kernel_size);
   nam::wavenet::LayerArrayParams params(
-    input_size, condition_size, head_size, 1, 1, channels, bottleneck, std::move(kernel_sizes), std::move(dilations_copy),
-    std::move(activation_configs), std::move(gating_modes), head_bias, groups_input, groups_input_mixin,
-    layer1x1_params, head1x1_params, std::move(secondary_activation_configs), film_params, film_params, film_params,
-    film_params, film_params, film_params, film_params, film_params);
+    input_size, condition_size, head_size, 1, 1, channels, bottleneck, std::move(kernel_sizes),
+    std::move(dilations_copy), std::move(activation_configs), std::move(gating_modes), head_bias, groups_input,
+    groups_input_mixin, layer1x1_params, head1x1_params, std::move(secondary_activation_configs), film_params,
+    film_params, film_params, film_params, film_params, film_params, film_params, film_params);
   return nam::wavenet::detail::LayerArray(params);
 }
 

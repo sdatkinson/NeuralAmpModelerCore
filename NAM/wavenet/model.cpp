@@ -1153,11 +1153,11 @@ nam::wavenet::WaveNetConfig nam::wavenet::parse_config_json(const nlohmann::json
     }
 
     wc.layer_array_params.push_back(nam::wavenet::LayerArrayParams(
-      input_size, condition_size, head_size, head_dilation, head_kernel_size, channels, bottleneck, std::move(kernel_sizes), dilations,
-      std::move(activation_configs), std::move(gating_modes), head_bias, groups, groups_input_mixin, layer1x1_params,
-      head1x1_params, std::move(secondary_activation_configs), conv_pre_film_params, conv_post_film_params,
-      input_mixin_pre_film_params, input_mixin_post_film_params, activation_pre_film_params,
-      activation_post_film_params, _layer1x1_post_film_params, head1x1_post_film_params));
+      input_size, condition_size, head_size, head_dilation, head_kernel_size, channels, bottleneck,
+      std::move(kernel_sizes), dilations, std::move(activation_configs), std::move(gating_modes), head_bias, groups,
+      groups_input_mixin, layer1x1_params, head1x1_params, std::move(secondary_activation_configs),
+      conv_pre_film_params, conv_post_film_params, input_mixin_pre_film_params, input_mixin_post_film_params,
+      activation_pre_film_params, activation_post_film_params, _layer1x1_post_film_params, head1x1_post_film_params));
   }
 
   wc.with_head = config.find("head") != config.end() && !config["head"].is_null();

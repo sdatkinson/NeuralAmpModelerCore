@@ -699,8 +699,8 @@ void nam::Conv1x1::process_(const Eigen::Ref<const Eigen::MatrixXf>& input, cons
         const float i3 = in_col[3], i4 = in_col[4], i5 = in_col[5];
         for (int o = 0; o < 8; o++)
         {
-          out_col[o] = weight_ptr[o] * i0 + weight_ptr[8 + o] * i1 + weight_ptr[16 + o] * i2
-                       + weight_ptr[24 + o] * i3 + weight_ptr[32 + o] * i4 + weight_ptr[40 + o] * i5;
+          out_col[o] = weight_ptr[o] * i0 + weight_ptr[8 + o] * i1 + weight_ptr[16 + o] * i2 + weight_ptr[24 + o] * i3
+                       + weight_ptr[32 + o] * i4 + weight_ptr[40 + o] * i5;
         }
       }
     }

@@ -136,8 +136,7 @@ void test_lstm_process_consecutive_calls_realtime_safe()
       for (int call = 0; call < 8; call++)
         lstm.process(input_ptrs, output_ptrs, num_frames);
     },
-    nullptr,
-    "LSTM process (8 consecutive calls)");
+    nullptr, "LSTM process (8 consecutive calls)");
 
   for (int i = 0; i < num_frames; i++)
     assert(std::isfinite(output[i]));

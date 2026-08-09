@@ -115,7 +115,6 @@ private:
   Eigen::MatrixXf _scaled_head_scratch;
 
   int mPrewarmSamples = 0; // Pre-compute during initialization
-
 };
 
 /// \brief Configuration for a WaveNet model
