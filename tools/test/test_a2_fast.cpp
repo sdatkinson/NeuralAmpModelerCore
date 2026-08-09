@@ -148,6 +148,24 @@ std::vector<NAM_SAMPLE> run_dsp(nam::DSP& dsp, const std::vector<NAM_SAMPLE>& in
   return out;
 }
 
+std::vector<NAM_SAMPLE> process_dsp(nam::DSP& dsp, const std::vector<NAM_SAMPLE>& input, int block_size)
+{
+  std::vector<NAM_SAMPLE> out(input.size(), static_cast<NAM_SAMPLE>(0));
+  int pos = 0;
+  const int total = static_cast<int>(input.size());
+  while (pos < total)
+  {
+    const int n = std::min(block_size, total - pos);
+    const NAM_SAMPLE* in_ptr = input.data() + pos;
+    NAM_SAMPLE* out_ptr = out.data() + pos;
+    const NAM_SAMPLE* in_arr[] = {in_ptr};
+    NAM_SAMPLE* out_arr[] = {out_ptr};
+    dsp.process(const_cast<NAM_SAMPLE**>(in_arr), out_arr, n);
+    pos += n;
+  }
+  return out;
+}
+
 void compare(const std::vector<NAM_SAMPLE>& a, const std::vector<NAM_SAMPLE>& b, int channels, int block_size,
              double tol)
 {
@@ -321,6 +339,50 @@ void test_prewarm_matches_generic_nano()
 void test_prewarm_matches_generic_standard()
 {
   test_prewarm_matches_generic(8);
+}
+
+// The first prewarm computes and caches the steady-state ring-buffer contents.
+// Later prewarms should restore that state without allocating silence buffers or
+// processing the full receptive field again.
+void test_cached_prewarm_dsp(nam::DSP& dsp, int channels, const std::string& implementation)
+{
+  const int block_size = 64;
+  dsp.Reset(48000.0, block_size);
+  const auto input = make_test_input(4 * block_size, 48000.0);
+  const auto expected = process_dsp(dsp, input, block_size);
+
+  const std::string test_name = implementation + "<" + std::to_string(channels) + ">::cached prewarm";
+  allocation_tracking::run_allocation_test_no_allocations(
+    nullptr, [&]() { dsp.prewarm(); }, nullptr, test_name.c_str());
+
+  const auto actual = process_dsp(dsp, input, block_size);
+  compare(expected, actual, channels, block_size, /*tol=*/1.0e-12);
+}
+
+void test_cached_prewarm(int channels)
+{
+  const auto cfg = build_a2_config(channels);
+  const auto weights = make_deterministic_weights(a2_weight_count(channels), /*seed=*/0xA2CA000u + channels);
+
+  auto fast_cfg = nam::wavenet::a2_fast::create_a2_fast_config(cfg, 48000.0);
+  std::vector<float> w_fast = weights;
+  auto fast_dsp = fast_cfg->create(std::move(w_fast), 48000.0);
+  test_cached_prewarm_dsp(*fast_dsp, channels, "A2FastModel");
+
+  auto generic_cfg = nam::wavenet::parse_config_json(cfg, 48000.0);
+  std::vector<float> w_generic = weights;
+  auto generic_dsp = generic_cfg.create(std::move(w_generic), 48000.0);
+  test_cached_prewarm_dsp(*generic_dsp, channels, "WaveNet");
+}
+
+void test_cached_prewarm_nano()
+{
+  test_cached_prewarm(3);
+}
+
+void test_cached_prewarm_standard()
+{
+  test_cached_prewarm(8);
 }
 
 // Real-time safety: once the DSP has been Reset (buffers sized, prewarmed),

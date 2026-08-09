@@ -377,6 +377,8 @@ int main()
   test_a2_fast::test_matches_generic_standard();
   test_a2_fast::test_prewarm_matches_generic_nano();
   test_a2_fast::test_prewarm_matches_generic_standard();
+  test_a2_fast::test_cached_prewarm_nano();
+  test_a2_fast::test_cached_prewarm_standard();
   test_a2_fast::test_process_realtime_safe_nano();
   test_a2_fast::test_process_realtime_safe_standard();
 #endif
