@@ -235,8 +235,10 @@ void test_detector_rejects_gating()
 void test_detector_rejects_condition_dsp()
 {
   auto cfg = build_a2_config(8);
-  cfg["condition_dsp"] = {{"version", "0.5.0"}, {"architecture", "Linear"},
-                          {"config", nlohmann::json::object()}, {"weights", nlohmann::json::array()}};
+  cfg["condition_dsp"] = {{"version", "0.5.0"},
+                          {"architecture", "Linear"},
+                          {"config", nlohmann::json::object()},
+                          {"weights", nlohmann::json::array()}};
   assert(!nam::wavenet::a2_fast::is_a2_shape(cfg, nullptr));
 }
 

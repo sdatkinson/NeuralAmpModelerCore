@@ -29,10 +29,7 @@ public:
   /// Returns an Eigen::Ref rather than a by-value Eigen::VectorXf so that reading the hidden state
   /// does not heap-allocate. This is required for real-time safety: process_() is called once per
   /// audio sample, and a by-value return would allocate on every layer hop and head evaluation.
-  Eigen::Ref<const Eigen::VectorXf> get_hidden_state() const
-  {
-    return this->_xh.tail(this->_get_hidden_size());
-  };
+  Eigen::Ref<const Eigen::VectorXf> get_hidden_state() const { return this->_xh.tail(this->_get_hidden_size()); };
 
   /// \brief Process a single input vector
   /// \param x Input vector

@@ -90,7 +90,8 @@ void test_nested_head_with_dilation_three()
   assert(p.head_bias == true);
 
   nam::wavenet::detail::LayerArray array(p);
-  assert(array.get_receptive_field() == 6); // one dilated layer: 0 + (3-1) head rechannel -- tripled because of head_dilation
+  assert(array.get_receptive_field()
+         == 6); // one dilated layer: 0 + (3-1) head rechannel -- tripled because of head_dilation
 }
 
 } // namespace test_layer_head_config
