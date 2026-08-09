@@ -1,22 +1,14 @@
 #pragma once
 
-#include <fstream>
 #include <memory>
 #include <optional>
-#include <stdexcept>
 #include <vector>
 
 #include "dsp.h"
+#include "nam_file.h"
 
 namespace nam
 {
-/// \brief Indicates that a .nam file failed validation while loading
-class NamFileValidationError : public std::runtime_error
-{
-public:
-  using std::runtime_error::runtime_error;
-};
-
 enum class Supported
 {
   NO = 0,
@@ -89,7 +81,7 @@ struct DspLoadOptions
 /// \param config_filename Path to the .nam model file
 /// \param options Loading options
 /// \return Unique pointer to a DSP object
-/// \throws NamFileValidationError If the file does not contain valid JSON
+/// \throws NamFileValidationError If the file cannot be read or does not contain a minimally valid .nam configuration
 std::unique_ptr<DSP> get_dsp(const std::filesystem::path config_filename, DspLoadOptions options = DspLoadOptions());
 
 /// \brief Get NAM from a provided configuration struct
@@ -105,7 +97,7 @@ std::unique_ptr<DSP> get_dsp(dspData& conf, DspLoadOptions options = DspLoadOpti
 /// \param returnedConfig Output parameter that will be filled with the model data
 /// \param options Loading options
 /// \return Unique pointer to a DSP object
-/// \throws NamFileValidationError If the file does not contain valid JSON
+/// \throws NamFileValidationError If the file cannot be read or does not contain a minimally valid .nam configuration
 std::unique_ptr<DSP> get_dsp(const std::filesystem::path config_filename, dspData& returnedConfig,
                              DspLoadOptions options = DspLoadOptions());
 

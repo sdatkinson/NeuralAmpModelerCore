@@ -1,4 +1,3 @@
-#include <fstream>
 #include <iostream>
 #include <mutex>
 #include <regex>
@@ -169,18 +168,7 @@ std::unique_ptr<DSP> get_dsp(const nlohmann::json& config, DspLoadOptions option
 std::unique_ptr<DSP> get_dsp(const std::filesystem::path config_filename, dspData& returnedConfig,
                              DspLoadOptions options)
 {
-  if (!std::filesystem::exists(config_filename))
-    throw std::runtime_error("Config file doesn't exist!\n");
-  std::ifstream i(config_filename);
-  nlohmann::json j;
-  try
-  {
-    i >> j;
-  }
-  catch (const nlohmann::json::parse_error& error)
-  {
-    throw NamFileValidationError("Could not parse .nam file [" + config_filename.string() + "]: " + error.what());
-  }
+  const auto j = validate_nam_file(config_filename);
   populate_dsp_data(j, returnedConfig);
 
   /*Copy to a new dsp_config object for get_dsp below,
