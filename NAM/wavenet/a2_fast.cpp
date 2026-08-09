@@ -504,14 +504,14 @@ void A2FastModel<Channels>::_layer_forward_k(Layer& L, const float* cond, int nu
 
   // Two conv strategies, dispatched at compile time on Channels:
   //
-  //   - Channels <= 4 (A2 nano): full-block tap-major. The z accumulator lives
+  //   - Channels <= 4 (A2-Lite): full-block tap-major. The z accumulator lives
   //     in the heap buffer across all taps, and for each tap the inner f-loop
   //     iterates over all num_frames. This gives clang frame-level
   //     parallelism — it vectorizes across 4 frames at a time, which matters
   //     more than weight-reload cost when the b-loop (3 wide) can't saturate
   //     NEON lanes on its own.
   //
-  //   - Channels >= 8 (A2 standard): frame-tiled tap-major with T=4. ztile
+  //   - Channels >= 8 (A2-Full): frame-tiled tap-major with T=4. ztile
   //     stays in NEON registers across all K taps, amortizing weight loads
   //     over 4 frames — equivalent to what a GEMM kernel does. Weight reuse
   //     matters here because the b-loop (8 wide) already saturates SIMD, so

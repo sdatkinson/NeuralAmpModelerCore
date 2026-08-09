@@ -31,7 +31,7 @@ namespace
 {
 
 // Build a JSON config with the A2 shape, parameterized by channel count
-// (3 = A2 nano, 8 = A2 standard). Follows the real .nam schema so both the
+// (3 = A2-Lite, 8 = A2-Full). Follows the real .nam schema so both the
 // strict detector and the generic parser accept it.
 nlohmann::json build_a2_config(int channels)
 {
@@ -192,7 +192,7 @@ void compare(const std::vector<NAM_SAMPLE>& a, const std::vector<NAM_SAMPLE>& b,
 
 } // namespace
 
-void test_detector_matches_nano()
+void test_detector_matches_lite()
 {
   auto cfg = build_a2_config(3);
   int ch = 0;
@@ -200,7 +200,7 @@ void test_detector_matches_nano()
   assert(ch == 3);
 }
 
-void test_detector_matches_standard()
+void test_detector_matches_full()
 {
   auto cfg = build_a2_config(8);
   int ch = 0;
@@ -299,12 +299,12 @@ void test_matches_generic(int channels)
   }
 }
 
-void test_matches_generic_nano()
+void test_matches_generic_lite()
 {
   test_matches_generic(3);
 }
 
-void test_matches_generic_standard()
+void test_matches_generic_full()
 {
   test_matches_generic(8);
 }
@@ -331,26 +331,29 @@ void test_prewarm_matches_generic(int channels)
   assert(fast_dsp->GetPrewarmSamples() == generic_dsp->GetPrewarmSamples());
 }
 
-void test_prewarm_matches_generic_nano()
+void test_prewarm_matches_generic_lite()
 {
   test_prewarm_matches_generic(3);
 }
 
-void test_prewarm_matches_generic_standard()
+void test_prewarm_matches_generic_full()
 {
   test_prewarm_matches_generic(8);
 }
 
-// The first prewarm computes and caches the steady-state ring-buffer contents.
-// Later prewarms should restore that state without allocating silence buffers or
-// processing the full receptive field again.
+// With no cache, Reset() uses the legacy silence-processing prewarm and caches
+// its steady state. Process more than a receptive field of audio to disturb every
+// convolution history, restore the cached prewarm, then require the same audio to
+// produce exactly the same output as it did after the legacy prewarm.
 void test_cached_prewarm_dsp(nam::DSP& dsp, int channels, const std::string& implementation)
 {
   const int block_size = 64;
   dsp.Reset(48000.0, block_size);
-  const auto input = make_test_input(4 * block_size, 48000.0);
+  const auto input = make_test_input(dsp.GetPrewarmSamples() + block_size, 48000.0);
   const auto expected = process_dsp(dsp, input, block_size);
 
+  // Cached restoration must not fall back to DSP::prewarm(), which allocates
+  // silence buffers and processes the full receptive field.
   const std::string test_name = implementation + "<" + std::to_string(channels) + ">::cached prewarm";
   allocation_tracking::run_allocation_test_no_allocations(
     nullptr, [&]() { dsp.prewarm(); }, nullptr, test_name.c_str());
@@ -375,12 +378,12 @@ void test_cached_prewarm(int channels)
   test_cached_prewarm_dsp(*generic_dsp, channels, "WaveNet");
 }
 
-void test_cached_prewarm_nano()
+void test_cached_prewarm_lite()
 {
   test_cached_prewarm(3);
 }
 
-void test_cached_prewarm_standard()
+void test_cached_prewarm_full()
 {
   test_cached_prewarm(8);
 }
@@ -440,12 +443,12 @@ void test_process_realtime_safe(int channels)
   }
 }
 
-void test_process_realtime_safe_nano()
+void test_process_realtime_safe_lite()
 {
   test_process_realtime_safe(3);
 }
 
-void test_process_realtime_safe_standard()
+void test_process_realtime_safe_full()
 {
   test_process_realtime_safe(8);
 }
