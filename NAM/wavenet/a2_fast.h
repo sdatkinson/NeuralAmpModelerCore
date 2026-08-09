@@ -1,7 +1,7 @@
 #pragma once
 
-// Specialized WaveNet fast path for the A2 standard (Channels=8) and
-// A2 nano (Channels=3) models. Shares the same architecture shape; only
+// Specialized WaveNet fast path for the A2-Full (Channels=8) and
+// A2-Lite (Channels=3) models. Shares the same architecture shape; only
 // the channel count differs.
 //
 // When NAM_ENABLE_A2_FAST is defined at build time, wavenet::create_config
@@ -34,17 +34,17 @@ constexpr int kHeadKernelSize = 16;
 /// \brief LeakyReLU negative-slope used by every layer.
 constexpr float kLeakySlope = 0.01f;
 
-/// \brief Per-layer kernel sizes (fixed pattern shared by A2 standard + nano).
+/// \brief Per-layer kernel sizes (fixed pattern shared by A2-Full + A2-Lite).
 inline constexpr std::array<int, kNumLayers> kKernelSizes = {
   6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 15, 15, 6, 6, 6, 6, 6, 6, 6};
 
-/// \brief Per-layer dilations (fixed pattern shared by A2 standard + nano).
+/// \brief Per-layer dilations (fixed pattern shared by A2-Full + A2-Lite).
 inline constexpr std::array<int, kNumLayers> kDilations = {
   1, 3, 7, 17, 41, 101, 239, 1, 3, 7, 17, 41, 101, 239, 1, 13, 1, 3, 7, 17, 41, 101, 239};
 
 /// \brief Strict detector: returns true iff config matches the A2 shape.
 /// \param config   The "config" sub-object from a .nam WaveNet entry.
-/// \param channels Out-param set to 3 (A2 nano) or 8 (A2 standard) on match.
+/// \param channels Out-param set to 3 (A2-Lite) or 8 (A2-Full) on match.
 /// \return true if every architectural knob matches the A2 signature exactly.
 bool is_a2_shape(const nlohmann::json& config, int* channels);
 

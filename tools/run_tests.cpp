@@ -364,8 +364,8 @@ int main()
 
 #if defined(NAM_ENABLE_A2_FAST)
   // A2 fast-path WaveNet: detector coverage + numerical match against generic.
-  test_a2_fast::test_detector_matches_nano();
-  test_a2_fast::test_detector_matches_standard();
+  test_a2_fast::test_detector_matches_lite();
+  test_a2_fast::test_detector_matches_full();
   test_a2_fast::test_detector_accepts_nonstandard_head_scale();
   test_a2_fast::test_detector_rejects_wrong_channels();
   test_a2_fast::test_detector_rejects_wrong_kernel_sizes();
@@ -373,12 +373,14 @@ int main()
   test_a2_fast::test_detector_rejects_gating();
   test_a2_fast::test_detector_rejects_condition_dsp();
   test_a2_fast::test_detector_rejects_legacy_gated();
-  test_a2_fast::test_matches_generic_nano();
-  test_a2_fast::test_matches_generic_standard();
-  test_a2_fast::test_prewarm_matches_generic_nano();
-  test_a2_fast::test_prewarm_matches_generic_standard();
-  test_a2_fast::test_process_realtime_safe_nano();
-  test_a2_fast::test_process_realtime_safe_standard();
+  test_a2_fast::test_matches_generic_lite();
+  test_a2_fast::test_matches_generic_full();
+  test_a2_fast::test_prewarm_matches_generic_lite();
+  test_a2_fast::test_prewarm_matches_generic_full();
+  test_a2_fast::test_cached_prewarm_lite();
+  test_a2_fast::test_cached_prewarm_full();
+  test_a2_fast::test_process_realtime_safe_lite();
+  test_a2_fast::test_process_realtime_safe_full();
 #endif
 
   std::cout << "Success!" << std::endl;

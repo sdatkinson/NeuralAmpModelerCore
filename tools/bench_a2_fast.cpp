@@ -274,7 +274,7 @@ void bench_model(const LoadedModel& m, const Options& o)
   const Stats gen_s = compute_stats(gen_block_times);
   const double block_audio_us = 1e6 * o.buffer_size / m.sample_rate;
 
-  const std::string arch = (channels == 3) ? "A2 nano" : (channels == 8 ? "A2 standard" : "A2 unknown");
+  const std::string arch = (channels == 3) ? "A2-Lite" : (channels == 8 ? "A2-Full" : "A2 unknown");
 
   auto fmt_us = [](double ms) { return ms * 1000.0; };
   std::cout << "\n== " << m.path << "  (" << arch << ", Channels=" << channels << ") ==\n";
