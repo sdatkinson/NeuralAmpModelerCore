@@ -29,6 +29,7 @@
 #include "test/test_linear.cpp"
 #include "test/test_lstm.cpp"
 #include "test/test_lstm_realtime_safe.cpp"
+#include "test/test_nam_file.cpp"
 #include "test/test_wavenet_configurable_gating.cpp"
 #include "test/test_noncontiguous_blocks.cpp"
 #include "test/test_extensible.cpp"
@@ -311,6 +312,10 @@ int main()
   test_get_dsp::test_get_dsp_prewarm_option_suppresses_constructor_reset_prewarm();
   test_get_dsp::test_get_dsp_prewarm_option_forces_constructor_reset_prewarm();
   test_get_dsp::test_get_dsp_with_returned_config_constructs_once();
+
+  test_nam_file::test_accepts_minimum_valid_file();
+  test_nam_file::test_rejects_non_object_json();
+  test_nam_file::test_rejects_missing_required_keys();
 
   // Finally, some end-to-end tests.
   test_get_dsp::test_load_and_process_nam_files();
