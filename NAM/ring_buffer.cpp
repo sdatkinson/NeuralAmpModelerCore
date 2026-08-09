@@ -61,6 +61,20 @@ void RingBuffer::Advance(const int num_frames)
   _write_pos += num_frames;
 }
 
+void RingBuffer::CacheLastWrittenSample(Eigen::VectorXf& destination) const
+{
+  assert(_write_pos > 0);
+  assert(destination.size() == _storage.rows());
+  destination = _storage.col(_write_pos - 1);
+}
+
+void RingBuffer::FillWithSample(const Eigen::VectorXf& sample)
+{
+  assert(sample.size() == _storage.rows());
+  _storage.colwise() = sample;
+  _write_pos = _max_lookback;
+}
+
 bool RingBuffer::NeedsRewind(const int num_frames) const
 {
   return _write_pos + num_frames > (long)_storage.cols();

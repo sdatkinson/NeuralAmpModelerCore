@@ -55,6 +55,23 @@ void nam::wavenet::detail::Head::SetMaxBufferSize(const int maxBufferSize)
     _convs[i].SetMaxBufferSize(maxBufferSize);
 }
 
+bool nam::wavenet::detail::Head::HasCachedPrewarmState() const
+{
+  return std::all_of(_convs.begin(), _convs.end(), [](const Conv1D& conv) { return conv.HasCachedPrewarmState(); });
+}
+
+void nam::wavenet::detail::Head::PrewarmFromCache()
+{
+  for (auto& conv : _convs)
+    conv.PrewarmFromCache();
+}
+
+void nam::wavenet::detail::Head::CacheStateAsPrewarmed()
+{
+  for (auto& conv : _convs)
+    conv.CacheStateAsPrewarmed();
+}
+
 long nam::wavenet::detail::Head::receptive_field() const
 {
   long rf = 1;
@@ -413,7 +430,6 @@ void nam::wavenet::detail::LayerArray::SetMaxBufferSize(const int maxBufferSize)
   this->_head_inputs.resize(this->_head_output_size, maxBufferSize);
 }
 
-
 long nam::wavenet::detail::LayerArray::get_receptive_field() const
 {
   long result = 0;
@@ -423,6 +439,26 @@ long nam::wavenet::detail::LayerArray::get_receptive_field() const
   return result;
 }
 
+bool nam::wavenet::detail::LayerArray::HasCachedPrewarmState() const
+{
+  return _head_rechannel.HasCachedPrewarmState() && std::all_of(_layers.begin(), _layers.end(), [](const Layer& layer) {
+           return layer.HasCachedPrewarmState();
+         });
+}
+
+void nam::wavenet::detail::LayerArray::PrewarmFromCache()
+{
+  for (auto& layer : _layers)
+    layer.PrewarmFromCache();
+  _head_rechannel.PrewarmFromCache();
+}
+
+void nam::wavenet::detail::LayerArray::CacheStateAsPrewarmed()
+{
+  for (auto& layer : _layers)
+    layer.CacheStateAsPrewarmed();
+  _head_rechannel.CacheStateAsPrewarmed();
+}
 
 void nam::wavenet::detail::LayerArray::Process(const Eigen::MatrixXf& layer_inputs, const Eigen::MatrixXf& condition,
                                                const int num_frames)
@@ -696,6 +732,46 @@ void nam::wavenet::WaveNet::SetPrewarmOnReset(const bool prewarmOnReset)
   DSP::SetPrewarmOnReset(prewarmOnReset);
   if (this->_condition_dsp != nullptr)
     this->_condition_dsp->SetPrewarmOnReset(prewarmOnReset);
+}
+
+void nam::wavenet::WaveNet::prewarm()
+{
+  if (HasCachedPrewarmState())
+  {
+    PrewarmFromCache();
+    return;
+  }
+
+  DSP::prewarm();
+  CacheStateAsPrewarmed();
+}
+
+bool nam::wavenet::WaveNet::HasCachedPrewarmState() const
+{
+  if (_condition_dsp != nullptr)
+    return false;
+  if (!std::all_of(_layer_arrays.begin(), _layer_arrays.end(),
+                   [](const detail::LayerArray& layer_array) { return layer_array.HasCachedPrewarmState(); }))
+    return false;
+  return _post_stack_head == nullptr || _post_stack_head->HasCachedPrewarmState();
+}
+
+void nam::wavenet::WaveNet::PrewarmFromCache()
+{
+  for (auto& layer_array : _layer_arrays)
+    layer_array.PrewarmFromCache();
+  if (_post_stack_head != nullptr)
+    _post_stack_head->PrewarmFromCache();
+}
+
+void nam::wavenet::WaveNet::CacheStateAsPrewarmed()
+{
+  if (_condition_dsp != nullptr)
+    return;
+  for (auto& layer_array : _layer_arrays)
+    layer_array.CacheStateAsPrewarmed();
+  if (_post_stack_head != nullptr)
+    _post_stack_head->CacheStateAsPrewarmed();
 }
 
 void nam::wavenet::WaveNet::_process_condition(const int num_frames)

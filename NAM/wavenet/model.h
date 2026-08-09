@@ -58,6 +58,8 @@ public:
   /// \param num_frames Number of frames to process
   void process(NAM_SAMPLE** input, NAM_SAMPLE** output, const int num_frames) override;
 
+  void prewarm() override;
+
   void SetPrewarmOnReset(const bool prewarmOnReset) override;
 
   /// \brief Set model weights from a vector
@@ -115,6 +117,10 @@ private:
   Eigen::MatrixXf _scaled_head_scratch;
 
   int mPrewarmSamples = 0; // Pre-compute during initialization
+
+  bool HasCachedPrewarmState() const;
+  void PrewarmFromCache();
+  void CacheStateAsPrewarmed();
 };
 
 /// \brief Configuration for a WaveNet model
