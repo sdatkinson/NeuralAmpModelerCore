@@ -700,7 +700,7 @@ struct A2FastConfig : public ModelConfig
   std::unique_ptr<DSP> create(std::vector<float> weights, double sampleRate) override
   {
   #if defined(NAM_A2_PLANAR)
-    // On Apple Silicon, prefer the planar NEON kernels. They are bit-identical to the
+    // On AArch64, prefer the planar NEON kernels. They are bit-identical to the
     // reference model below -- same float32 bits out, sample for sample -- so
     // this is a speed choice and nothing else. A channel count they do not cover
     // returns nullptr and falls through.
