@@ -339,7 +339,7 @@ int main()
 {
   // Not an error: there is simply no planar kernel in this build to compare
   // against, either because NAM_ENABLE_A2_FAST is off, because the target is
-  // not Apple Silicon, or because NAM_DISABLE_A2_PLANAR was set.
+  // not AArch64, or because NAM_DISABLE_A2_PLANAR was set.
   std::cout << "bench_a2_planar: this build has no planar A2 kernel; nothing to measure.\n";
   return 0;
 }

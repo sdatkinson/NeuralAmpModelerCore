@@ -1,6 +1,6 @@
 #pragma once
 
-// Planar NEON kernels for the A2 fast path (Apple Silicon only).
+// Planar NEON kernels for the A2 fast path (AArch64).
 //
 // These are drop-in replacements for A2FastModel<3> and A2FastModel<8> that
 // produce **bit-identical** output: not "within a tolerance", not "below the
@@ -15,28 +15,45 @@
 // -----------------------------------------------------------------------------
 // Where this is active, and where it is not
 //
-// NAM_A2_PLANAR is defined only when the A2 fast path is being built for Apple
-// Silicon. On every other target -- x86, and also every *other* AArch64 target
-// -- this header declares nothing, a2_planar.cpp compiles to an object with no
-// symbols, the call site in a2_fast.cpp is preprocessed away, and the A2 path
-// is byte for byte the code that is there today. There is nothing to regress.
+// NAM_A2_PLANAR is defined only when the A2 fast path is being built for
+// AArch64. On every other target -- x86 above all -- this header declares
+// nothing, a2_planar.cpp compiles to an object with no symbols, the call site in
+// a2_fast.cpp is preprocessed away, and the A2 path is byte for byte the code
+// that is there today. There is nothing to regress.
 //
-// The gate is __APPLE__ rather than plain __aarch64__ on purpose. The kernels
-// are almost certainly correct and probably faster on any AArch64 part, but
-// they have only been built and measured on Apple Silicon, and two things there
-// are toolchain-dependent rather than architectural: the tile widths are M2
-// measurements, and bit-identity relies on the compiler contracting a*b+c into
-// an FMA in a2_fast's own 3-channel branch, which clang and gcc do by default
-// and MSVC at /fp:precise does not. Rather than claim a target nobody has run,
-// the gate stops at the one that has been.
+// The gate was __APPLE__ && __aarch64__ at first, because Apple Silicon was the
+// only place these had been built and measured. It has since been widened to
+// AArch64 generally, on evidence rather than optimism:
 //
-// NAM_DISABLE_A2_PLANAR opts out on Apple Silicon too, which is what makes an
-// A/B measurement against the reference a one-flag change.
+//   * Bit-identity holds off Apple. The property it leans on is the compiler
+//     contracting a*b+c into an FMA inside a2_fast's *own* 3-channel branch,
+//     which is a toolchain behaviour, not an architectural one. Checked on a
+//     Cortex-A76 (Raspberry Pi 500, Ubuntu 24.04) under GCC 13, and on Neoverse
+//     N2 under GCC 14 and Clang 18: both submodels bit-identical to a2_fast,
+//     max|diff| exactly zero, over a full render.
+//
+//   * The speed holds too, though the shape of the win is not the same. On an
+//     M2: 2.47x on A2 standard and 2.00x on A2 nano. On a Cortex-A76: 2.13x and
+//     2.94x. Faster on both parts, on both submodels.
+//
+// __aarch64__ specifically, rather than a spelling that would also catch MSVC's
+// _M_ARM64. That is deliberate and is the one part of the old gate worth
+// keeping: MSVC at /fp:precise does not contract a*b+c into an FMA, so the
+// reference branch it would be compared against computes something else, and
+// bit-identity -- the whole claim -- would not hold. clang-cl on ARM64 defines
+// __aarch64__ and is fine.
+//
+// The tile widths remain M2 measurements. They affect speed only, never output,
+// and the Cortex-A76's rather different profile suggests re-tuning them per part
+// would be worth someone's time.
+//
+// NAM_DISABLE_A2_PLANAR opts out anywhere, which is what makes an A/B
+// measurement against the reference a one-flag change.
 // -----------------------------------------------------------------------------
 
 #if defined(NAM_ENABLE_A2_FAST)
 
-  #if defined(__APPLE__) && defined(__aarch64__) && !defined(NAM_DISABLE_A2_PLANAR)
+  #if defined(__aarch64__) && !defined(NAM_DISABLE_A2_PLANAR)
     #define NAM_A2_PLANAR 1
   #endif
 
