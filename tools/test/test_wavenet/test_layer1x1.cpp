@@ -285,6 +285,77 @@ void test_layer1x1_post_film_active()
   }
 }
 
+// Runs one layer with the given layer1x1_post_film scale weight and returns its output.
+// Everything else is the identity, so the only thing that can move the output is the FiLM.
+static Eigen::MatrixXf run_layer1x1_post_film(const nam::wavenet::GatingMode gating_mode, const float film_scale_weight)
+{
+  const int conditionSize = 1;
+  const int channels = 2;
+  const int bottleneck = channels;
+  const int kernelSize = 1;
+  const int dilation = 1;
+  const bool gated = gating_mode != nam::wavenet::GatingMode::NONE;
+  const auto activation = nam::activations::ActivationConfig::simple(nam::activations::ActivationType::ReLU);
+  const auto secondary = gated ? nam::activations::ActivationConfig::simple(nam::activations::ActivationType::ReLU)
+                               : nam::activations::ActivationConfig{};
+
+  nam::wavenet::Layer1x1Params layer1x1_params(true, 1);
+  nam::wavenet::Head1x1Params head1x1_params(false, channels, 1);
+  auto film_params = make_default_film_params();
+  nam::wavenet::_FiLMParams layer1x1_post_film_params(true, true, 1);
+  nam::wavenet::LayerParams layer_params(conditionSize, channels, bottleneck, kernelSize, dilation, activation,
+                                         gating_mode, 1, 1, layer1x1_params, head1x1_params, secondary, film_params,
+                                         film_params, film_params, film_params, film_params, film_params,
+                                         layer1x1_post_film_params, film_params);
+  auto layer = nam::wavenet::detail::Layer(layer_params);
+
+  const int conv_out = gated ? 2 * bottleneck : bottleneck;
+  std::vector<float> weights;
+  for (int i = 0; i < channels * conv_out; i++) // conv weights: identity-ish, all ones
+    weights.push_back(1.0f);
+  for (int i = 0; i < conv_out; i++) // conv bias
+    weights.push_back(0.0f);
+  for (int i = 0; i < conditionSize * conv_out; i++) // input mixin
+    weights.push_back(1.0f);
+  for (int i = 0; i < bottleneck * channels; i++) // layer1x1 weights
+    weights.push_back(1.0f);
+  for (int i = 0; i < channels; i++) // layer1x1 bias
+    weights.push_back(0.0f);
+  for (int i = 0; i < conditionSize * channels; i++) // FiLM scale weights
+    weights.push_back(film_scale_weight);
+  for (int i = 0; i < conditionSize * channels; i++) // FiLM shift weights
+    weights.push_back(0.0f);
+  for (int i = 0; i < 2 * channels; i++) // FiLM bias (scale then shift)
+    weights.push_back(0.0f);
+
+  auto it = weights.begin();
+  layer.set_weights_(it);
+  assert(it == weights.end());
+
+  const int numFrames = 2;
+  layer.SetMaxBufferSize(numFrames);
+  Eigen::MatrixXf input(channels, numFrames);
+  Eigen::MatrixXf condition(conditionSize, numFrames);
+  input.fill(1.0f);
+  condition.fill(1.0f);
+  layer.Process(input, condition, numFrames);
+  return layer.GetOutputNextLayer().leftCols(numFrames);
+}
+
+// layer1x1_post_film used to be applied only under BLENDED gating, silently ignored otherwise,
+// which diverges from the Python model. Changing its scale must move the output in every mode.
+void test_layer1x1_post_film_is_applied_for_every_gating_mode()
+{
+  const nam::wavenet::GatingMode modes[] = {nam::wavenet::GatingMode::NONE, nam::wavenet::GatingMode::GATED,
+                                            nam::wavenet::GatingMode::BLENDED};
+  for (const auto mode : modes)
+  {
+    const auto unit_scale = run_layer1x1_post_film(mode, 1.0f);
+    const auto doubled_scale = run_layer1x1_post_film(mode, 2.0f);
+    assert(!unit_scale.isApprox(doubled_scale));
+  }
+}
+
 void test_layer1x1_post_film_inactive_with_layer1x1_inactive()
 {
   // Test that layer1x1_post_film cannot be active when layer1x1 is inactive
