@@ -31,7 +31,7 @@ namespace
 {
 
 // Build a JSON config with the A2 shape, parameterized by channel count
-// (3 = A2 nano, 8 = A2 standard). Follows the real .nam schema so both the
+// (3 = A2-Lite, 8 = A2-Full). Follows the real .nam schema so both the
 // strict detector and the generic parser accept it.
 nlohmann::json build_a2_config(int channels)
 {
@@ -148,6 +148,24 @@ std::vector<NAM_SAMPLE> run_dsp(nam::DSP& dsp, const std::vector<NAM_SAMPLE>& in
   return out;
 }
 
+std::vector<NAM_SAMPLE> process_dsp(nam::DSP& dsp, const std::vector<NAM_SAMPLE>& input, int block_size)
+{
+  std::vector<NAM_SAMPLE> out(input.size(), static_cast<NAM_SAMPLE>(0));
+  int pos = 0;
+  const int total = static_cast<int>(input.size());
+  while (pos < total)
+  {
+    const int n = std::min(block_size, total - pos);
+    const NAM_SAMPLE* in_ptr = input.data() + pos;
+    NAM_SAMPLE* out_ptr = out.data() + pos;
+    const NAM_SAMPLE* in_arr[] = {in_ptr};
+    NAM_SAMPLE* out_arr[] = {out_ptr};
+    dsp.process(const_cast<NAM_SAMPLE**>(in_arr), out_arr, n);
+    pos += n;
+  }
+  return out;
+}
+
 void compare(const std::vector<NAM_SAMPLE>& a, const std::vector<NAM_SAMPLE>& b, int channels, int block_size,
              double tol)
 {
@@ -174,7 +192,7 @@ void compare(const std::vector<NAM_SAMPLE>& a, const std::vector<NAM_SAMPLE>& b,
 
 } // namespace
 
-void test_detector_matches_nano()
+void test_detector_matches_lite()
 {
   auto cfg = build_a2_config(3);
   int ch = 0;
@@ -182,7 +200,7 @@ void test_detector_matches_nano()
   assert(ch == 3);
 }
 
-void test_detector_matches_standard()
+void test_detector_matches_full()
 {
   auto cfg = build_a2_config(8);
   int ch = 0;
@@ -235,8 +253,10 @@ void test_detector_rejects_gating()
 void test_detector_rejects_condition_dsp()
 {
   auto cfg = build_a2_config(8);
-  cfg["condition_dsp"] = {{"version", "0.5.0"}, {"architecture", "Linear"},
-                          {"config", nlohmann::json::object()}, {"weights", nlohmann::json::array()}};
+  cfg["condition_dsp"] = {{"version", "0.5.0"},
+                          {"architecture", "Linear"},
+                          {"config", nlohmann::json::object()},
+                          {"weights", nlohmann::json::array()}};
   assert(!nam::wavenet::a2_fast::is_a2_shape(cfg, nullptr));
 }
 
@@ -279,12 +299,12 @@ void test_matches_generic(int channels)
   }
 }
 
-void test_matches_generic_nano()
+void test_matches_generic_lite()
 {
   test_matches_generic(3);
 }
 
-void test_matches_generic_standard()
+void test_matches_generic_full()
 {
   test_matches_generic(8);
 }
@@ -311,14 +331,61 @@ void test_prewarm_matches_generic(int channels)
   assert(fast_dsp->GetPrewarmSamples() == generic_dsp->GetPrewarmSamples());
 }
 
-void test_prewarm_matches_generic_nano()
+void test_prewarm_matches_generic_lite()
 {
   test_prewarm_matches_generic(3);
 }
 
-void test_prewarm_matches_generic_standard()
+void test_prewarm_matches_generic_full()
 {
   test_prewarm_matches_generic(8);
+}
+
+// With no cache, Reset() uses the legacy silence-processing prewarm and caches
+// its steady state. Process more than a receptive field of audio to disturb every
+// convolution history, restore the cached prewarm, then require the same audio to
+// produce exactly the same output as it did after the legacy prewarm.
+void test_cached_prewarm_dsp(nam::DSP& dsp, int channels, const std::string& implementation)
+{
+  const int block_size = 64;
+  dsp.Reset(48000.0, block_size);
+  const auto input = make_test_input(dsp.GetPrewarmSamples() + block_size, 48000.0);
+  const auto expected = process_dsp(dsp, input, block_size);
+
+  // Cached restoration must not fall back to DSP::prewarm(), which allocates
+  // silence buffers and processes the full receptive field.
+  const std::string test_name = implementation + "<" + std::to_string(channels) + ">::cached prewarm";
+  allocation_tracking::run_allocation_test_no_allocations(
+    nullptr, [&]() { dsp.prewarm(); }, nullptr, test_name.c_str());
+
+  const auto actual = process_dsp(dsp, input, block_size);
+  compare(expected, actual, channels, block_size, /*tol=*/1.0e-12);
+}
+
+void test_cached_prewarm(int channels)
+{
+  const auto cfg = build_a2_config(channels);
+  const auto weights = make_deterministic_weights(a2_weight_count(channels), /*seed=*/0xA2CA000u + channels);
+
+  auto fast_cfg = nam::wavenet::a2_fast::create_a2_fast_config(cfg, 48000.0);
+  std::vector<float> w_fast = weights;
+  auto fast_dsp = fast_cfg->create(std::move(w_fast), 48000.0);
+  test_cached_prewarm_dsp(*fast_dsp, channels, "A2FastModel");
+
+  auto generic_cfg = nam::wavenet::parse_config_json(cfg, 48000.0);
+  std::vector<float> w_generic = weights;
+  auto generic_dsp = generic_cfg.create(std::move(w_generic), 48000.0);
+  test_cached_prewarm_dsp(*generic_dsp, channels, "WaveNet");
+}
+
+void test_cached_prewarm_lite()
+{
+  test_cached_prewarm(3);
+}
+
+void test_cached_prewarm_full()
+{
+  test_cached_prewarm(8);
 }
 
 // Real-time safety: once the DSP has been Reset (buffers sized, prewarmed),
@@ -376,12 +443,12 @@ void test_process_realtime_safe(int channels)
   }
 }
 
-void test_process_realtime_safe_nano()
+void test_process_realtime_safe_lite()
 {
   test_process_realtime_safe(3);
 }
 
-void test_process_realtime_safe_standard()
+void test_process_realtime_safe_full()
 {
   test_process_realtime_safe(8);
 }

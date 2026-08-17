@@ -117,6 +117,15 @@ public:
   /// \return true if bias is present, false otherwise
   bool has_bias() const { return this->_bias.size() > 0; };
 
+  /// \brief Check whether a steady-state prewarm sample has been cached
+  bool HasCachedPrewarmState() const { return _has_cached_prewarm_state; }
+
+  /// \brief Restore the input history from the cached steady-state sample
+  void PrewarmFromCache();
+
+  /// \brief Cache the most recently written input sample as the steady prewarm state
+  void CacheStateAsPrewarmed();
+
 protected:
   // conv[kernel](cout, cin) - used for non-depthwise convolutions
   std::vector<Eigen::MatrixXf> _weight;
@@ -131,6 +140,8 @@ protected:
 
 private:
   RingBuffer _input_buffer; // Ring buffer for input (channels x buffer_size)
+  Eigen::VectorXf _cached_prewarm_state;
+  bool _has_cached_prewarm_state = false;
   Eigen::MatrixXf _output; // Pre-allocated output buffer (out_channels x maxBufferSize)
   int _max_buffer_size = 0; // Stored maxBufferSize
 };

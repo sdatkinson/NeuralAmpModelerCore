@@ -66,6 +66,7 @@ public:
   ~A2FastModel() override = default;
 
   void process(NAM_SAMPLE** input, NAM_SAMPLE** output, int num_frames) override;
+  void prewarm() override;
   int GetPrewarmSamples() override { return _prewarm_samples; }
 
 protected:
@@ -92,6 +93,7 @@ private:
 
     // Conv1D input history ring buffer, column-major (Channels rows).
     std::vector<float> history;
+    std::array<float, Channels> cached_prewarm_state{};
   #if NAM_A2_RING_MODE == 1
     // pow2 ring + tail mirror. Storage = (pow2_size + max_buffer_size) cols.
     // write_pos is kept in [0, pow2_size), reads use (pos & pow2_mask) and are
@@ -124,6 +126,7 @@ private:
 
   // Head ring buffer (Channels rows, col-major). Same ring layout as per-layer.
   std::vector<float> _head_history;
+  std::array<float, Channels> _cached_head_prewarm_state{};
   #if NAM_A2_RING_MODE == 1
   int _head_pow2_size = 0;
   int _head_pow2_mask = 0;
@@ -141,8 +144,12 @@ private:
   std::vector<float> _head_out; // float32 head output before writing to NAM_SAMPLE
 
   int _prewarm_samples = 0;
+  bool _has_cached_prewarm_state = false;
 
   void _load_weights(std::vector<float>& weights);
+  bool HasCachedPrewarmState() const { return _has_cached_prewarm_state; }
+  void PrewarmFromCache();
+  void CacheStateAsPrewarmed();
   void _ring_write(Layer& L, int num_frames);
   void _head_ring_write(int num_frames);
   void _layer_forward(int layer_idx, const float* cond, int num_frames);
@@ -330,6 +337,73 @@ void A2FastModel<Channels>::SetMaxBufferSize(int maxBufferSize)
 }
 
 // -----------------------------------------------------------------------------
+// Prewarm-state cache
+//
+// Processing silence for a full receptive field leaves every convolution
+// history constant in time. Keep one Channels-wide column from each layer and
+// the head so later prewarms can rebuild the complete histories directly.
+// -----------------------------------------------------------------------------
+template <int Channels>
+void A2FastModel<Channels>::prewarm()
+{
+  if (HasCachedPrewarmState())
+  {
+    PrewarmFromCache();
+    return;
+  }
+
+  DSP::prewarm();
+  CacheStateAsPrewarmed();
+}
+
+template <int Channels>
+void A2FastModel<Channels>::PrewarmFromCache()
+{
+  for (auto& L : _layers)
+  {
+    const size_t columns = L.history.size() / Channels;
+    for (size_t column = 0; column < columns; column++)
+    {
+      std::copy(L.cached_prewarm_state.begin(), L.cached_prewarm_state.end(),
+                L.history.begin() + static_cast<std::ptrdiff_t>(column * Channels));
+    }
+    L.write_pos = L.max_lookback;
+  }
+
+  const size_t head_columns = _head_history.size() / Channels;
+  for (size_t column = 0; column < head_columns; column++)
+  {
+    std::copy(_cached_head_prewarm_state.begin(), _cached_head_prewarm_state.end(),
+              _head_history.begin() + static_cast<std::ptrdiff_t>(column * Channels));
+  }
+  _head_write_pos = kHeadKernelSize - 1;
+}
+
+template <int Channels>
+void A2FastModel<Channels>::CacheStateAsPrewarmed()
+{
+  for (auto& L : _layers)
+  {
+  #if NAM_A2_RING_MODE == 1
+    const int last_column = (L.write_pos - 1) & L.pow2_mask;
+  #else
+    const int last_column = L.write_pos - 1;
+  #endif
+    std::copy_n(L.history.begin() + static_cast<std::ptrdiff_t>(last_column * Channels), Channels,
+                L.cached_prewarm_state.begin());
+  }
+
+  #if NAM_A2_RING_MODE == 1
+  const int last_head_column = (_head_write_pos - 1) & _head_pow2_mask;
+  #else
+  const int last_head_column = _head_write_pos - 1;
+  #endif
+  std::copy_n(_head_history.begin() + static_cast<std::ptrdiff_t>(last_head_column * Channels), Channels,
+              _cached_head_prewarm_state.begin());
+  _has_cached_prewarm_state = true;
+}
+
+// -----------------------------------------------------------------------------
 // Ring-write helpers.
 //   Mode 1: pow2 + tail mirror. Constant-time per block (one short memcpy
 //   into the ring, one mirror refresh).
@@ -430,14 +504,14 @@ void A2FastModel<Channels>::_layer_forward_k(Layer& L, const float* cond, int nu
 
   // Two conv strategies, dispatched at compile time on Channels:
   //
-  //   - Channels <= 4 (A2 nano): full-block tap-major. The z accumulator lives
+  //   - Channels <= 4 (A2-Lite): full-block tap-major. The z accumulator lives
   //     in the heap buffer across all taps, and for each tap the inner f-loop
   //     iterates over all num_frames. This gives clang frame-level
   //     parallelism — it vectorizes across 4 frames at a time, which matters
   //     more than weight-reload cost when the b-loop (3 wide) can't saturate
   //     NEON lanes on its own.
   //
-  //   - Channels >= 8 (A2 standard): frame-tiled tap-major with T=4. ztile
+  //   - Channels >= 8 (A2-Full): frame-tiled tap-major with T=4. ztile
   //     stays in NEON registers across all K taps, amortizing weight loads
   //     over 4 frames — equivalent to what a GEMM kernel does. Weight reuse
   //     matters here because the b-loop (8 wide) already saturates SIMD, so

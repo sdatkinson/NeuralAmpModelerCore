@@ -35,8 +35,8 @@ void test_process_matches_reference(const int in_channels, const int out_channel
     {
       for (int k = 0; k < kernel_size; k++)
       {
-        const float value = 0.011f * static_cast<float>(o + 1) + 0.007f * static_cast<float>(i + 1)
-                            - 0.003f * static_cast<float>(k + 1);
+        const float value =
+          0.011f * static_cast<float>(o + 1) + 0.007f * static_cast<float>(i + 1) - 0.003f * static_cast<float>(k + 1);
         reference_weights[k](o, i) = value;
         weights.push_back(value);
       }

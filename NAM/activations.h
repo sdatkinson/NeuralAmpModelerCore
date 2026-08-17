@@ -302,9 +302,6 @@ public:
     // Matrix is organized as (channels, time_steps)
     unsigned long actual_channels = static_cast<unsigned long>(matrix.rows());
 
-    // Prepare the slopes for the current matrix size
-    std::vector<float> slopes_for_channels = negative_slopes;
-
     // Fail loudly if input has more channels than activation
 #ifndef NDEBUG
     if (actual_channels != negative_slopes.size())
@@ -321,7 +318,7 @@ public:
       // Apply the negative slope to all time steps in this channel
       for (int time_step = 0; time_step < matrix.cols(); time_step++)
       {
-        matrix(channel, time_step) = leaky_relu(matrix(channel, time_step), slopes_for_channels[channel]);
+        matrix(channel, time_step) = leaky_relu(matrix(channel, time_step), negative_slopes[channel]);
       }
     }
   }

@@ -52,6 +52,12 @@ public:
   /// \param max_lookback Maximum lookback distance
   void SetMaxLookback(const long max_lookback) { _max_lookback = max_lookback; }
 
+  /// \brief Copy the most recently written sample into pre-allocated storage
+  void CacheLastWrittenSample(Eigen::VectorXf& destination) const;
+
+  /// \brief Fill the buffer with a constant sample and restore its initial write position
+  void FillWithSample(const Eigen::VectorXf& sample);
+
 private:
   // Wrap buffer when approaching end (called automatically if needed)
   void Rewind();

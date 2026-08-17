@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include "test/test_activations.cpp"
+#include "test/test_activations_realtime_safe.cpp"
 #include "test/test_conv1d.cpp"
 #include "test/test_conv_1x1.cpp"
 #include "test/test_convnet.cpp"
@@ -29,6 +30,7 @@
 #include "test/test_linear.cpp"
 #include "test/test_lstm.cpp"
 #include "test/test_lstm_realtime_safe.cpp"
+#include "test/test_nam_file.cpp"
 #include "test/test_wavenet_configurable_gating.cpp"
 #include "test/test_noncontiguous_blocks.cpp"
 #include "test/test_extensible.cpp"
@@ -62,6 +64,9 @@ int main()
   test_activations::TestPReLU::test_wrong_number_of_channels_matrix();
   test_activations::TestPReLU::test_wrong_size_array();
   test_activations::TestPReLU::test_valid_array_size();
+
+  test_activations_realtime_safe::test_prelu_apply_matrix_realtime_safe();
+  test_activations_realtime_safe::test_prelu_apply_pointer_realtime_safe();
 
   // Typed ActivationConfig tests
   test_activations::TestTypedActivationConfig::test_simple_config();
@@ -297,6 +302,8 @@ int main()
 
   test_get_dsp::test_gets_input_level();
   test_get_dsp::test_gets_output_level();
+  test_get_dsp::test_empty_nam_file_throws_validation_error();
+  test_get_dsp::test_malformed_nam_file_throws_validation_error();
   test_get_dsp::test_null_input_level();
   test_get_dsp::test_null_output_level();
   test_get_dsp::test_version_patch_one_beyond_supported();
@@ -309,6 +316,10 @@ int main()
   test_get_dsp::test_get_dsp_prewarm_option_suppresses_constructor_reset_prewarm();
   test_get_dsp::test_get_dsp_prewarm_option_forces_constructor_reset_prewarm();
   test_get_dsp::test_get_dsp_with_returned_config_constructs_once();
+
+  test_nam_file::test_accepts_minimum_valid_file();
+  test_nam_file::test_rejects_non_object_json();
+  test_nam_file::test_rejects_missing_required_keys();
 
   // Finally, some end-to-end tests.
   test_get_dsp::test_load_and_process_nam_files();
@@ -353,8 +364,8 @@ int main()
 
 #if defined(NAM_ENABLE_A2_FAST)
   // A2 fast-path WaveNet: detector coverage + numerical match against generic.
-  test_a2_fast::test_detector_matches_nano();
-  test_a2_fast::test_detector_matches_standard();
+  test_a2_fast::test_detector_matches_lite();
+  test_a2_fast::test_detector_matches_full();
   test_a2_fast::test_detector_accepts_nonstandard_head_scale();
   test_a2_fast::test_detector_rejects_wrong_channels();
   test_a2_fast::test_detector_rejects_wrong_kernel_sizes();
@@ -362,12 +373,14 @@ int main()
   test_a2_fast::test_detector_rejects_gating();
   test_a2_fast::test_detector_rejects_condition_dsp();
   test_a2_fast::test_detector_rejects_legacy_gated();
-  test_a2_fast::test_matches_generic_nano();
-  test_a2_fast::test_matches_generic_standard();
-  test_a2_fast::test_prewarm_matches_generic_nano();
-  test_a2_fast::test_prewarm_matches_generic_standard();
-  test_a2_fast::test_process_realtime_safe_nano();
-  test_a2_fast::test_process_realtime_safe_standard();
+  test_a2_fast::test_matches_generic_lite();
+  test_a2_fast::test_matches_generic_full();
+  test_a2_fast::test_prewarm_matches_generic_lite();
+  test_a2_fast::test_prewarm_matches_generic_full();
+  test_a2_fast::test_cached_prewarm_lite();
+  test_a2_fast::test_cached_prewarm_full();
+  test_a2_fast::test_process_realtime_safe_lite();
+  test_a2_fast::test_process_realtime_safe_full();
 #endif
 
   std::cout << "Success!" << std::endl;

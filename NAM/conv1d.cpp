@@ -1,5 +1,6 @@
 #include "conv1d.h"
 #include "compiler.h"
+#include <cassert>
 #include <cstring>
 #include <stdexcept>
 
@@ -9,6 +10,7 @@ namespace nam
 
 void Conv1D::set_weights_(std::vector<float>::iterator& weights)
 {
+  _has_cached_prewarm_state = false;
   if (this->_is_depthwise)
   {
     // Depthwise convolution: one weight per channel per kernel tap
@@ -109,6 +111,10 @@ void Conv1D::set_size_(const int in_channels, const int out_channels, const int 
   }
   else
     this->_bias.resize(0);
+
+  _cached_prewarm_state.resize(in_channels);
+  _cached_prewarm_state.setZero();
+  _has_cached_prewarm_state = false;
 }
 
 void Conv1D::set_size_and_weights_(const int in_channels, const int out_channels, const int kernel_size,
@@ -142,6 +148,17 @@ void Conv1D::SetMaxBufferSize(const int maxBufferSize)
   _output.setZero();
 }
 
+void Conv1D::PrewarmFromCache()
+{
+  assert(HasCachedPrewarmState());
+  _input_buffer.FillWithSample(_cached_prewarm_state);
+}
+
+void Conv1D::CacheStateAsPrewarmed()
+{
+  _input_buffer.CacheLastWrittenSample(_cached_prewarm_state);
+  _has_cached_prewarm_state = true;
+}
 
 void Conv1D::Process(const Eigen::MatrixXf& input, const int num_frames)
 {

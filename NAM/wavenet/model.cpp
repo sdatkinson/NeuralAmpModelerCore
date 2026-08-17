@@ -55,6 +55,23 @@ void nam::wavenet::detail::Head::SetMaxBufferSize(const int maxBufferSize)
     _convs[i].SetMaxBufferSize(maxBufferSize);
 }
 
+bool nam::wavenet::detail::Head::HasCachedPrewarmState() const
+{
+  return std::all_of(_convs.begin(), _convs.end(), [](const Conv1D& conv) { return conv.HasCachedPrewarmState(); });
+}
+
+void nam::wavenet::detail::Head::PrewarmFromCache()
+{
+  for (auto& conv : _convs)
+    conv.PrewarmFromCache();
+}
+
+void nam::wavenet::detail::Head::CacheStateAsPrewarmed()
+{
+  for (auto& conv : _convs)
+    conv.CacheStateAsPrewarmed();
+}
+
 long nam::wavenet::detail::Head::receptive_field() const
 {
   long rf = 1;
@@ -413,7 +430,6 @@ void nam::wavenet::detail::LayerArray::SetMaxBufferSize(const int maxBufferSize)
   this->_head_inputs.resize(this->_head_output_size, maxBufferSize);
 }
 
-
 long nam::wavenet::detail::LayerArray::get_receptive_field() const
 {
   long result = 0;
@@ -423,12 +439,34 @@ long nam::wavenet::detail::LayerArray::get_receptive_field() const
   return result;
 }
 
+bool nam::wavenet::detail::LayerArray::HasCachedPrewarmState() const
+{
+  return _head_rechannel.HasCachedPrewarmState() && std::all_of(_layers.begin(), _layers.end(), [](const Layer& layer) {
+           return layer.HasCachedPrewarmState();
+         });
+}
+
+void nam::wavenet::detail::LayerArray::PrewarmFromCache()
+{
+  for (auto& layer : _layers)
+    layer.PrewarmFromCache();
+  _head_rechannel.PrewarmFromCache();
+}
+
+void nam::wavenet::detail::LayerArray::CacheStateAsPrewarmed()
+{
+  for (auto& layer : _layers)
+    layer.CacheStateAsPrewarmed();
+  _head_rechannel.CacheStateAsPrewarmed();
+}
 
 void nam::wavenet::detail::LayerArray::Process(const Eigen::MatrixXf& layer_inputs, const Eigen::MatrixXf& condition,
                                                const int num_frames)
 {
-  // Zero head inputs accumulator (first layer array)
-  this->_head_inputs.setZero();
+  // Zero head inputs accumulator (first layer array). Only the first num_frames columns are ever
+  // read this call, so zeroing the whole maxBufferSize-wide buffer is wasted work when the host
+  // processes blocks smaller than the maximum it reserved.
+  this->_head_inputs.leftCols(num_frames).setZero();
   ProcessInner(layer_inputs, condition, num_frames);
 }
 
@@ -696,6 +734,46 @@ void nam::wavenet::WaveNet::SetPrewarmOnReset(const bool prewarmOnReset)
     this->_condition_dsp->SetPrewarmOnReset(prewarmOnReset);
 }
 
+void nam::wavenet::WaveNet::prewarm()
+{
+  if (HasCachedPrewarmState())
+  {
+    PrewarmFromCache();
+    return;
+  }
+
+  DSP::prewarm();
+  CacheStateAsPrewarmed();
+}
+
+bool nam::wavenet::WaveNet::HasCachedPrewarmState() const
+{
+  if (_condition_dsp != nullptr)
+    return false;
+  if (!std::all_of(_layer_arrays.begin(), _layer_arrays.end(),
+                   [](const detail::LayerArray& layer_array) { return layer_array.HasCachedPrewarmState(); }))
+    return false;
+  return _post_stack_head == nullptr || _post_stack_head->HasCachedPrewarmState();
+}
+
+void nam::wavenet::WaveNet::PrewarmFromCache()
+{
+  for (auto& layer_array : _layer_arrays)
+    layer_array.PrewarmFromCache();
+  if (_post_stack_head != nullptr)
+    _post_stack_head->PrewarmFromCache();
+}
+
+void nam::wavenet::WaveNet::CacheStateAsPrewarmed()
+{
+  if (_condition_dsp != nullptr)
+    return;
+  for (auto& layer_array : _layer_arrays)
+    layer_array.CacheStateAsPrewarmed();
+  if (_post_stack_head != nullptr)
+    _post_stack_head->CacheStateAsPrewarmed();
+}
+
 void nam::wavenet::WaveNet::_process_condition(const int num_frames)
 {
   if (this->_condition_dsp == nullptr)
@@ -776,12 +854,12 @@ void nam::wavenet::WaveNet::process(NAM_SAMPLE** input, NAM_SAMPLE** output, con
   if (this->_post_stack_head != nullptr)
   {
     assert(final_head_outputs.rows() == this->_post_stack_head->in_channels());
-    const int head_in = this->_post_stack_head->in_channels();
-    for (int ch = 0; ch < head_in; ch++)
-    {
-      for (int s = 0; s < num_frames; s++)
-        this->_scaled_head_scratch(ch, s) = this->_head_scale * final_head_outputs(ch, s);
-    }
+    // _scaled_head_scratch is sized (in_channels, maxBufferSize), and the assert above pins
+    // final_head_outputs to the same row count, so this is a straight scaled copy of the block.
+    // Expressed as one Eigen expression rather than a nested loop: the manual loop walked the
+    // column-major matrix with a row-major access pattern, striding by in_channels per step.
+    this->_scaled_head_scratch.leftCols(num_frames).noalias() =
+      this->_head_scale * final_head_outputs.leftCols(num_frames);
     this->_post_stack_head->process(this->_scaled_head_scratch, num_frames);
     const Eigen::MatrixXf& head_out = this->_post_stack_head->get_last_output();
     assert(head_out.rows() == out_channels);
@@ -1151,11 +1229,11 @@ nam::wavenet::WaveNetConfig nam::wavenet::parse_config_json(const nlohmann::json
     }
 
     wc.layer_array_params.push_back(nam::wavenet::LayerArrayParams(
-      input_size, condition_size, head_size, head_dilation, head_kernel_size, channels, bottleneck, std::move(kernel_sizes), dilations,
-      std::move(activation_configs), std::move(gating_modes), head_bias, groups, groups_input_mixin, layer1x1_params,
-      head1x1_params, std::move(secondary_activation_configs), conv_pre_film_params, conv_post_film_params,
-      input_mixin_pre_film_params, input_mixin_post_film_params, activation_pre_film_params,
-      activation_post_film_params, _layer1x1_post_film_params, head1x1_post_film_params));
+      input_size, condition_size, head_size, head_dilation, head_kernel_size, channels, bottleneck,
+      std::move(kernel_sizes), dilations, std::move(activation_configs), std::move(gating_modes), head_bias, groups,
+      groups_input_mixin, layer1x1_params, head1x1_params, std::move(secondary_activation_configs),
+      conv_pre_film_params, conv_post_film_params, input_mixin_pre_film_params, input_mixin_post_film_params,
+      activation_pre_film_params, activation_post_film_params, _layer1x1_post_film_params, head1x1_post_film_params));
   }
 
   wc.with_head = config.find("head") != config.end() && !config["head"].is_null();

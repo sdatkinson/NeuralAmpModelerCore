@@ -205,9 +205,9 @@ public:
   /// \param head1x1_post_film_params_ FiLM parameters after head1x1 convolutions
   /// \throws std::invalid_argument If dilations, activation_configs, gating_modes, or secondary_activation_configs
   /// sizes don't match
-  LayerArrayParams(const int input_size_, const int condition_size_, const int head_size_, const int head_dilation_, const int head_kernel_size_,
-                   const int channels_, const int bottleneck_, const std::vector<int>&& kernel_sizes_,
-                   const std::vector<int>&& dilations_,
+  LayerArrayParams(const int input_size_, const int condition_size_, const int head_size_, const int head_dilation_,
+                   const int head_kernel_size_, const int channels_, const int bottleneck_,
+                   const std::vector<int>&& kernel_sizes_, const std::vector<int>&& dilations_,
                    const std::vector<activations::ActivationConfig>&& activation_configs_,
                    const std::vector<GatingMode>&& gating_modes_, const bool head_bias_, const int groups_input,
                    const int groups_input_mixin_, const Layer1x1Params& layer1x1_params_,
