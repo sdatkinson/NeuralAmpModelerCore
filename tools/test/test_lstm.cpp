@@ -1,8 +1,8 @@
 // Tests for LSTM
 
+#include <cmath>
 #include <Eigen/Dense>
 #include <cassert>
-#include <cmath>
 #include <iostream>
 #include <vector>
 
