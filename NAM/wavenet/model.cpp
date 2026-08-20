@@ -279,12 +279,15 @@ void nam::wavenet::detail::Layer::Process(const Eigen::MatrixXf& input, const Ei
     if (this->_layer1x1)
     {
       this->_layer1x1->process_(this->_z.topRows(bottleneck), num_frames);
-      if (this->_layer1x1_post_film)
-      {
-        Eigen::MatrixXf& layer1x1_output = this->_layer1x1->GetOutput();
-        this->_layer1x1_post_film->Process_(layer1x1_output, condition, num_frames);
-      }
     }
+  }
+
+  // layer1x1_post_film is independent of the gating mode and must be applied
+  // whenever layer1x1 is active.
+  if (this->_layer1x1 && this->_layer1x1_post_film)
+  {
+    Eigen::MatrixXf& layer1x1_output = this->_layer1x1->GetOutput();
+    this->_layer1x1_post_film->Process_(layer1x1_output, condition, num_frames);
   }
 
   if (this->_head1x1)
