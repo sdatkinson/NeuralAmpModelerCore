@@ -27,13 +27,15 @@ static nam::wavenet::detail::Layer make_layer(const int condition_size, const in
                                               const int groups_input_mixin,
                                               const nam::wavenet::Layer1x1Params& layer1x1_params,
                                               const nam::wavenet::Head1x1Params& head1x1_params,
-                                              const nam::activations::ActivationConfig& secondary_activation_config)
+                                              const nam::activations::ActivationConfig& secondary_activation_config,
+                                              const nam::wavenet::_FiLMParams& layer1x1_post_film_params =
+                                                make_default_film_params())
 {
   auto film_params = make_default_film_params();
   nam::wavenet::LayerParams layer_params(condition_size, channels, bottleneck, kernel_size, dilation, activation_config,
                                          gating_mode, groups_input, groups_input_mixin, layer1x1_params, head1x1_params,
                                          secondary_activation_config, film_params, film_params, film_params,
-                                         film_params, film_params, film_params, film_params, film_params);
+                                         film_params, film_params, film_params, layer1x1_post_film_params, film_params);
   return nam::wavenet::detail::Layer(layer_params);
 }
 
@@ -254,7 +256,7 @@ void test_layer1x1_post_film_active()
     1.0f, 0.0f, 0.0f, 1.0f, // weights
     0.0f, 0.0f, // bias
     // layer1x1_post_film: (conditionSize, 2*channels) + bias (with shift)
-    1.0f, 1.0f, // scale weights
+    2.0f, 2.0f, // scale weights: condition=1 doubles the layer output
     0.0f, 0.0f, // shift weights
     0.0f, 0.0f, 0.0f, 0.0f // bias
   };
@@ -275,13 +277,11 @@ void test_layer1x1_post_film_active()
 
   auto layer_output = layer.GetOutputNextLayer().leftCols(numFrames);
 
-  // Verify outputs are reasonable (not NaN, not infinite)
+  // The FiLM scales the layer1x1 output by 2: input + (2 * 2) = 5.
   for (int i = 0; i < numFrames; i++)
   {
-    assert(!std::isnan(layer_output(0, i)));
-    assert(!std::isinf(layer_output(0, i)));
-    assert(!std::isnan(layer_output(1, i)));
-    assert(!std::isinf(layer_output(1, i)));
+    assert(std::abs(layer_output(0, i) - 5.0f) < 0.01f);
+    assert(std::abs(layer_output(1, i) - 5.0f) < 0.01f);
   }
 }
 
@@ -345,7 +345,8 @@ void test_layer1x1_gated()
   nam::wavenet::Head1x1Params head1x1_params(false, channels, 1);
   auto sigmoid_config = nam::activations::ActivationConfig::simple(nam::activations::ActivationType::Sigmoid);
   auto layer = make_layer(conditionSize, channels, bottleneck, kernelSize, dilation, activation, gating_mode,
-                          groups_input, groups_input_mixin, layer1x1_params, head1x1_params, sigmoid_config);
+                          groups_input, groups_input_mixin, layer1x1_params, head1x1_params, sigmoid_config,
+                          nam::wavenet::_FiLMParams(true, true, 1));
 
   // With gated: conv outputs 2*bottleneck, input_mixin outputs 2*bottleneck, layer1x1 outputs channels
   // With gated=true, bottleneck=channels=2:
@@ -362,6 +363,15 @@ void test_layer1x1_gated()
   weights.push_back(0.0f);
   weights.push_back(0.0f);
   weights.push_back(1.0f);
+  weights.push_back(0.0f);
+  weights.push_back(0.0f);
+  weights.push_back(0.0f);
+  // layer1x1_post_film: (conditionSize, 2*channels) + bias (with shift)
+  weights.push_back(2.0f);
+  weights.push_back(2.0f);
+  weights.push_back(0.0f);
+  weights.push_back(0.0f);
+  weights.push_back(0.0f);
   weights.push_back(0.0f);
   weights.push_back(0.0f);
   weights.push_back(0.0f);
@@ -395,13 +405,12 @@ void test_layer1x1_gated()
 
   auto layer_output = layer.GetOutputNextLayer().leftCols(numFrames);
 
-  // Verify outputs are reasonable
+  // The FiLM doubles the layer1x1 result before the residual connection.
+  const float expected_layer_output = 3.0f;
   for (int i = 0; i < numFrames; i++)
   {
-    assert(!std::isnan(layer_output(0, i)));
-    assert(!std::isinf(layer_output(0, i)));
-    assert(!std::isnan(layer_output(1, i)));
-    assert(!std::isinf(layer_output(1, i)));
+    assert(std::abs(layer_output(0, i) - expected_layer_output) < 0.01f);
+    assert(std::abs(layer_output(1, i) - expected_layer_output) < 0.01f);
   }
 }
 
