@@ -20,16 +20,13 @@ static nam::wavenet::_FiLMParams make_default_film_params()
 }
 
 // Helper function to create a Layer with default FiLM parameters
-static nam::wavenet::detail::Layer make_layer(const int condition_size, const int channels, const int bottleneck,
-                                              const int kernel_size, const int dilation,
-                                              const nam::activations::ActivationConfig& activation_config,
-                                              const nam::wavenet::GatingMode gating_mode, const int groups_input,
-                                              const int groups_input_mixin,
-                                              const nam::wavenet::Layer1x1Params& layer1x1_params,
-                                              const nam::wavenet::Head1x1Params& head1x1_params,
-                                              const nam::activations::ActivationConfig& secondary_activation_config,
-                                              const nam::wavenet::_FiLMParams& layer1x1_post_film_params =
-                                                make_default_film_params())
+static nam::wavenet::detail::Layer make_layer(
+  const int condition_size, const int channels, const int bottleneck, const int kernel_size, const int dilation,
+  const nam::activations::ActivationConfig& activation_config, const nam::wavenet::GatingMode gating_mode,
+  const int groups_input, const int groups_input_mixin, const nam::wavenet::Layer1x1Params& layer1x1_params,
+  const nam::wavenet::Head1x1Params& head1x1_params,
+  const nam::activations::ActivationConfig& secondary_activation_config,
+  const nam::wavenet::_FiLMParams& layer1x1_post_film_params = make_default_film_params())
 {
   auto film_params = make_default_film_params();
   nam::wavenet::LayerParams layer_params(condition_size, channels, bottleneck, kernel_size, dilation, activation_config,
@@ -346,8 +343,8 @@ static Eigen::MatrixXf run_layer1x1_post_film(const nam::wavenet::GatingMode gat
 // which diverges from the Python model. Changing its scale must move the output in every mode.
 void test_layer1x1_post_film_is_applied_for_every_gating_mode()
 {
-  const nam::wavenet::GatingMode modes[] = {nam::wavenet::GatingMode::NONE, nam::wavenet::GatingMode::GATED,
-                                            nam::wavenet::GatingMode::BLENDED};
+  const nam::wavenet::GatingMode modes[] = {
+    nam::wavenet::GatingMode::NONE, nam::wavenet::GatingMode::GATED, nam::wavenet::GatingMode::BLENDED};
   for (const auto mode : modes)
   {
     const auto unit_scale = run_layer1x1_post_film(mode, 1.0f);
