@@ -33,3 +33,32 @@ The following table shows which versions of NeuralAmpModelerCore support which m
      - 0.6.0
    * - 0.4.1
      - 0.7.0
+
+Sequential models
+-----------------
+
+``Sequential`` is an architecture-specific composition of complete child NAM
+models. It uses the existing top-level file envelope and does not introduce a
+new file version::
+
+  {
+    "version": "0.7.0",
+    "architecture": "Sequential",
+    "config": {
+      "models": [
+        {"version": "0.7.0", "architecture": "WaveNet", "config": {}, "weights": [], "sample_rate": 48000},
+        {"version": "0.7.0", "architecture": "Linear", "config": {}, "weights": [], "sample_rate": 48000}
+      ]
+    },
+    "weights": [],
+    "sample_rate": 48000
+  }
+
+The top-level ``weights`` array is empty because the wrapper has no parameters
+of its own. Each entry in ``config.models`` is a complete NAM model carrying
+its own architecture, configuration, and weights. The top-level and child
+sample rates must be compatible.
+
+Sequential files emitted by the trainer before Core support was completed used
+bare child configs and concatenated top-level weights. Those files omitted each
+child's architecture and are not supported by this canonical format.
