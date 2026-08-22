@@ -366,15 +366,6 @@ void test_layer1x1_gated()
   weights.push_back(0.0f);
   weights.push_back(0.0f);
   weights.push_back(0.0f);
-  // layer1x1_post_film: (conditionSize, 2*channels) + bias (with shift)
-  weights.push_back(2.0f);
-  weights.push_back(2.0f);
-  weights.push_back(0.0f);
-  weights.push_back(0.0f);
-  weights.push_back(0.0f);
-  weights.push_back(0.0f);
-  weights.push_back(0.0f);
-  weights.push_back(0.0f);
   weights.push_back(0.0f);
   // Input mixin: (1, 4)
   weights.push_back(1.0f);
@@ -386,6 +377,15 @@ void test_layer1x1_gated()
   weights.push_back(0.0f);
   weights.push_back(0.0f);
   weights.push_back(1.0f);
+  weights.push_back(0.0f);
+  weights.push_back(0.0f);
+  // layer1x1_post_film: (conditionSize, 2*channels) + bias (with shift)
+  weights.push_back(2.0f);
+  weights.push_back(2.0f);
+  weights.push_back(0.0f);
+  weights.push_back(0.0f);
+  weights.push_back(0.0f);
+  weights.push_back(0.0f);
   weights.push_back(0.0f);
   weights.push_back(0.0f);
 
@@ -405,8 +405,8 @@ void test_layer1x1_gated()
 
   auto layer_output = layer.GetOutputNextLayer().leftCols(numFrames);
 
-  // The FiLM doubles the layer1x1 result before the residual connection.
-  const float expected_layer_output = 3.0f;
+  // The gated activation is 2 / (1 + exp(-2)); FiLM doubles the layer1x1 result before the residual connection.
+  const float expected_layer_output = 1.0f + 4.0f / (1.0f + std::exp(-2.0f));
   for (int i = 0; i < numFrames; i++)
   {
     assert(std::abs(layer_output(0, i) - expected_layer_output) < 0.01f);
