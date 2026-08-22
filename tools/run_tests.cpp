@@ -350,7 +350,7 @@ int main()
   test_sequential::test_sequential_process_matches_manual_series();
   test_sequential::test_sequential_process_is_realtime_safe_after_warmup();
   test_sequential::test_sequential_rejects_blocks_larger_than_reset_maximum();
-  test_sequential::test_sequential_accepts_lowercase_architecture_alias();
+  test_sequential::test_sequential_rejects_lowercase_architecture();
   test_sequential::test_sequential_accepts_nested_sequential_child();
   test_sequential::test_sequential_rejects_empty_models();
   test_sequential::test_sequential_rejects_nonempty_top_level_weights();

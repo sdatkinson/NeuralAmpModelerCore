@@ -221,14 +221,13 @@ void test_sequential_rejects_blocks_larger_than_reset_maximum()
   assert(throws_runtime_error_containing([&]() { dsp->process(&input_ptr, &output_ptr, 8); }, "maximum buffer size"));
 }
 
-void test_sequential_accepts_lowercase_architecture_alias()
+void test_sequential_rejects_lowercase_architecture()
 {
   auto model = make_sequential_model({make_linear_model({1.0f}, 1), make_linear_model({1.0f}, 1)});
   model["architecture"] = "sequential";
 
-  auto dsp = nam::get_dsp(model);
-
-  assert(dsp != nullptr);
+  assert(throws_runtime_error_containing([&]() { nam::get_dsp(model); },
+                                         "No config parser registered for architecture: sequential"));
 }
 
 void test_sequential_accepts_nested_sequential_child()
