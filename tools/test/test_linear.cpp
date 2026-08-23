@@ -140,15 +140,43 @@ void test_auto_selection()
   assert(short_model.GetRequestedImplementation() == nam::LinearImplementation::Auto);
   assert(short_model.GetActiveImplementation() == nam::LinearImplementation::Direct);
 
-  const auto cutoff_weights = make_weights(256, false);
-  nam::Linear cutoff_model(1, 1, 256, false, cutoff_weights, 48000.0);
+  const auto cutoff_weights = make_weights(1024, false);
+  nam::Linear cutoff_model(1, 1, 1024, false, cutoff_weights, 48000.0);
   assert(cutoff_model.GetRequestedImplementation() == nam::LinearImplementation::Auto);
   assert(cutoff_model.GetActiveImplementation() == nam::LinearImplementation::Direct);
 
-  const auto fft_weights = make_weights(512, false);
-  nam::Linear fft_model(1, 1, 512, false, fft_weights, 48000.0);
+  const auto fft_weights = make_weights(2048, false);
+  nam::Linear fft_model(1, 1, 2048, false, fft_weights, 48000.0);
   assert(fft_model.GetRequestedImplementation() == nam::LinearImplementation::Auto);
   assert(fft_model.GetActiveImplementation() == nam::LinearImplementation::FFT);
+}
+
+void test_fft_dispatch_table()
+{
+  assert(nam::linear::select_implementation(1024) == nam::LinearImplementation::Direct);
+  assert(nam::linear::select_implementation(1025) == nam::LinearImplementation::FFT);
+  assert(nam::linear::select_fft_plan(1024).direct_taps == 128);
+  assert(nam::linear::select_fft_plan(8192).max_partition_size == 2048);
+  assert(nam::linear::select_fft_plan(48000).max_partition_size == 4096);
+  assert(nam::linear::select_fft_plan(240000).max_partition_size == 8192);
+  assert(nam::linear::select_fft_plan(2880000).max_partition_size == 8192);
+}
+
+void test_fft_impulse_response_across_dispatch_sizes()
+{
+  const std::vector<int> receptive_fields{1024, 2048, 4096, 8192, 48000};
+  for (const int receptive_field : receptive_fields)
+  {
+    const auto weights = make_weights(receptive_field, false);
+    nam::Linear model(1, 1, receptive_field, false, weights, 48000.0, nam::LinearImplementation::FFT);
+    std::vector<NAM_SAMPLE> input(receptive_field + 257, 0.0);
+    input[0] = 1.0;
+    const auto output = process_model(model, input, {1, 17, 32, 63, 128, 511});
+    for (int i = 0; i < receptive_field; ++i)
+      assert_near(output[i], weights[i], 5.0e-5);
+    for (size_t i = receptive_field; i < output.size(); ++i)
+      assert_near(output[i], 0.0, 5.0e-5);
+  }
 }
 
 void test_parse_implementation()

@@ -1,8 +1,11 @@
 #include "linear.h"
 
 #include <algorithm>
+#include <array>
+#include <cassert>
 #include <cctype>
 #include <complex>
+#include <limits>
 #include <stdexcept>
 
 #include "registry.h"
@@ -11,23 +14,28 @@
 
 namespace
 {
-constexpr int _LINEAR_AUTO_DIRECT_MAX_TAPS = 256;
-constexpr int _LINEAR_FFT_SMALL_BLOCK_SIZE = 256;
-constexpr int _LINEAR_FFT_MEDIUM_BLOCK_SIZE = 512;
-constexpr int _LINEAR_FFT_LARGE_BLOCK_SIZE = 1024;
+struct LinearFFTDispatchEntry
+{
+  int max_taps;
+  nam::LinearImplementation implementation;
+  nam::LinearFFTPlan plan;
+};
+
+// Tuned using tools/bench_linear. The table keeps model-size policy separate
+// from the DSP implementation.
+constexpr std::array<LinearFFTDispatchEntry, 7> _LINEAR_FFT_DISPATCH{{
+  {1024, nam::LinearImplementation::Direct, {128, 256}},
+  {2048, nam::LinearImplementation::FFT, {128, 512}},
+  {4096, nam::LinearImplementation::FFT, {128, 1024}},
+  {8192, nam::LinearImplementation::FFT, {128, 2048}},
+  {48000, nam::LinearImplementation::FFT, {64, 4096}},
+  {240000, nam::LinearImplementation::FFT, {64, 8192}},
+  {std::numeric_limits<int>::max(), nam::LinearImplementation::FFT, {64, 8192}},
+}};
 
 int _ceil_div(const int numerator, const int denominator)
 {
   return (numerator + denominator - 1) / denominator;
-}
-
-int _choose_linear_fft_block_size(const int receptive_field)
-{
-  if (receptive_field <= 2048)
-    return _LINEAR_FFT_SMALL_BLOCK_SIZE;
-  if (receptive_field <= 8192)
-    return _LINEAR_FFT_MEDIUM_BLOCK_SIZE;
-  return _LINEAR_FFT_LARGE_BLOCK_SIZE;
 }
 
 } // namespace
@@ -36,26 +44,44 @@ struct nam::LinearFFTState
 {
   using Complex = std::complex<float>;
 
-  struct ChannelState
+  struct TierChannelState
   {
     std::vector<float> input_time;
     std::vector<std::vector<Complex>> input_spectra;
-    std::vector<float> output_ring;
+    std::vector<Complex> accumulator;
+    std::vector<float> ifft_time;
     int input_pos = 0;
     int spectrum_write_index = 0;
+    int job_spectrum_write_index = 0;
+    size_t job_work_index = 0;
+    int job_ticks_remaining = 0;
+    long long job_block_start = 0;
+    bool job_active = false;
   };
 
-  Eigen::FFT<float> fft;
-  int block_size = 0;
-  int fft_size = 0;
+  struct Tier
+  {
+    Eigen::FFT<float> fft;
+    int offset = 0;
+    int block_size = 0;
+    int fft_size = 0;
+    int spectrum_size = 0;
+    int num_partitions = 0;
+    bool runs_inline = false;
+    std::vector<std::vector<Complex>> kernel_spectra;
+    std::vector<TierChannelState> channels;
+  };
+
+  struct OutputChannelState
+  {
+    std::vector<float> output_ring;
+  };
+
   int direct_taps = 0;
-  int num_partitions = 0;
   int output_ring_size = 0;
   long long sample_index = 0;
-  std::vector<std::vector<Complex>> kernel_spectra;
-  std::vector<ChannelState> channels;
-  std::vector<Complex> accumulator;
-  std::vector<float> ifft_time;
+  std::vector<Tier> tiers;
+  std::vector<OutputChannelState> output_channels;
 };
 
 nam::Linear::Linear(const int in_channels, const int out_channels, const int receptive_field, const bool _bias,
@@ -103,8 +129,7 @@ void nam::Linear::_configure_implementation()
   else if (this->_requested_implementation == LinearImplementation::FFT)
     this->_active_implementation = LinearImplementation::FFT;
   else
-    this->_active_implementation =
-      this->_receptive_field <= _LINEAR_AUTO_DIRECT_MAX_TAPS ? LinearImplementation::Direct : LinearImplementation::FFT;
+    this->_active_implementation = linear::select_implementation(this->_receptive_field);
 
   if (this->_active_implementation == LinearImplementation::FFT)
     this->_configure_fft_state();
@@ -116,52 +141,84 @@ void nam::Linear::_configure_fft_state()
 {
   this->_fft_state = std::make_unique<LinearFFTState>();
   auto& state = *this->_fft_state;
-
-  state.block_size = _choose_linear_fft_block_size(this->_receptive_field);
-  state.fft_size = 2 * state.block_size;
-  state.direct_taps = std::min(this->_receptive_field, state.block_size);
-  state.num_partitions = this->_receptive_field > state.direct_taps
-                           ? _ceil_div(this->_receptive_field - state.direct_taps, state.block_size)
-                           : 0;
-  state.output_ring_size = 4 * state.block_size;
+  const auto plan = linear::select_fft_plan(this->_receptive_field);
+  state.direct_taps = std::min(this->_receptive_field, plan.direct_taps);
   state.sample_index = 0;
 
   this->_fft_direct_weight.resize(state.direct_taps);
   for (int i = 0; i < state.direct_taps; i++)
     this->_fft_direct_weight(i) = this->_impulse_response[state.direct_taps - 1 - i];
 
-  state.kernel_spectra.assign(state.num_partitions, std::vector<LinearFFTState::Complex>(state.fft_size));
-  std::vector<float> kernel_time(state.fft_size, 0.0f);
-  for (int partition = 0; partition < state.num_partitions; partition++)
+  // The inline tier covers [head, 4 * head). Every subsequent power-of-two
+  // tier starts at twice its block size, which gives it one full block of
+  // scheduling slack. Once the tuned maximum block size is reached, the last
+  // tier simply contains as many uniform partitions as are needed.
+  int offset = state.direct_taps;
+  int block_size = state.direct_taps;
+  while (offset < this->_receptive_field)
   {
-    std::fill(kernel_time.begin(), kernel_time.end(), 0.0f);
-    const int start = state.direct_taps + partition * state.block_size;
-    const int partition_size = std::min(state.block_size, this->_receptive_field - start);
-    for (int i = 0; i < partition_size; i++)
-      kernel_time[i] = this->_impulse_response[start + i];
-    state.fft.fwd(state.kernel_spectra[partition].data(), kernel_time.data(), state.fft_size);
+    const bool first_tier = state.tiers.empty();
+    const int partitions = first_tier ? std::min(3, _ceil_div(this->_receptive_field - offset, block_size))
+                           : block_size == plan.max_partition_size
+                             ? _ceil_div(this->_receptive_field - offset, block_size)
+                             : std::min(2, _ceil_div(this->_receptive_field - offset, block_size));
+
+    auto& tier = state.tiers.emplace_back();
+    tier.fft.SetFlag(Eigen::FFT<float>::HalfSpectrum);
+    tier.offset = offset;
+    tier.block_size = block_size;
+    tier.fft_size = 2 * block_size;
+    tier.spectrum_size = block_size + 1;
+    tier.num_partitions = partitions;
+    tier.runs_inline = first_tier;
+    tier.kernel_spectra.assign(partitions, std::vector<LinearFFTState::Complex>(tier.spectrum_size));
+
+    std::vector<float> kernel_time(tier.fft_size, 0.0f);
+    for (int partition = 0; partition < partitions; partition++)
+    {
+      std::fill(kernel_time.begin(), kernel_time.end(), 0.0f);
+      const int start = offset + partition * block_size;
+      const int partition_size = std::min(block_size, this->_receptive_field - start);
+      std::copy_n(this->_impulse_response.begin() + start, partition_size, kernel_time.begin());
+      tier.fft.fwd(tier.kernel_spectra[partition].data(), kernel_time.data(), tier.fft_size);
+    }
+
+    offset += partitions * block_size;
+    if (block_size < plan.max_partition_size)
+      block_size = std::min(2 * block_size, plan.max_partition_size);
   }
 
   const int channels_to_process = std::min(NumInputChannels(), NumOutputChannels());
-  state.channels.resize(channels_to_process);
-  for (auto& channel : state.channels)
+  int largest_block_size = state.direct_taps;
+  for (auto& tier : state.tiers)
   {
-    channel.input_time.assign(state.fft_size, 0.0f);
-    channel.input_spectra.assign(
-      state.num_partitions, std::vector<LinearFFTState::Complex>(state.fft_size, LinearFFTState::Complex{}));
-    channel.output_ring.assign(state.output_ring_size, 0.0f);
-    channel.input_pos = 0;
-    channel.spectrum_write_index = 0;
+    largest_block_size = std::max(largest_block_size, tier.block_size);
+    tier.channels.resize(channels_to_process);
+    for (auto& channel : tier.channels)
+    {
+      channel.input_time.assign(tier.fft_size, 0.0f);
+      channel.input_spectra.assign(
+        tier.num_partitions, std::vector<LinearFFTState::Complex>(tier.spectrum_size, LinearFFTState::Complex{}));
+      channel.accumulator.assign(tier.spectrum_size, LinearFFTState::Complex{});
+      channel.ifft_time.assign(tier.fft_size, 0.0f);
+      // Half-block phase offsets keep power-of-two tiers from all transforming
+      // in the same callback. The leading inline tier must remain unshifted.
+      channel.input_pos = tier.runs_inline ? 0 : tier.block_size / 2;
+    }
   }
-  state.accumulator.assign(state.fft_size, LinearFFTState::Complex{});
-  state.ifft_time.assign(state.fft_size, 0.0f);
 
-  if (state.num_partitions > 0)
+  state.output_ring_size = 4 * largest_block_size;
+  state.output_channels.resize(channels_to_process);
+  for (auto& channel : state.output_channels)
+    channel.output_ring.assign(state.output_ring_size, 0.0f);
+
+  // Create all FFT plans outside the audio callback.
+  for (auto& tier : state.tiers)
   {
-    std::vector<LinearFFTState::Complex> warm_spectrum(state.fft_size);
-    std::vector<float> warm_time(state.fft_size, 0.0f);
-    state.fft.fwd(warm_spectrum.data(), warm_time.data(), state.fft_size);
-    state.fft.inv(warm_time.data(), warm_spectrum.data(), state.fft_size);
+    std::vector<LinearFFTState::Complex> warm_spectrum(tier.spectrum_size);
+    std::vector<float> warm_time(tier.fft_size, 0.0f);
+    tier.fft.fwd(warm_spectrum.data(), warm_time.data(), tier.fft_size);
+    tier.fft.inv(warm_time.data(), warm_spectrum.data(), tier.fft_size);
   }
 }
 
@@ -213,20 +270,27 @@ void nam::Linear::_process_fft(NAM_SAMPLE** input, NAM_SAMPLE** output, const in
     const long direct_offset = this->_input_buffer_offset - direct_taps + i + 1;
     for (int ch = 0; ch < channels_to_process; ch++)
     {
+      this->_advance_fft_jobs(ch);
+
       const int ring_index = (int)(state.sample_index % state.output_ring_size);
-      const float tail = state.channels[ch].output_ring[ring_index];
-      state.channels[ch].output_ring[ring_index] = 0.0f;
+      const float tail = state.output_channels[ch].output_ring[ring_index];
+      state.output_channels[ch].output_ring[ring_index] = 0.0f;
 
       auto input_vec = Eigen::Map<const Eigen::VectorXf>(&this->_input_buffers[ch][direct_offset], direct_taps);
       output[ch][i] = this->_bias + this->_fft_direct_weight.dot(input_vec) + tail;
 
-      if (state.num_partitions > 0)
+      for (size_t tier_index = 0; tier_index < state.tiers.size(); ++tier_index)
       {
-        auto& channel = state.channels[ch];
+        auto& tier = state.tiers[tier_index];
+        auto& channel = tier.channels[ch];
         channel.input_time[channel.input_pos] = (float)input[ch][i];
         channel.input_pos++;
-        if (channel.input_pos == state.block_size)
-          this->_run_fft_block(ch);
+        if (channel.input_pos == tier.block_size)
+        {
+          const long long block_start = state.sample_index - tier.block_size + 1;
+          this->_start_fft_block((int)tier_index, ch, block_start);
+          channel.input_pos = 0;
+        }
       }
     }
 
@@ -239,42 +303,80 @@ void nam::Linear::_process_fft(NAM_SAMPLE** input, NAM_SAMPLE** output, const in
   nam::Buffer::_advance_input_buffer_(num_frames);
 }
 
-void nam::Linear::_run_fft_block(const int channel_index)
+void nam::Linear::_advance_fft_jobs(const int channel_index)
+{
+  for (size_t tier_index = 0; tier_index < this->_fft_state->tiers.size(); ++tier_index)
+    this->_advance_fft_job((int)tier_index, channel_index);
+}
+
+void nam::Linear::_advance_fft_job(const int tier_index, const int channel_index)
+{
+  auto& tier = this->_fft_state->tiers[tier_index];
+  auto& channel = tier.channels[channel_index];
+  if (!channel.job_active)
+    return;
+
+  const size_t total_work = (size_t)tier.num_partitions * tier.spectrum_size;
+  const size_t remaining_work = total_work - channel.job_work_index;
+  const size_t work_this_tick =
+    (remaining_work + (size_t)channel.job_ticks_remaining - 1) / (size_t)channel.job_ticks_remaining;
+  const size_t work_end = std::min(total_work, channel.job_work_index + work_this_tick);
+  while (channel.job_work_index < work_end)
+  {
+    const int partition = (int)(channel.job_work_index / (size_t)tier.spectrum_size);
+    const int bin = (int)(channel.job_work_index % (size_t)tier.spectrum_size);
+    int input_spectrum_index = channel.job_spectrum_write_index - partition;
+    if (input_spectrum_index < 0)
+      input_spectrum_index += tier.num_partitions;
+    channel.accumulator[bin] += channel.input_spectra[input_spectrum_index][bin] * tier.kernel_spectra[partition][bin];
+    channel.job_work_index++;
+  }
+  channel.job_ticks_remaining--;
+  if (channel.job_work_index == total_work)
+    this->_finish_fft_block(tier_index, channel_index);
+}
+
+void nam::Linear::_start_fft_block(const int tier_index, const int channel_index, const long long block_start)
+{
+  auto& tier = this->_fft_state->tiers[tier_index];
+  auto& channel = tier.channels[channel_index];
+  assert(!channel.job_active);
+
+  channel.job_spectrum_write_index = channel.spectrum_write_index;
+  auto& current_spectrum = channel.input_spectra[channel.job_spectrum_write_index];
+  tier.fft.fwd(current_spectrum.data(), channel.input_time.data(), tier.fft_size);
+  std::fill(channel.accumulator.begin(), channel.accumulator.end(), LinearFFTState::Complex{});
+  channel.job_work_index = 0;
+  channel.job_ticks_remaining = tier.runs_inline ? 1 : tier.block_size;
+  channel.job_block_start = block_start;
+  channel.job_active = true;
+
+  channel.spectrum_write_index++;
+  if (channel.spectrum_write_index == tier.num_partitions)
+    channel.spectrum_write_index = 0;
+
+  std::fill(channel.input_time.begin(), channel.input_time.begin() + tier.block_size, 0.0f);
+
+  if (tier.runs_inline)
+    this->_advance_fft_job(tier_index, channel_index);
+}
+
+void nam::Linear::_finish_fft_block(const int tier_index, const int channel_index)
 {
   auto& state = *this->_fft_state;
-  auto& channel = state.channels[channel_index];
+  auto& tier = state.tiers[tier_index];
+  auto& channel = tier.channels[channel_index];
 
-  auto& current_spectrum = channel.input_spectra[channel.spectrum_write_index];
-  state.fft.fwd(current_spectrum.data(), channel.input_time.data(), state.fft_size);
+  tier.fft.inv(channel.ifft_time.data(), channel.accumulator.data(), tier.fft_size);
 
-  std::fill(state.accumulator.begin(), state.accumulator.end(), LinearFFTState::Complex{});
-  for (int partition = 0; partition < state.num_partitions; partition++)
-  {
-    int input_spectrum_index = channel.spectrum_write_index - partition;
-    if (input_spectrum_index < 0)
-      input_spectrum_index += state.num_partitions;
-    const auto& input_spectrum = channel.input_spectra[input_spectrum_index];
-    const auto& kernel_spectrum = state.kernel_spectra[partition];
-    for (int bin = 0; bin < state.fft_size; bin++)
-      state.accumulator[bin] += input_spectrum[bin] * kernel_spectrum[bin];
-  }
-
-  state.fft.inv(state.ifft_time.data(), state.accumulator.data(), state.fft_size);
-
-  const long long block_start = state.sample_index - state.block_size + 1;
-  const long long output_start = block_start + state.direct_taps;
-  auto& output_ring = channel.output_ring;
-  for (int i = 0; i < state.fft_size - 1; i++)
+  const long long output_start = channel.job_block_start + tier.offset;
+  auto& output_ring = state.output_channels[channel_index].output_ring;
+  for (int i = 0; i < tier.fft_size - 1; i++)
   {
     const int ring_index = (int)((output_start + i) % state.output_ring_size);
-    output_ring[ring_index] += state.ifft_time[i];
+    output_ring[ring_index] += channel.ifft_time[i];
   }
-
-  std::fill(channel.input_time.begin(), channel.input_time.begin() + state.block_size, 0.0f);
-  channel.input_pos = 0;
-  channel.spectrum_write_index++;
-  if (channel.spectrum_write_index == state.num_partitions)
-    channel.spectrum_write_index = 0;
+  channel.job_active = false;
 }
 
 nam::LinearImplementation nam::linear::parse_implementation(const std::string& implementation)
@@ -301,6 +403,22 @@ std::string nam::linear::implementation_to_string(const LinearImplementation imp
     case LinearImplementation::FFT: return "fft";
   }
   throw std::runtime_error("Unsupported Linear implementation enum");
+}
+
+nam::LinearFFTPlan nam::linear::select_fft_plan(const int receptive_field)
+{
+  for (const auto& entry : _LINEAR_FFT_DISPATCH)
+    if (receptive_field <= entry.max_taps)
+      return entry.plan;
+  throw std::runtime_error("No Linear FFT dispatch entry for receptive field");
+}
+
+nam::LinearImplementation nam::linear::select_implementation(const int receptive_field)
+{
+  for (const auto& entry : _LINEAR_FFT_DISPATCH)
+    if (receptive_field <= entry.max_taps)
+      return entry.implementation;
+  throw std::runtime_error("No Linear implementation dispatch entry for receptive field");
 }
 
 nam::linear::LinearConfig nam::linear::parse_config_json(const nlohmann::json& config)

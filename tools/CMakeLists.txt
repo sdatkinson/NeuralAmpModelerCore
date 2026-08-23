@@ -18,6 +18,18 @@ include_directories(tools ${AUDIO_DSP_TOOLS_DIR}/dsp)
 
 add_executable(loadmodel loadmodel.cpp ${NAM_SOURCES})
 add_executable(benchmodel benchmodel.cpp ${NAM_SOURCES})
+add_executable(bench_linear bench_linear.cpp ${NAM_SOURCES})
+target_compile_features(bench_linear PUBLIC cxx_std_20)
+set_target_properties(bench_linear PROPERTIES
+	CXX_VISIBILITY_PRESET hidden
+	INTERPROCEDURAL_OPTIMIZATION TRUE
+	PREFIX ""
+)
+if (MSVC)
+	target_compile_options(bench_linear PRIVATE "$<$<CONFIG:RELEASE>:/O2>")
+else()
+	target_compile_options(bench_linear PRIVATE "$<$<CONFIG:RELEASE>:-O3>")
+endif()
 add_executable(render render.cpp ${NAM_SOURCES} ${AUDIO_DSP_TOOLS_WAV_SOURCES})
 target_compile_features(render PUBLIC cxx_std_20)
 # AudioDSPTools wav.cpp has sign-compare issues; don't fail build

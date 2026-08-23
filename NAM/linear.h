@@ -7,6 +7,12 @@ namespace nam
 
 struct LinearFFTState;
 
+struct LinearFFTPlan
+{
+  int direct_taps;
+  int max_partition_size;
+};
+
 /// \brief Selects the convolution engine used by Linear models.
 enum class LinearImplementation
 {
@@ -62,7 +68,10 @@ private:
   void _configure_fft_state();
   void _process_direct(NAM_SAMPLE** input, NAM_SAMPLE** output, const int num_frames);
   void _process_fft(NAM_SAMPLE** input, NAM_SAMPLE** output, const int num_frames);
-  void _run_fft_block(const int channel);
+  void _advance_fft_job(const int tier, const int channel);
+  void _advance_fft_jobs(const int channel);
+  void _start_fft_block(const int tier, const int channel, const long long block_start);
+  void _finish_fft_block(const int tier, const int channel);
 };
 
 namespace linear
@@ -85,6 +94,12 @@ LinearImplementation parse_implementation(const std::string& implementation);
 
 /// \brief String name for a Linear implementation.
 std::string implementation_to_string(const LinearImplementation implementation);
+
+/// \brief Select the tuned convolution plan for an impulse-response length.
+LinearFFTPlan select_fft_plan(int receptive_field);
+
+/// \brief Select the default implementation for an impulse-response length.
+LinearImplementation select_implementation(int receptive_field);
 
 /// \brief Parse Linear configuration from JSON
 /// \param config JSON configuration object
