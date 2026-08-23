@@ -1,0 +1,4 @@
+interface:
+  display_name: "Release Check"
+  short_description: "Qualify releases with parallel agent flights"
+  default_prompt: "Use $release-check to qualify version [version] from [base] on development branch [integration branch], then remediate reasonable deficiencies."

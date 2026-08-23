@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Generate weights for wavenet_a2_max.nam file.
+Generate weights for the wavenet_a2_feature_test.nam file.
 This script handles the full A2 architecture including:
 - FiLM (Feature-wise Linear Modulation) modules
 - head1x1 modules  
@@ -329,14 +329,14 @@ def main():
     parser.add_argument(
         "--input",
         type=Path,
-        default=Path("example_models/wavenet_a2_max.nam"),
-        help="Input .nam file with empty weights (default: example_models/wavenet_a2_max.nam)"
+        default=Path("example_models/wavenet_a2_feature_test.nam"),
+        help="Input .nam feature-test file with empty weights (default: example_models/wavenet_a2_feature_test.nam)"
     )
     parser.add_argument(
         "--output",
         type=Path,
-        default=Path("example_models/wavenet_a2_max_withweights.nam"),
-        help="Output .nam file (default: example_models/wavenet_a2_max_withweights.nam)"
+        default=Path("example_models/wavenet_a2_feature_test_withweights.nam"),
+        help="Output .nam file (default: example_models/wavenet_a2_feature_test_withweights.nam)"
     )
     parser.add_argument(
         "--seed",

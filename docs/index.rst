@@ -9,6 +9,7 @@ Welcome to the NeuralAmpModelerCore documentation. This library provides a core 
 
    wavenet_walkthrough
    nam_file_version
+   release_guarantees
    api/index
 
 Overview
@@ -55,6 +56,7 @@ Documentation
 -------------
 
 * :doc:`wavenet_walkthrough`: Step-by-step explanation of WaveNet architecture, LayerArray, and Layer computations
+* :doc:`release_guarantees`: Public quality and compatibility guarantees for covered releases
 * :doc:`api/index`: Complete API reference
 
 Indices and tables
