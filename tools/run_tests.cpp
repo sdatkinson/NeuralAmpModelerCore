@@ -309,6 +309,7 @@ int main()
   test_get_dsp::test_version_patch_one_beyond_supported();
   test_get_dsp::test_version_minor_one_beyond_supported();
   test_get_dsp::test_version_too_early();
+  test_get_dsp::test_version_constructs_with_freebsd_major_minor_macros();
   test_get_dsp::test_is_version_supported_core_behavior();
   test_get_dsp::test_register_custom_version_support_checker();
   test_get_dsp::test_get_dsp_default_allows_constructor_reset_prewarm();
