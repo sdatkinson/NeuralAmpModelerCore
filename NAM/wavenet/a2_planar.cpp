@@ -74,6 +74,133 @@ namespace
 {
 
 // -----------------------------------------------------------------------------
+// The two instruction sets, reconciled
+//
+// AArch64 multiply-accumulates against a *lane* of a loaded weight vector --
+// vfmaq_laneq_f32 and friends. ARMv7's VFPv4 has no VFMA-by-scalar encoding at
+// all, so none of the by-element forms exist. The replacement is not the same
+// thing spelled differently: on a machine with 16 Q registers rather than 32,
+// the right move is not to hold the weight vector at all, but to broadcast each
+// weight straight out of memory as it is used (vld1q_dup_f32, one instruction).
+//
+// Both spellings are exact, for three reasons:
+//
+//   1. A splat is a bit-copy. The multiplicand the FMA sees is the identical
+//      float32 the lane-addressed form would have seen; no rounding is added.
+//   2. vfmaq_f32 is VFMA.F32 -- one rounding, exactly as vfmaq_laneq_f32 is.
+//   3. Lane independence is untouched: each lane still runs one frame's chain in
+//      a2_fast's order, so nothing is reassociated.
+//
+// LaneWeights is what keeps the two shapes behind one call site, so the kernels
+// below are written once. On AArch64 it holds the weight vectors and indexes
+// them by lane, compiling to exactly the instructions this file emitted before
+// ARMv7 was added -- that path is byte for byte what it was. On ARMv7 it holds
+// only the pointer.
+// -----------------------------------------------------------------------------
+
+    #if defined(NAM_A2_PLANAR_A32)
+// The kernel's premise is that the accumulators stay in registers across the tap
+// loop, which stops being true the moment a tile helper is left out of line: the
+// accumulator arrays are passed by reference, so a call boundary spills them.
+// GCC inlines these on its own. Clang, measured on this target, does not -- it
+// leaves the helpers out of line and spends 164 loads and 39 stores to do 87
+// FMAs, which costs most of the win. Forcing the decision is free where the
+// compiler was going to make it anyway.
+      #define NAM_A2_PLANAR_INLINE inline __attribute__((always_inline))
+    #else
+      #define NAM_A2_PLANAR_INLINE inline
+    #endif
+
+/// A run of 4*NV weights, delivered to the multiplier the way the target
+/// prefers. Every index is a template parameter, never a runtime value: on
+/// AArch64 the lane is encoded in the instruction, and on ARMv7 the offset is
+/// folded into the load.
+template <int NV>
+struct LaneWeights
+{
+  static constexpr int kFloats = 4 * NV;
+
+  const float* p;
+    #if !defined(NAM_A2_PLANAR_A32)
+  float32x4_t v[NV];
+    #endif
+
+  NAM_A2_PLANAR_INLINE explicit LaneWeights(const float* q)
+  : p(q)
+  {
+    #if !defined(NAM_A2_PLANAR_A32)
+    for (int u = 0; u < NV; u++)
+      v[u] = vld1q_f32(q + 4 * u);
+    #endif
+  }
+
+  /// Weight I broadcast to every lane.
+  template <int I>
+  NAM_A2_PLANAR_INLINE float32x4_t dup() const
+  {
+    static_assert(I >= 0 && I < kFloats, "weight index out of range");
+    #if defined(NAM_A2_PLANAR_A32)
+    return vld1q_dup_f32(p + I);
+    #else
+    return vdupq_laneq_f32(v[I / 4], I % 4);
+    #endif
+  }
+
+  /// acc + s * w[I], one rounding.
+  template <int I>
+  NAM_A2_PLANAR_INLINE float32x4_t fma(float32x4_t acc, float32x4_t s) const
+  {
+    static_assert(I >= 0 && I < kFloats, "weight index out of range");
+    #if defined(NAM_A2_PLANAR_A32)
+    return vfmaq_f32(acc, s, vld1q_dup_f32(p + I));
+    #else
+    return vfmaq_laneq_f32(acc, s, v[I / 4], I % 4);
+    #endif
+  }
+
+  /// s * w[I], one rounding. Seeds a chain where an FMA against zero would
+  /// otherwise be needed; both are one rounding of w*x, so this is exact either
+  /// way and just saves the init.
+  template <int I>
+  NAM_A2_PLANAR_INLINE float32x4_t mul(float32x4_t s) const
+  {
+    static_assert(I >= 0 && I < kFloats, "weight index out of range");
+    #if defined(NAM_A2_PLANAR_A32)
+    return vmulq_f32(s, vld1q_dup_f32(p + I));
+    #else
+    return vmulq_laneq_f32(s, v[I / 4], I % 4);
+    #endif
+  }
+};
+
+/// Force `v` to be a rounded value before it is used again.
+///
+/// The C=8 layer body computes the mixin as a product and then a separate add --
+/// two roundings, because that is what Eigen does. Under -ffp-contract=fast
+/// (GCC's default) nothing stops the compiler folding that pair into one vfma,
+/// which is one rounding and different bits.
+///
+/// This is measured rather than defensive, and only on ARMv7: an ordering probe
+/// against Eigen under arm-linux-gnueabihf-g++ matches 224/224 at
+/// -ffp-contract=off and 11/224 at =fast, with the conv stage unaffected either
+/// way. AArch64 was checked and does not contract here, so the barrier is not
+/// applied there -- those kernels are measured as they stand.
+///
+/// Turning contraction off globally would be the wrong fix: a2_fast's C=3 branch
+/// *depends* on the compiler contracting a*b+c, which is the whole bit-identity
+/// premise at that width. So contraction stays on and is blocked here, locally,
+/// at exactly the point a2_fast rounds twice.
+///
+/// Compiles to nothing; "w" is the VFP/NEON register constraint on ARM.
+NAM_A2_PLANAR_INLINE float32x4_t round_now(float32x4_t v)
+{
+    #if defined(NAM_A2_PLANAR_A32)
+  __asm__("" : "+w"(v));
+    #endif
+  return v;
+}
+
+// -----------------------------------------------------------------------------
 // Weights
 //
 // Parsed in exactly A2FastModel::_load_weights' order -- which is the generic
@@ -180,7 +307,14 @@ PlanarWeights<C> parse_weights(const std::vector<float>& weights)
 /// two roundings whatever the compiler decides.
 inline float mul_rounded(float a, float b)
 {
-  return vget_lane_f32(vmul_f32(vdup_n_f32(a), vdup_n_f32(b)), 0);
+  float p = vget_lane_f32(vmul_f32(vdup_n_f32(a), vdup_n_f32(b)), 0);
+    #if defined(NAM_A2_PLANAR_A32)
+  // Routing through a vector register is enough on AArch64, where the pair is
+  // not contracted anyway. On ARMv7 the same barrier the vector path needs is
+  // applied here too, for the same reason and with the same cost: none.
+  __asm__("" : "+w"(p));
+    #endif
+  return p;
 }
 
 /// Receptive field, counted exactly as A2FastModel counts it, so the planar
@@ -206,6 +340,17 @@ int planar_prewarm_samples()
 // has no mirror to maintain, no masking on reads, and every read is contiguous;
 // it pays instead with an occasional large memmove, amortised over many blocks
 // by the 2*lookback sizing.
+//
+// ARMv7 re-ran that sweep and agrees at C=3, emphatically: linear+rewind is
+// 1.378x against a2_fast where the eager mirror is 1.322x, the largest single
+// gain available after the tile width. On a 32 KB L1D the mirror's per-block
+// memcpy across all 23 layers is not merely overhead, it is eviction.
+//
+// At C=8 the same sweep put the lazy mirror marginally ahead -- 1.312x against
+// linear's 1.309x -- and that difference is kept out of this file deliberately.
+// It is 0.2%, against a run-to-run spread of 0.5% on the same board, so it is
+// below what the measurement can resolve; carrying a second ring implementation
+// into shipped code to chase it would be buying complexity with noise.
 // -----------------------------------------------------------------------------
 template <int C>
 struct PlanarRing
@@ -261,10 +406,28 @@ struct PlanarRing
 // a2_fast's 9 scalar FMAs per frame.
 // =============================================================================
 
-/// Frames per tile. Twelve accumulator registers at 32 (3 channels x 8 vectors),
-/// which is where the sweep peaked: 8/16/32/64 measured 1.39x/1.56x/1.75x/1.46x
+/// Frames per tile, swept separately on each architecture because the answer is
+/// not close.
+///
+/// AArch64: twelve accumulator registers at 32 (3 channels x 8 vectors), which
+/// is where the sweep peaked -- 8/16/32/64 measured 1.39x/1.56x/1.75x/1.46x
 /// against a2_fast. 64 spills.
+///
+/// ARMv7: the ladder inverts. 2/4/8/12/16/32 measured
+/// 0.888x/1.116x/1.242x/1.086x/1.006x/0.954x, so AArch64's 32 is *slower than
+/// a2_fast* here. Counting registers says why. The live set is
+///
+///     z accumulators C*T/lanes + t accumulators C*T/lanes + input T/lanes + 1
+///
+/// which at C=3, tile 8, 4 lanes is 6 + 6 + 2 + 1 = 15 of the 16 Q registers
+/// this machine has; tile 12 needs 22. The measured spill counts turn over at
+/// exactly that step: 0.48 memory operations per FMA at tile 8, 1.13 at 12.
+/// Tile 8 is the last rung that fits, and it is the peak.
+    #if defined(NAM_A2_PLANAR_A32)
+constexpr int kNanoTile = 8;
+    #else
 constexpr int kNanoTile = 32;
+    #endif
 constexpr int kNanoVecs = kNanoTile / 4;
 
 /// One layer's weights, padded to four lanes so each group of three is a single
@@ -460,40 +623,38 @@ private:
   /// registers across every tap instead of making a round trip to memory per
   /// tap per frame.
   template <int K, int NVEC, bool StoreHead, bool DoL1x1>
-  inline void tile(const NanoLayer& P, const float* const* h, const int (&tapb)[K], int f0, float* const* d,
-                   float* const* hs)
+  NAM_A2_PLANAR_INLINE void tile(const NanoLayer& P, const float* const* h, const int (&tapb)[K], int f0,
+                                 float* const* d, float* const* hs)
   {
-    const float32x4_t cb = vld1q_f32(P.conv_b.data());
+    const LaneWeights<1> cb(P.conv_b.data());
     float32x4_t a0[NVEC], a1[NVEC], a2[NVEC];
     for (int v = 0; v < NVEC; v++)
     {
-      a0[v] = vdupq_laneq_f32(cb, 0);
-      a1[v] = vdupq_laneq_f32(cb, 1);
-      a2[v] = vdupq_laneq_f32(cb, 2);
+      a0[v] = cb.dup<0>();
+      a1[v] = cb.dup<1>();
+      a2[v] = cb.dup<2>();
     }
 
     const float* cw = P.conv_w.data();
     for (int k = 0; k < K; k++)
     {
-      const float* wk = cw + static_cast<size_t>(k) * 12;
-      const float32x4_t A = vld1q_f32(wk); // w0 w1 w2 w3
-      const float32x4_t B = vld1q_f32(wk + 4); // w4 w5 w6 w7
-      const float32x4_t Cw = vld1q_f32(wk + 8); // w8 . . .
+      // Nine weights then three pad, per tap: [out i][in j] at j * 3 + i.
+      const LaneWeights<3> w(cw + static_cast<size_t>(k) * 12);
       const int b = tapb[k] + f0;
       for (int v = 0; v < NVEC; v++)
       {
         const float32x4_t s0 = vld1q_f32(h[0] + b + 4 * v);
         const float32x4_t s1 = vld1q_f32(h[1] + b + 4 * v);
         const float32x4_t s2 = vld1q_f32(h[2] + b + 4 * v);
-        a0[v] = vfmaq_laneq_f32(a0[v], s0, A, 0);
-        a1[v] = vfmaq_laneq_f32(a1[v], s0, A, 1);
-        a2[v] = vfmaq_laneq_f32(a2[v], s0, A, 2);
-        a0[v] = vfmaq_laneq_f32(a0[v], s1, A, 3);
-        a1[v] = vfmaq_laneq_f32(a1[v], s1, B, 0);
-        a2[v] = vfmaq_laneq_f32(a2[v], s1, B, 1);
-        a0[v] = vfmaq_laneq_f32(a0[v], s2, B, 2);
-        a1[v] = vfmaq_laneq_f32(a1[v], s2, B, 3);
-        a2[v] = vfmaq_laneq_f32(a2[v], s2, Cw, 0);
+        a0[v] = w.fma<0>(a0[v], s0);
+        a1[v] = w.fma<1>(a1[v], s0);
+        a2[v] = w.fma<2>(a2[v], s0);
+        a0[v] = w.fma<3>(a0[v], s1);
+        a1[v] = w.fma<4>(a1[v], s1);
+        a2[v] = w.fma<5>(a2[v], s1);
+        a0[v] = w.fma<6>(a0[v], s2);
+        a1[v] = w.fma<7>(a1[v], s2);
+        a2[v] = w.fma<8>(a2[v], s2);
       }
     }
 
@@ -505,10 +666,11 @@ private:
   /// reloading it here is cheaper than carrying it through the tap loop, which
   /// is what decides how wide the tile can usefully get.
   template <int K, int NVEC, bool StoreHead, bool DoL1x1>
-  inline void post(const NanoLayer& P, const float* const* h, int last_tap, int f0, float32x4_t (&a0)[NVEC],
-                   float32x4_t (&a1)[NVEC], float32x4_t (&a2)[NVEC], float* const* d, float* const* hs)
+  NAM_A2_PLANAR_INLINE void post(const NanoLayer& P, const float* const* h, int last_tap, int f0,
+                                 float32x4_t (&a0)[NVEC], float32x4_t (&a1)[NVEC], float32x4_t (&a2)[NVEC],
+                                 float* const* d, float* const* hs)
   {
-    const float32x4_t M = vld1q_f32(P.mixin_w.data());
+    const LaneWeights<1> M(P.mixin_w.data());
     const float32x4_t zero = vdupq_n_f32(0.0f);
     const float32x4_t slope = vdupq_n_f32(kLeakySlope);
     const float* cond = _cond.data();
@@ -516,9 +678,11 @@ private:
     for (int v = 0; v < NVEC; v++)
     {
       const float32x4_t cf = vld1q_f32(cond + f0 + 4 * v);
-      a0[v] = vfmaq_laneq_f32(a0[v], cf, M, 0);
-      a1[v] = vfmaq_laneq_f32(a1[v], cf, M, 1);
-      a2[v] = vfmaq_laneq_f32(a2[v], cf, M, 2);
+      // Contracted, unlike the C=8 mixin: a2_fast's 3-channel branch writes
+      // `a += mixin * cond` as one FMA, so one rounding is the correct order.
+      a0[v] = M.fma<0>(a0[v], cf);
+      a1[v] = M.fma<1>(a1[v], cf);
+      a2[v] = M.fma<2>(a2[v], cf);
       a0[v] = vbslq_f32(vcltq_f32(a0[v], zero), vmulq_f32(a0[v], slope), a0[v]);
       a1[v] = vbslq_f32(vcltq_f32(a1[v], zero), vmulq_f32(a1[v], slope), a1[v]);
       a2[v] = vbslq_f32(vcltq_f32(a2[v], zero), vmulq_f32(a2[v], slope), a2[v]);
@@ -547,26 +711,25 @@ private:
 
     if constexpr (DoL1x1)
     {
-      const float32x4_t LA = vld1q_f32(P.l1x1_w.data()); // l0 l1 l2 l3
-      const float32x4_t LB = vld1q_f32(P.l1x1_w.data() + 4); // l4 l5 l6 l7
-      const float32x4_t LC = vld1q_f32(P.l1x1_w.data() + 8); // l8 . . .
-      const float32x4_t LBias = vld1q_f32(P.l1x1_b.data());
+      // Nine weights then three pad: [out i][in j] at j * 3 + i, as the conv.
+      const LaneWeights<3> L(P.l1x1_w.data());
+      const LaneWeights<1> LBias(P.l1x1_b.data());
 
       for (int v = 0; v < NVEC; v++)
       {
         const int o = f0 + 4 * v;
-        float32x4_t o0 = vdupq_laneq_f32(LBias, 0);
-        float32x4_t o1 = vdupq_laneq_f32(LBias, 1);
-        float32x4_t o2 = vdupq_laneq_f32(LBias, 2);
-        o0 = vfmaq_laneq_f32(o0, a0[v], LA, 0);
-        o0 = vfmaq_laneq_f32(o0, a1[v], LA, 3);
-        o0 = vfmaq_laneq_f32(o0, a2[v], LB, 2);
-        o1 = vfmaq_laneq_f32(o1, a0[v], LA, 1);
-        o1 = vfmaq_laneq_f32(o1, a1[v], LB, 0);
-        o1 = vfmaq_laneq_f32(o1, a2[v], LB, 3);
-        o2 = vfmaq_laneq_f32(o2, a0[v], LA, 2);
-        o2 = vfmaq_laneq_f32(o2, a1[v], LB, 1);
-        o2 = vfmaq_laneq_f32(o2, a2[v], LC, 0);
+        float32x4_t o0 = LBias.dup<0>();
+        float32x4_t o1 = LBias.dup<1>();
+        float32x4_t o2 = LBias.dup<2>();
+        o0 = L.fma<0>(o0, a0[v]);
+        o0 = L.fma<3>(o0, a1[v]);
+        o0 = L.fma<6>(o0, a2[v]);
+        o1 = L.fma<1>(o1, a0[v]);
+        o1 = L.fma<4>(o1, a1[v]);
+        o1 = L.fma<7>(o1, a2[v]);
+        o2 = L.fma<2>(o2, a0[v]);
+        o2 = L.fma<5>(o2, a1[v]);
+        o2 = L.fma<8>(o2, a2[v]);
         vst1q_f32(d[0] + o, vaddq_f32(vld1q_f32(h[0] + last_tap + o), o0));
         vst1q_f32(d[1] + o, vaddq_f32(vld1q_f32(h[1] + last_tap + o), o1));
         vst1q_f32(d[2] + o, vaddq_f32(vld1q_f32(h[2] + last_tap + o), o2));
@@ -587,21 +750,25 @@ private:
       const float s0 = h[0][tapb[k] + f];
       const float s1 = h[1][tapb[k] + f];
       const float s2 = h[2][tapb[k] + f];
-      a[0] += wk[0] * s0;
-      a[1] += wk[1] * s0;
-      a[2] += wk[2] * s0;
-      a[0] += wk[3] * s1;
-      a[1] += wk[4] * s1;
-      a[2] += wk[5] * s1;
-      a[0] += wk[6] * s2;
-      a[1] += wk[7] * s2;
-      a[2] += wk[8] * s2;
+      // Spelled as fused rather than written `a += w * s` and left to
+      // -ffp-contract. Both compile to the same instruction where contraction is
+      // on, and this way the tail's exactness is a property of the source
+      // instead of a property of a flag.
+      a[0] = __builtin_fmaf(wk[0], s0, a[0]);
+      a[1] = __builtin_fmaf(wk[1], s0, a[1]);
+      a[2] = __builtin_fmaf(wk[2], s0, a[2]);
+      a[0] = __builtin_fmaf(wk[3], s1, a[0]);
+      a[1] = __builtin_fmaf(wk[4], s1, a[1]);
+      a[2] = __builtin_fmaf(wk[5], s1, a[2]);
+      a[0] = __builtin_fmaf(wk[6], s2, a[0]);
+      a[1] = __builtin_fmaf(wk[7], s2, a[1]);
+      a[2] = __builtin_fmaf(wk[8], s2, a[2]);
     }
 
     const float cf = _cond[f];
     for (int c = 0; c < C; c++)
     {
-      a[c] += P.mixin_w[c] * cf;
+      a[c] = __builtin_fmaf(P.mixin_w[c], cf, a[c]);
       a[c] = (a[c] < 0.0f) ? a[c] * kLeakySlope : a[c];
       if constexpr (StoreHead)
         hs[c][f] = 0.0f + a[c];
@@ -614,9 +781,9 @@ private:
       for (int c = 0; c < C; c++)
       {
         float o = P.l1x1_b[c];
-        o += P.l1x1_w[0 + c] * a[0];
-        o += P.l1x1_w[3 + c] * a[1];
-        o += P.l1x1_w[6 + c] * a[2];
+        o = __builtin_fmaf(P.l1x1_w[0 + c], a[0], o);
+        o = __builtin_fmaf(P.l1x1_w[3 + c], a[1], o);
+        o = __builtin_fmaf(P.l1x1_w[6 + c], a[2], o);
         d[c][f] = h[c][tapb[K - 1] + f] + o;
       }
     }
@@ -647,10 +814,10 @@ private:
       float32x4_t y = vdupq_n_f32(_w.head_b);
       for (int k = 0; k < kHeadKernelSize; k++)
       {
-        const float32x4_t W = vld1q_f32(hw + static_cast<size_t>(k) * 4);
-        y = vfmaq_laneq_f32(y, vld1q_f32(p[0] + hb[k] + f), W, 0);
-        y = vfmaq_laneq_f32(y, vld1q_f32(p[1] + hb[k] + f), W, 1);
-        y = vfmaq_laneq_f32(y, vld1q_f32(p[2] + hb[k] + f), W, 2);
+        const LaneWeights<1> W(hw + static_cast<size_t>(k) * 4);
+        y = W.fma<0>(y, vld1q_f32(p[0] + hb[k] + f));
+        y = W.fma<1>(y, vld1q_f32(p[1] + hb[k] + f));
+        y = W.fma<2>(y, vld1q_f32(p[2] + hb[k] + f));
       }
       vst1q_f32(out + f, vmulq_n_f32(y, scale));
     }
@@ -660,9 +827,9 @@ private:
       for (int k = 0; k < kHeadKernelSize; k++)
       {
         const float* w = hw + static_cast<size_t>(k) * 4;
-        y += w[0] * p[0][hb[k] + f];
-        y += w[1] * p[1][hb[k] + f];
-        y += w[2] * p[2][hb[k] + f];
+        y = __builtin_fmaf(w[0], p[0][hb[k] + f], y);
+        y = __builtin_fmaf(w[1], p[1][hb[k] + f], y);
+        y = __builtin_fmaf(w[2], p[2][hb[k] + f], y);
       }
       out[f] = y * scale;
     }
@@ -696,6 +863,14 @@ private:
 /// Frames per conv tile. a2_fast's association needs the running total `z` and
 /// the current tap's partial `t` live at once, which is 2 x 8 x (tile/4) vector
 /// registers; the measured curve peaks at 8 and falls off at 16.
+///
+/// Both architectures agree here, which is worth saying because at C=3 they do
+/// not. The ARMv7 ladder over 2/4/8/12/16/32 is
+/// 1.049x/1.126x/1.255x/1.135x/0.899x/0.822x -- the same peak, reached from a
+/// very different place: tile 8 at C=8 needs 35 registers on a machine with 16
+/// and already spends 1.96 memory operations per FMA. It does not fit by a
+/// factor of two and still wins, so what is being measured past that point is
+/// how gracefully the spilling degrades, which no register count predicts.
 constexpr int kFullTile = 8;
 constexpr int kFullVecs = kFullTile / 4;
 
@@ -703,7 +878,15 @@ constexpr int kFullVecs = kFullTile / 4;
 /// so it is latency-bound rather than throughput-bound; running eight chains at
 /// once costs nothing in registers and nothing in exactness, because each chain
 /// still covers its own frames in a2_fast's own order.
+///
+/// "Costs nothing in registers" is an AArch64 statement. Eight chains is eight
+/// live accumulators plus the two weight vectors, which on ARMv7 is ten of
+/// sixteen before a single input is loaded, and the sweep there chose one chain.
+    #if defined(NAM_A2_PLANAR_A32)
+constexpr int kFullHeadVecs = 1;
+    #else
 constexpr int kFullHeadVecs = 8;
+    #endif
 
 class A2PlanarFull : public DSP
 {
@@ -877,8 +1060,8 @@ private:
   /// tap's partial -- both live at once, because that separation *is* a2_fast's
   /// association. z never reaches memory.
   template <int K, int NVEC, bool StoreHead, bool DoL1x1>
-  inline void tile(const PlanarLayerWeights<C>& L, const float* lt, const float* const* h, const int (&tapb)[K], int f0,
-                   float* const* d, float* const* hs)
+  NAM_A2_PLANAR_INLINE void tile(const PlanarLayerWeights<C>& L, const float* lt, const float* const* h,
+                                 const int (&tapb)[K], int f0, float* const* d, float* const* hs)
   {
     float32x4_t z[C][NVEC];
     const float32x4_t zero = vdupq_n_f32(0.0f);
@@ -898,10 +1081,7 @@ private:
       // rounding of w*x, so this is exact either way; it just saves the init.
       const auto do_j = [&](auto jc) {
         constexpr int j = decltype(jc)::value;
-        const float* wj = wk + j * C; // W(0..C-1, j), contiguous
-        float32x4_t wv[C / 4];
-        for (int u = 0; u < C / 4; u++)
-          wv[u] = vld1q_f32(wj + 4 * u);
+        const LaneWeights<C / 4> wv(wk + j * C); // W(0..C-1, j), contiguous
         const float* hp = h[j] + base;
         for (int v = 0; v < NVEC; v++)
         {
@@ -909,9 +1089,9 @@ private:
           const auto do_i = [&](auto ic) {
             constexpr int i = decltype(ic)::value;
             if constexpr (j == 0)
-              t[i][v] = vmulq_laneq_f32(s, wv[i / 4], i % 4);
+              t[i][v] = wv.template mul<i>(s);
             else
-              t[i][v] = vfmaq_laneq_f32(t[i][v], s, wv[i / 4], i % 4);
+              t[i][v] = wv.template fma<i>(t[i][v], s);
           };
           [&]<int... Is>(std::integer_sequence<int, Is...>) {
             (do_i(std::integral_constant<int, Is>{}), ...);
@@ -934,8 +1114,8 @@ private:
   /// residual -- in a2_fast's order, with the mixin's multiply and add rounded
   /// separately as Eigen rounds them.
   template <int K, int NVEC, bool StoreHead, bool DoL1x1>
-  inline void post(const PlanarLayerWeights<C>& L, const float* lt, const float* const* h, int last_tap, int f0,
-                   float32x4_t (&z)[C][NVEC], float* const* d, float* const* hs)
+  NAM_A2_PLANAR_INLINE void post(const PlanarLayerWeights<C>& L, const float* lt, const float* const* h, int last_tap,
+                                 int f0, float32x4_t (&z)[C][NVEC], float* const* d, float* const* hs)
   {
     const float32x4_t zero = vdupq_n_f32(0.0f);
     const float32x4_t slope = vdupq_n_f32(kLeakySlope);
@@ -952,7 +1132,10 @@ private:
       for (int v = 0; v < NVEC; v++)
       {
         float32x4_t a = vaddq_f32(z[i][v], b);
-        a = vaddq_f32(a, vmulq_n_f32(cf[v], m)); // product then add, two roundings
+        // Product then add, two roundings, as Eigen rounds them. round_now is
+        // what stops the pair being contracted straight back into one vfma; see
+        // its definition for which target needs it and why.
+        a = vaddq_f32(a, round_now(vmulq_n_f32(cf[v], m)));
         z[i][v] = vbslq_f32(vcltq_f32(a, zero), vmulq_f32(a, slope), a);
       }
     }
@@ -976,19 +1159,18 @@ private:
       for (int i = 0; i < C; i++)
       {
         const float32x4_t bi = vdupq_n_f32(L.l1x1_b[i]);
-        const float32x4_t la = vld1q_f32(lt + static_cast<size_t>(i) * C); // L(i, 0..3)
-        const float32x4_t lb = vld1q_f32(lt + static_cast<size_t>(i) * C + 4); // L(i, 4..7)
+        const LaneWeights<C / 4> lw(lt + static_cast<size_t>(i) * C); // L(i, 0..C-1)
         for (int v = 0; v < NVEC; v++)
         {
           // u_i = sum over j in increasing order, from zero.
-          float32x4_t u = vmulq_laneq_f32(z[0][v], la, 0);
-          u = vfmaq_laneq_f32(u, z[1][v], la, 1);
-          u = vfmaq_laneq_f32(u, z[2][v], la, 2);
-          u = vfmaq_laneq_f32(u, z[3][v], la, 3);
-          u = vfmaq_laneq_f32(u, z[4][v], lb, 0);
-          u = vfmaq_laneq_f32(u, z[5][v], lb, 1);
-          u = vfmaq_laneq_f32(u, z[6][v], lb, 2);
-          u = vfmaq_laneq_f32(u, z[7][v], lb, 3);
+          float32x4_t u = lw.mul<0>(z[0][v]);
+          u = lw.fma<1>(u, z[1][v]);
+          u = lw.fma<2>(u, z[2][v]);
+          u = lw.fma<3>(u, z[3][v]);
+          u = lw.fma<4>(u, z[4][v]);
+          u = lw.fma<5>(u, z[5][v]);
+          u = lw.fma<6>(u, z[6][v]);
+          u = lw.fma<7>(u, z[7][v]);
           const float32x4_t prev = vld1q_f32(h[i] + last_tap + f0 + 4 * v);
           vst1q_f32(d[i] + f0 + 4 * v, vaddq_f32(vaddq_f32(prev, u), bi));
         }
@@ -1016,7 +1198,7 @@ private:
       {
         const float s = h[j][tapb[k] + f];
         for (int i = 0; i < C; i++)
-          t[i] += wk[static_cast<size_t>(j) * C + i] * s;
+          t[i] = __builtin_fmaf(wk[static_cast<size_t>(j) * C + i], s, t[i]);
       }
       for (int i = 0; i < C; i++)
         z[i] += t[i];
@@ -1040,7 +1222,7 @@ private:
       {
         float u = 0.0f;
         for (int j = 0; j < C; j++)
-          u += L.l1x1_w[static_cast<size_t>(j) * C + i] * z[j];
+          u = __builtin_fmaf(L.l1x1_w[static_cast<size_t>(j) * C + i], z[j], u);
         d[i][f] = (h[i][tapb[K - 1] + f] + u) + L.l1x1_b[i];
       }
     }
@@ -1073,20 +1255,19 @@ private:
         y[u] = bias;
       for (int k = 0; k < kHeadKernelSize; k++)
       {
-        const float32x4_t wa = vld1q_f32(hw + static_cast<size_t>(k) * C);
-        const float32x4_t wb = vld1q_f32(hw + static_cast<size_t>(k) * C + 4);
+        const LaneWeights<C / 4> w(hw + static_cast<size_t>(k) * C);
         const int base = hb[k] + f;
         for (int u = 0; u < kFullHeadVecs; u++)
         {
           const int o = base + 4 * u;
-          y[u] = vfmaq_laneq_f32(y[u], vld1q_f32(p[0] + o), wa, 0);
-          y[u] = vfmaq_laneq_f32(y[u], vld1q_f32(p[1] + o), wa, 1);
-          y[u] = vfmaq_laneq_f32(y[u], vld1q_f32(p[2] + o), wa, 2);
-          y[u] = vfmaq_laneq_f32(y[u], vld1q_f32(p[3] + o), wa, 3);
-          y[u] = vfmaq_laneq_f32(y[u], vld1q_f32(p[4] + o), wb, 0);
-          y[u] = vfmaq_laneq_f32(y[u], vld1q_f32(p[5] + o), wb, 1);
-          y[u] = vfmaq_laneq_f32(y[u], vld1q_f32(p[6] + o), wb, 2);
-          y[u] = vfmaq_laneq_f32(y[u], vld1q_f32(p[7] + o), wb, 3);
+          y[u] = w.fma<0>(y[u], vld1q_f32(p[0] + o));
+          y[u] = w.fma<1>(y[u], vld1q_f32(p[1] + o));
+          y[u] = w.fma<2>(y[u], vld1q_f32(p[2] + o));
+          y[u] = w.fma<3>(y[u], vld1q_f32(p[3] + o));
+          y[u] = w.fma<4>(y[u], vld1q_f32(p[4] + o));
+          y[u] = w.fma<5>(y[u], vld1q_f32(p[5] + o));
+          y[u] = w.fma<6>(y[u], vld1q_f32(p[6] + o));
+          y[u] = w.fma<7>(y[u], vld1q_f32(p[7] + o));
         }
       }
       for (int u = 0; u < kFullHeadVecs; u++)
@@ -1097,17 +1278,16 @@ private:
       float32x4_t y = bias;
       for (int k = 0; k < kHeadKernelSize; k++)
       {
-        const float32x4_t wa = vld1q_f32(hw + static_cast<size_t>(k) * C);
-        const float32x4_t wb = vld1q_f32(hw + static_cast<size_t>(k) * C + 4);
+        const LaneWeights<C / 4> w(hw + static_cast<size_t>(k) * C);
         const int o = hb[k] + f;
-        y = vfmaq_laneq_f32(y, vld1q_f32(p[0] + o), wa, 0);
-        y = vfmaq_laneq_f32(y, vld1q_f32(p[1] + o), wa, 1);
-        y = vfmaq_laneq_f32(y, vld1q_f32(p[2] + o), wa, 2);
-        y = vfmaq_laneq_f32(y, vld1q_f32(p[3] + o), wa, 3);
-        y = vfmaq_laneq_f32(y, vld1q_f32(p[4] + o), wb, 0);
-        y = vfmaq_laneq_f32(y, vld1q_f32(p[5] + o), wb, 1);
-        y = vfmaq_laneq_f32(y, vld1q_f32(p[6] + o), wb, 2);
-        y = vfmaq_laneq_f32(y, vld1q_f32(p[7] + o), wb, 3);
+        y = w.fma<0>(y, vld1q_f32(p[0] + o));
+        y = w.fma<1>(y, vld1q_f32(p[1] + o));
+        y = w.fma<2>(y, vld1q_f32(p[2] + o));
+        y = w.fma<3>(y, vld1q_f32(p[3] + o));
+        y = w.fma<4>(y, vld1q_f32(p[4] + o));
+        y = w.fma<5>(y, vld1q_f32(p[5] + o));
+        y = w.fma<6>(y, vld1q_f32(p[6] + o));
+        y = w.fma<7>(y, vld1q_f32(p[7] + o));
       }
       vst1q_f32(out + f, vmulq_n_f32(y, scale));
     }
@@ -1118,7 +1298,7 @@ private:
       {
         const float* wk = hw + static_cast<size_t>(k) * C;
         for (int b = 0; b < C; b++)
-          y += wk[b] * p[b][hb[k] + f];
+          y = __builtin_fmaf(wk[b], p[b][hb[k] + f], y);
       }
       out[f] = y * scale;
     }
