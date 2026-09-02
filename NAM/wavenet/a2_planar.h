@@ -25,6 +25,48 @@
 // only place these had been built and measured. It has since been widened
 // twice, each time on evidence rather than optimism.
 //
+// -----------------------------------------------------------------------------
+// At a glance
+//
+// The promoted kernel is a2_planar in every case: one engine, four
+// configurations. What varies is the tile width, how a weight reaches the
+// multiplier, and -- at C=8 -- the shape of the conv loop.
+//
+//   target     submodel      C  tile  weights    C=8 conv loop
+//   ------------------------------------------------------------------
+//   AArch64    A2 nano       3    32  by-lane    --
+//   AArch64    A2 standard   8     8  by-lane    fold over lambdas
+//   ARMv7      A2 nano       3     8  broadcast  --
+//   ARMv7      A2 standard   8     8  broadcast  plain loop nest
+//
+// "by-lane" is vfmaq_laneq_f32, which encodes the lane in the instruction;
+// "broadcast" is vld1q_dup_f32 at the point of use, because ARMv7 has no
+// by-element FMA at all. Both sections below say why the remaining two columns
+// differ, and neither difference was inherited -- each was measured on the part.
+//
+// The speed, all of it bit-identical to a2_fast over a full render:
+//
+//   part                  submodel      C  vs a2_fast  conditions
+//   ------------------------------------------------------------------
+//   Apple M2              A2 nano       3       2.00x  see note
+//   Apple M2              A2 standard   8       2.47x  see note
+//   Cortex-A76 (Pi 500)   A2 nano       3       2.87x  block 32
+//   Cortex-A76 (Pi 500)   A2 standard   8       2.40x  block 32
+//   Cortex-A17 (RK3288)   A2 nano       3       1.47x  block 32, 1416 MHz
+//   Cortex-A17 (RK3288)   A2 standard   8       1.42x  block 32, 1416 MHz
+//
+// The M2 rows are carried from the Apple Silicon campaign these kernels came
+// out of, and have not been re-measured since; every other row is a direct
+// measurement of the code as it stands. The A76 rows are at a 32-frame block,
+// which is why they do not match the 2.13x/2.94x quoted just below -- same
+// code, different block size, not a discrepancy.
+//
+// Note the inversion. On the M2 the wide model wins bigger; on both ARM parts
+// the narrow one does. That is the same architectural story as the tile widths
+// further down, and the reason none of this travels between targets by
+// assumption.
+// -----------------------------------------------------------------------------
+//
 // AArch64 generally:
 //
 //   * Bit-identity holds off Apple. The property it leans on is the compiler
@@ -36,7 +78,8 @@
 //
 //   * The speed holds too, though the shape of the win is not the same. On an
 //     M2: 2.47x on A2 standard and 2.00x on A2 nano. On a Cortex-A76: 2.13x and
-//     2.94x. Faster on both parts, on both submodels.
+//     2.94x. Faster on both parts, on both submodels. (At a 32-frame block the
+//     A76 reads 2.40x and 2.87x; see the table above.)
 //
 // ARMv7-A with NEON and VFPv4 (see the caveats below, which are load-bearing):
 //
