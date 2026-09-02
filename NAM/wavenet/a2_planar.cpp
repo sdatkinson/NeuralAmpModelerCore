@@ -1076,6 +1076,42 @@ private:
       const int base = tapb[k] + f0;
       float32x4_t t[C][NVEC];
 
+    #if defined(NAM_A2_PLANAR_A32)
+      // ARMv7: plain loops over j and i, and the weight broadcast from memory
+      // at the point of use.
+      //
+      // This is the same arithmetic in the same order as the AArch64 form
+      // below, written the way a 16-register machine wants it, and the
+      // difference it makes is not marginal. Over the reference render, with
+      // the fold form here: 12.12 G instructions, 8.33 G memory accesses,
+      // 10.58 G cycles, 68.7% of one core. With this one: 9.79 G, 6.34 G,
+      // 8.53 G, 55.4%. Nearly a third of the memory traffic was the fold.
+      //
+      // The accumulators are the whole reason. 16 Q registers cannot hold
+      // z[C][NVEC] and t[C][NVEC] at once at any useful tile width, so what
+      // decides this kernel is not whether it spills -- it must -- but how well
+      // the compiler schedules the traffic it cannot avoid. GCC does that far
+      // better for a loop nest it can see the shape of than for a fold of
+      // generic lambdas it has to decide to inline first. On AArch64, where the
+      // accumulators fit, the same fold costs nothing and buys the by-lane
+      // encoding, which is why both forms are here rather than one.
+      //
+      // Seeding j == 0 with a multiply instead of an FMA against zero is exact
+      // either way and saves the zeroing pass, but it is not done here: it
+      // needs j as a compile-time value, and having j as a loop counter is
+      // worth more than the pass it would save.
+      for (int i = 0; i < C; i++)
+        for (int v = 0; v < NVEC; v++)
+          t[i][v] = zero;
+
+      for (int j = 0; j < C; j++)
+        for (int v = 0; v < NVEC; v++)
+        {
+          const float32x4_t s = vld1q_f32(h[j] + base + 4 * v);
+          for (int i = 0; i < C; i++)
+            t[i][v] = vfmaq_f32(t[i][v], s, vld1q_dup_f32(&wk[j * C + i]));
+        }
+    #else
       // Input channel j is unrolled at compile time so that j == 0 can seed the
       // partial with a multiply instead of an FMA against zero. Both are one
       // rounding of w*x, so this is exact either way; it just saves the init.
@@ -1101,6 +1137,7 @@ private:
       [&]<int... Js>(std::integer_sequence<int, Js...>) {
         (do_j(std::integral_constant<int, Js>{}), ...);
       }(std::make_integer_sequence<int, C>{});
+    #endif
 
       for (int i = 0; i < C; i++)
         for (int v = 0; v < NVEC; v++)

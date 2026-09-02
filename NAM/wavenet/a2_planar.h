@@ -44,8 +44,8 @@
 //     13.3, clock-pinned to 1416 MHz, over the same 523,808-frame render. Both
 //     submodels bit-identical to a2_fast, max|diff| exactly zero.
 //
-//   * A2 standard 78.5% -> 57.8% of one core and A2 nano 12.32% -> 8.87% at
-//     32-frame blocks (1.359x and 1.390x). Smaller than the AArch64 wins, and
+//   * A2 standard 78.79% -> 55.63% of one core and A2 nano 12.29% -> 8.36% at
+//     32-frame blocks (1.416x and 1.470x). Smaller than the AArch64 wins, and
 //     on this part that is the difference between one instance per core with
 //     nothing left over and one with room for the rest of a signal chain.
 //
@@ -92,17 +92,36 @@
 //      unaffected; only the speed is.
 //
 // -----------------------------------------------------------------------------
-// Tile widths are per-architecture, and the difference is not a small one
+// What is per-architecture here, and why none of it was inherited
 //
-// The tile widths affect speed only, never output. They were swept separately on
-// each architecture, and the AArch64 values are actively wrong on ARMv7: the C=3
-// ladder peaks at 32 frames on an M2 and at 8 on a Cortex-A17, with tile 32
-// running *slower than a2_fast* there. ARMv7 has 16 Q registers against
-// AArch64's 32, and tile 8 is the last rung whose accumulators fit.
+// Two things vary by target, and neither changes the output -- only the speed.
 //
-// Anyone porting these to a third architecture should re-sweep rather than
-// inherit. See A32-PATH.md in the NAMBench repository for the full ladder and
-// the spill counts underneath it.
+// **Tile widths**, and the difference is not a small one. They were swept
+// separately on each architecture, and the AArch64 values are actively wrong on
+// ARMv7: the C=3 ladder peaks at 32 frames on an M2 and at 8 on a Cortex-A17,
+// with tile 32 running *slower than a2_fast* there. ARMv7 has 16 Q registers
+// against AArch64's 32, and tile 8 is the last rung whose accumulators fit.
+//
+// **The shape of the C=8 conv loop**, which is the less obvious one and cost
+// more to find. The AArch64 form unrolls the input and output channels with a
+// fold over generic lambdas, because it needs each index as a compile-time
+// value for the by-lane FMA encoding. ARMv7 has no by-lane FMA, so it gains
+// nothing from that -- and loses a great deal: with 16 registers the
+// accumulators cannot stay resident, and GCC schedules the unavoidable spill
+// traffic far better for a plain loop nest than for the fold. The two forms are
+// 68.7% and 55.4% of one core on the same part. See the comment at the branch
+// itself for the instruction and memory-access counts.
+//
+// The general lesson, stated because it was learned the expensive way: porting
+// these kernels is not a matter of widening the gate and re-sweeping the tiles.
+// The first ARMv7 build of this file was bit-identical, passed every
+// conformance check, and was still slower than the kernel it was ported from by
+// enough to lose most of the win -- and nothing but a measurement on the part
+// said so. Re-measure against the reference on the target itself, and do not
+// trust a figure carried over from a lab kernel of the same shape.
+//
+// See A32-PATH.md in the NAMBench repository for the full ladder and the spill
+// counts underneath it.
 //
 // NAM_DISABLE_A2_PLANAR opts out anywhere, which is what makes an A/B
 // measurement against the reference a one-flag change.
