@@ -21,16 +21,16 @@ ContainerModel::ContainerModel(std::vector<Submodel> submodels, const double exp
 , _submodels(std::move(submodels))
 {
   if (_submodels.empty())
-    throw std::runtime_error("ContainerModel: no submodels provided");
+    NAM_THROW(std::runtime_error("ContainerModel: no submodels provided"));
 
   // Validate ordering and that final max_value covers 1.0
   for (size_t i = 1; i < _submodels.size(); ++i)
   {
     if (_submodels[i].max_value <= _submodels[i - 1].max_value)
-      throw std::runtime_error("ContainerModel: submodels must be sorted by ascending max_value");
+      NAM_THROW(std::runtime_error("ContainerModel: submodels must be sorted by ascending max_value"));
   }
   if (_submodels.back().max_value < 1.0)
-    throw std::runtime_error("ContainerModel: last submodel max_value must be >= 1.0");
+    NAM_THROW(std::runtime_error("ContainerModel: last submodel max_value must be >= 1.0"));
 
   // Validate all submodels have the same expected sample rate
   for (const auto& sm : _submodels)
@@ -41,7 +41,7 @@ ContainerModel::ContainerModel(std::vector<Submodel> submodels, const double exp
     {
       std::stringstream ss;
       ss << "ContainerModel: submodel sample rate mismatch (expected " << expected_sample_rate << ", got " << sr << ")";
-      throw std::runtime_error(ss.str());
+      NAM_THROW(std::runtime_error(ss.str()));
     }
   }
 
@@ -149,7 +149,7 @@ std::unique_ptr<DSP> ContainerConfig::create(std::vector<float> weights, double 
 
   auto submodels_json = raw_config["submodels"];
   if (!submodels_json.is_array() || submodels_json.empty())
-    throw std::runtime_error("SlimmableContainer: 'submodels' must be a non-empty array");
+    NAM_THROW(std::runtime_error("SlimmableContainer: 'submodels' must be a non-empty array"));
 
   std::vector<Submodel> submodels;
   submodels.reserve(submodels_json.size());

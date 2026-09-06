@@ -195,7 +195,7 @@ nam::convnet::ConvNet::ConvNet(const int in_channels, const int out_channels, co
   this->_head = _Head(channels, out_channels, it);
 
   if (it != weights.end())
-    throw std::runtime_error("Didn't touch all the weights when initializing ConvNet");
+    NAM_THROW(std::runtime_error("Didn't touch all the weights when initializing ConvNet"));
 
   mPrewarmSamples = 1;
   for (size_t i = 0; i < dilations.size(); i++)
@@ -323,6 +323,7 @@ void nam::convnet::ConvNet::_rewind_buffers_()
 }
 
 // Config parser
+#if NAM_HAS_JSON
 nam::convnet::ConvNetConfig nam::convnet::parse_config_json(const nlohmann::json& config)
 {
   ConvNetConfig c;
@@ -337,6 +338,7 @@ nam::convnet::ConvNetConfig nam::convnet::parse_config_json(const nlohmann::json
   c.out_channels = config.value("out_channels", 1);
   return c;
 }
+#endif
 
 // ConvNetConfig::create()
 std::unique_ptr<nam::DSP> nam::convnet::ConvNetConfig::create(std::vector<float> weights, double sampleRate)
@@ -346,6 +348,7 @@ std::unique_ptr<nam::DSP> nam::convnet::ConvNetConfig::create(std::vector<float>
 }
 
 // Config parser for ConfigParserRegistry
+#if NAM_HAS_JSON
 std::unique_ptr<nam::ModelConfig> nam::convnet::create_config(const nlohmann::json& config, double sampleRate)
 {
   (void)sampleRate;
@@ -359,3 +362,4 @@ namespace
 {
 static nam::ConfigParserHelper _register_ConvNet("ConvNet", nam::convnet::create_config);
 }
+#endif // NAM_HAS_JSON

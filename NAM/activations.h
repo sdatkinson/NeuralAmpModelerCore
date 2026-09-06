@@ -2,18 +2,18 @@
 
 #include <cassert>
 #include <cmath> // expf
-#include <iostream> // std::cerr (kept for potential debug use)
-#include <stdexcept> // std::invalid_argument
 #include <functional>
 #include <memory>
 #include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
-
+#include "compiler.h"
 #include <Eigen/Dense>
 
-#include "json.hpp"
+#if NAM_HAS_JSON
+  #include "json.hpp"
+#endif
 
 namespace nam
 {
@@ -54,7 +54,9 @@ struct ActivationConfig
 
   // Convenience constructors
   static ActivationConfig simple(ActivationType t);
+#if NAM_HAS_JSON
   static ActivationConfig from_json(const nlohmann::json& j);
+#endif
 };
 inline float relu(float x)
 {
@@ -159,7 +161,9 @@ public:
 
   static Ptr get_activation(const std::string name);
   static Ptr get_activation(const ActivationConfig& config);
+#if NAM_HAS_JSON
   static Ptr get_activation(const nlohmann::json& activation_config);
+#endif
   static void enable_fast_tanh();
   static void disable_fast_tanh();
   static bool using_fast_tanh;
@@ -285,9 +289,9 @@ public:
 #ifndef NDEBUG
     if (size % negative_slopes.size() != 0)
     {
-      throw std::invalid_argument("PReLU.apply(*data, size) was given an array of size " + std::to_string(size)
+      NAM_THROW(std::invalid_argument("PReLU.apply(*data, size) was given an array of size " + std::to_string(size)
                                   + " but the activation has " + std::to_string(negative_slopes.size())
-                                  + " channels, which doesn't divide evenly.");
+                                  + " channels, which doesn't divide evenly."));
     }
 #endif
     for (long pos = 0; pos < size; pos++)
@@ -306,9 +310,9 @@ public:
 #ifndef NDEBUG
     if (actual_channels != negative_slopes.size())
     {
-      throw std::invalid_argument("PReLU: Received " + std::to_string(actual_channels)
+      NAM_THROW(std::invalid_argument("PReLU: Received " + std::to_string(actual_channels)
                                   + " channels, but activation has " + std::to_string(negative_slopes.size())
-                                  + " channels");
+                                  + " channels"));
     }
 #endif
 

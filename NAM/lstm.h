@@ -111,6 +111,7 @@ struct LSTMConfig : public ModelConfig
   std::unique_ptr<DSP> create(std::vector<float> weights, double sampleRate) override;
 };
 
+#if NAM_HAS_JSON
 /// \brief Parse LSTM configuration from JSON
 /// \param config JSON configuration object
 /// \return LSTMConfig
@@ -118,6 +119,7 @@ LSTMConfig parse_config_json(const nlohmann::json& config);
 
 /// \brief Config parser for ConfigParserRegistry
 std::unique_ptr<ModelConfig> create_config(const nlohmann::json& config, double sampleRate);
+#endif
 
 }; // namespace lstm
 }; // namespace nam

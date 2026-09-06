@@ -1,6 +1,5 @@
 #pragma once
 
-#include <filesystem>
 #include <iterator>
 #include <memory>
 #include <string>
@@ -12,7 +11,11 @@
 #include "activations.h"
 #include "conv1d.h"
 #include "dsp.h"
-#include "json.hpp"
+
+#if NAM_HAS_JSON
+  #include <filesystem>
+  #include "json.hpp"
+#endif
 
 namespace nam
 {
@@ -180,6 +183,7 @@ struct ConvNetConfig : public ModelConfig
   std::unique_ptr<DSP> create(std::vector<float> weights, double sampleRate) override;
 };
 
+#if NAM_HAS_JSON
 /// \brief Parse ConvNet configuration from JSON
 /// \param config JSON configuration object
 /// \return ConvNetConfig
@@ -187,6 +191,7 @@ ConvNetConfig parse_config_json(const nlohmann::json& config);
 
 /// \brief Config parser for ConfigParserRegistry
 std::unique_ptr<ModelConfig> create_config(const nlohmann::json& config, double sampleRate);
+#endif
 
 }; // namespace convnet
 }; // namespace nam

@@ -6,6 +6,7 @@
 #include <optional>
 #include <stdexcept>
 
+#if NAM_HAS_JSON
 namespace nam
 {
 namespace slimmable_wavenet
@@ -88,13 +89,13 @@ int compute_slim_bottleneck(const wavenet::LayerArrayParams& p, int new_channels
 void validate_groups(const wavenet::LayerArrayParams& p)
 {
   if (p.groups_input != 1)
-    throw std::runtime_error("SlimmableWavenet: groups_input > 1 not supported");
+    NAM_THROW(std::runtime_error("SlimmableWavenet: groups_input > 1 not supported"));
   if (p.groups_input_mixin != 1)
-    throw std::runtime_error("SlimmableWavenet: groups_input_mixin > 1 not supported");
+    NAM_THROW(std::runtime_error("SlimmableWavenet: groups_input_mixin > 1 not supported"));
   if (p.layer1x1_params.active && p.layer1x1_params.groups != 1)
-    throw std::runtime_error("SlimmableWavenet: layer1x1 groups > 1 not supported");
+    NAM_THROW(std::runtime_error("SlimmableWavenet: layer1x1 groups > 1 not supported"));
   if (p.head1x1_params.active && p.head1x1_params.groups != 1)
-    throw std::runtime_error("SlimmableWavenet: head1x1 groups > 1 not supported");
+    NAM_THROW(std::runtime_error("SlimmableWavenet: head1x1 groups > 1 not supported"));
 }
 
 // Map ratio [0,1] to a channel count from allowed_channels.
@@ -138,9 +139,9 @@ std::vector<float> extract_slimmed_weights(const std::vector<wavenet::LayerArray
     const auto& p = original_params[arr];
     if (p.head_kernel_size != 1)
     {
-      throw std::runtime_error(
+      NAM_THROW(std::runtime_error(
         "SlimmableWavenet: head rechannel kernel_size must be 1 (slimming with head kernel_size > 1 is not "
-        "implemented)");
+        "implemented)"));
     }
     validate_groups(p);
 
@@ -366,7 +367,7 @@ SlimmableWavenet::SlimmableWavenet(std::vector<wavenet::LayerArrayParams> origin
 , _full_weights(std::move(full_weights))
 {
   if (_per_array_allowed_channels.size() != _original_params.size())
-    throw std::runtime_error("SlimmableWavenet: per_array_allowed_channels size must match number of layer arrays");
+    NAM_THROW(std::runtime_error("SlimmableWavenet: per_array_allowed_channels size must match number of layer arrays"));
 
   // Validate: at least one array must be slimmable
   bool any_slimmable = false;
@@ -380,19 +381,19 @@ SlimmableWavenet::SlimmableWavenet(std::vector<wavenet::LayerArrayParams> origin
       for (size_t j = 1; j < allowed.size(); j++)
       {
         if (allowed[j] <= allowed[j - 1])
-          throw std::runtime_error("SlimmableWavenet: allowed_channels must be sorted ascending");
+          NAM_THROW(std::runtime_error("SlimmableWavenet: allowed_channels must be sorted ascending"));
       }
       // Validate last entry matches full channel count
       if (allowed.back() != _original_params[i].channels)
-        throw std::runtime_error(
-          "SlimmableWavenet: last allowed_channels entry must equal the full channel count for that array");
+        NAM_THROW(std::runtime_error(
+          "SlimmableWavenet: last allowed_channels entry must equal the full channel count for that array"));
     }
   }
   if (!any_slimmable)
-    throw std::runtime_error("SlimmableWavenet: at least one layer array must have allowed_channels");
+    NAM_THROW(std::runtime_error("SlimmableWavenet: at least one layer array must have allowed_channels"));
 
   if (with_head)
-    throw std::runtime_error("SlimmableWavenet: post-stack head is not supported");
+    NAM_THROW(std::runtime_error("SlimmableWavenet: post-stack head is not supported"));
 
   // Build with full channel counts as default (ratio=1.0)
   std::vector<int> full_channels(_original_params.size());
@@ -556,7 +557,7 @@ std::unique_ptr<DSP> SlimmableWavenetConfig::create(std::vector<float> weights, 
       const auto& slim_cfg = lc["slimmable"];
       const std::string method = slim_cfg.value("method", "");
       if (method != "slice_channels_uniform")
-        throw std::runtime_error("SlimmableWavenet: unsupported slimmable method '" + method + "'");
+        NAM_THROW(std::runtime_error("SlimmableWavenet: unsupported slimmable method '" + method + "'"));
       if (slim_cfg.find("kwargs") != slim_cfg.end()
           && slim_cfg["kwargs"].find("allowed_channels") != slim_cfg["kwargs"].end())
       {
@@ -594,3 +595,4 @@ std::unique_ptr<ModelConfig> create_config(const nlohmann::json& config, double 
 
 } // namespace slimmable_wavenet
 } // namespace nam
+#endif // NAM_HAS_JSON

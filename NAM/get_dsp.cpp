@@ -1,30 +1,62 @@
-#include <iostream>
-#include <mutex>
-#include <regex>
-#include <sstream>
-#include <stdexcept>
-
+#include "compiler.h"
 #include "dsp.h"
-#include "registry.h"
-#include "json.hpp"
 #include "get_dsp.h"
 #include "model_config.h"
+
+#if NAM_HAS_JSON
+  #include <fstream>
+  #include "json.hpp"
+  #include "nam_file.h"
+  #include "registry.h"
+#endif
 
 namespace nam
 {
 namespace
 {
 
+/// Parses "major.minor.patch" without exceptions or <regex>.
+bool try_parse_version(const std::string& versionStr, Version& parsed)
+{
+  int components[3] = {0, 0, 0};
+  size_t pos = 0;
+  for (int i = 0; i < 3; i++)
+  {
+    if (i > 0)
+    {
+      if (pos >= versionStr.size() || versionStr[pos] != '.')
+        return false;
+      pos++;
+    }
+    const size_t start = pos;
+    int value = 0;
+    while (pos < versionStr.size() && versionStr[pos] >= '0' && versionStr[pos] <= '9')
+    {
+      if (value > 100000)
+        return false;
+      value = value * 10 + (versionStr[pos] - '0');
+      pos++;
+    }
+    if (pos == start)
+      return false;
+    components[i] = value;
+  }
+  if (pos != versionStr.size())
+    return false;
+
+  parsed = Version(components[0], components[1], components[2]);
+  return true;
+}
+
 class CoreVersionSupportChecker : public IVersionSupportChecker
 {
 public:
   Supported support(const std::string& version) const override
   {
-    static const std::regex semver_regex(R"(^\d+\.\d+\.\d+$)");
-    if (!std::regex_match(version, semver_regex))
+    Version parsed(0, 0, 0);
+    if (!try_parse_version(version, parsed))
       return Supported::NO;
 
-    const Version parsed = ParseVersion(version);
     const Version latest = ParseVersion(LATEST_FULLY_SUPPORTED_NAM_FILE_VERSION);
     const Version earliest = ParseVersion(EARLIEST_SUPPORTED_NAM_FILE_VERSION);
 
@@ -45,9 +77,9 @@ std::vector<std::shared_ptr<const IVersionSupportChecker>>& version_support_regi
   return registry;
 }
 
-std::mutex& version_support_registry_mutex()
+Mutex& version_support_registry_mutex()
 {
-  static std::mutex registry_mutex;
+  static Mutex registry_mutex;
   return registry_mutex;
 }
 
@@ -55,51 +87,23 @@ std::mutex& version_support_registry_mutex()
 
 Version ParseVersion(const std::string& versionStr)
 {
-  // Split the version string into major, minor, and patch components
-  std::stringstream ss(versionStr);
-  std::string majorStr, minorStr, patchStr;
-  std::getline(ss, majorStr, '.');
-  std::getline(ss, minorStr, '.');
-  std::getline(ss, patchStr);
-
-  // Parse the components as integers and assign them to the version struct
-  int major;
-  int minor;
-  int patch;
-  try
-  {
-    major = std::stoi(majorStr);
-    minor = std::stoi(minorStr);
-    patch = std::stoi(patchStr);
-  }
-  catch (const std::invalid_argument&)
-  {
-    throw std::invalid_argument("Invalid version string: " + versionStr);
-  }
-  catch (const std::out_of_range&)
-  {
-    throw std::out_of_range("Version string out of range: " + versionStr);
-  }
-
-  // Validate the semver components
-  if (major < 0 || minor < 0 || patch < 0)
-  {
-    throw std::invalid_argument("Negative version component: " + versionStr);
-  }
-  return Version(major, minor, patch);
+  Version parsed(0, 0, 0);
+  if (!try_parse_version(versionStr, parsed))
+    NAM_THROW(std::invalid_argument("Invalid version string: " + versionStr));
+  return parsed;
 }
 
 void register_version_support_checker(std::shared_ptr<const IVersionSupportChecker> checker)
 {
   if (!checker)
-    throw std::invalid_argument("version support checker cannot be null");
-  std::lock_guard<std::mutex> lock(version_support_registry_mutex());
+    NAM_THROW(std::invalid_argument("version support checker cannot be null"));
+  LockGuard lock(version_support_registry_mutex());
   version_support_registry().push_back(std::move(checker));
 }
 
 Supported is_version_supported(const std::string version)
 {
-  std::lock_guard<std::mutex> lock(version_support_registry_mutex());
+  LockGuard lock(version_support_registry_mutex());
   Supported best_support = Supported::NO;
   for (const auto& checker : version_support_registry())
   {
@@ -114,19 +118,11 @@ void verify_config_version(const std::string versionStr)
 {
   const Supported support = is_version_supported(versionStr);
   if (support == Supported::NO)
-  {
-    std::stringstream ss;
-    ss << "Model config is an unsupported version " << versionStr << ".";
-    throw std::runtime_error(ss.str());
-  }
-  if (support == Supported::PARTIAL)
-  {
-    std::stringstream ss;
-    std::cerr << "Model config is a partially-supported version " << versionStr << ". Continuing with partial support."
-              << std::endl;
-  }
+    NAM_THROW(std::runtime_error("Model config is an unsupported version " + versionStr + "."));
+  // Partially-supported versions are accepted as-is.
 }
 
+#if NAM_HAS_JSON
 std::vector<float> GetWeights(nlohmann::json const& j)
 {
   auto it = j.find("weights");
@@ -135,7 +131,7 @@ std::vector<float> GetWeights(nlohmann::json const& j)
     return *it;
   }
   else
-    throw std::runtime_error("Corrupted model file is missing weights.");
+    NAM_THROW(std::runtime_error("Corrupted model file is missing weights."));
 }
 
 void populate_dsp_data(const nlohmann::json& config, dspData& returnedConfig)
@@ -202,6 +198,7 @@ std::unique_ptr<ModelConfig> parse_model_config_json(const std::string& architec
 {
   return ConfigParserRegistry::instance().parse(architecture, config, sample_rate);
 }
+#endif // NAM_HAS_JSON
 
 namespace
 {
@@ -226,10 +223,7 @@ std::unique_ptr<DSP> create_dsp(std::unique_ptr<ModelConfig> config, std::vector
   return out;
 }
 
-// =============================================================================
-// get_dsp(dspData&) — now uses unified path
-// =============================================================================
-
+#if NAM_HAS_JSON
 namespace
 {
 
@@ -279,5 +273,6 @@ double get_sample_rate_from_nam_file(const nlohmann::json& j)
   else
     return -1.0;
 }
+#endif // NAM_HAS_JSON
 
 }; // namespace nam

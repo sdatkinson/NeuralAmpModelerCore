@@ -3,15 +3,16 @@
 #include "params.h"
 
 #include <memory>
-#include <stdexcept>
 #include <string>
 #include <vector>
 
 #include <Eigen/Dense>
 
 #include "../conv1d.h"
+#include "../dsp.h"
 #include "../gating_activations.h"
 #include "../film.h"
+#include "../compiler.h"
 
 namespace nam
 {
@@ -60,13 +61,13 @@ public:
       // Validation: if layer1x1 is inactive, bottleneck must equal channels
       if (params.bottleneck != params.channels)
       {
-        throw std::invalid_argument("When layer1x1.active is false, bottleneck (" + std::to_string(params.bottleneck)
-                                    + ") must equal channels (" + std::to_string(params.channels) + ")");
+        NAM_THROW(std::invalid_argument("When layer1x1.active is false, bottleneck (" + std::to_string(params.bottleneck)
+                                    + ") must equal channels (" + std::to_string(params.channels) + ")"));
       }
       // If there's a post-layer1x1 FiLM but no layer1x1, this is redundant--don't allow it
       if (params._layer1x1_post_film_params.active)
       {
-        throw std::invalid_argument("layer1x1_post_film cannot be active when layer1x1 is not active");
+        NAM_THROW(std::invalid_argument("layer1x1_post_film cannot be active when layer1x1 is not active"));
       }
     }
 
@@ -80,7 +81,7 @@ public:
       // If there's a post-head 1x1 FiLM but no head 1x1, this is redundant--don't allow it
       if (params.head1x1_post_film_params.active)
       {
-        throw std::invalid_argument("Do not use post-head 1x1 FiLM if there is no head 1x1");
+        NAM_THROW(std::invalid_argument("Do not use post-head 1x1 FiLM if there is no head 1x1"));
       }
     }
 

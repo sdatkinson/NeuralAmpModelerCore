@@ -5,9 +5,8 @@
 #include <cassert>
 #include <cctype>
 #include <complex>
+#include "compiler.h"
 #include <limits>
-#include <stdexcept>
-
 #include "registry.h"
 
 #include <unsupported/Eigen/FFT>
@@ -92,9 +91,9 @@ nam::Linear::Linear(const int in_channels, const int out_channels, const int rec
 , _active_implementation(LinearImplementation::Direct)
 {
   if ((int)weights.size() != (receptive_field + (_bias ? 1 : 0)))
-    throw std::runtime_error(
+    NAM_THROW(std::runtime_error(
       "Params vector does not match expected size based "
-      "on architecture parameters");
+      "on architecture parameters"));
 
   this->_impulse_response.assign(weights.begin(), weights.begin() + receptive_field);
   this->_weight.resize(this->_receptive_field);
@@ -391,7 +390,7 @@ nam::LinearImplementation nam::linear::parse_implementation(const std::string& i
     return LinearImplementation::Direct;
   if (normalized == "fft" || normalized == "partitioned_fft" || normalized == "partitioned-fft")
     return LinearImplementation::FFT;
-  throw std::runtime_error("Unsupported Linear implementation: " + implementation);
+  NAM_THROW(std::runtime_error("Unsupported Linear implementation: " + implementation));
 }
 
 std::string nam::linear::implementation_to_string(const LinearImplementation implementation)
@@ -402,7 +401,7 @@ std::string nam::linear::implementation_to_string(const LinearImplementation imp
     case LinearImplementation::Direct: return "direct";
     case LinearImplementation::FFT: return "fft";
   }
-  throw std::runtime_error("Unsupported Linear implementation enum");
+  NAM_THROW(std::runtime_error("Unsupported Linear implementation enum"));
 }
 
 nam::LinearFFTPlan nam::linear::select_fft_plan(const int receptive_field)
@@ -410,7 +409,7 @@ nam::LinearFFTPlan nam::linear::select_fft_plan(const int receptive_field)
   for (const auto& entry : _LINEAR_FFT_DISPATCH)
     if (receptive_field <= entry.max_taps)
       return entry.plan;
-  throw std::runtime_error("No Linear FFT dispatch entry for receptive field");
+  NAM_THROW(std::runtime_error("No Linear FFT dispatch entry for receptive field"));
 }
 
 nam::LinearImplementation nam::linear::select_implementation(const int receptive_field)
@@ -418,9 +417,10 @@ nam::LinearImplementation nam::linear::select_implementation(const int receptive
   for (const auto& entry : _LINEAR_FFT_DISPATCH)
     if (receptive_field <= entry.max_taps)
       return entry.implementation;
-  throw std::runtime_error("No Linear implementation dispatch entry for receptive field");
+  NAM_THROW(std::runtime_error("No Linear implementation dispatch entry for receptive field"));
 }
 
+#if NAM_HAS_JSON
 nam::linear::LinearConfig nam::linear::parse_config_json(const nlohmann::json& config)
 {
   LinearConfig c;
@@ -432,6 +432,7 @@ nam::linear::LinearConfig nam::linear::parse_config_json(const nlohmann::json& c
   c.implementation = parse_implementation(config.value("implementation", "auto"));
   return c;
 }
+#endif
 
 std::unique_ptr<nam::DSP> nam::linear::LinearConfig::create(std::vector<float> weights, double sampleRate)
 {
@@ -439,6 +440,7 @@ std::unique_ptr<nam::DSP> nam::linear::LinearConfig::create(std::vector<float> w
     in_channels, out_channels, receptive_field, bias, weights, sampleRate, implementation);
 }
 
+#if NAM_HAS_JSON
 std::unique_ptr<nam::ModelConfig> nam::linear::create_config(const nlohmann::json& config, double sampleRate)
 {
   (void)sampleRate;
@@ -452,3 +454,4 @@ namespace
 {
 static nam::ConfigParserHelper _register_Linear("Linear", nam::linear::create_config);
 }
+#endif // NAM_HAS_JSON

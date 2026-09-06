@@ -18,7 +18,9 @@
   #include <memory>
 
   #include "../model_config.h"
-  #include "json.hpp"
+  #if NAM_HAS_JSON
+    #include "json.hpp"
+  #endif
 
 namespace nam
 {
@@ -46,11 +48,18 @@ inline constexpr std::array<int, kNumLayers> kDilations = {
 /// \param config   The "config" sub-object from a .nam WaveNet entry.
 /// \param channels Out-param set to 3 (A2-Lite) or 8 (A2-Full) on match.
 /// \return true if every architectural knob matches the A2 signature exactly.
+#if NAM_HAS_JSON
 bool is_a2_shape(const nlohmann::json& config, int* channels);
 
 /// \brief Build a ModelConfig that instantiates the A2 fast path.
 /// \pre is_a2_shape(config, ...) returned true.
 std::unique_ptr<ModelConfig> create_a2_fast_config(const nlohmann::json& config, double sampleRate);
+#endif
+
+/// \brief Build a ModelConfig that instantiates the A2 fast path from channel count.
+/// \param channels Must be 3 (A2 nano) or 8 (A2 standard).
+/// 	hrows std::runtime_error for unsupported channel counts.
+std::unique_ptr<ModelConfig> create_a2_fast_config(int channels);
 
 } // namespace a2_fast
 } // namespace wavenet

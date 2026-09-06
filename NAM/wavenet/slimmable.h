@@ -3,6 +3,10 @@
 #include <memory>
 #include <vector>
 
+#include "../compiler.h"
+
+#if NAM_HAS_JSON
+
 // std::atomic<std::shared_ptr<T>> requires C++20 library support (libstdc++ >= GCC 12).
 // Where it is unavailable -- libc++ (any version so far) and older libstdc++ such as the
 // one shipped with GCC 9 -- fall back to the deprecated std::atomic_* free-function
@@ -61,6 +65,7 @@ public:
   void SetPrewarmOnReset(const bool prewarmOnReset) override;
   void SetSlimmableSize(const double val) override;
   std::vector<double> GetSlimmableSizeBreakpoints() const override;
+  SlimmableModel* GetSlimmableModel() override { return this; }
 
 protected:
   int GetPrewarmSamples() override { return 0; }
@@ -118,3 +123,5 @@ std::unique_ptr<ModelConfig> create_config(const nlohmann::json& config, double 
 
 } // namespace slimmable_wavenet
 } // namespace nam
+
+#endif // NAM_HAS_JSON

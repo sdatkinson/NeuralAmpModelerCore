@@ -5,12 +5,14 @@
 #include <functional>
 #include <memory>
 #include <optional>
-#include <stdexcept>
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include "compiler.h"
 
-#include "json.hpp"
+#if NAM_HAS_JSON
+  #include "json.hpp"
+#endif
 
 namespace nam
 {
@@ -44,6 +46,7 @@ public:
   virtual std::unique_ptr<DSP> create(std::vector<float> weights, double sampleRate) = 0;
 };
 
+#if NAM_HAS_JSON
 /// \brief Function type for parsing a ModelConfig from JSON
 using ConfigParserFunction = std::function<std::unique_ptr<ModelConfig>(const nlohmann::json&, double)>;
 
@@ -68,7 +71,7 @@ public:
   {
     if (parsers_.find(name) != parsers_.end())
     {
-      throw std::runtime_error("Config parser already registered for: " + name);
+      NAM_THROW(std::runtime_error("Config parser already registered for: " + name));
     }
     parsers_[name] = std::move(func);
   }
@@ -83,7 +86,7 @@ public:
     auto it = parsers_.find(name);
     if (it == parsers_.end())
     {
-      throw std::runtime_error("No config parser registered for architecture: " + name);
+      NAM_THROW(std::runtime_error("No config parser registered for architecture: " + name));
     }
     return it->second(config, sampleRate);
   }
@@ -102,6 +105,7 @@ struct ConfigParserHelper
     ConfigParserRegistry::instance().registerParser(name, std::move(func));
   }
 };
+#endif // NAM_HAS_JSON
 
 /// \brief Construct a DSP object from a typed config, weights, and metadata
 ///
@@ -114,6 +118,7 @@ struct ConfigParserHelper
 std::unique_ptr<DSP> create_dsp(std::unique_ptr<ModelConfig> config, std::vector<float> weights,
                                 const ModelMetadata& metadata);
 
+#if NAM_HAS_JSON
 /// \brief Parse a ModelConfig from a JSON architecture name and config block
 /// \param architecture Architecture name string (e.g., "WaveNet", "LSTM")
 /// \param config JSON config block for this architecture
@@ -121,5 +126,6 @@ std::unique_ptr<DSP> create_dsp(std::unique_ptr<ModelConfig> config, std::vector
 /// \return unique_ptr<ModelConfig>
 std::unique_ptr<ModelConfig> parse_model_config_json(const std::string& architecture, const nlohmann::json& config,
                                                      double sample_rate);
+#endif
 
 } // namespace nam

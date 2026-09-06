@@ -23,7 +23,7 @@ nam::wavenet::detail::Head::Head(const HeadParams& params)
 , _out_channels(params.out_channels)
 {
   if (params.kernel_sizes.empty())
-    throw std::runtime_error("WaveNet Head: kernel_sizes must be non-empty");
+    NAM_THROW(std::runtime_error("WaveNet Head: kernel_sizes must be non-empty"));
   const size_t n = params.kernel_sizes.size();
   int cin = params.in_channels;
   for (size_t i = 0; i < n; i++)
@@ -31,10 +31,10 @@ nam::wavenet::detail::Head::Head(const HeadParams& params)
     const int cout = (i + 1 == n) ? params.out_channels : params.channels;
     const int k = params.kernel_sizes[i];
     if (k < 1)
-      throw std::runtime_error("WaveNet Head: kernel_sizes entries must be >= 1");
+      NAM_THROW(std::runtime_error("WaveNet Head: kernel_sizes entries must be >= 1"));
     nam::activations::Activation::Ptr act = nam::activations::Activation::get_activation(params.activation_config);
     if (act == nullptr)
-      throw std::runtime_error("WaveNet Head: unsupported activation for post-stack head");
+      NAM_THROW(std::runtime_error("WaveNet Head: unsupported activation for post-stack head"));
     _activations.push_back(std::move(act));
     nam::Conv1D conv;
     conv.set_size_(cin, cout, k, true, 1, 1);
@@ -582,7 +582,7 @@ int wave_net_output_channels(const std::vector<nam::wavenet::LayerArrayParams>& 
                              const bool with_head, const std::optional<nam::wavenet::HeadParams>& head_params)
 {
   if (layer_array_params.empty())
-    throw std::runtime_error("WaveNet requires at least one layer array");
+    NAM_THROW(std::runtime_error("WaveNet requires at least one layer array"));
   if (with_head && head_params.has_value())
     return head_params->out_channels;
   return layer_array_params.back().head_size;
@@ -608,24 +608,24 @@ nam::wavenet::WaveNet::WaveNet(const int in_channels,
       std::stringstream ss;
       ss << "input channels of WaveNet (" << in_channels << ") don't match input channels of condition DSP ("
          << this->_condition_dsp->NumInputChannels() << "!\n";
-      throw std::runtime_error(ss.str().c_str());
+      NAM_THROW(std::runtime_error(ss.str().c_str()));
     }
   }
   if (with_head)
   {
     if (!head_params.has_value())
-      throw std::runtime_error("WaveNet: with_head is true but head configuration is missing");
+      NAM_THROW(std::runtime_error("WaveNet: with_head is true but head configuration is missing"));
     if (head_params->in_channels != layer_array_params.back().head_size)
     {
       std::stringstream ss;
       ss << "WaveNet head in_channels (" << head_params->in_channels << ") must match last layer array head_size ("
          << layer_array_params.back().head_size << ")";
-      throw std::runtime_error(ss.str());
+      NAM_THROW(std::runtime_error(ss.str()));
     }
     this->_post_stack_head = std::make_unique<detail::Head>(*head_params);
   }
   else if (head_params.has_value())
-    throw std::runtime_error("WaveNet: head configuration provided but with_head is false");
+    NAM_THROW(std::runtime_error("WaveNet: head configuration provided but with_head is false"));
 
   for (size_t i = 0; i < layer_array_params.size(); i++)
   {
@@ -638,7 +638,7 @@ nam::wavenet::WaveNet::WaveNet(const int in_channels,
         ss << "condition_size of layer " << i << " (" << layer_array_params[i].condition_size
            << ") doesn't match output channels of condition DSP (" << this->_condition_dsp->NumOutputChannels()
            << "!\n";
-        throw std::runtime_error(ss.str().c_str());
+        NAM_THROW(std::runtime_error(ss.str().c_str()));
       }
     }
     this->_layer_arrays.push_back(nam::wavenet::detail::LayerArray(layer_array_params[i]));
@@ -648,9 +648,10 @@ nam::wavenet::WaveNet::WaveNet(const int in_channels,
         std::stringstream ss;
         ss << "channels of layer " << i << " (" << layer_array_params[i].channels
            << ") doesn't match head_size of preceding layer (" << layer_array_params[i - 1].head_size << "!\n";
-        throw std::runtime_error(ss.str().c_str());
+        NAM_THROW(std::runtime_error(ss.str().c_str()));
       }
   }
+
   this->set_weights_(weights);
 
   // Finally, figure out how much pre-warming is needed for this model.
@@ -678,10 +679,10 @@ void nam::wavenet::WaveNet::set_weights_(std::vector<float>& weights)
       if (weights[i] == *it)
       {
         ss << "Weight mismatch: assigned " << i + 1 << " weights, but " << weights.size() << " were provided.";
-        throw std::runtime_error(ss.str().c_str());
+        NAM_THROW(std::runtime_error(ss.str().c_str()));
       }
     ss << "Weight mismatch: provided " << weights.size() << " weights, but the model expects more.";
-    throw std::runtime_error(ss.str().c_str());
+    NAM_THROW(std::runtime_error(ss.str().c_str()));
   }
 }
 
@@ -913,6 +914,7 @@ void nam::wavenet::WaveNet::process(NAM_SAMPLE** input, NAM_SAMPLE** output, con
 }
 
 // Config parser - extracts all configuration from JSON without constructing the DSP
+#if NAM_HAS_JSON
 nam::wavenet::WaveNetConfig nam::wavenet::parse_config_json(const nlohmann::json& config,
                                                             const double expectedSampleRate)
 {
@@ -928,7 +930,7 @@ nam::wavenet::WaveNetConfig nam::wavenet::parse_config_json(const nlohmann::json
       std::stringstream ss;
       ss << "Condition DSP expected sample rate (" << wc.condition_dsp->GetExpectedSampleRate()
          << ") doesn't match WaveNet expected sample rate (" << expectedSampleRate << "!\n";
-      throw std::runtime_error(ss.str().c_str());
+      NAM_THROW(std::runtime_error(ss.str().c_str()));
     }
   }
 
@@ -967,7 +969,7 @@ nam::wavenet::WaveNetConfig nam::wavenet::parse_config_json(const nlohmann::json
       const auto& head_json = layer_config["head"];
       if (!head_json.is_object())
       {
-        throw std::runtime_error("Layer array " + std::to_string(i) + ": 'head' must be a JSON object");
+        NAM_THROW(std::runtime_error("Layer array " + std::to_string(i) + ": 'head' must be a JSON object"));
       }
       head_size = head_json.at("out_channels").get<int>();
 
@@ -987,14 +989,14 @@ nam::wavenet::WaveNetConfig nam::wavenet::parse_config_json(const nlohmann::json
     }
     else
     {
-      throw std::runtime_error("Layer array " + std::to_string(i)
+      NAM_THROW(std::runtime_error("Layer array " + std::to_string(i)
                                + ": expected 'head' object with out_channels, kernel_size, and bias, "
-                                 "or legacy 'head_size' and 'head_bias'");
+                                 "or legacy 'head_size' and 'head_bias'"));
     }
 
     if (head_kernel_size < 1)
     {
-      throw std::runtime_error("Layer array " + std::to_string(i) + ": head.kernel_size must be >= 1");
+      NAM_THROW(std::runtime_error("Layer array " + std::to_string(i) + ": head.kernel_size must be >= 1"));
     }
 
     const auto dilations = layer_config["dilations"];
@@ -1006,15 +1008,15 @@ nam::wavenet::WaveNetConfig nam::wavenet::parse_config_json(const nlohmann::json
     std::vector<int> kernel_sizes;
     if (has_kernel_size && has_kernel_sizes)
     {
-      throw std::runtime_error("Layer array " + std::to_string(i)
-                               + ": only one of kernel_size (int) or kernel_sizes (array) may be provided");
+      NAM_THROW(std::runtime_error("Layer array " + std::to_string(i)
+                               + ": only one of kernel_size (int) or kernel_sizes (array) may be provided"));
     }
     else if (has_kernel_sizes)
     {
       const auto& kernel_sizes_json = layer_config["kernel_sizes"];
       if (!kernel_sizes_json.is_array())
       {
-        throw std::runtime_error("Layer array " + std::to_string(i) + ": kernel_sizes must be an array");
+        NAM_THROW(std::runtime_error("Layer array " + std::to_string(i) + ": kernel_sizes must be an array"));
       }
       for (const auto& ks_json : kernel_sizes_json)
       {
@@ -1022,9 +1024,9 @@ nam::wavenet::WaveNetConfig nam::wavenet::parse_config_json(const nlohmann::json
       }
       if (kernel_sizes.size() != num_layers)
       {
-        throw std::runtime_error("Layer array " + std::to_string(i) + ": kernel_sizes array size ("
+        NAM_THROW(std::runtime_error("Layer array " + std::to_string(i) + ": kernel_sizes array size ("
                                  + std::to_string(kernel_sizes.size()) + ") must match dilations size ("
-                                 + std::to_string(num_layers) + ")");
+                                 + std::to_string(num_layers) + ")"));
       }
     }
     else if (has_kernel_size)
@@ -1034,8 +1036,8 @@ nam::wavenet::WaveNetConfig nam::wavenet::parse_config_json(const nlohmann::json
     }
     else
     {
-      throw std::runtime_error("Layer array " + std::to_string(i)
-                               + ": either kernel_size (int) or kernel_sizes (array) must be provided");
+      NAM_THROW(std::runtime_error("Layer array " + std::to_string(i)
+                               + ": either kernel_size (int) or kernel_sizes (array) must be provided"));
     }
 
     // Parse activation config(s) - support both single config and array
@@ -1048,9 +1050,9 @@ nam::wavenet::WaveNetConfig nam::wavenet::parse_config_json(const nlohmann::json
       }
       if (activation_configs.size() != num_layers)
       {
-        throw std::runtime_error("Layer array " + std::to_string(i) + ": activation array size ("
+        NAM_THROW(std::runtime_error("Layer array " + std::to_string(i) + ": activation array size ("
                                  + std::to_string(activation_configs.size()) + ") must match dilations size ("
-                                 + std::to_string(num_layers) + ")");
+                                 + std::to_string(num_layers) + ")"));
       }
     }
     else
@@ -1073,7 +1075,7 @@ nam::wavenet::WaveNetConfig nam::wavenet::parse_config_json(const nlohmann::json
       else if (gating_mode_str == "none")
         return GatingMode::NONE;
       else
-        throw std::runtime_error("Invalid gating_mode: " + gating_mode_str);
+        NAM_THROW(std::runtime_error("Invalid gating_mode: " + gating_mode_str));
     };
 
     if (layer_config.find("gating_mode") != layer_config.end())
@@ -1095,9 +1097,9 @@ nam::wavenet::WaveNetConfig nam::wavenet::parse_config_json(const nlohmann::json
               {
                 if (gating_modes.size() > layer_config["secondary_activation"].size())
                 {
-                  throw std::runtime_error("Layer array " + std::to_string(i)
+                  NAM_THROW(std::runtime_error("Layer array " + std::to_string(i)
                                            + ": secondary_activation array size must be at least "
-                                           + std::to_string(gating_modes.size()));
+                                           + std::to_string(gating_modes.size())));
                 }
                 secondary_activation_configs.push_back(activations::ActivationConfig::from_json(
                   layer_config["secondary_activation"][gating_modes.size() - 1]));
@@ -1123,9 +1125,9 @@ nam::wavenet::WaveNetConfig nam::wavenet::parse_config_json(const nlohmann::json
         }
         if (gating_modes.size() != num_layers)
         {
-          throw std::runtime_error("Layer array " + std::to_string(i) + ": gating_mode array size ("
+          NAM_THROW(std::runtime_error("Layer array " + std::to_string(i) + ": gating_mode array size ("
                                    + std::to_string(gating_modes.size()) + ") must match dilations size ("
-                                   + std::to_string(num_layers) + ")");
+                                   + std::to_string(num_layers) + ")"));
         }
         // Validate secondary_activation array size if it's an array
         if (layer_config.find("secondary_activation") != layer_config.end()
@@ -1133,9 +1135,9 @@ nam::wavenet::WaveNetConfig nam::wavenet::parse_config_json(const nlohmann::json
         {
           if (layer_config["secondary_activation"].size() != num_layers)
           {
-            throw std::runtime_error("Layer array " + std::to_string(i) + ": secondary_activation array size ("
+            NAM_THROW(std::runtime_error("Layer array " + std::to_string(i) + ": secondary_activation array size ("
                                      + std::to_string(layer_config["secondary_activation"].size())
-                                     + ") must match dilations size (" + std::to_string(num_layers) + ")");
+                                     + ") must match dilations size (" + std::to_string(num_layers) + ")"));
           }
         }
       }
@@ -1227,8 +1229,8 @@ nam::wavenet::WaveNetConfig nam::wavenet::parse_config_json(const nlohmann::json
     // Validation: if layer1x1_post_film is active, layer1x1 must also be active
     if (_layer1x1_post_film_params.active && !layer1x1_active)
     {
-      throw std::runtime_error("Layer array " + std::to_string(i)
-                               + ": layer1x1_post_film cannot be active when layer1x1.active is false");
+      NAM_THROW(std::runtime_error("Layer array " + std::to_string(i)
+                               + ": layer1x1_post_film cannot be active when layer1x1.active is false"));
     }
 
     wc.layer_array_params.push_back(nam::wavenet::LayerArrayParams(
@@ -1244,7 +1246,7 @@ nam::wavenet::WaveNetConfig nam::wavenet::parse_config_json(const nlohmann::json
   wc.in_channels = config.value("in_channels", 1);
 
   if (wc.layer_array_params.empty())
-    throw std::runtime_error("WaveNet config requires at least one layer array");
+    NAM_THROW(std::runtime_error("WaveNet config requires at least one layer array"));
 
   if (wc.with_head)
   {
@@ -1260,7 +1262,7 @@ nam::wavenet::WaveNetConfig nam::wavenet::parse_config_json(const nlohmann::json
         std::stringstream ss;
         ss << "WaveNet config: head.in_channels (" << legacy_in << ") must equal last layer's head_size (" << implied_in
            << ")";
-        throw std::runtime_error(ss.str());
+        NAM_THROW(std::runtime_error(ss.str()));
       }
     }
     hp.in_channels = implied_in;
@@ -1269,7 +1271,7 @@ nam::wavenet::WaveNetConfig nam::wavenet::parse_config_json(const nlohmann::json
     hp.kernel_sizes = hj.at("kernel_sizes").get<std::vector<int>>();
     hp.activation_config = nam::activations::ActivationConfig::from_json(hj.at("activation"));
     if (hp.kernel_sizes.empty())
-      throw std::runtime_error("WaveNet config: head.kernel_sizes must be non-empty");
+      NAM_THROW(std::runtime_error("WaveNet config: head.kernel_sizes must be non-empty"));
     wc.head_params = std::move(hp);
   }
   else
@@ -1277,6 +1279,8 @@ nam::wavenet::WaveNetConfig nam::wavenet::parse_config_json(const nlohmann::json
 
   return wc;
 }
+
+#endif
 
 // WaveNetConfig::create()
 std::unique_ptr<nam::DSP> nam::wavenet::WaveNetConfig::create(std::vector<float> weights, double sampleRate)
@@ -1286,6 +1290,7 @@ std::unique_ptr<nam::DSP> nam::wavenet::WaveNetConfig::create(std::vector<float>
                                                  sampleRate);
 }
 
+#if NAM_HAS_JSON
 namespace
 {
 const std::string SLIMMABLE_METHOD = "slice_channels_uniform";
@@ -1302,7 +1307,7 @@ bool config_is_slimmable_wavenet(const nlohmann::json& config)
     if (method != SLIMMABLE_METHOD)
     {
       if (!method.empty())
-        throw std::runtime_error("SlimmableWavenet: unsupported slimmable method '" + method + "'");
+        NAM_THROW(std::runtime_error("SlimmableWavenet: unsupported slimmable method '" + method + "'"));
       continue;
     }
     return true;
@@ -1333,3 +1338,4 @@ namespace
 {
 static nam::ConfigParserHelper _register_WaveNet("WaveNet", nam::wavenet::create_config);
 }
+#endif // NAM_HAS_JSON

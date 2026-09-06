@@ -5,7 +5,15 @@
 #include <vector>
 
 #include "dsp.h"
-#include "nam_file.h"
+
+#if NAM_HAS_JSON
+  #include <filesystem>
+  #include "json.hpp"
+#endif
+
+#if NAM_HAS_JSON
+  #include <fstream>
+#endif
 
 namespace nam
 {
@@ -77,6 +85,7 @@ struct DspLoadOptions
   std::optional<bool> prewarm = std::nullopt;
 };
 
+#if NAM_HAS_JSON
 /// \brief Get NAM from a .nam file at the provided location
 /// \param config_filename Path to the .nam model file
 /// \param options Loading options
@@ -119,4 +128,5 @@ std::unique_ptr<DSP> get_dsp(const nlohmann::json& config, DspLoadOptions option
 /// \param j JSON object from the .nam file
 /// \return Sample rate in Hz, or -1 if not known (really old .nam files)
 double get_sample_rate_from_nam_file(const nlohmann::json& j);
+#endif // NAM_HAS_JSON
 }; // namespace nam

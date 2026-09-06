@@ -13,6 +13,8 @@
 
 #include "dsp.h"
 
+#if NAM_HAS_JSON
+
 namespace nam
 {
 namespace factory
@@ -67,3 +69,5 @@ struct Helper
 };
 } // namespace factory
 } // namespace nam
+
+#endif // NAM_HAS_JSON

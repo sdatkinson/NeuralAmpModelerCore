@@ -1,7 +1,7 @@
 #pragma once
 
 #include <atomic>
-#include <filesystem>
+#include <cstddef>
 #include <iterator>
 #include <memory>
 #include <string>
@@ -12,8 +12,12 @@
 
 #include "activations.h"
 #include "compiler.h"
-#include "json.hpp"
 #include "model_config.h"
+
+#if NAM_HAS_JSON
+  #include <filesystem>
+  #include "json.hpp"
+#endif
 
 #ifdef NAM_SAMPLE_FLOAT
   #define NAM_SAMPLE float
@@ -31,6 +35,8 @@
 
 namespace nam
 {
+class SlimmableModel;
+
 namespace wavenet
 {
 /// Forward declaration to allow WaveNet to access protected members of DSP
@@ -95,6 +101,11 @@ public:
   /// \param output Output audio buffers. Same structure as input.
   /// \param num_frames Number of frames to process
   virtual void process(NAM_SAMPLE** input, NAM_SAMPLE** output, const int num_frames);
+
+  /// \brief Slimmable interface of this model, or nullptr if it cannot be slimmed
+  ///
+  /// A virtual query rather than a dynamic_cast, so callers work without RTTI.
+  virtual SlimmableModel* GetSlimmableModel() { return nullptr; }
   /// \brief Get the expected sample rate
   /// \return Expected sample rate in Hz (-1.0 if unknown)
   double GetExpectedSampleRate() const { return mExpectedSampleRate; };
@@ -342,6 +353,7 @@ private:
 // Utilities ==================================================================
 // Implemented in get_dsp.cpp
 
+#if NAM_HAS_JSON
 /// \brief Data structure for a DSP object
 ///
 /// Contains all information needed to instantiate and configure a DSP model.
@@ -355,17 +367,20 @@ struct dspData
   double expected_sample_rate; ///< Expected sample rate in Hz. Most NAM models implicitly assume data at some sample
                                ///< rate. Use -1.0 for "I don't know".
 };
+#endif
 
 /// \brief Verify that the config version is supported by this plugin version
 /// \param version Config version string to verify
 void verify_config_version(const std::string version);
 
+#if NAM_HAS_JSON
 /// \brief Legacy loader for directory-style DSPs
 ///
 /// Loads models from a directory structure (older format).
 /// \param dirname Path to the directory containing the model
 /// \return Unique pointer to a DSP object
 std::unique_ptr<DSP> get_dsp_legacy(const std::filesystem::path dirname);
+#endif
 }; // namespace nam
 
 #include "linear.h"

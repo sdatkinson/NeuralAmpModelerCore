@@ -168,6 +168,7 @@ void nam::lstm::LSTM::_process_sample()
 }
 
 // Config parser
+#if NAM_HAS_JSON
 nam::lstm::LSTMConfig nam::lstm::parse_config_json(const nlohmann::json& config)
 {
   LSTMConfig c;
@@ -179,6 +180,7 @@ nam::lstm::LSTMConfig nam::lstm::parse_config_json(const nlohmann::json& config)
   c.out_channels = config.value("out_channels", 1);
   return c;
 }
+#endif
 
 // LSTMConfig::create()
 std::unique_ptr<nam::DSP> nam::lstm::LSTMConfig::create(std::vector<float> weights, double sampleRate)
@@ -188,6 +190,7 @@ std::unique_ptr<nam::DSP> nam::lstm::LSTMConfig::create(std::vector<float> weigh
 }
 
 // Config parser for ConfigParserRegistry
+#if NAM_HAS_JSON
 std::unique_ptr<nam::ModelConfig> nam::lstm::create_config(const nlohmann::json& config, double sampleRate)
 {
   (void)sampleRate;
@@ -202,3 +205,4 @@ namespace
 {
 static nam::ConfigParserHelper _register_LSTM("LSTM", nam::lstm::create_config);
 }
+#endif // NAM_HAS_JSON

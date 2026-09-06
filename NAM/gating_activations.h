@@ -5,7 +5,6 @@
 #include <unordered_map>
 #include <Eigen/Dense>
 #include <functional>
-#include <stdexcept>
 #include "activations.h"
 #include "compiler.h"
 
@@ -41,7 +40,7 @@ public:
   {
     if (num_channels <= 0)
     {
-      throw std::invalid_argument("GatingActivation: number of input channels must be positive");
+      NAM_THROW(std::invalid_argument("GatingActivation: number of input channels must be positive"));
     }
     // Initialize buffers with correct size
     // Note: current code copies column-by-column so we only need (num_channels, 1)

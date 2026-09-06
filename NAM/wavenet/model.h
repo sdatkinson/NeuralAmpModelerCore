@@ -10,7 +10,10 @@
 #include <Eigen/Dense>
 
 #include "../dsp.h"
-#include "json.hpp"
+
+#if NAM_HAS_JSON
+  #include "json.hpp"
+#endif
 
 #include "detail.h"
 
@@ -143,6 +146,7 @@ struct WaveNetConfig : public ModelConfig
   std::unique_ptr<DSP> create(std::vector<float> weights, double sampleRate) override;
 };
 
+#if NAM_HAS_JSON
 /// \brief Parse WaveNet configuration from JSON
 /// \param config JSON configuration object
 /// \param expectedSampleRate Expected sample rate in Hz (-1.0 if unknown)
@@ -151,6 +155,7 @@ WaveNetConfig parse_config_json(const nlohmann::json& config, const double expec
 
 /// \brief Config parser for ConfigParserRegistry
 std::unique_ptr<ModelConfig> create_config(const nlohmann::json& config, double sampleRate);
+#endif
 
 } // namespace wavenet
 } // namespace nam

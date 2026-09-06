@@ -101,6 +101,7 @@ LinearFFTPlan select_fft_plan(int receptive_field);
 /// \brief Select the default implementation for an impulse-response length.
 LinearImplementation select_implementation(int receptive_field);
 
+#if NAM_HAS_JSON
 /// \brief Parse Linear configuration from JSON
 /// \param config JSON configuration object
 /// \return LinearConfig
@@ -111,6 +112,7 @@ LinearConfig parse_config_json(const nlohmann::json& config);
 /// \param sampleRate Expected sample rate in Hz
 /// \return unique_ptr<ModelConfig> wrapping a LinearConfig
 std::unique_ptr<ModelConfig> create_config(const nlohmann::json& config, double sampleRate);
+#endif
 } // namespace linear
 
 } // namespace nam

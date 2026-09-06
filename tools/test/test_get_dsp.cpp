@@ -13,6 +13,7 @@
 #include "json.hpp"
 
 #include "NAM/get_dsp.h"
+#include "NAM/nam_file.h"
 #include "NAM/registry.h"
 
 namespace test_get_dsp

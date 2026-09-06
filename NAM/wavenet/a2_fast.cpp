@@ -27,6 +27,23 @@
 
   #include "../dsp.h"
 
+  // Manual placement of fast code sections into NAM_SECTION_CODE_FAST
+  // GCC drops section attributes from implicit template specializations when they are applied to the primary template, 
+  // so we must explicitly instantiate the methods we want in NAM_SECTION_CODE_FAST
+  #define NAM_INSTANTIATE_A2_FAST_METHODS(ChannelCount) \
+    template NAM_SECTION_CODE_FAST void A2FastModel<ChannelCount>::_ring_write( \
+      A2FastModel<ChannelCount>::Layer&, int); \
+    template NAM_SECTION_CODE_FAST void A2FastModel<ChannelCount>::_head_ring_write(int); \
+    template NAM_SECTION_CODE_FAST void A2FastModel<ChannelCount>::_layer_forward( \
+      int, const float*, int); \
+    template NAM_SECTION_CODE_FAST void A2FastModel<ChannelCount>::_head_forward(float*, int); \
+    template NAM_SECTION_CODE_FAST void A2FastModel<ChannelCount>::_layer_forward_k<6>( \
+      A2FastModel<ChannelCount>::Layer&, const float*, int); \
+    template NAM_SECTION_CODE_FAST void A2FastModel<ChannelCount>::_layer_forward_k<15>( \
+      A2FastModel<ChannelCount>::Layer&, const float*, int); \
+    template NAM_SECTION_CODE_FAST void A2FastModel<ChannelCount>::process( \
+      NAM_SAMPLE**, NAM_SAMPLE**, int);
+
 namespace nam
 {
 namespace wavenet
@@ -36,6 +53,42 @@ namespace a2_fast
 
 namespace
 {
+
+NAM_SECTION_CODE_FAST inline void update_tail_mirror(
+    float* history,
+    int pow2_size,
+    int max_buffer_size,
+    int channels,
+    int write_pos,
+    int first,
+    int wrapped,
+    bool& initialized)
+{
+  const size_t sample_bytes = sizeof(float) * static_cast<size_t>(channels);
+  if (!initialized)
+  {
+    std::memcpy(history + static_cast<size_t>(pow2_size) * channels,
+                history,
+                static_cast<size_t>(max_buffer_size) * sample_bytes);
+    initialized = true;
+    return;
+  }
+
+  if (write_pos < max_buffer_size)
+  {
+    const int mirrored = std::min(first, max_buffer_size - write_pos);
+    std::memcpy(history + static_cast<size_t>(pow2_size + write_pos) * channels,
+                history + static_cast<size_t>(write_pos) * channels,
+                static_cast<size_t>(mirrored) * sample_bytes);
+  }
+  if (wrapped > 0)
+  {
+    const int mirrored = std::min(wrapped, max_buffer_size);
+    std::memcpy(history + static_cast<size_t>(pow2_size) * channels,
+                history,
+                static_cast<size_t>(mirrored) * sample_bytes);
+  }
+}
 
 // =============================================================================
 // A2FastModel<Channels>
@@ -102,6 +155,7 @@ private:
     int pow2_size = 0;
     int pow2_mask = 0;
     int write_pos = 0;
+    bool mirror_initialized = false;
   #else
     // Linear ring with sporadic memmove-rewind. history_cols = 2*max_lookback +
     // max_buffer_size; write_pos grows monotonically until rewind fires.
@@ -131,6 +185,7 @@ private:
   int _head_pow2_size = 0;
   int _head_pow2_mask = 0;
   int _head_write_pos = 0;
+  bool _head_mirror_initialized = false;
   #else
   int _head_history_cols = 0;
   int _head_write_pos = 0;
@@ -214,7 +269,7 @@ void A2FastModel<Channels>::_load_weights(std::vector<float>& weights)
 
   auto take = [&]() -> float {
     if (it == end)
-      throw std::runtime_error("A2FastModel: weight stream exhausted");
+      NAM_THROW(std::runtime_error("A2FastModel: weight stream exhausted"));
     return *it++;
   };
 
@@ -279,7 +334,7 @@ void A2FastModel<Channels>::_load_weights(std::vector<float>& weights)
   {
     std::stringstream ss;
     ss << "A2FastModel: weight stream has " << std::distance(it, end) << " trailing bytes";
-    throw std::runtime_error(ss.str());
+    NAM_THROW(std::runtime_error(ss.str()));
   }
 }
 
@@ -316,6 +371,7 @@ void A2FastModel<Channels>::SetMaxBufferSize(int maxBufferSize)
     L.pow2_mask = L.pow2_size - 1;
     L.history.assign(static_cast<size_t>(Channels) * (L.pow2_size + maxBufferSize), 0.0f);
     L.write_pos = L.max_lookback;
+    L.mirror_initialized = false;
   #else
     L.history_cols = 2 * L.max_lookback + maxBufferSize;
     L.history.assign(static_cast<size_t>(Channels) * L.history_cols, 0.0f);
@@ -329,6 +385,7 @@ void A2FastModel<Channels>::SetMaxBufferSize(int maxBufferSize)
   _head_pow2_mask = _head_pow2_size - 1;
   _head_history.assign(static_cast<size_t>(Channels) * (_head_pow2_size + maxBufferSize), 0.0f);
   _head_write_pos = head_lookback;
+  _head_mirror_initialized = false;
   #else
   _head_history_cols = 2 * head_lookback + maxBufferSize;
   _head_history.assign(static_cast<size_t>(Channels) * _head_history_cols, 0.0f);
@@ -368,6 +425,7 @@ void A2FastModel<Channels>::PrewarmFromCache()
                 L.history.begin() + static_cast<std::ptrdiff_t>(column * Channels));
     }
     L.write_pos = L.max_lookback;
+    L.mirror_initialized = true;
   }
 
   const size_t head_columns = _head_history.size() / Channels;
@@ -377,6 +435,7 @@ void A2FastModel<Channels>::PrewarmFromCache()
               _head_history.begin() + static_cast<std::ptrdiff_t>(column * Channels));
   }
   _head_write_pos = kHeadKernelSize - 1;
+  _head_mirror_initialized = true;
 }
 
 template <int Channels>
@@ -420,14 +479,15 @@ void A2FastModel<Channels>::_ring_write(Layer& L, int num_frames)
   const float* const src = _layer_in.data();
   const int wp = L.write_pos;
   const int first = std::min(num_frames, L.pow2_size - wp);
+  const int wrapped = num_frames - first;
   std::memcpy(hist + static_cast<size_t>(wp) * Channels, src, static_cast<size_t>(first) * Channels * sizeof(float));
-  if (first < num_frames)
+  if (wrapped > 0)
   {
     std::memcpy(hist, src + static_cast<size_t>(first) * Channels,
-                static_cast<size_t>(num_frames - first) * Channels * sizeof(float));
+                static_cast<size_t>(wrapped) * Channels * sizeof(float));
   }
-  std::memcpy(
-    hist + static_cast<size_t>(L.pow2_size) * Channels, hist, static_cast<size_t>(mbs) * Channels * sizeof(float));
+  update_tail_mirror(hist, L.pow2_size, mbs, Channels, wp, first, wrapped,
+                          L.mirror_initialized);
   L.write_pos = (wp + num_frames) & L.pow2_mask;
   #else
   if (L.write_pos + num_frames > L.history_cols)
@@ -452,14 +512,15 @@ void A2FastModel<Channels>::_head_ring_write(int num_frames)
   const float* const src = _head_sum.data();
   const int wp = _head_write_pos;
   const int first = std::min(num_frames, _head_pow2_size - wp);
+  const int wrapped = num_frames - first;
   std::memcpy(hist + static_cast<size_t>(wp) * Channels, src, static_cast<size_t>(first) * Channels * sizeof(float));
-  if (first < num_frames)
+  if (wrapped > 0)
   {
     std::memcpy(hist, src + static_cast<size_t>(first) * Channels,
-                static_cast<size_t>(num_frames - first) * Channels * sizeof(float));
+                static_cast<size_t>(wrapped) * Channels * sizeof(float));
   }
-  std::memcpy(
-    hist + static_cast<size_t>(_head_pow2_size) * Channels, hist, static_cast<size_t>(mbs) * Channels * sizeof(float));
+  update_tail_mirror(hist, _head_pow2_size, mbs, Channels, wp, first, wrapped,
+                          _head_mirror_initialized);
   _head_write_pos = (wp + num_frames) & _head_pow2_mask;
   #else
   const int keep = kHeadKernelSize - 1;
@@ -692,7 +753,7 @@ void A2FastModel<Channels>::_layer_forward(int layer_idx, const float* cond, int
   {
     case 6: _layer_forward_k<6>(L, cond, num_frames); break;
     case 15: _layer_forward_k<15>(L, cond, num_frames); break;
-    default: throw std::runtime_error("A2FastModel: unexpected kernel_size " + std::to_string(L.kernel_size));
+    default: NAM_THROW(std::runtime_error("A2FastModel: unexpected kernel_size " + std::to_string(L.kernel_size)));
   }
 }
 
@@ -754,7 +815,10 @@ void A2FastModel<Channels>::process(NAM_SAMPLE** input, NAM_SAMPLE** output, int
   std::memset(_head_sum.data(), 0, static_cast<size_t>(num_frames) * Channels * sizeof(float));
 
   for (int li = 0; li < kNumLayers; li++)
+  {
     _layer_forward(li, cond, num_frames);
+  }
+
 
   // Output.
   float* head_out = _head_out.data();
@@ -762,6 +826,11 @@ void A2FastModel<Channels>::process(NAM_SAMPLE** input, NAM_SAMPLE** output, int
   for (int f = 0; f < num_frames; f++)
     out0[f] = static_cast<NAM_SAMPLE>(head_out[f]);
 }
+
+  NAM_INSTANTIATE_A2_FAST_METHODS(3)
+  NAM_INSTANTIATE_A2_FAST_METHODS(8)
+
+  #undef NAM_INSTANTIATE_A2_FAST_METHODS
 
 // -----------------------------------------------------------------------------
 // A2FastConfig — wraps the constructed DSP behind the ModelConfig interface.
@@ -776,9 +845,23 @@ struct A2FastConfig : public ModelConfig
       return std::make_unique<A2FastModel<3>>(std::move(weights), sampleRate);
     if (channels == 8)
       return std::make_unique<A2FastModel<8>>(std::move(weights), sampleRate);
-    throw std::runtime_error("A2FastConfig: unsupported channel count " + std::to_string(channels));
+    NAM_THROW(std::runtime_error("A2FastConfig: unsupported channel count " + std::to_string(channels)));
   }
 };
+
+} // namespace
+
+std::unique_ptr<ModelConfig> create_a2_fast_config(const int channels)
+{
+  auto out = std::make_unique<A2FastConfig>();
+  out->channels = channels;
+  return out;
+}
+
+#if NAM_HAS_JSON
+
+namespace
+{
 
 // -----------------------------------------------------------------------------
 // Detector helpers
@@ -988,11 +1071,11 @@ std::unique_ptr<ModelConfig> create_a2_fast_config(const nlohmann::json& config,
   (void)sampleRate;
   int ch = 0;
   if (!is_a2_shape(config, &ch))
-    throw std::runtime_error("create_a2_fast_config: config does not match A2 shape");
-  auto out = std::make_unique<A2FastConfig>();
-  out->channels = ch;
-  return out;
+    NAM_THROW(std::runtime_error("create_a2_fast_config: config does not match A2 shape"));
+  return create_a2_fast_config(ch);
 }
+
+#endif // NAM_HAS_JSON
 
 } // namespace a2_fast
 } // namespace wavenet
