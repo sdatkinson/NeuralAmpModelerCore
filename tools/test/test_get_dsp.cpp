@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <filesystem>
@@ -14,6 +15,7 @@
 
 #include "NAM/get_dsp.h"
 #include "NAM/registry.h"
+#include "NAM/slimmable.h"
 
 namespace test_get_dsp
 {
@@ -236,27 +238,51 @@ void process_buffers(nam::DSP* dsp, int num_buffers, int buffer_size)
   }
 }
 
+std::vector<std::filesystem::path> example_nam_files()
+{
+  // Paths are relative to the repo root, where CI runs ./build/tools/run_tests
+  const std::filesystem::path dir("example_models");
+  assert(std::filesystem::is_directory(dir));
+
+  std::vector<std::filesystem::path> nam_files;
+  for (const auto& entry : std::filesystem::directory_iterator(dir))
+  {
+    if (entry.is_regular_file() && entry.path().extension() == ".nam")
+      nam_files.push_back(entry.path());
+  }
+  std::sort(nam_files.begin(), nam_files.end());
+  assert(!nam_files.empty());
+  return nam_files;
+}
+
 void test_load_and_process_nam_files()
 {
-  // Test loading and processing three different .nam files
-  // Paths are relative to root directory where tests run (./build/tools/run_tests)
-  const std::vector<std::string> nam_files = {"example_models/wavenet.nam", "example_models/lstm.nam",
-                                              "example_models/wavenet_condition_dsp.nam",
-                                              "example_models/wavenet_a2_feature_test.nam"};
-
+  // Smoke-test every shipped .nam: load via the public get_dsp() path, Reset, process
+  // a few blocks, and (when applicable) exercise SlimmableModel. This is intentionally
+  // architecture-agnostic so a new example file is covered without editing a hardcoded list.
   const int num_buffers = 3;
   const int buffer_size = 64;
+  nam::DspLoadOptions options;
+  options.prewarm = false;
 
-  for (const auto& nam_file : nam_files)
+  for (const auto& model_path : example_nam_files())
   {
-    std::filesystem::path model_path(nam_file);
-
-    // Load the model
-    std::unique_ptr<nam::DSP> dsp = nam::get_dsp(model_path);
+    nam::dspData returned_config;
+    std::unique_ptr<nam::DSP> dsp = nam::get_dsp(model_path, returned_config, options);
     assert(dsp != nullptr);
 
-    // Process buffers through the model
+    auto* slimmable = dynamic_cast<nam::SlimmableModel*>(dsp.get());
+    std::cout << "  smoke " << model_path.generic_string() << " architecture=" << returned_config.architecture
+              << " in=" << dsp->NumInputChannels() << " out=" << dsp->NumOutputChannels()
+              << " slimmable=" << (slimmable != nullptr ? "yes" : "no") << std::endl;
+
     process_buffers(dsp.get(), num_buffers, buffer_size);
+
+    if (slimmable != nullptr)
+    {
+      slimmable->SetSlimmableSize(0.5);
+      process_buffers(dsp.get(), num_buffers, buffer_size);
+    }
   }
 }
 
