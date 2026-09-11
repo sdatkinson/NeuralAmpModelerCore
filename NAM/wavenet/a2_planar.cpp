@@ -4,6 +4,7 @@
 
   #if defined(NAM_A2_PLANAR)
 
+    #include <algorithm>
     #include <array>
     #include <cstddef>
     #include <cstring>
@@ -394,6 +395,31 @@ struct PlanarRing
   int tap(int lookback_frames, int n) const { return wpos - n - lookback_frames; }
 };
 
+// -----------------------------------------------------------------------------
+// Prewarm-state cache, planar equivalent of A2FastModel's. A ring holding
+// steady-state silence has every column equal to the last one written, so
+// caching that one column per channel plane is enough to rebuild the whole
+// ring later without reprocessing silence.
+// -----------------------------------------------------------------------------
+template <int C, typename Cache>
+void CacheRingState(const PlanarRing<C>& ring, Cache& cache)
+{
+  const int last_column = ring.wpos - 1;
+  for (int c = 0; c < C; c++)
+    cache[c] = ring.plane(c)[last_column];
+}
+
+template <int C, typename Cache>
+void RestoreRingFromCache(PlanarRing<C>& ring, const Cache& cache)
+{
+  for (int c = 0; c < C; c++)
+  {
+    float* p = ring.plane(c);
+    std::fill(p, p + ring.cap, cache[c]);
+  }
+  ring.wpos = ring.lookback;
+}
+
 // =============================================================================
 // Channels == 3 (A2 nano)
 //
@@ -489,6 +515,17 @@ public:
   ~A2PlanarNano() override = default;
 
   int GetPrewarmSamples() override { return _prewarm_samples; }
+
+  void prewarm() override
+  {
+    if (_has_cached_prewarm_state)
+    {
+      PrewarmFromCache();
+      return;
+    }
+    DSP::prewarm();
+    CacheStateAsPrewarmed();
+  }
 
   void process(NAM_SAMPLE** input, NAM_SAMPLE** output, const int num_frames) override
   {
@@ -835,6 +872,21 @@ private:
     }
   }
 
+  void PrewarmFromCache()
+  {
+    for (int li = 0; li < kNumLayers; li++)
+      RestoreRingFromCache(_rings[li], _cached_layer_state[li]);
+    RestoreRingFromCache(_head_ring, _cached_head_state);
+  }
+
+  void CacheStateAsPrewarmed()
+  {
+    for (int li = 0; li < kNumLayers; li++)
+      CacheRingState(_rings[li], _cached_layer_state[li]);
+    CacheRingState(_head_ring, _cached_head_state);
+    _has_cached_prewarm_state = true;
+  }
+
   PlanarWeights<C> _w;
   int _prewarm_samples = 0;
 
@@ -843,6 +895,10 @@ private:
 
   std::array<Ring, kNumLayers> _rings;
   Ring _head_ring;
+
+  std::array<std::array<float, C>, kNumLayers> _cached_layer_state{};
+  std::array<float, C> _cached_head_state{};
+  bool _has_cached_prewarm_state = false;
 
   std::vector<float> _layer_in;
   std::vector<float> _head_sum;
@@ -920,6 +976,17 @@ public:
   ~A2PlanarFull() override = default;
 
   int GetPrewarmSamples() override { return _prewarm_samples; }
+
+  void prewarm() override
+  {
+    if (_has_cached_prewarm_state)
+    {
+      PrewarmFromCache();
+      return;
+    }
+    DSP::prewarm();
+    CacheStateAsPrewarmed();
+  }
 
   void process(NAM_SAMPLE** input, NAM_SAMPLE** output, const int num_frames) override
   {
@@ -1341,6 +1408,21 @@ private:
     }
   }
 
+  void PrewarmFromCache()
+  {
+    for (int li = 0; li < kNumLayers; li++)
+      RestoreRingFromCache(_rings[li], _cached_layer_state[li]);
+    RestoreRingFromCache(_head_ring, _cached_head_state);
+  }
+
+  void CacheStateAsPrewarmed()
+  {
+    for (int li = 0; li < kNumLayers; li++)
+      CacheRingState(_rings[li], _cached_layer_state[li]);
+    CacheRingState(_head_ring, _cached_head_state);
+    _has_cached_prewarm_state = true;
+  }
+
   PlanarWeights<C> _w;
   int _prewarm_samples = 0;
 
@@ -1349,6 +1431,10 @@ private:
 
   std::array<Ring, kNumLayers> _rings;
   Ring _head_ring;
+
+  std::array<std::array<float, C>, kNumLayers> _cached_layer_state{};
+  std::array<float, C> _cached_head_state{};
+  bool _has_cached_prewarm_state = false;
 
   std::vector<float> _layer_in;
   std::vector<float> _cond;
