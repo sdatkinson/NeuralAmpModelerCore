@@ -100,7 +100,46 @@ else()
 	)
 endif()
 
-add_executable(run_tests run_tests.cpp test/allocation_tracking.cpp ${NAM_SOURCES})
+# The A2 kernels are built optimised even for run_tests, which is otherwise -O0.
+#
+# test_a2_planar asserts memcmp equality against A2FastModel, and A2FastModel's
+# 3-channel branch is a plain `a * b + c` chain whose bit-identity premise is
+# that the compiler contracts it into an FMA. GCC only contracts in its
+# optimisers, so at -O0 the reference computes something the planar kernels --
+# which issue vfma unconditionally, being intrinsics -- cannot match, and the
+# test fails on the very first sample. (Clang contracts during codegen, so it
+# passes there either way; this is a GCC-only failure.) Every shipping build is
+# optimised, so -O0 is the one configuration in which the reference is not the
+# code the claim is about.
+#
+# Only these two translation units are raised, and only for this target, so
+# every other test keeps the -O0 the allocation tracking was set up for. The
+# allocation assertions that do reach these kernels all require *zero*
+# allocations, and optimisation cannot introduce any.
+set(A2_KERNEL_SOURCES "")
+set(RUN_TESTS_NAM_SOURCES "")
+foreach(_nam_src ${NAM_SOURCES})
+	if(_nam_src MATCHES "/NAM/wavenet/a2_(fast|planar)\\.cpp$")
+		list(APPEND A2_KERNEL_SOURCES "${_nam_src}")
+	else()
+		list(APPEND RUN_TESTS_NAM_SOURCES "${_nam_src}")
+	endif()
+endforeach()
+
+add_library(run_tests_a2_kernels OBJECT ${A2_KERNEL_SOURCES})
+target_compile_features(run_tests_a2_kernels PUBLIC cxx_std_20)
+if(MSVC)
+	target_compile_options(run_tests_a2_kernels PRIVATE /O2)
+else()
+	target_compile_options(run_tests_a2_kernels PRIVATE -O3)
+endif()
+# Keep assertions live here too, as they are in the rest of run_tests.
+target_compile_options(run_tests_a2_kernels PRIVATE
+	$<$<OR:$<CONFIG:Release>,$<CONFIG:RelWithDebInfo>,$<CONFIG:MinSizeRel>>:-UNDEBUG>
+)
+
+add_executable(run_tests run_tests.cpp test/allocation_tracking.cpp ${RUN_TESTS_NAM_SOURCES}
+	$<TARGET_OBJECTS:run_tests_a2_kernels>)
 # Compile run_tests without optimizations to ensure allocation tracking works correctly
 # Also ensure assertions are enabled (NDEBUG is not defined) so tests actually run
 set_target_properties(run_tests PROPERTIES COMPILE_OPTIONS "-O0")
