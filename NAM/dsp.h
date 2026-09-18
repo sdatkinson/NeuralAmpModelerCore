@@ -26,7 +26,7 @@
   #define NAM_DEFAULT_MAX_BUFFER_SIZE 4096
 #endif
 
-/// \brief Use a sample rate of -1 if we don't know what the model expects to be run at
+/// \brief Use a sample rate of -1 if the model's training sample rate is unknown
 #define NAM_UNKNOWN_EXPECTED_SAMPLE_RATE -1.0
 
 namespace nam
@@ -74,7 +74,7 @@ public:
   ///
   /// \param in_channels Number of input channels
   /// \param out_channels Number of output channels
-  /// \param expected_sample_rate Expected sample rate in Hz (-1.0 if unknown)
+  /// \param expected_sample_rate Training sample rate in Hz (-1.0 if unknown)
   DSP(const int in_channels, const int out_channels, const double expected_sample_rate);
 
   /// \brief Virtual destructor
@@ -95,9 +95,18 @@ public:
   /// \param output Output audio buffers. Same structure as input.
   /// \param num_frames Number of frames to process
   virtual void process(NAM_SAMPLE** input, NAM_SAMPLE** output, const int num_frames);
-  /// \brief Get the expected sample rate
-  /// \return Expected sample rate in Hz (-1.0 if unknown)
+  /// \brief Get the sample rate at which the model was trained
+  ///
+  /// This remains unchanged by Reset(). Models that support arbitrary sample rates
+  /// can also run at other rates; see SupportsArbitrarySampleRate().
+  /// \return Training sample rate in Hz (-1.0 if unknown)
   double GetExpectedSampleRate() const { return mExpectedSampleRate; };
+
+  /// \brief Whether this model can adapt to arbitrary processing sample rates
+  ///
+  /// Call Reset() with the desired processing rate before processing audio.
+  /// A known training sample rate is needed to perform rate conversion.
+  virtual bool SupportsArbitrarySampleRate() { return false; }
 
   /// \brief Get the number of input channels
   /// \return Number of input channels
@@ -158,6 +167,8 @@ public:
   ///
   /// By default, this calls prewarm() after updating the sample rate and buffer size. Use SetPrewarmOnReset() to
   /// disable or re-enable that behavior for a DSP instance.
+  /// Models supporting arbitrary sample rates adapt here. Reset() may allocate
+  /// and must be called outside real-time audio processing.
   /// \param sampleRate Current sample rate
   /// \param maxBufferSize Maximum buffer size to process
   virtual void Reset(const double sampleRate, const int maxBufferSize);
@@ -204,7 +215,7 @@ protected:
   bool mHasLoudness = false;
   // How loud is the model? In dB
   double mLoudness = 0.0;
-  // What sample rate does the model expect?
+  // The sample rate at which the model was trained.
   double mExpectedSampleRate;
   // Have we been told what the external sample rate is? If so, what is it?
   bool mHaveExternalSampleRate = false;
@@ -243,7 +254,7 @@ public:
   /// \param in_channels Number of input channels
   /// \param out_channels Number of output channels
   /// \param receptive_field Size of the receptive field (buffer size needed)
-  /// \param expected_sample_rate Expected sample rate in Hz (-1.0 if unknown)
+  /// \param expected_sample_rate Training sample rate in Hz (-1.0 if unknown)
   Buffer(const int in_channels, const int out_channels, const int receptive_field,
          const double expected_sample_rate = -1.0);
 
@@ -352,8 +363,8 @@ struct dspData
   nlohmann::json config; ///< Model configuration JSON
   nlohmann::json metadata; ///< Model metadata JSON
   std::vector<float> weights; ///< Model weights
-  double expected_sample_rate; ///< Expected sample rate in Hz. Most NAM models implicitly assume data at some sample
-                               ///< rate. Use -1.0 for "I don't know".
+  double expected_sample_rate; ///< Training sample rate in Hz (-1.0 if unknown). Models advertising
+                               ///< SupportsArbitrarySampleRate() may also run at other rates.
 };
 
 /// \brief Verify that the config version is supported by this plugin version

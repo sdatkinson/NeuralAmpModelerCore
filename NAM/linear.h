@@ -33,13 +33,26 @@ public:
   /// \param receptive_field Size of the impulse response
   /// \param _bias Whether to use bias
   /// \param weights Model weights (impulse response coefficients)
-  /// \param expected_sample_rate Expected sample rate in Hz (-1.0 if unknown)
+  /// \param expected_sample_rate Training sample rate in Hz (-1.0 if unknown)
   /// \param implementation Convolution implementation to use
   Linear(const int in_channels, const int out_channels, const int receptive_field, const bool _bias,
          const std::vector<float>& weights, const double expected_sample_rate = -1.0,
          const LinearImplementation implementation = LinearImplementation::Auto);
 
   ~Linear() override;
+
+  /// \brief Whether the training sample rate is known, finite, and positive
+  bool SupportsArbitrarySampleRate() override;
+
+  /// \brief Adapt the original impulse response to the processing sample rate and clear history
+  ///
+  /// Uses cubic interpolation with sample-rate-dependent gain compensation.
+  /// The bias and training sample rate are unchanged. If the training rate is
+  /// unknown (-1.0), the original coefficients are used without conversion.
+  /// This may allocate and must be called outside real-time audio processing.
+  /// \throws std::invalid_argument If the processing rate is not finite and positive
+  /// \throws std::length_error If the resampled response or buffer size is too large
+  void Reset(const double sampleRate, const int maxBufferSize) override;
 
   /// \brief Process audio frames
   /// \param input Input audio buffers
@@ -59,6 +72,8 @@ protected:
   float _bias;
 
 private:
+  // Keep the trained coefficients so repeated rate changes never compound interpolation error.
+  std::vector<float> _original_impulse_response;
   std::vector<float> _impulse_response;
   LinearImplementation _requested_implementation;
   LinearImplementation _active_implementation;
@@ -108,7 +123,7 @@ LinearConfig parse_config_json(const nlohmann::json& config);
 
 /// \brief Config parser for ConfigParserRegistry
 /// \param config JSON configuration object
-/// \param sampleRate Expected sample rate in Hz
+/// \param sampleRate Training sample rate in Hz
 /// \return unique_ptr<ModelConfig> wrapping a LinearConfig
 std::unique_ptr<ModelConfig> create_config(const nlohmann::json& config, double sampleRate);
 } // namespace linear

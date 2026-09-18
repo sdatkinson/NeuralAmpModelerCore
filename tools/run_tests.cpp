@@ -97,6 +97,11 @@ int main()
   test_dsp::test_reset_and_prewarm_restores_prewarm_on_throw();
   test_dsp::test_scoped_prewarm_on_reset_default();
 
+  test_linear::test_arbitrary_sample_rate_capability();
+  test_linear::test_sample_rate_known_values();
+  test_linear::test_sample_rate_fractional_and_fft();
+  test_linear::test_sample_rate_short_unknown_and_invalid();
+  test_linear::test_sample_rate_multichannel_realtime_safe();
   test_linear::test_direct_known_values();
   test_linear::test_fft_matches_direct_irregular_chunks();
   test_linear::test_auto_selection();
