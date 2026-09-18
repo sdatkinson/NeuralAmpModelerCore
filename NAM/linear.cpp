@@ -39,9 +39,9 @@ int _ceil_div(const int numerator, const int denominator)
   return (numerator + denominator - 1) / denominator;
 }
 
-// Adapted from AudioDSPTools dsp/Resample.h (MIT, Steven Atkinson, 2023):
+// Adapted from AudioDSPTools dsp/Resample.h:
 // https://github.com/sdatkinson/AudioDSPTools/blob/844680d118f0317565132c3c5e3aca5f5c976e7a/dsp/Resample.h
-// See LICENSE. Sample by integer output index to avoid accumulated timing error,
+// Sample by integer output index to avoid accumulated timing error,
 // and zero-pad the causal impulse response at both ends for cubic interpolation.
 std::vector<float> _resample_impulse_response(const std::vector<float>& inputs, const double original_rate,
                                               const double desired_rate)
