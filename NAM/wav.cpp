@@ -14,7 +14,7 @@ namespace nam
 {
 namespace detail
 {
-std::vector<float> load_wav_ir(const std::filesystem::path& filename, double& sample_rate)
+std::vector<float> load_wav_ir(const std::filesystem::path& filename, double& sample_rate, int& out_channels)
 {
   // Format and scaling follow AudioDSPTools/dsp/wav.cpp. Read little-endian fields explicitly and
   // check chunk bounds before allocation or decoding, including odd-byte RIFF padding.
@@ -47,7 +47,7 @@ std::vector<float> load_wav_ir(const std::filesystem::path& filename, double& sa
     fail("invalid RIFF size");
 
   bool have_format = false, have_data = false;
-  uint32_t format = 0, bits = 0, rate = 0, alignment = 0, data_size = 0;
+  uint32_t format = 0, bits = 0, rate = 0, alignment = 0, data_size = 0, channels = 0;
   uint64_t data_position = 0;
   for (uint64_t position = 12; position < end;)
   {
@@ -68,8 +68,9 @@ std::vector<float> load_wav_ir(const std::filesystem::path& filename, double& sa
       std::array<unsigned char, 40> fmt{};
       read(fmt.data(), std::min(size_t(size), fmt.size()));
       format = uint_le(fmt.data(), 2);
-      if (uint_le(fmt.data() + 2, 2) != 1)
-        fail("only mono impulse responses are supported");
+      channels = uint_le(fmt.data() + 2, 2);
+      if (channels != 1 && channels != 2)
+        fail("only mono or stereo impulse responses are supported");
       rate = uint_le(fmt.data() + 4, 4);
       const uint32_t byte_rate = uint_le(fmt.data() + 8, 4);
       alignment = uint_le(fmt.data() + 12, 2);
@@ -91,7 +92,7 @@ std::vector<float> load_wav_ir(const std::filesystem::path& filename, double& sa
       }
       if (!((format == 1 && (bits == 16 || bits == 24 || bits == 32)) || (format == 3 && bits == 32)))
         fail("supported formats are PCM 16/24/32-bit and IEEE float 32-bit");
-      if (rate == 0 || alignment != bits / 8 || uint64_t(rate) * alignment != byte_rate)
+      if (rate == 0 || alignment != channels * (bits / 8) || uint64_t(rate) * alignment != byte_rate)
         fail("invalid sample rate or block alignment");
       have_format = true;
     }
@@ -110,13 +111,16 @@ std::vector<float> load_wav_ir(const std::filesystem::path& filename, double& sa
   const size_t count = data_size / alignment;
   if (count > static_cast<size_t>(std::numeric_limits<int>::max()))
     fail("impulse response is too long");
-  std::vector<float> samples(count);
+  std::vector<float> samples(count * channels);
+  const uint32_t bytes_per_sample = bits / 8;
   file.seekg(static_cast<std::streamoff>(data_position));
-  for (auto& sample : samples)
+  for (size_t i = 0; i < samples.size(); ++i)
   {
+    // WAV frames interleave channels; Linear stores each output's entire kernel contiguously.
+    auto& sample = samples[(i % channels) * count + i / channels];
     unsigned char bytes[4]{};
-    read(bytes, alignment);
-    const uint32_t raw = uint_le(bytes, alignment);
+    read(bytes, bytes_per_sample);
+    const uint32_t raw = uint_le(bytes, bytes_per_sample);
     if (format == 3)
     {
       static_assert(sizeof(float) == 4 && std::numeric_limits<float>::is_iec559, "WAV requires IEEE float32");
@@ -133,6 +137,7 @@ std::vector<float> load_wav_ir(const std::filesystem::path& filename, double& sa
     }
   }
   sample_rate = rate;
+  out_channels = static_cast<int>(channels);
   return samples;
 }
 } // namespace detail

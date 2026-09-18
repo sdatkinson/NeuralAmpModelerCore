@@ -77,14 +77,15 @@ struct DspLoadOptions
   std::optional<bool> prewarm = std::nullopt;
 };
 
-/// \brief Get NAM from a .nam model or mono .wav impulse response
+/// \brief Get NAM from a .nam model or mono/stereo .wav impulse response
 /// \param config_filename Path to the .nam model or .wav impulse response file
 /// \param options Loading options
 /// \return Unique pointer to a DSP object
-/// \details WAV extensions are case-insensitive. Mono PCM 16/24/32-bit and IEEE float32 RIFF/WAVE files
+/// \details WAV extensions are case-insensitive. Mono/stereo PCM 16/24/32-bit and IEEE float32 RIFF/WAVE files
 /// (including WAVE_FORMAT_EXTENSIBLE) become bias-free Linear models with unscaled samples as weights.
+/// Stereo files create one-input, two-output models; each WAV channel supplies its output impulse response.
 /// The WAV sample rate is retained; Linear::Reset handles resampling. Returned configurations can be reloaded.
-/// \throws std::runtime_error If a WAV file is invalid, empty, non-mono, or uses an unsupported format
+/// \throws std::runtime_error If a WAV file is invalid, empty, has more than two channels, or uses an unsupported format
 /// \throws NamFileValidationError If a .nam file cannot be read or does not contain a minimally valid configuration
 std::unique_ptr<DSP> get_dsp(const std::filesystem::path config_filename, DspLoadOptions options = DspLoadOptions());
 
@@ -94,17 +95,18 @@ std::unique_ptr<DSP> get_dsp(const std::filesystem::path config_filename, DspLoa
 /// \return Unique pointer to a DSP object
 std::unique_ptr<DSP> get_dsp(dspData& conf, DspLoadOptions options = DspLoadOptions());
 
-/// \brief Get NAM from a .nam model or mono .wav impulse response and store its configuration
+/// \brief Get NAM from a .nam model or mono/stereo .wav impulse response and store its configuration
 ///
 /// Creates an instance of DSP and also returns a dspData struct that holds the data of the model.
 /// \param config_filename Path to the .nam model or .wav impulse response file
 /// \param returnedConfig Output parameter that will be filled with the model data
 /// \param options Loading options
 /// \return Unique pointer to a DSP object
-/// \details WAV extensions are case-insensitive. Mono PCM 16/24/32-bit and IEEE float32 RIFF/WAVE files
+/// \details WAV extensions are case-insensitive. Mono/stereo PCM 16/24/32-bit and IEEE float32 RIFF/WAVE files
 /// (including WAVE_FORMAT_EXTENSIBLE) become bias-free Linear models with unscaled samples as weights.
+/// Stereo files create one-input, two-output models; each WAV channel supplies its output impulse response.
 /// The WAV sample rate is retained; Linear::Reset handles resampling. Returned configurations can be reloaded.
-/// \throws std::runtime_error If a WAV file is invalid, empty, non-mono, or uses an unsupported format
+/// \throws std::runtime_error If a WAV file is invalid, empty, has more than two channels, or uses an unsupported format
 /// \throws NamFileValidationError If a .nam file cannot be read or does not contain a minimally valid configuration
 std::unique_ptr<DSP> get_dsp(const std::filesystem::path config_filename, dspData& returnedConfig,
                              DspLoadOptions options = DspLoadOptions());

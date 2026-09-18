@@ -177,10 +177,14 @@ std::unique_ptr<DSP> get_dsp(const std::filesystem::path config_filename, dspDat
   if (extension == ".wav")
   {
     dspData config;
-    config.weights = detail::load_wav_ir(config_filename, config.expected_sample_rate);
+    int out_channels;
+    config.weights = detail::load_wav_ir(config_filename, config.expected_sample_rate, out_channels);
     config.version = LATEST_FULLY_SUPPORTED_NAM_FILE_VERSION;
     config.architecture = "Linear";
-    config.config = {{"receptive_field", config.weights.size()}, {"bias", false}};
+    config.config = {{"receptive_field", config.weights.size() / out_channels},
+                     {"bias", false},
+                     {"in_channels", 1},
+                     {"out_channels", out_channels}};
     config.metadata = nullptr;
     returnedConfig = std::move(config);
   }
