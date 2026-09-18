@@ -232,6 +232,21 @@ void test_arbitrary_sample_rate_capability()
   nam::Linear linear(1, 1, 1, false, {1.0f}, 48000.0);
   nam::DSP& model = linear;
   assert(model.SupportsArbitrarySampleRate());
+  model.Reset(96000.0, 4);
+  assert(model.SupportsArbitrarySampleRate());
+
+  nam::Linear unknown(1, 1, 1, false, {1.0f});
+  nam::DSP& unknown_model = unknown;
+  assert(!unknown_model.SupportsArbitrarySampleRate());
+  unknown_model.Reset(44100.0, 4);
+  assert(!unknown_model.SupportsArbitrarySampleRate());
+
+  for (const double rate :
+       {0.0, -2.0, std::numeric_limits<double>::infinity(), std::numeric_limits<double>::quiet_NaN()})
+  {
+    nam::Linear invalid_rate(1, 1, 1, false, {1.0f}, rate);
+    assert(!invalid_rate.SupportsArbitrarySampleRate());
+  }
 }
 
 // The cubic interpolation of a delayed unit impulse has these exact values.
