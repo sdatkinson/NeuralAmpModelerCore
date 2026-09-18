@@ -7,10 +7,13 @@ omitted from the model configuration. Unequal counts greater than one (for
 example, 2 inputs and 3 outputs) are rejected when constructing/loading the
 model.
 
-.. versionchanged:: 0.5.5
+.. versionchanged:: 0.6.0
 
-   Added one-to-many and many-to-one convolution with separate impulse
-   responses. Unequal channel counts greater than one are rejected.
+   Breaking change: one-to-many and many-to-one models require separate
+   impulse responses in the layout documented below. Models with unequal
+   channel counts using a single shared response must be updated. Unequal
+   channel counts greater than one are rejected instead of partially
+   processing channels. Mono and equal-channel model layouts are unchanged.
 
 Channel mapping
 ---------------
