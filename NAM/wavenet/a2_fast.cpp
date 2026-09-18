@@ -20,6 +20,7 @@
   #include <sstream>
   #include <stdexcept>
   #include <string>
+  #include <type_traits>
   #include <utility>
   #include <vector>
 
@@ -36,6 +37,54 @@ namespace a2_fast
 
 namespace
 {
+
+// At small host blocks the setup of each 8x8 GEMM is a significant cost.
+// Cache Eigen's packed weight panels and call the SAME gebp kernel used by
+// W * input. In particular, do not replace it with a differently ordered dot
+// product: the existing A2 output must stay bit-identical.
+// These internal types deliberately follow the pinned Eigen submodule's
+// GeneralMatrixMatrix.h; re-run the reference comparison after updating Eigen.
+struct A2SmallBlockGemm
+{
+  using Index = Eigen::Index;
+  using Traits = Eigen::internal::gebp_traits<float, float>;
+  using InputMapper = Eigen::internal::const_blas_data_mapper<float, Index, Eigen::ColMajor>;
+  using OutputMapper = Eigen::internal::blas_data_mapper<float, Index, Eigen::ColMajor, Eigen::Unaligned, 1>;
+  using PackWeights = Eigen::internal::gemm_pack_lhs<float, Index, InputMapper, Traits::mr, Traits::LhsProgress,
+                                                    typename Traits::LhsPacket4Packing, Eigen::ColMajor>;
+  using PackInput = Eigen::internal::gemm_pack_rhs<float, Index, InputMapper, Traits::nr, Eigen::ColMajor>;
+  using Kernel = Eigen::internal::gebp_kernel<float, float, Index, OutputMapper, Traits::mr, Traits::nr, false, false>;
+
+  // External BLAS has its own arithmetic. Keep its original dispatch intact.
+  #if defined(EIGEN_USE_BLAS)
+  static constexpr bool kEnabled = false;
+  #else
+  static constexpr bool kEnabled = true;
+  #endif
+
+  static bool supports(int frames)
+  {
+    // Respect Eigen's coefficient-product threshold if a consumer overrides it.
+    return kEnabled && (frames == 32 || frames == 64) && 16 + frames >= EIGEN_GEMM_TO_COEFFBASED_THRESHOLD;
+  }
+
+  static void pack(float* packed, const float* weights)
+  {
+    PackWeights{}(packed, InputMapper(weights, 8), 8, 8);
+  }
+
+  static void add(float* output, const float* packed_weights, const float* input, int frames)
+  {
+    eigen_assert(supports(frames));
+    // Bounded stack scratch, no process-time allocation or extra audio buffer.
+    EIGEN_ALIGN_MAX float packed_input[8 * 64];
+    PackInput{}(packed_input, InputMapper(input, 8), 8, frames);
+    Kernel{}(OutputMapper(output, 8, 1), packed_weights, packed_input, 8, 8, frames, 1.0f);
+  }
+};
+
+struct A2NoWeightCache
+{};
 
 // =============================================================================
 // A2FastModel<Channels>
@@ -90,6 +139,10 @@ private:
     // layer1x1 (Bottleneck -> Channels), with bias. Column-major (Channels × Bottleneck).
     std::array<float, Channels * Channels> l1x1_w{};
     std::array<float, Channels> l1x1_b{};
+
+    // Filled once at load time for A2-Full, one 8x8 panel per tap plus residual.
+    [[no_unique_address]] std::conditional_t<Channels == 8,
+      std::vector<float, Eigen::aligned_allocator<float>>, A2NoWeightCache> packed_weights;
 
     // Conv1D input history ring buffer, column-major (Channels rows).
     std::vector<float> history;
@@ -258,6 +311,14 @@ void A2FastModel<Channels>::_load_weights(std::vector<float>& weights)
     }
     for (int i = 0; i < Channels; i++)
       L.l1x1_b[i] = take();
+
+    if constexpr (Channels == 8 && A2SmallBlockGemm::kEnabled)
+    {
+      L.packed_weights.resize(static_cast<size_t>(K + 1) * 64);
+      for (int k = 0; k < K; ++k)
+        A2SmallBlockGemm::pack(L.packed_weights.data() + k * 64, L.conv_w.data() + k * 64);
+      A2SmallBlockGemm::pack(L.packed_weights.data() + K * 64, L.l1x1_w.data());
+    }
   }
 
   // Head rechannel: Bottleneck -> 1, kernel=16, bias.
@@ -511,12 +572,9 @@ void A2FastModel<Channels>::_layer_forward_k(Layer& L, const float* cond, int nu
   //     more than weight-reload cost when the b-loop (3 wide) can't saturate
   //     NEON lanes on its own.
   //
-  //   - Channels >= 8 (A2-Full): frame-tiled tap-major with T=4. ztile
-  //     stays in NEON registers across all K taps, amortizing weight loads
-  //     over 4 frames — equivalent to what a GEMM kernel does. Weight reuse
-  //     matters here because the b-loop (8 wide) already saturates SIMD, so
-  //     frame-level parallelism gives no extra headroom. The 1x1 residual is
-  //     also tiled over the same T=4 frames so W1x1 loads are amortized.
+  //   - Channels == 8 (A2-Full): whole-block Eigen GEMMs. At 32/64 frames,
+  //     reuse packed weights and bypass general GEMM setup while retaining
+  //     the same accumulation kernel. Other sizes use the original dispatch.
 
   if constexpr (Channels == 3)
   {
@@ -661,13 +719,18 @@ void A2FastModel<Channels>::_layer_forward_k(Layer& L, const float* cond, int nu
 
     ztile.setZero();
 
+    const bool small_block = A2SmallBlockGemm::supports(num_frames);
+
     // Conv: one 8x8 × 8xN GEMM per tap.
     for (int k = 0; k < K; k++)
     {
       const int tap_base = tap_base_phys(K - 1 - k);
       Eigen::Map<const MatCC> W(&L.conv_w[static_cast<size_t>(k) * Channels * Channels]);
       Eigen::Map<const MatCDyn> input_block(&L.history[static_cast<size_t>(tap_base) * Channels], Channels, num_frames);
-      ztile.noalias() += W * input_block;
+      if (small_block)
+        A2SmallBlockGemm::add(_z.data(), L.packed_weights.data() + k * 64, input_block.data(), num_frames);
+      else
+        ztile.noalias() += W * input_block;
     }
 
     // Post-conv: bias, mixin, LeakyReLU, head_sum, 1x1 residual — all block ops.
@@ -675,7 +738,10 @@ void A2FastModel<Channels>::_layer_forward_k(Layer& L, const float* cond, int nu
     ztile.noalias() += mixin_vec * cond_row; // rank-1 outer product
     ztile = (ztile.array() < 0.0f).select(ztile.array() * kLeakySlope, ztile.array());
     hsum_block += ztile;
-    lin_block.noalias() += l1x1_mat * ztile; // 8x8 × 8xN GEMM
+    if (small_block)
+      A2SmallBlockGemm::add(_layer_in.data(), L.packed_weights.data() + K * 64, _z.data(), num_frames);
+    else
+      lin_block.noalias() += l1x1_mat * ztile; // 8x8 × 8xN GEMM
     lin_block.colwise() += l1x1_b_vec;
   }
 }

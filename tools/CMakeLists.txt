@@ -75,6 +75,24 @@ else()
 	)
 endif()
 add_executable(run_tests run_tests.cpp test/allocation_tracking.cpp ${NAM_SOURCES})
+
+# Opt-in before/after regression and benchmark. The reference source is compiled
+# in a separate namespace; no handwritten approximation or numerical tolerance.
+set(NAM_A2_REFERENCE_DIR "" CACHE PATH "Untouched NAM checkout used by test_a2_bitperfect")
+if(NAM_A2_REFERENCE_DIR)
+	if(NOT NAM_ENABLE_A2_FAST)
+		message(FATAL_ERROR "test_a2_bitperfect requires NAM_ENABLE_A2_FAST=ON")
+	endif()
+	get_filename_component(_a2_reference "${NAM_A2_REFERENCE_DIR}/NAM/wavenet/a2_fast.cpp" ABSOLUTE)
+	if(NOT EXISTS "${_a2_reference}")
+		message(FATAL_ERROR "Reference A2 source not found: ${_a2_reference}")
+	endif()
+	file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/a2_reference.cpp"
+		"#define a2_fast a2_reference\n#include \"${_a2_reference}\"\n")
+	add_executable(test_a2_bitperfect test_a2_bitperfect.cpp
+		../NAM/dsp.cpp ../NAM/wavenet/a2_fast.cpp "${CMAKE_CURRENT_BINARY_DIR}/a2_reference.cpp")
+endif()
+
 # Compile run_tests without optimizations to ensure allocation tracking works correctly
 # Also ensure assertions are enabled (NDEBUG is not defined) so tests actually run
 set_target_properties(run_tests PROPERTIES COMPILE_OPTIONS "-O0")
