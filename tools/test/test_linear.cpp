@@ -1,11 +1,13 @@
 // Tests for Linear DSP models
 
 #include "NAM/dsp.h"
+#include "NAM/linear.h"
 
 #include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <stdexcept>
+#include <limits>
 #include <vector>
 
 #include "allocation_tracking.h"
@@ -220,6 +222,161 @@ void test_auto_fft_process_realtime_safe()
 {
   assert_process_realtime_safe(
     4096, nam::LinearImplementation::Auto, nam::LinearImplementation::FFT, "Linear auto FFT process real-time safe");
+}
+
+
+void test_arbitrary_sample_rate_capability()
+{
+  nam::DSP fixed_rate(1, 1, 48000.0);
+  assert(!fixed_rate.SupportsArbitrarySampleRate());
+  nam::Linear linear(1, 1, 1, false, {1.0f}, 48000.0);
+  nam::DSP& model = linear;
+  assert(model.SupportsArbitrarySampleRate());
+}
+
+// The cubic interpolation of a delayed unit impulse has these exact values.
+// The factor originalRate / desiredRate preserves the IR's gain.
+void test_sample_rate_known_values()
+{
+  for (const auto implementation : {nam::LinearImplementation::Direct, nam::LinearImplementation::FFT})
+  {
+    const std::vector<float> weights{0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.125f};
+    nam::Linear model(1, 1, 5, true, weights, 48000.0, implementation);
+    model.SetPrewarmOnReset(false);
+    std::vector<NAM_SAMPLE> input(16, 0.0);
+    input[0] = 1.0;
+    // Repeated changes must always use the original weights, including when
+    // returning to the training rate after processing nonzero audio.
+    for (int repeat = 0; repeat < 2; ++repeat)
+    {
+      for (const double rate : {96000.0, 24000.0, 48000.0})
+      {
+        model.Reset(rate, 7);
+        assert(model.GetExpectedSampleRate() == 48000.0);
+        const auto output = process_model(model, input, {1, 7, 3});
+        const std::vector<double> expected =
+          rate == 96000.0   ? std::vector<double>{0.0, -0.03125, 0.0, 0.28125, 0.5, 0.28125, 0.0, -0.03125, 0.0, 0.0}
+          : rate == 24000.0 ? std::vector<double>{0.0, 2.0, 0.0}
+                            : std::vector<double>{0.0, 0.0, 1.0, 0.0, 0.0};
+        for (size_t i = 0; i < output.size(); ++i)
+          assert_near(output[i], 0.125 + (i < expected.size() ? expected[i] : 0.0), 1.0e-6);
+      }
+    }
+  }
+}
+
+void test_sample_rate_fractional_and_fft()
+{
+  const int taps = 1200;
+  std::vector<float> weights(taps, 0.0f);
+  // A linear ramp is reproduced exactly by cubic interpolation away from the boundaries.
+  for (int i = 0; i < taps; ++i)
+    weights[i] = (float)i / taps;
+  nam::Linear direct(1, 1, taps, false, weights, 48000.0, nam::LinearImplementation::Direct);
+  nam::Linear automatic(1, 1, taps, false, weights, 48000.0);
+  for (const double rate : {44100.0, 32000.0, 96000.0, 48000.0})
+  {
+    const int length = (int)std::ceil(taps * rate / 48000.0);
+    direct.Reset(rate, 127);
+    automatic.Reset(rate, 127);
+    assert(automatic.GetActiveImplementation() == nam::linear::select_implementation(length));
+    std::vector<NAM_SAMPLE> input(length + 256, 0.0);
+    input[0] = 1.0;
+    const auto reference = process_model(direct, input, {127, 1, 13});
+    const auto output = process_model(automatic, input, {3, 64, 1, 127});
+    for (size_t i = 0; i < output.size(); ++i)
+    {
+      assert_near(output[i], reference[i], 2.0e-5);
+      const double source_position = i * 48000.0 / rate;
+      if (source_position >= 1.0 && source_position < taps - 2)
+        assert_near(output[i], source_position / taps * 48000.0 / rate, 2.0e-5);
+      if (i >= (size_t)length)
+        assert_near(output[i], 0.0, 2.0e-5);
+    }
+  }
+}
+
+void test_sample_rate_short_unknown_and_invalid()
+{
+  for (const auto implementation : {nam::LinearImplementation::Direct, nam::LinearImplementation::FFT})
+  {
+    nam::Linear short_ir(1, 1, 1, false, {1.0f}, 48000.0, implementation);
+    short_ir.Reset(96000.0, 4);
+    const auto output = process_model(short_ir, {1.0, 0.0, 0.0, 0.0}, {4});
+    assert_near(output[0], 0.5, 1.0e-7);
+    assert_near(output[1], 0.28125, 1.0e-7);
+    assert_near(output[2], 0.0, 1.0e-7);
+    short_ir.Reset(8000.0, 4);
+    assert_near(process_model(short_ir, {1.0}, {1})[0], 6.0, 1.0e-7);
+
+    // Without a training rate there is no conversion ratio; keep legacy weights.
+    nam::Linear unknown(1, 1, 2, false, {0.5f, 0.25f}, -1.0, implementation);
+    unknown.Reset(44100.0, 4);
+    const auto unchanged = process_model(unknown, {1.0, 0.0, 0.0}, {3});
+    assert_near(unchanged[0], 0.5, 1.0e-7);
+    assert_near(unchanged[1], 0.25, 1.0e-7);
+    assert(unknown.GetExpectedSampleRate() == -1.0);
+    for (const double rate : {0.0, -1.0, std::numeric_limits<double>::infinity(),
+                              std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::max()})
+    {
+      bool threw = false;
+      try
+      {
+        short_ir.Reset(rate, 4);
+      }
+      catch (const std::exception&)
+      {
+        threw = true;
+      }
+      assert(threw);
+    }
+  }
+}
+
+void test_sample_rate_multichannel_realtime_safe()
+{
+  for (const auto implementation : {nam::LinearImplementation::Direct, nam::LinearImplementation::FFT})
+  {
+    std::vector<float> weights(2048, 0.0f);
+    weights[300] = 1.0f;
+    nam::Linear model(2, 3, 2048, false, weights, 48000.0, implementation);
+    model.SetPrewarmOnReset(false);
+    model.Reset(96000.0, 64);
+    std::vector<NAM_SAMPLE> input0(64, 0.0), input1(64, 0.0);
+    std::vector<NAM_SAMPLE> output0(64), output1(64), output2(64);
+    NAM_SAMPLE* inputs[] = {input0.data(), input1.data()};
+    NAM_SAMPLE* outputs[] = {output0.data(), output1.data(), output2.data()};
+    allocation_tracking::run_allocation_test_no_allocations(
+      nullptr,
+      [&]() {
+        for (int block = 0; block < 80; ++block)
+        {
+          input0[0] = block == 0 ? 1.0 : 0.0;
+          input1[0] = block == 0 ? 2.0 : 0.0;
+          model.process(inputs, outputs, 64);
+          for (int i = 0; i < 64; ++i)
+          {
+            const int position = block * 64 + i;
+            double expected = 0.0;
+            if (position == 600)
+              expected = 0.5;
+            if (position == 599 || position == 601)
+              expected = 0.28125;
+            if (position == 597 || position == 603)
+              expected = -0.03125;
+            assert_near(output0[i], expected, 1.0e-6);
+            assert_near(output1[i], 2.0 * expected, 1.0e-6);
+            assert_near(output2[i], 0.0, 1.0e-7);
+          }
+        }
+      },
+      nullptr, "Linear resampled first process real-time safe");
+    // Same-rate reset must also clear direct history and pending FFT work.
+    model.Reset(96000.0, 64);
+    model.process(inputs, outputs, 64);
+    for (int i = 0; i < 64; ++i)
+      assert_near(output0[i], 0.0, 1.0e-6);
+  }
 }
 
 } // namespace test_linear
