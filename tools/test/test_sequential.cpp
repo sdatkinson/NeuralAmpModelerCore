@@ -284,7 +284,7 @@ void test_sequential_rejects_top_level_sample_rate_mismatch()
 void test_sequential_rejects_channel_mismatch()
 {
   const auto model =
-    make_sequential_model({make_linear_model({1.0f}, 1, 48000.0, 1, 2), make_linear_model({1.0f}, 1, 48000.0, 1, 1)});
+    make_sequential_model({make_linear_model({1.0f, 1.0f}, 1, 48000.0, 1, 2), make_linear_model({1.0f}, 1, 48000.0, 1, 1)});
 
   assert(throws_runtime_error_containing([&]() { auto dsp = nam::get_dsp(model); }, "channel mismatch"));
 }

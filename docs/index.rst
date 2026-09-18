@@ -9,6 +9,7 @@ Welcome to the NeuralAmpModelerCore documentation. This library provides a core 
 
    wavenet_walkthrough
    nam_file_version
+   linear
    api/index
 
 Overview

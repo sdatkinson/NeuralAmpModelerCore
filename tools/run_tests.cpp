@@ -99,6 +99,7 @@ int main()
 
   test_linear::test_channel_mappings();
   test_linear::test_channel_validation();
+  test_linear::test_channel_mapping_in_place();
   test_linear::test_arbitrary_sample_rate_capability();
   test_linear::test_sample_rate_known_values();
   test_linear::test_sample_rate_fractional_and_fft();

@@ -485,6 +485,53 @@ void test_channel_mappings()
         }
 }
 
+
+void test_channel_mapping_in_place()
+{
+  for (const auto implementation : {nam::LinearImplementation::Direct, nam::LinearImplementation::FFT})
+    for (const auto shape : {std::pair<int, int>{1, 2}, {2, 1}, {2, 2}})
+    {
+      const int taps = 1536, frames = 4096;
+      const int kernels = shape.first == shape.second ? 1 : 2;
+      std::vector<float> weights(kernels * taps, 0.0f);
+      weights[0] = 0.5f;
+      weights[500] = 0.25f;
+      if (kernels == 2)
+      {
+        weights[taps] = -0.25f;
+        weights[taps + 900] = 0.125f;
+      }
+      nam::Linear model(shape.first, shape.second, taps, false, weights, 48000.0, implementation);
+      model.SetPrewarmOnReset(false);
+      model.Reset(48000.0, 64);
+      auto first = make_input(frames), second = make_input(frames);
+      for (auto& x : second)
+        x *= 2;
+      const auto original_first = first, original_second = second;
+      for (int offset = 0; offset < frames; offset += 64)
+      {
+        NAM_SAMPLE* buffers[] = {first.data() + offset, second.data() + offset};
+        model.process(buffers, buffers, 64);
+      }
+      for (int ch = 0; ch < shape.second; ++ch)
+        for (int i = 0; i < frames; ++i)
+        {
+          double expected = 0.0;
+          for (int path = 0; path < 2; ++path)
+          {
+            if (shape.second > 1 && ch != path)
+              continue;
+            const auto& source = shape.first == 1 || path == 0 ? original_first : original_second;
+            const int k = kernels == 1 ? 0 : path;
+            for (int tap : {0, 500, 900})
+              if (i >= tap)
+                expected += weights[k * taps + tap] * source[i - tap];
+          }
+          assert_near(ch == 0 ? first[i] : second[i], expected, 1.0e-6);
+        }
+    }
+}
+
 void test_channel_validation()
 {
   const auto defaults = nam::linear::parse_config_json({{"receptive_field", 3}, {"bias", false}});
