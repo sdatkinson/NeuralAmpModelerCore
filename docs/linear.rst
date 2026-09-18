@@ -5,16 +5,20 @@ Linear convolution and channel mapping
 those counts are equal or either count is one. Both fields default to one when
 omitted from the model configuration. Unequal counts greater than one (for
 example, 2 inputs and 3 outputs) are rejected when constructing/loading the
-model. As of v0.5.5, they do not silently discard inputs or silence extra
-outputs.
+model.
+
+.. versionchanged:: 0.5.5
+
+   Added one-to-many and many-to-one convolution with separate impulse
+   responses. Unequal channel counts greater than one are rejected.
 
 Channel mapping
 ---------------
 
-* **1 input, 1 output:** the existing mono convolution.
+* **1 input, 1 output:** mono-to-mono convolution.
 * **N inputs, N outputs:** each input feeds its corresponding output. All
-  channels share the same impulse response and, if enabled, bias, preserving
-  existing equal-channel models. There is no cross-channel mixing.
+  channels share the same impulse response and, if enabled, bias. There is no
+  cross-channel mixing.
 * **1 input, M outputs:** each output has its own impulse response applied to
   the single input: ``y[j] = convolve(h[j], x[0]) + b[j]``.
 * **N inputs, 1 output:** each input has its own impulse response, and the
@@ -24,12 +28,12 @@ Channel mapping
 Serialized weights
 ------------------
 
-The existing configuration fields ``receptive_field`` and ``bias`` retain their
-meaning. All impulse responses have ``receptive_field`` taps at the training
-sample rate. No additional configuration fields are required.
+The configuration field ``receptive_field`` specifies the number of taps in
+each impulse response at the training sample rate. The boolean field ``bias``
+controls whether bias parameters are included.
 
-For equal input/output counts, the existing layout is unchanged: one impulse
-response followed by one optional shared bias. The parameter count is
+For equal input/output counts, the weights contain one impulse response
+followed by one optional shared bias. The parameter count is
 ``receptive_field + (bias ? 1 : 0)``.
 
 For unequal supported counts, concatenate the impulse responses in channel
@@ -45,7 +49,7 @@ For example, with two taps per response and bias enabled:
 
 * **1 to 2:** ``[h0[0], h0[1], h1[0], h1[1], b0, b1]``.
 * **2 to 1:** ``[h0[0], h0[1], h1[0], h1[1], b0]``.
-* **2 to 2 (legacy):** ``[h[0], h[1], b]``.
+* **2 to 2:** ``[h[0], h[1], b]``.
 
 Both direct and FFT convolution use these rules. Resetting to a new processing
 sample rate independently resamples each response from its original training
