@@ -41,7 +41,8 @@ public:
 
   ~Linear() override;
 
-  bool SupportsArbitrarySampleRate() override { return true; }
+  /// \brief Whether the training sample rate is known, finite, and positive
+  bool SupportsArbitrarySampleRate() override;
 
   /// \brief Adapt the original impulse response to the processing sample rate and clear history
   ///

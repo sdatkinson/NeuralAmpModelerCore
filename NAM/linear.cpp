@@ -142,6 +142,12 @@ nam::Linear::Linear(const int in_channels, const int out_channels, const int rec
 
 nam::Linear::~Linear() = default;
 
+bool nam::Linear::SupportsArbitrarySampleRate()
+{
+  const double training_rate = GetExpectedSampleRate();
+  return std::isfinite(training_rate) && training_rate > 0.0;
+}
+
 void nam::Linear::process(NAM_SAMPLE** input, NAM_SAMPLE** output, const int num_frames)
 {
   if (this->_active_implementation == LinearImplementation::FFT)
