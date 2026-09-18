@@ -97,6 +97,9 @@ int main()
   test_dsp::test_reset_and_prewarm_restores_prewarm_on_throw();
   test_dsp::test_scoped_prewarm_on_reset_default();
 
+  test_linear::test_channel_mappings();
+  test_linear::test_channel_validation();
+  test_linear::test_channel_mapping_in_place();
   test_linear::test_arbitrary_sample_rate_capability();
   test_linear::test_sample_rate_known_values();
   test_linear::test_sample_rate_fractional_and_fft();

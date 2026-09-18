@@ -23,7 +23,12 @@ enum class LinearImplementation
 
 /// \brief Basic linear model
 ///
-/// Implements a simple linear convolution, (i.e. an impulse response).
+/// Implements linear convolution with equal channel counts or one input/output channel.
+/// Equal-channel models share one impulse response and optional bias. Otherwise,
+/// weights contain max(in_channels, out_channels) consecutive impulse responses
+/// in channel order, followed by out_channels biases when enabled. One-to-many
+/// filters the input for each output; many-to-one sums filtered inputs and adds
+/// the output bias once. Unequal channel counts greater than one are rejected.
 class Linear : public Buffer
 {
 public:
@@ -67,18 +72,21 @@ protected:
   void SetMaxBufferSize(const int maxBufferSize) override;
 
 protected:
-  Eigen::VectorXf _weight;
-  Eigen::VectorXf _fft_direct_weight;
-  float _bias;
+  std::vector<Eigen::VectorXf> _weight;
+  std::vector<Eigen::VectorXf> _fft_direct_weight;
+  std::vector<float> _bias;
 
 private:
   // Keep the trained coefficients so repeated rate changes never compound interpolation error.
-  std::vector<float> _original_impulse_response;
-  std::vector<float> _impulse_response;
+  std::vector<std::vector<float>> _original_impulse_response;
+  std::vector<std::vector<float>> _impulse_response;
   LinearImplementation _requested_implementation;
   LinearImplementation _active_implementation;
   std::unique_ptr<LinearFFTState> _fft_state;
 
+  // Equal-channel models share one kernel; unequal supported shapes use one per path.
+  int _kernel_index(int path) const { return _impulse_response.size() == 1 ? 0 : path; }
+  void _configure_weights();
   void _configure_implementation();
   void _configure_fft_state();
   void _process_direct(NAM_SAMPLE** input, NAM_SAMPLE** output, const int num_frames);
