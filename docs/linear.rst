@@ -5,7 +5,8 @@ Linear convolution and channel mapping
 those counts are equal or either count is one. Both fields default to one when
 omitted from the model configuration. Unequal counts greater than one (for
 example, 2 inputs and 3 outputs) are rejected when constructing/loading the
-model. They no longer silently discard inputs or silence extra outputs.
+model. As of v0.5.5, they do not silently discard inputs or silence extra
+outputs.
 
 Channel mapping
 ---------------
