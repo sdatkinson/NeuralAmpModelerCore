@@ -28,14 +28,14 @@ void chunk(Bytes& bytes, const char* id, const Bytes& payload)
     bytes.push_back(0);
 }
 
-Bytes wav(int format, int bits, const Bytes& samples, bool extensible = false)
+Bytes wav(int format, int bits, const Bytes& samples, bool extensible = false, int channels = 1)
 {
   Bytes fmt;
   append(fmt, extensible ? 65534 : format, 2);
-  append(fmt, 1, 2);
+  append(fmt, channels, 2);
   append(fmt, 44100, 4);
-  append(fmt, 44100 * (bits / 8), 4);
-  append(fmt, bits / 8, 2);
+  append(fmt, 44100 * channels * (bits / 8), 4);
+  append(fmt, channels * (bits / 8), 2);
   append(fmt, bits, 2);
   if (extensible)
   {
@@ -70,60 +70,84 @@ struct Fixture
   ~Fixture() { std::filesystem::remove(path); }
 };
 
-void check_response(nam::DSP& dsp)
+void check_response(nam::DSP& dsp, int channels = 1)
 {
   assert(dynamic_cast<nam::Linear*>(&dsp));
-  assert(dsp.NumInputChannels() == 1 && dsp.NumOutputChannels() == 1);
+  assert(dsp.NumInputChannels() == 1 && dsp.NumOutputChannels() == channels);
   assert(dsp.GetExpectedSampleRate() == 44100.0);
   assert(!dsp.HasLoudness() && !dsp.HasInputLevel() && !dsp.HasOutputLevel());
   dsp.Reset(44100.0, 2);
-  NAM_SAMPLE input[]{1, 0}, output[2]{};
+  NAM_SAMPLE input[]{1, 0}, output[2]{}, right[2]{};
   NAM_SAMPLE* inputs[]{input};
-  NAM_SAMPLE* outputs[]{output};
+  NAM_SAMPLE* outputs[]{output, right};
   dsp.process(inputs, outputs, 2);
   assert(std::abs(output[0] - 0.5) < 1e-6);
   assert(std::abs(output[1] + 0.25) < 1e-6);
+  if (channels == 2)
+  {
+    assert(std::abs(right[0] + 0.5) < 1e-6);
+    assert(std::abs(right[1] - 0.25) < 1e-6);
+  }
   input[0] = 0;
   dsp.process(inputs, outputs, 2);
   assert(std::abs(output[0] - 0.125) < 1e-6);
   assert(std::abs(output[1]) < 1e-6);
+  if (channels == 2)
+  {
+    assert(std::abs(right[0] + 0.125) < 1e-6);
+    assert(std::abs(right[1]) < 1e-6);
+  }
 }
 
 void test_formats_and_configuration()
 {
   for (const int format : {1, 3})
     for (const int bits : {16, 24, 32})
-      for (const bool extensible : {false, true})
-      {
-        if (format == 3 && bits != 32)
-          continue;
-        Bytes samples;
-        if (format == 3)
-          for (uint32_t value : {0x3f000000u, 0xbe800000u, 0x3e000000u})
-            append(samples, value, 4);
-        else
-          for (int32_t value : {int32_t(1 << (bits - 2)), -int32_t(1 << (bits - 3)), int32_t(1 << (bits - 4))})
-            append(samples, static_cast<uint32_t>(value), bits / 8);
-        Fixture fixture(wav(format, bits, samples, extensible));
-        nam::dspData config;
-        nam::DspLoadOptions options;
-        options.prewarm = false;
-        auto dsp = nam::get_dsp(fixture.path, config, options);
-        check_response(*dsp);
-        assert(config.architecture == "Linear");
-        assert(config.version == nam::LATEST_FULLY_SUPPORTED_NAM_FILE_VERSION);
-        assert(config.config.at("receptive_field") == 3);
-        assert(config.config.at("bias") == false);
-        assert(config.expected_sample_rate == 44100.0);
-        assert(config.metadata.is_null());
-        assert((config.weights == std::vector<float>{0.5f, -0.25f, 0.125f}));
-        auto reloaded = nam::get_dsp(config);
-        check_response(*reloaded);
-        nam::ScopedPrewarmOnResetDefault scoped(false);
-        auto convenience = nam::get_dsp(fixture.path);
-        assert(!convenience->GetPrewarmOnReset());
-        check_response(*convenience);
-      }
+      for (const int channels : {1, 2})
+        for (const bool extensible : {false, true})
+        {
+          if (format == 3 && bits != 32)
+            continue;
+          Bytes samples;
+          if (format == 3)
+            for (uint32_t value : {0x3f000000u, 0xbe800000u, 0x3e000000u})
+            {
+              append(samples, value, 4);
+              if (channels == 2)
+                append(samples, value ^ 0x80000000u, 4);
+            }
+          else
+            for (int32_t value : {int32_t(1 << (bits - 2)), -int32_t(1 << (bits - 3)), int32_t(1 << (bits - 4))})
+            {
+              append(samples, static_cast<uint32_t>(value), bits / 8);
+              if (channels == 2)
+                append(samples, static_cast<uint32_t>(-value), bits / 8);
+            }
+          Fixture fixture(wav(format, bits, samples, extensible, channels));
+          nam::dspData config;
+          nam::DspLoadOptions options;
+          options.prewarm = false;
+          auto dsp = nam::get_dsp(fixture.path, config, options);
+          check_response(*dsp, channels);
+          assert(config.architecture == "Linear");
+          assert(config.version == nam::LATEST_FULLY_SUPPORTED_NAM_FILE_VERSION);
+          assert(config.config.at("receptive_field") == 3);
+          assert(config.config.at("bias") == false);
+          assert(config.expected_sample_rate == 44100.0);
+          assert(config.metadata.is_null());
+          assert(config.config.value("in_channels", 1) == 1);
+          assert(config.config.value("out_channels", 1) == channels);
+          std::vector<float> expected{0.5f, -0.25f, 0.125f};
+          if (channels == 2)
+            expected.insert(expected.end(), {-0.5f, 0.25f, -0.125f});
+          assert(config.weights == expected);
+          auto reloaded = nam::get_dsp(config);
+          check_response(*reloaded, channels);
+          nam::ScopedPrewarmOnResetDefault scoped(false);
+          auto convenience = nam::get_dsp(fixture.path);
+          assert(!convenience->GetPrewarmOnReset());
+          check_response(*convenience, channels);
+        }
 }
 
 void expect_invalid(const Bytes& bytes)
@@ -158,7 +182,10 @@ void test_invalid_files()
     invalid[offset] = 0;
     expect_invalid(invalid);
   }
-  auto stereo = valid;
+  expect_invalid(wav(1, 16, {0, 0, 0, 0, 0, 0}, false, 3));
+  expect_invalid(wav(1, 16, {0, 0}, false, 2)); // Partial stereo frame
+  expect_invalid(wav(1, 16, {}, false, 2));
+  auto stereo = valid; // Stereo header with inconsistent mono alignment/byte rate
   stereo[22] = 2;
   expect_invalid(stereo);
   auto badGuid = wav(1, 16, {0, 0}, true);
