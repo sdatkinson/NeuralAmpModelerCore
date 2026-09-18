@@ -1,3 +1,5 @@
+#include <algorithm>
+#include <cctype>
 #include <iostream>
 #include <mutex>
 #include <regex>
@@ -9,6 +11,7 @@
 #include "json.hpp"
 #include "get_dsp.h"
 #include "model_config.h"
+#include "wav.h"
 
 namespace nam
 {
@@ -168,8 +171,24 @@ std::unique_ptr<DSP> get_dsp(const nlohmann::json& config, DspLoadOptions option
 std::unique_ptr<DSP> get_dsp(const std::filesystem::path config_filename, dspData& returnedConfig,
                              DspLoadOptions options)
 {
-  const auto j = validate_nam_file(config_filename);
-  populate_dsp_data(j, returnedConfig);
+  auto extension = config_filename.extension().string();
+  std::transform(extension.begin(), extension.end(), extension.begin(),
+                 [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+  if (extension == ".wav")
+  {
+    dspData config;
+    config.weights = detail::load_wav_ir(config_filename, config.expected_sample_rate);
+    config.version = LATEST_FULLY_SUPPORTED_NAM_FILE_VERSION;
+    config.architecture = "Linear";
+    config.config = {{"receptive_field", config.weights.size()}, {"bias", false}};
+    config.metadata = nullptr;
+    returnedConfig = std::move(config);
+  }
+  else
+  {
+    const auto j = validate_nam_file(config_filename);
+    populate_dsp_data(j, returnedConfig);
+  }
 
   /*Copy to a new dsp_config object for get_dsp below,
    since not sure if weights actually get modified as being non-const references on some
