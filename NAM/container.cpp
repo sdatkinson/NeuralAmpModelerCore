@@ -70,7 +70,7 @@ void ContainerModel::SetPrewarmOnReset(const bool prewarmOnReset)
 
 void ContainerModel::Reset(const double sampleRate, const int maxBufferSize)
 {
-  std::lock_guard<std::mutex> lock(_slim_set_mutex);
+  nam::LockGuard<nam::Mutex> lock(_slim_set_mutex);
 
   // Update this container's reset state without dispatching through DSP::Reset(),
   // which would prewarm the active child before the child receives these settings.
@@ -108,7 +108,7 @@ void ContainerModel::SetSlimmableSize(const double val)
 
   // Plugin host can deliver param changes from both UI/controller and processor paths.
   // Serialize reset so only one thread can perform model activation at a time.
-  std::lock_guard<std::mutex> lock(_slim_set_mutex);
+  nam::LockGuard<nam::Mutex> lock(_slim_set_mutex);
   if (active_index == _active_index.load(std::memory_order_acquire))
   {
     return;

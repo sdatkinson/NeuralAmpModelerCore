@@ -2,7 +2,7 @@
 
 #include <atomic>
 #include <memory>
-#include <mutex>
+#include "threading.h"
 #include <stdexcept>
 #include <vector>
 
@@ -47,7 +47,7 @@ private:
 
   std::vector<Submodel> _submodels;
   std::atomic<size_t> _active_index{0};
-  std::mutex _slim_set_mutex;
+  nam::Mutex _slim_set_mutex;
 };
 
 // Config / registration
