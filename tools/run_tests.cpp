@@ -12,6 +12,7 @@
 #include "test/test_film_realtime_safe.cpp"
 #include "test/test_fast_lut.cpp"
 #include "test/test_get_dsp.cpp"
+#include "test/test_get_dsp_wav.cpp"
 #include "test/test_ring_buffer.cpp"
 #include "test/test_wavenet/test_layer.cpp"
 #include "test/test_wavenet/test_layer_array.cpp"
@@ -43,6 +44,8 @@
 int main()
 {
   std::cout << "Running tests..." << std::endl;
+  test_get_dsp_wav::test_formats_and_configuration();
+  test_get_dsp_wav::test_invalid_files();
   // TODO Automatically loop, catch exceptions, log results
 
   test_activations::TestFastTanh::test_core_function();
