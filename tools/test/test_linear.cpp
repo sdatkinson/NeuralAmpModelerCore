@@ -354,13 +354,13 @@ void test_sample_rate_multichannel_realtime_safe()
   {
     std::vector<float> weights(2048, 0.0f);
     weights[300] = 1.0f;
-    nam::Linear model(2, 3, 2048, false, weights, 48000.0, implementation);
+    nam::Linear model(2, 2, 2048, false, weights, 48000.0, implementation);
     model.SetPrewarmOnReset(false);
     model.Reset(96000.0, 64);
     std::vector<NAM_SAMPLE> input0(64, 0.0), input1(64, 0.0);
-    std::vector<NAM_SAMPLE> output0(64), output1(64), output2(64);
+    std::vector<NAM_SAMPLE> output0(64), output1(64);
     NAM_SAMPLE* inputs[] = {input0.data(), input1.data()};
-    NAM_SAMPLE* outputs[] = {output0.data(), output1.data(), output2.data()};
+    NAM_SAMPLE* outputs[] = {output0.data(), output1.data()};
     allocation_tracking::run_allocation_test_no_allocations(
       nullptr,
       [&]() {
@@ -381,7 +381,6 @@ void test_sample_rate_multichannel_realtime_safe()
               expected = -0.03125;
             assert_near(output0[i], expected, 1.0e-6);
             assert_near(output1[i], 2.0 * expected, 1.0e-6);
-            assert_near(output2[i], 0.0, 1.0e-7);
           }
         }
       },
@@ -405,6 +404,122 @@ void test_sample_rate_multichannel_realtime_safe()
       }
     }
   }
+}
+
+
+void test_channel_mappings()
+{
+  for (const auto implementation : {nam::LinearImplementation::Direct, nam::LinearImplementation::FFT})
+    for (const auto shape : {std::pair<int, int>{1, 1}, {2, 2}, {1, 3}, {3, 1}})
+      for (const int taps : {3, 1536})
+        for (const bool bias : {false, true})
+        {
+          const int inputs = shape.first, outputs = shape.second;
+          const int paths = std::max(inputs, outputs);
+          const int kernels = inputs == outputs ? 1 : paths;
+          std::vector<float> weights;
+          for (int k = 0; k < kernels; ++k)
+          {
+            auto kernel = make_weights(taps, false);
+            for (auto& value : kernel)
+              value *= k % 2 == 0 ? k + 1.0f : -k - 1.0f;
+            weights.insert(weights.end(), kernel.begin(), kernel.end());
+          }
+          if (bias)
+            for (int ch = 0; ch < (inputs == outputs ? 1 : outputs); ++ch)
+              weights.push_back(0.125f * (ch + 1));
+          auto config =
+            nam::linear::parse_config_json({{"receptive_field", taps},
+                                            {"bias", bias},
+                                            {"in_channels", inputs},
+                                            {"out_channels", outputs},
+                                            {"implementation", nam::linear::implementation_to_string(implementation)}});
+          auto model = config.create(weights, 48000.0);
+          model->SetPrewarmOnReset(false);
+          for (const double rate : {48000.0, 96000.0, 48000.0})
+          {
+            model->Reset(rate, 127);
+            const int frames = 4096;
+            std::vector<std::vector<NAM_SAMPLE>> input(inputs, make_input(frames));
+            // Isolate later inputs first, then exercise simultaneous summation.
+            for (int ch = 0; ch < inputs; ++ch)
+              for (int i = 0; i < frames; ++i)
+                input[ch][i] *= ch == 0 && inputs > 1 && i < 512 ? 0.0 : ch + 1.0;
+            std::vector<std::vector<NAM_SAMPLE>> expected(outputs, std::vector<NAM_SAMPLE>(frames));
+            for (int ch = 0; ch < outputs; ++ch)
+              std::fill(
+                expected[ch].begin(), expected[ch].end(), bias ? 0.125 * (inputs == outputs ? 1 : ch + 1) : 0.0);
+            for (int path = 0; path < paths; ++path)
+            {
+              const int k = kernels == 1 ? 0 : path;
+              std::vector<float> kernel(weights.begin() + k * taps, weights.begin() + (k + 1) * taps);
+              nam::Linear reference(1, 1, taps, false, kernel, 48000.0, nam::LinearImplementation::Direct);
+              reference.SetPrewarmOnReset(false);
+              reference.Reset(rate, 127);
+              const auto result = process_model(reference, input[inputs == 1 ? 0 : path], {127, 1, 13});
+              for (int i = 0; i < frames; ++i)
+                expected[outputs == 1 ? 0 : path][i] += result[i];
+            }
+            std::vector<std::vector<NAM_SAMPLE>> output(outputs, std::vector<NAM_SAMPLE>(frames));
+            std::vector<NAM_SAMPLE*> in_ptrs(inputs), out_ptrs(outputs);
+            allocation_tracking::run_allocation_test_no_allocations(
+              nullptr,
+              [&]() {
+                int offset = 0;
+                while (offset < frames)
+                {
+                  const int count = std::min(offset % 127 + 1, frames - offset);
+                  for (int ch = 0; ch < inputs; ++ch)
+                    in_ptrs[ch] = input[ch].data() + offset;
+                  for (int ch = 0; ch < outputs; ++ch)
+                    out_ptrs[ch] = output[ch].data() + offset;
+                  model->process(in_ptrs.data(), out_ptrs.data(), count);
+                  offset += count;
+                }
+              },
+              nullptr, "Linear channel mapping process real-time safe");
+            for (int ch = 0; ch < outputs; ++ch)
+              for (int i = 0; i < frames; ++i)
+                assert_near(output[ch][i], expected[ch][i], 5.0e-5);
+          }
+        }
+}
+
+void test_channel_validation()
+{
+  const auto defaults = nam::linear::parse_config_json({{"receptive_field", 3}, {"bias", false}});
+  assert(defaults.in_channels == 1 && defaults.out_channels == 1);
+  for (const auto shape : {std::pair<int, int>{2, 3}, {3, 2}, {0, 1}, {1, 0}, {-1, 1}, {1, -1}})
+  {
+    bool threw = false;
+    try
+    {
+      nam::Linear model(shape.first, shape.second, 3, false, {1, 0, 0});
+    }
+    catch (const std::runtime_error& e)
+    {
+      threw = true;
+      assert(std::string(e.what()).find("channel") != std::string::npos
+             || std::string(e.what()).find("Channel") != std::string::npos);
+    }
+    assert(threw);
+  }
+  for (const auto shape : {std::pair<int, int>{1, 2}, {2, 1}})
+    for (const bool bias : {false, true})
+      for (const int delta : {-1, 1})
+      {
+        bool threw = false;
+        try
+        {
+          nam::Linear model(
+            shape.first, shape.second, 3, bias, std::vector<float>(6 + (bias ? shape.second : 0) + delta));
+        }
+        catch (const std::runtime_error&)
+        {
+          threw = true;
+        }
+        assert(threw);
+      }
 }
 
 } // namespace test_linear
