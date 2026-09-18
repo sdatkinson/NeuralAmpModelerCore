@@ -5,6 +5,7 @@
 #include <cassert>
 #include <cctype>
 #include <complex>
+#include <cmath>
 #include <limits>
 #include <stdexcept>
 
@@ -36,6 +37,38 @@ constexpr std::array<LinearFFTDispatchEntry, 7> _LINEAR_FFT_DISPATCH{{
 int _ceil_div(const int numerator, const int denominator)
 {
   return (numerator + denominator - 1) / denominator;
+}
+
+// Adapted from AudioDSPTools dsp/Resample.h (MIT, Steven Atkinson, 2023):
+// https://github.com/sdatkinson/AudioDSPTools/blob/844680d118f0317565132c3c5e3aca5f5c976e7a/dsp/Resample.h
+// See LICENSE. Sample by integer output index to avoid accumulated timing error,
+// and zero-pad the causal impulse response at both ends for cubic interpolation.
+std::vector<float> _resample_impulse_response(const std::vector<float>& inputs, const double original_rate,
+                                              const double desired_rate)
+{
+  const double ratio = desired_rate / original_rate;
+  const double length = std::ceil(inputs.size() * ratio);
+  if (!std::isfinite(length) || length > std::numeric_limits<int>::max())
+    throw std::length_error("Resampled Linear impulse response is too large");
+  // Even an IR shorter than one output sample needs its sample at t=0.
+  std::vector<float> outputs((size_t)std::max(1.0, length));
+  const auto sample = [&inputs](const long long index) -> double {
+    return index < 0 || index >= (long long)inputs.size() ? 0.0 : inputs[(size_t)index];
+  };
+  for (size_t i = 0; i < outputs.size(); ++i)
+  {
+    const double position = i == 0 ? 0.0 : i / ratio;
+    const long long index = (long long)std::floor(position);
+    const double x = position - index;
+    const double p[4] = {sample(index - 1), sample(index), sample(index + 1), sample(index + 2)};
+    const double value =
+      p[1]
+      + 0.5 * x
+          * (p[2] - p[0] + x * (2.0 * p[0] - 5.0 * p[1] + 4.0 * p[2] - p[3] + x * (3.0 * (p[1] - p[2]) + p[3] - p[0])));
+    // An IR is integrated by convolution; compensate for the changed tap density.
+    outputs[i] = (float)(value * (original_rate / desired_rate));
+  }
+  return outputs;
 }
 
 } // namespace
@@ -97,6 +130,7 @@ nam::Linear::Linear(const int in_channels, const int out_channels, const int rec
       "on architecture parameters");
 
   this->_impulse_response.assign(weights.begin(), weights.begin() + receptive_field);
+  this->_original_impulse_response = this->_impulse_response;
   this->_weight.resize(this->_receptive_field);
   // Pass in in reverse order so that dot products work out of the box.
   for (int i = 0; i < this->_receptive_field; i++)
@@ -116,9 +150,40 @@ void nam::Linear::process(NAM_SAMPLE** input, NAM_SAMPLE** output, const int num
     this->_process_direct(input, output, num_frames);
 }
 
+void nam::Linear::Reset(const double sampleRate, const int maxBufferSize)
+{
+  if (!std::isfinite(sampleRate) || sampleRate <= 0.0)
+    throw std::invalid_argument("Linear processing sample rate must be finite and positive");
+  const double training_rate = GetExpectedSampleRate();
+  if (training_rate != NAM_UNKNOWN_EXPECTED_SAMPLE_RATE && (!std::isfinite(training_rate) || training_rate <= 0.0))
+    throw std::invalid_argument("Linear training sample rate must be finite and positive, or unknown (-1)");
+  if (maxBufferSize < 0)
+    throw std::invalid_argument("Linear maximum buffer size must be non-negative");
+
+  auto impulse_response = training_rate == NAM_UNKNOWN_EXPECTED_SAMPLE_RATE || training_rate == sampleRate
+                            ? this->_original_impulse_response
+                            : _resample_impulse_response(this->_original_impulse_response, training_rate, sampleRate);
+  if (impulse_response.size() + 32LL * maxBufferSize > std::numeric_limits<int>::max())
+    throw std::length_error("Linear input buffer is too large");
+  this->_impulse_response = std::move(impulse_response);
+  this->_receptive_field = (int)this->_impulse_response.size();
+  this->_weight.resize(this->_receptive_field);
+  for (int i = 0; i < this->_receptive_field; ++i)
+    this->_weight(i) = this->_impulse_response[this->_receptive_field - 1 - i];
+  // SetMaxBufferSize rebuilds history and FFT state before any prewarming.
+  nam::DSP::Reset(sampleRate, maxBufferSize);
+}
+
 void nam::Linear::SetMaxBufferSize(const int maxBufferSize)
 {
+  const long long input_buffer_size = this->_receptive_field + 32LL * maxBufferSize;
+  if (maxBufferSize < 0 || input_buffer_size > std::numeric_limits<int>::max())
+    throw std::length_error("Linear input buffer is too large");
   nam::Buffer::SetMaxBufferSize(maxBufferSize);
+  // Match Buffer::_update_buffers_ capacity requirements before entering process().
+  this->_set_receptive_field(this->_receptive_field, (int)input_buffer_size);
+  for (auto& output : this->_output_buffers)
+    output.resize(maxBufferSize);
   this->_configure_implementation();
 }
 

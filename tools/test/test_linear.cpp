@@ -371,11 +371,24 @@ void test_sample_rate_multichannel_realtime_safe()
         }
       },
       nullptr, "Linear resampled first process real-time safe");
-    // Same-rate reset must also clear direct history and pending FFT work.
+    // Populate direct history and start pending FFT work before resetting.
+    std::fill(input0.begin(), input0.end(), 1.0);
+    std::fill(input1.begin(), input1.end(), 2.0);
+    for (int block = 0; block < 4; ++block)
+      model.process(inputs, outputs, 64);
+    // Same-rate reset must clear both kinds of state without relying on prewarm.
     model.Reset(96000.0, 64);
-    model.process(inputs, outputs, 64);
-    for (int i = 0; i < 64; ++i)
-      assert_near(output0[i], 0.0, 1.0e-6);
+    std::fill(input0.begin(), input0.end(), 0.0);
+    std::fill(input1.begin(), input1.end(), 0.0);
+    for (int block = 0; block < 80; ++block)
+    {
+      model.process(inputs, outputs, 64);
+      for (int i = 0; i < 64; ++i)
+      {
+        assert_near(output0[i], 0.0, 1.0e-6);
+        assert_near(output1[i], 0.0, 1.0e-6);
+      }
+    }
   }
 }
 
