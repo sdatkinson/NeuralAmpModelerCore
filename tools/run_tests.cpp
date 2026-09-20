@@ -2,6 +2,9 @@
 // See the GitHub Action for a demo of how to build and run tests.
 
 #include <iostream>
+// Must come first: it checks that NAM/get_dsp.h parses while major()/minor() are
+// macros, which only means anything if no earlier test has already included it.
+#include "test/test_get_dsp_sys_types.cpp"
 #include "test/test_activations.cpp"
 #include "test/test_activations_realtime_safe.cpp"
 #include "test/test_conv1d.cpp"
@@ -44,6 +47,7 @@
 int main()
 {
   std::cout << "Running tests..." << std::endl;
+  test_get_dsp_sys_types::test_version_builds_with_major_minor_macros_defined();
   test_get_dsp_wav::test_formats_and_configuration();
   test_get_dsp_wav::test_invalid_files();
   // TODO Automatically loop, catch exceptions, log results
