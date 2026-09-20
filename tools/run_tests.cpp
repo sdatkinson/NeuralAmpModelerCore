@@ -319,6 +319,11 @@ int main()
   test_get_dsp::test_gets_output_level();
   test_get_dsp::test_empty_nam_file_throws_validation_error();
   test_get_dsp::test_malformed_nam_file_throws_validation_error();
+  test_get_dsp::test_json_config_missing_required_key_throws();
+  test_get_dsp::test_json_config_non_object_throws();
+  test_get_dsp::test_json_config_non_string_version_throws();
+  test_get_dsp::test_json_config_non_string_architecture_throws();
+  test_get_dsp::test_json_config_unrelated_document_throws();
   test_get_dsp::test_null_input_level();
   test_get_dsp::test_null_output_level();
   test_get_dsp::test_version_patch_one_beyond_supported();
