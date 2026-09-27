@@ -115,6 +115,18 @@ nam::activations::ActivationConfig nam::activations::ActivationConfig::from_json
     {
       config.negative_slope = j.value("negative_slope", 0.01f);
     }
+    else if (config.type == ActivationType::Hardtanh)
+    {
+      // Bounds are optional; without them this is the standard [-1, 1] Hardtanh
+      if (j.find("min_val") != j.end())
+      {
+        config.min_val = j["min_val"].get<float>();
+      }
+      if (j.find("max_val") != j.end())
+      {
+        config.max_val = j["max_val"].get<float>();
+      }
+    }
     else if (config.type == ActivationType::LeakyHardtanh)
     {
       config.min_val = j.value("min_val", -1.0f);
@@ -134,7 +146,12 @@ nam::activations::Activation::Ptr nam::activations::Activation::get_activation(c
   switch (config.type)
   {
     case ActivationType::Tanh: return _activations["Tanh"];
-    case ActivationType::Hardtanh: return _activations["Hardtanh"];
+    case ActivationType::Hardtanh:
+      if (config.min_val.has_value() || config.max_val.has_value())
+      {
+        return std::make_shared<ActivationHardTanh>(config.min_val.value_or(-1.0f), config.max_val.value_or(1.0f));
+      }
+      return _activations["Hardtanh"];
     case ActivationType::Fasttanh: return _activations["Fasttanh"];
     case ActivationType::ReLU: return _activations["ReLU"];
     case ActivationType::Sigmoid: return _activations["Sigmoid"];

@@ -62,4 +62,27 @@ void test_prelu_apply_pointer_realtime_safe()
   for (int c = 0; c < channels; c++)
     assert(std::abs(matrix(c, 0) - (-2.0f * slopes[c])) < 1e-6f);
 }
+
+// Hardtanh with custom bounds is a distinct instance; applying it must not allocate either.
+void test_hardtanh_bounds_apply_realtime_safe()
+{
+  const int channels = 4;
+  const int time_steps = 32;
+
+  nam::activations::ActivationConfig config;
+  config.type = nam::activations::ActivationType::Hardtanh;
+  config.min_val = -0.5f;
+  config.max_val = 2.0f;
+  auto activation = nam::activations::Activation::get_activation(config);
+
+  Eigen::MatrixXf matrix(channels, time_steps);
+  matrix.setConstant(-3.0f);
+
+  run_allocation_test_no_allocations(
+    nullptr, // No setup needed
+    [&]() { activation->apply(matrix); }, nullptr, // No teardown needed
+    "test_hardtanh_bounds_apply_realtime_safe");
+
+  assert((matrix.array() == -0.5f).all());
+}
 } // namespace test_activations_realtime_safe
