@@ -71,6 +71,7 @@ int main()
 
   test_activations_realtime_safe::test_prelu_apply_matrix_realtime_safe();
   test_activations_realtime_safe::test_prelu_apply_pointer_realtime_safe();
+  test_activations_realtime_safe::test_hardtanh_bounds_apply_realtime_safe();
 
   // Typed ActivationConfig tests
   test_activations::TestTypedActivationConfig::test_simple_config();
@@ -79,10 +80,13 @@ int main()
   test_activations::TestTypedActivationConfig::test_prelu_single_slope_config();
   test_activations::TestTypedActivationConfig::test_prelu_multi_slope_config();
   test_activations::TestTypedActivationConfig::test_leaky_hardtanh_config();
+  test_activations::TestTypedActivationConfig::test_hardtanh_config();
   test_activations::TestTypedActivationConfig::test_softsign_config();
   test_activations::TestTypedActivationConfig::test_from_json_string();
   test_activations::TestTypedActivationConfig::test_from_json_object();
   test_activations::TestTypedActivationConfig::test_from_json_prelu_multi();
+  test_activations::TestTypedActivationConfig::test_from_json_hardtanh_bounds();
+  test_activations::TestTypedActivationConfig::test_from_json_hardtanh_default();
   test_activations::TestTypedActivationConfig::test_from_json_softsign_string();
   test_activations::TestTypedActivationConfig::test_from_json_softsign_object();
   test_activations::TestTypedActivationConfig::test_unknown_activation_throws();
