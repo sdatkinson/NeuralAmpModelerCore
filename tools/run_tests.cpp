@@ -219,6 +219,8 @@ int main()
   test_wavenet::test_head1x1::test_head1x1_different_out_channels();
   test_wavenet::test_layer1x1::test_layer1x1_active();
   test_wavenet::test_layer1x1::test_layer1x1_inactive();
+  test_wavenet::test_layer1x1::test_layer1x1_inactive_gated();
+  test_wavenet::test_layer1x1::test_layer1x1_inactive_full_model();
   test_wavenet::test_layer1x1::test_layer1x1_inactive_bottleneck_mismatch();
   test_wavenet::test_layer1x1::test_layer1x1_post_film_active();
   test_wavenet::test_layer1x1::test_layer1x1_post_film_is_applied_for_every_gating_mode();

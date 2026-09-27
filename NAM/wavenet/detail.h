@@ -29,8 +29,8 @@ namespace detail
 /// 4. Activation (with optional gating/blending and pre/post FiLM)
 /// 5. Optional layer1x1 convolution for the next layer (with optional post-FiLM)
 /// 6. Optional 1x1 convolution for the head output (with optional post-FiLM)
-/// 7. Residual connection (input + layer1x1 output, or just input if layer1x1 inactive) and skip connection (to next
-/// layer)
+/// 7. Residual connection (input + layer1x1 output, or input + activation output if layer1x1 inactive) and skip
+/// connection (to next layer)
 ///
 /// The layer supports multiple gating modes and FiLM at various points in the computation.
 /// See the walkthrough documentation for detailed step-by-step explanation.
@@ -192,7 +192,8 @@ public:
   /// \return Kernel size
   long get_kernel_size() const { return this->_conv.get_kernel_size(); };
 
-  /// \brief Get output to next layer (residual connection: input + layer1x1 output)
+  /// \brief Get output to next layer (residual connection: input + layer1x1 output, or input + activation output if
+  /// layer1x1 is inactive)
   ///
   /// Returns the full pre-allocated buffer; only the first num_frames columns
   /// are valid for a given processing call. Slice with .leftCols(num_frames) as needed.
