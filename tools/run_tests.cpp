@@ -112,6 +112,8 @@ int main()
   test_linear::test_fft_matches_direct_irregular_chunks();
   test_linear::test_auto_selection();
   test_linear::test_fft_dispatch_table();
+  test_linear::test_fft_output_independent_of_callback_size();
+  test_linear::test_fft_tail_tier_impulse_response();
   test_linear::test_fft_impulse_response_across_dispatch_sizes();
   test_linear::test_parse_implementation();
   test_linear::test_direct_process_realtime_safe();

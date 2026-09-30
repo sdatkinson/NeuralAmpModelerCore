@@ -7,18 +7,30 @@ namespace nam
 
 struct LinearFFTState;
 
+/// \brief How the FFT path splits an impulse response.
+///
+/// The first direct_taps taps are convolved directly, which is what keeps the
+/// latency at zero. The rest is cut into partitions of max_partition_size taps,
+/// convolved by FFT. Those partitions are uniform, and the head is one
+/// partition long, so the two sizes are equal. Long impulse responses add a
+/// tail tier of larger partitions; see tail_partition_size.
 struct LinearFFTPlan
 {
   int direct_taps;
   int max_partition_size;
+  /// Taps per partition in the tail tier, or 0 for none. With a tail, the
+  /// uniform partitions stop at 2 * tail_partition_size taps and the rest of the
+  /// impulse response is cut into these larger ones, whose transforms run
+  /// less often and whose multiplies are spread across the samples in between.
+  int tail_partition_size = 0;
 };
 
 /// \brief Selects the convolution engine used by Linear models.
 enum class LinearImplementation
 {
   Auto, ///< Choose direct or FFT convolution from the impulse-response length.
-  Direct, ///< Legacy per-sample direct convolution.
-  FFT ///< Zero-latency partitioned FFT convolution.
+  Direct, ///< Per-sample direct convolution over the whole impulse response.
+  FFT ///< Zero-latency partitioned FFT convolution: uniform partitions, plus a tail tier for long IRs.
 };
 
 /// \brief Basic linear model
@@ -91,10 +103,6 @@ private:
   void _configure_fft_state();
   void _process_direct(NAM_SAMPLE** input, NAM_SAMPLE** output, const int num_frames);
   void _process_fft(NAM_SAMPLE** input, NAM_SAMPLE** output, const int num_frames);
-  void _advance_fft_job(const int tier, const int channel);
-  void _advance_fft_jobs(const int channel);
-  void _start_fft_block(const int tier, const int channel, const long long block_start);
-  void _finish_fft_block(const int tier, const int channel);
 };
 
 namespace linear

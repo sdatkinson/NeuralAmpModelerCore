@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
+#include <cstdint>
 #include <stdexcept>
 #include <limits>
 #include <vector>
@@ -147,8 +148,8 @@ void test_auto_selection()
   assert(cutoff_model.GetRequestedImplementation() == nam::LinearImplementation::Auto);
   assert(cutoff_model.GetActiveImplementation() == nam::LinearImplementation::Direct);
 
-  const auto fft_weights = make_weights(2048, false);
-  nam::Linear fft_model(1, 1, 2048, false, fft_weights, 48000.0);
+  const auto fft_weights = make_weights(1025, false);
+  nam::Linear fft_model(1, 1, 1025, false, fft_weights, 48000.0);
   assert(fft_model.GetRequestedImplementation() == nam::LinearImplementation::Auto);
   assert(fft_model.GetActiveImplementation() == nam::LinearImplementation::FFT);
 }
@@ -157,11 +158,122 @@ void test_fft_dispatch_table()
 {
   assert(nam::linear::select_implementation(1024) == nam::LinearImplementation::Direct);
   assert(nam::linear::select_implementation(1025) == nam::LinearImplementation::FFT);
-  assert(nam::linear::select_fft_plan(1024).direct_taps == 128);
-  assert(nam::linear::select_fft_plan(8192).max_partition_size == 2048);
-  assert(nam::linear::select_fft_plan(48000).max_partition_size == 4096);
-  assert(nam::linear::select_fft_plan(240000).max_partition_size == 8192);
-  assert(nam::linear::select_fft_plan(2880000).max_partition_size == 8192);
+  // Uniform partitioning: the direct head is always exactly one partition.
+  for (const int receptive_field : {1, 1024, 1025, 2048, 2049, 8192, 8193, 48000, 2880000})
+  {
+    const auto plan = nam::linear::select_fft_plan(receptive_field);
+    assert(plan.direct_taps == plan.max_partition_size);
+  }
+  assert(nam::linear::select_fft_plan(1024).max_partition_size == 256);
+  assert(nam::linear::select_fft_plan(2048).max_partition_size == 256);
+  assert(nam::linear::select_fft_plan(2049).max_partition_size == 512);
+  assert(nam::linear::select_fft_plan(8192).max_partition_size == 512);
+  assert(nam::linear::select_fft_plan(8193).max_partition_size == 1024);
+  assert(nam::linear::select_fft_plan(2880000).max_partition_size == 1024);
+  // A tail tier only past a second of impulse response.
+  assert(nam::linear::select_fft_plan(48000).tail_partition_size == 0);
+  assert(nam::linear::select_fft_plan(48001).tail_partition_size == 8192);
+  assert(nam::linear::select_fft_plan(240000).tail_partition_size == 8192);
+  assert(nam::linear::select_fft_plan(240001).tail_partition_size == 16384);
+  assert(nam::linear::select_fft_plan(2880000).tail_partition_size == 16384);
+}
+
+// The tail tier, past 48000 taps, splits and spreads its transforms across the
+// samples between its blocks. Impulses at a block boundary and away from one,
+// in callbacks of several sizes including ones longer than a tail block, must
+// each reproduce the impulse response, and two of them must add.
+void test_fft_tail_tier_impulse_response()
+{
+  for (const int taps : {60000, 250000})
+  {
+    const auto weights = make_weights(taps, false);
+    const int first = 0, second = 20000 + 12345;
+    const int frames = second + taps + 100;
+    std::vector<NAM_SAMPLE> input(frames, 0.0);
+    input[first] = 1.0;
+    input[second] = -0.5;
+    for (const std::vector<int>& pattern : std::vector<std::vector<int>>{{16}, {37}, {256}, {20000}, {1, 300, 7}})
+    {
+      nam::Linear model(1, 1, taps, false, weights, 48000.0, nam::LinearImplementation::FFT);
+      const auto output = process_model(model, input, pattern);
+      double max_abs_error = 0.0;
+      for (int i = 0; i < frames; ++i)
+      {
+        double expected = 0.0;
+        if (i - first < taps)
+          expected += weights[i - first];
+        if (i >= second && i - second < taps)
+          expected -= 0.5 * weights[i - second];
+        max_abs_error = std::max(max_abs_error, std::abs((double)output[i] - expected));
+      }
+      assert(max_abs_error < 5.0e-5);
+    }
+  }
+}
+
+// The FFT path's output must not depend on how the input is cut into callbacks:
+// every pattern has to reproduce the 64-frame output exactly, not just within a
+// tolerance. Multiplies for partitions after the first are spread across the
+// callbacks between transforms, and callbacks of at least one partition reach
+// every transform with none of that done, so they pin the spread work to the
+// result of doing it all at once.
+void test_fft_output_independent_of_callback_size()
+{
+  std::vector<std::vector<int>> patterns{{1}, {23}, {32}, {48}, {512}, {1024}, {20000}, {1, 64, 7, 512, 33}};
+  std::vector<int> random;
+  uint32_t x = 0x5EED;
+  for (int i = 0; i < 200; i++)
+  {
+    x ^= x << 13;
+    x ^= x >> 17;
+    x ^= x << 5;
+    random.push_back(1 + (int)(x % 700));
+  }
+  patterns.push_back(random);
+
+  for (const auto shape : {std::pair<int, int>{1, 1}, {1, 2}, {2, 1}})
+    for (const int taps : {1000, 2049, 4096, 8192, 60000})
+    {
+      const int inputs = shape.first, outputs = shape.second;
+      const int kernels = inputs == outputs ? 1 : std::max(inputs, outputs);
+      std::vector<float> weights;
+      for (int k = 0; k < kernels; ++k)
+      {
+        auto kernel = make_weights(taps, false);
+        for (auto& value : kernel)
+          value *= k + 1.0f;
+        weights.insert(weights.end(), kernel.begin(), kernel.end());
+      }
+      const int frames = 3 * taps + 3000;
+      std::vector<std::vector<NAM_SAMPLE>> input(inputs, make_input(frames));
+      for (int ch = 1; ch < inputs; ++ch)
+        for (auto& value : input[ch])
+          value *= -0.5;
+
+      const auto run = [&](const std::vector<int>& pattern) {
+        nam::Linear model(inputs, outputs, taps, false, weights, 48000.0, nam::LinearImplementation::FFT);
+        model.SetPrewarmOnReset(false);
+        model.Reset(48000.0, 1024);
+        std::vector<std::vector<NAM_SAMPLE>> output(outputs, std::vector<NAM_SAMPLE>(frames));
+        std::vector<NAM_SAMPLE*> in_ptrs(inputs), out_ptrs(outputs);
+        int offset = 0;
+        for (size_t call = 0; offset < frames; ++call)
+        {
+          const int count = std::min(pattern[call % pattern.size()], frames - offset);
+          for (int ch = 0; ch < inputs; ++ch)
+            in_ptrs[ch] = input[ch].data() + offset;
+          for (int ch = 0; ch < outputs; ++ch)
+            out_ptrs[ch] = output[ch].data() + offset;
+          model.process(in_ptrs.data(), out_ptrs.data(), count);
+          offset += count;
+        }
+        return output;
+      };
+
+      const auto expected = run({64});
+      for (const auto& pattern : patterns)
+        assert(run(pattern) == expected);
+    }
 }
 
 void test_fft_impulse_response_across_dispatch_sizes()
