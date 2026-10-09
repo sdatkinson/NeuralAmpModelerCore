@@ -52,7 +52,8 @@ public:
   /// \brief Process audio frames
   ///
   /// Implements the DSP::process() interface. Processes input audio through the
-  /// complete WaveNet pipeline and writes to output.
+  /// complete WaveNet pipeline and writes to output. A call with more frames than
+  /// the maximum buffer size is processed as consecutive calls of at most that size.
   /// \param input Input audio buffers (in_channels x frames)
   /// \param output Output audio buffers (out_channels x frames)
   /// \param num_frames Number of frames to process
@@ -117,6 +118,16 @@ private:
   Eigen::MatrixXf _scaled_head_scratch;
 
   int mPrewarmSamples = 0; // Pre-compute during initialization
+
+  /// \brief Run the layer arrays on the condition array, each on the previous one's outputs
+  void _process_layer_arrays(const int num_frames);
+
+  // Per-channel pointers for _process_in_chunks(), sized at construction so that it never allocates
+  std::vector<NAM_SAMPLE*> _chunk_input_ptrs;
+  std::vector<NAM_SAMPLE*> _chunk_output_ptrs;
+
+  /// \brief Process a call larger than the maximum buffer size as consecutive calls of at most that size
+  void _process_in_chunks(NAM_SAMPLE** input, NAM_SAMPLE** output, const int num_frames);
 
   bool HasCachedPrewarmState() const;
   void PrewarmFromCache();

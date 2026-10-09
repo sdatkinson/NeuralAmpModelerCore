@@ -24,6 +24,7 @@
 #include "test/test_wavenet/test_layer_head_config.cpp"
 #include "test/test_wavenet/test_layer1x1.cpp"
 #include "test/test_wavenet/test_factory.cpp"
+#include "test/test_wavenet/test_oversized_blocks.cpp"
 #include "test/test_gating_activations.cpp"
 #include "test/test_wavenet_gating_compatibility.cpp"
 #include "test/test_blending_detailed.cpp"
@@ -244,6 +245,7 @@ int main()
   test_wavenet::test_process_3in_2out_realtime_safe();
   test_wavenet::test_condition_processing::test_with_condition_dsp();
   test_wavenet::test_condition_processing::test_with_condition_dsp_multichannel();
+  test_wavenet::test_oversized_blocks::test_oversized_call_matches_consecutive_calls();
 
   test_convnet::test_convnet_basic();
   test_convnet::test_convnet_batchnorm();
