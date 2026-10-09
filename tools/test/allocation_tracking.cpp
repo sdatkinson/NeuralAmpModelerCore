@@ -4,6 +4,20 @@
 
 #include "allocation_tracking.h"
 
+// Under a sanitizer (ASan, TSan, LSan) the runtime owns malloc, and replacing it here through dlsym(RTLD_NEXT) kills
+// run_tests before main. There we count through the sanitizer's own allocation hooks instead, so the allocation tests
+// still mean the same thing (only "zero" and "more than zero" are ever checked).
+// GCC defines no macro for -fsanitize=leak; add -DNAM_TEST_UNDER_SANITIZER there.
+#if defined(NAM_TEST_UNDER_SANITIZER)
+#elif defined(__SANITIZE_ADDRESS__) || defined(__SANITIZE_THREAD__)
+  #define NAM_TEST_UNDER_SANITIZER 1
+#elif defined(__has_feature)
+  #if __has_feature(address_sanitizer) || __has_feature(thread_sanitizer) || __has_feature(leak_sanitizer)             \
+    || __has_feature(memory_sanitizer)
+    #define NAM_TEST_UNDER_SANITIZER 1
+  #endif
+#endif
+
 // Allocation tracking globals - definitions
 namespace allocation_tracking
 {
@@ -17,6 +31,34 @@ void (*original_free)(void*) = nullptr;
 void* (*original_realloc)(void*, size_t) = nullptr;
 } // namespace allocation_tracking
 
+#ifdef NAM_TEST_UNDER_SANITIZER
+// Declared here rather than through <sanitizer/allocator_interface.h>, which ships with clang but not with GCC; both
+// runtimes export the function.
+extern "C" int __sanitizer_install_malloc_and_free_hooks(void (*malloc_hook)(const volatile void*, size_t),
+                                                         void (*free_hook)(const volatile void*));
+
+namespace
+{
+void on_malloc(const volatile void* ptr, size_t)
+{
+  if (allocation_tracking::g_tracking_enabled && ptr != nullptr)
+  {
+    ++allocation_tracking::g_allocation_count;
+  }
+}
+
+void on_free(const volatile void* ptr)
+{
+  if (allocation_tracking::g_tracking_enabled && ptr != nullptr)
+  {
+    ++allocation_tracking::g_deallocation_count;
+  }
+}
+
+const int hooks_installed = __sanitizer_install_malloc_and_free_hooks(on_malloc, on_free);
+} // namespace
+
+#else
 // Override malloc/free to track Eigen allocations (Eigen uses malloc directly)
 extern "C" {
 void* malloc(size_t size)
@@ -88,3 +130,5 @@ void operator delete[](void* ptr) noexcept
     ++allocation_tracking::g_deallocation_count;
   std::free(ptr);
 }
+
+#endif // NAM_TEST_UNDER_SANITIZER
