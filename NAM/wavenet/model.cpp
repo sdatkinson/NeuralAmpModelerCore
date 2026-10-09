@@ -851,8 +851,10 @@ void nam::wavenet::WaveNet::_process_layer_arrays(const int num_frames)
 
 void nam::wavenet::WaveNet::_process_in_chunks(NAM_SAMPLE** input, NAM_SAMPLE** output, const int num_frames)
 {
-  for (int offset = 0; offset < num_frames; offset += mMaxBufferSize)
+  // Advance by the frames actually processed, so offset never passes num_frames (no int overflow near INT_MAX)
+  for (int offset = 0, chunk = 0; offset < num_frames; offset += chunk)
   {
+    chunk = std::min(mMaxBufferSize, num_frames - offset);
     for (size_t ch = 0; ch < this->_chunk_input_ptrs.size(); ch++)
     {
       this->_chunk_input_ptrs[ch] = input[ch] + offset;
@@ -862,8 +864,7 @@ void nam::wavenet::WaveNet::_process_in_chunks(NAM_SAMPLE** input, NAM_SAMPLE** 
       this->_chunk_output_ptrs[ch] = output[ch] + offset;
     }
     // Qualified, so that a subclass's override isn't re-entered for every chunk
-    WaveNet::process(
-      this->_chunk_input_ptrs.data(), this->_chunk_output_ptrs.data(), std::min(mMaxBufferSize, num_frames - offset));
+    WaveNet::process(this->_chunk_input_ptrs.data(), this->_chunk_output_ptrs.data(), chunk);
   }
 }
 

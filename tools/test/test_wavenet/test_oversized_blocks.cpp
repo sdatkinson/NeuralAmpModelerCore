@@ -26,14 +26,20 @@ constexpr int kMaxBufferSize = 32;
 constexpr int kCallSize = 100; // Not a multiple of kMaxBufferSize, so each call's last chunk is short
 constexpr int kNumCalls = 20;
 
-// Two inputs and two outputs, so that every channel's pointer has to be advanced
-static std::unique_ptr<nam::DSP> make_two_channel_wavenet()
+// Two inputs and two outputs, so that every channel's pointer has to be advanced; optionally with a post-stack head
+static std::unique_ptr<nam::DSP> make_two_channel_wavenet(const bool post_stack_head)
 {
-  const nlohmann::json config = nlohmann::json::parse(R"({"in_channels": 2, "head": null, "head_scale": 0.02,
+  nlohmann::json config = nlohmann::json::parse(R"({"in_channels": 2, "head": null, "head_scale": 0.02,
     "layers": [{"input_size": 2, "condition_size": 2, "head_size": 2, "channels": 3, "kernel_size": 3,
                 "dilations": [1, 2], "activation": "Tanh", "gated": false, "head_bias": false}]})");
   // Rechannel 6; per layer: conv 27 + 3 bias, input mixin 6, 1x1 9 + 3 bias; head rechannel 6; head scale 1
-  const int num_weights = 6 + 2 * (30 + 6 + 12) + 6 + 1;
+  int num_weights = 6 + 2 * (30 + 6 + 12) + 6 + 1;
+  if (post_stack_head)
+  {
+    config["head"] = nlohmann::json::parse(R"({"channels": 3, "out_channels": 2, "kernel_sizes": [3, 2],
+                                               "activation": "Tanh"})");
+    num_weights += 2 * 3 * 3 + 3 + 3 * 2 * 2 + 2; // head convs: 2->3 (kernel 3) + bias, 3->2 (kernel 2) + bias
+  }
   std::vector<float> weights(num_weights);
   for (int i = 0; i < num_weights; i++)
   {
@@ -42,7 +48,8 @@ static std::unique_ptr<nam::DSP> make_two_channel_wavenet()
   return nam::wavenet::parse_config_json(config, kSampleRate).create(std::move(weights), kSampleRate);
 }
 
-// A plain WaveNet, one with the A2-era layer features, one with a condition DSP, and a multichannel one
+// A plain WaveNet, one with the A2-era layer features, one with a condition DSP, and multichannel ones without
+// and with a post-stack head
 static std::vector<std::unique_ptr<nam::DSP>> make_models()
 {
   std::vector<std::unique_ptr<nam::DSP>> models;
@@ -51,7 +58,8 @@ static std::vector<std::unique_ptr<nam::DSP>> make_models()
   {
     models.push_back(nam::get_dsp(std::filesystem::path(path)));
   }
-  models.push_back(make_two_channel_wavenet());
+  models.push_back(make_two_channel_wavenet(false));
+  models.push_back(make_two_channel_wavenet(true));
   for (auto& model : models)
   {
     model->Reset(kSampleRate, kMaxBufferSize);
