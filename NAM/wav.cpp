@@ -10,6 +10,7 @@
 #include <stdexcept>
 #include <string>
 
+#if defined(__cpp_lib_filesystem)
 namespace nam
 {
 namespace detail
@@ -142,3 +143,4 @@ std::vector<float> load_wav_ir(const std::filesystem::path& filename, double& sa
 }
 } // namespace detail
 } // namespace nam
+#endif

@@ -3,6 +3,7 @@
 #include <memory>
 #include <optional>
 #include <vector>
+#include <version>
 
 #include "dsp.h"
 #include "nam_file.h"
@@ -77,6 +78,7 @@ struct DspLoadOptions
   std::optional<bool> prewarm = std::nullopt;
 };
 
+#if defined(__cpp_lib_filesystem)
 /// \brief Get NAM from a .nam model or mono/stereo .wav impulse response
 /// \param config_filename Path to the .nam model or .wav impulse response file
 /// \param options Loading options
@@ -88,6 +90,7 @@ struct DspLoadOptions
 /// \throws std::runtime_error If a WAV file is invalid, empty, has more than two channels, or uses an unsupported format
 /// \throws NamFileValidationError If a .nam file cannot be read or does not contain a minimally valid configuration
 std::unique_ptr<DSP> get_dsp(const std::filesystem::path config_filename, DspLoadOptions options = DspLoadOptions());
+#endif
 
 /// \brief Get NAM from a provided configuration struct
 /// \param conf DSP data structure containing model configuration and weights
@@ -95,6 +98,7 @@ std::unique_ptr<DSP> get_dsp(const std::filesystem::path config_filename, DspLoa
 /// \return Unique pointer to a DSP object
 std::unique_ptr<DSP> get_dsp(dspData& conf, DspLoadOptions options = DspLoadOptions());
 
+#if defined(__cpp_lib_filesystem)
 /// \brief Get NAM from a .nam model or mono/stereo .wav impulse response and store its configuration
 ///
 /// Creates an instance of DSP and also returns a dspData struct that holds the data of the model.
@@ -110,6 +114,7 @@ std::unique_ptr<DSP> get_dsp(dspData& conf, DspLoadOptions options = DspLoadOpti
 /// \throws NamFileValidationError If a .nam file cannot be read or does not contain a minimally valid configuration
 std::unique_ptr<DSP> get_dsp(const std::filesystem::path config_filename, dspData& returnedConfig,
                              DspLoadOptions options = DspLoadOptions());
+#endif
 
 /// \brief Get NAM from a provided configuration JSON object
 /// \param config JSON configuration object
