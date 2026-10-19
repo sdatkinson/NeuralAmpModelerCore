@@ -411,6 +411,8 @@ int main()
   test_a2_fast::test_cached_prewarm_full();
   test_a2_fast::test_process_realtime_safe_lite();
   test_a2_fast::test_process_realtime_safe_full();
+  test_a2_fast::test_oversized_call_matches_consecutive_calls_lite();
+  test_a2_fast::test_oversized_call_matches_consecutive_calls_full();
 #endif
 
   std::cout << "Success!" << std::endl;
