@@ -2,13 +2,18 @@
 #include <chrono>
 #include <cmath>
 #include <cstdint>
-#include <filesystem>
 #include <fstream>
 #include <vector>
+#include <version>
+
+#if defined(__cpp_lib_filesystem)
+  #include <filesystem>
+#endif
 
 #include "NAM/get_dsp.h"
 #include "NAM/linear.h"
 
+#if defined(__cpp_lib_filesystem)
 namespace test_get_dsp_wav
 {
 using Bytes = std::vector<unsigned char>;
@@ -205,3 +210,4 @@ void test_invalid_files()
   assert(threw);
 }
 } // namespace test_get_dsp_wav
+#endif

@@ -1,13 +1,18 @@
 #include <cassert>
 #include <cmath>
-#include <filesystem>
 #include <memory>
 #include <vector>
+#include <version>
+
+#if defined(__cpp_lib_filesystem)
+  #include <filesystem>
+#endif
 
 #include "NAM/dsp.h"
 #include "NAM/get_dsp.h"
 #include "NAM/slimmable.h"
 
+#if defined(__cpp_lib_filesystem)
 namespace test_render_slim
 {
 
@@ -127,3 +132,4 @@ void test_slim_applied_before_processing()
 }
 
 } // namespace test_render_slim
+#endif

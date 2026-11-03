@@ -5,10 +5,14 @@
 #include <cassert>
 #include <cmath>
 #include <fstream>
-#include <filesystem>
 #include <memory>
 #include <string>
 #include <vector>
+#include <version>
+
+#if defined(__cpp_lib_filesystem)
+  #include <filesystem>
+#endif
 
 #include "json.hpp"
 
@@ -89,6 +93,7 @@ static void test_get_dsp_detects_dummy_architecture_from_json()
   }
 }
 
+#if defined(__cpp_lib_filesystem)
 static void test_get_dsp_detects_dummy_architecture_from_nam_file()
 {
   const std::string namContent = R"({
@@ -132,11 +137,14 @@ static void test_get_dsp_detects_dummy_architecture_from_nam_file()
 
   std::filesystem::remove(path);
 }
+#endif
 
 void run_extensibility_tests()
 {
   test_get_dsp_detects_dummy_architecture_from_json();
+#if defined(__cpp_lib_filesystem)
   test_get_dsp_detects_dummy_architecture_from_nam_file();
+#endif
 }
 
 } // namespace test_extensible

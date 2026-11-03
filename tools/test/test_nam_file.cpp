@@ -1,13 +1,18 @@
 #include <cassert>
-#include <filesystem>
 #include <fstream>
 #include <string>
 #include <vector>
+#include <version>
+
+#if defined(__cpp_lib_filesystem)
+  #include <filesystem>
+#endif
 
 #include "json.hpp"
 
 #include "NAM/nam_file.h"
 
+#if defined(__cpp_lib_filesystem)
 namespace test_nam_file
 {
 namespace
@@ -80,3 +85,4 @@ void test_rejects_missing_required_keys()
 }
 
 } // namespace test_nam_file
+#endif

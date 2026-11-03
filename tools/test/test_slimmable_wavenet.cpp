@@ -1,9 +1,13 @@
 #include <cassert>
 #include <cmath>
-#include <filesystem>
 #include <fstream>
 #include <memory>
 #include <vector>
+#include <version>
+
+#if defined(__cpp_lib_filesystem)
+  #include <filesystem>
+#endif
 
 #include "json.hpp"
 
@@ -52,6 +56,7 @@ void process_and_verify(nam::DSP* dsp, int num_buffers, int buffer_size)
 // Tests
 // =====================================================================
 
+#if defined(__cpp_lib_filesystem)
 void test_loads_from_file()
 {
 
@@ -257,6 +262,7 @@ void test_slimmable_breakpoints()
   assert(std::abs(breakpoints[0] - (1.0 / 3.0)) < 1e-12);
   assert(std::abs(breakpoints[1] - (2.0 / 3.0)) < 1e-12);
 }
+#endif
 
 void test_from_json()
 {
