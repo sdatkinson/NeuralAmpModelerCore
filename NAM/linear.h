@@ -46,6 +46,15 @@ public:
 
   ~Linear() override;
 
+  /// \brief Get the receptive field in samples at the current processing rate
+  int GetPrewarmSamples() override { return this->_receptive_field; }
+
+  /// \brief Clear convolution history directly, without processing silence
+  ///
+  /// Preserves coefficients and FFT plans. May allocate if no maximum buffer
+  /// size has been configured yet.
+  void prewarm() override;
+
   /// \brief Whether the training sample rate is known, finite, and positive
   bool SupportsArbitrarySampleRate() override;
 

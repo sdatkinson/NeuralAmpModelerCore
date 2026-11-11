@@ -148,6 +148,43 @@ nam::Linear::Linear(const int in_channels, const int out_channels, const int rec
 
 nam::Linear::~Linear() = default;
 
+void nam::Linear::prewarm()
+{
+  if (mMaxBufferSize == 0)
+    SetMaxBufferSize(NAM_DEFAULT_MAX_BUFFER_SIZE);
+
+  for (auto& input : this->_input_buffers)
+    std::fill(input.begin(), input.end(), 0.0f);
+  for (auto& output : this->_output_buffers)
+    std::fill(output.begin(), output.end(), 0.0f);
+  this->_reset_input_buffer();
+
+  if (this->_fft_state == nullptr)
+    return;
+
+  auto& state = *this->_fft_state;
+  state.sample_index = 0;
+  for (auto& channel : state.output_channels)
+    std::fill(channel.output_ring.begin(), channel.output_ring.end(), 0.0f);
+  for (auto& tier : state.tiers)
+    for (auto& channel : tier.channels)
+    {
+      std::fill(channel.input_time.begin(), channel.input_time.end(), 0.0f);
+      for (auto& spectrum : channel.input_spectra)
+        std::fill(spectrum.begin(), spectrum.end(), LinearFFTState::Complex{});
+      std::fill(channel.accumulator.begin(), channel.accumulator.end(), LinearFFTState::Complex{});
+      std::fill(channel.ifft_time.begin(), channel.ifft_time.end(), 0.0f);
+      // Restore the staggered tier phases used by a newly initialized model.
+      channel.input_pos = tier.runs_inline ? 0 : tier.block_size / 2;
+      channel.spectrum_write_index = 0;
+      channel.job_spectrum_write_index = 0;
+      channel.job_work_index = 0;
+      channel.job_ticks_remaining = 0;
+      channel.job_block_start = 0;
+      channel.job_active = false;
+    }
+}
+
 bool nam::Linear::SupportsArbitrarySampleRate()
 {
   const double training_rate = GetExpectedSampleRate();
