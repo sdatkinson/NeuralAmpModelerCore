@@ -405,7 +405,7 @@ void test_process_realtime_safe(int channels)
 
   // Exercise several block sizes all within a single pre-sized state so the
   // internal "num_frames > max_buffer_size" guard in process() never fires
-  // (which would legitimately reallocate).
+  // (test_oversized_call_matches_consecutive_calls covers that path).
   const int max_buffer = 256;
   fast_dsp->Reset(48000.0, max_buffer);
 
@@ -451,6 +451,51 @@ void test_process_realtime_safe_lite()
 void test_process_realtime_safe_full()
 {
   test_process_realtime_safe(8);
+}
+
+// A call with more frames than the maximum buffer size must give exactly what the host gets by making calls of at
+// most that size, without allocating. The fast path used to grow its buffers instead, which allocated on the audio
+// thread and reset every history mid-stream.
+void test_oversized_call_matches_consecutive_calls(int channels)
+{
+  const int max_buffer = 32;
+  const int call_size = 100; // Not a multiple of max_buffer, so each call's last chunk is short
+  const int num_calls = 20;
+  const auto cfg = build_a2_config(channels);
+  const auto weights = make_deterministic_weights(a2_weight_count(channels), /*seed=*/0xA2FA500u + channels);
+  std::vector<std::unique_ptr<nam::DSP>> dsps;
+  for (int i = 0; i < 2; i++)
+  {
+    std::vector<float> w = weights;
+    dsps.push_back(nam::wavenet::a2_fast::create_a2_fast_config(cfg, 48000.0)->create(std::move(w), 48000.0));
+    dsps.back()->Reset(48000.0, max_buffer);
+  }
+  auto& consecutive = *dsps[0];
+  auto& oversized = *dsps[1];
+
+  const auto input = make_test_input(num_calls * call_size, 48000.0);
+  std::vector<NAM_SAMPLE> actual(call_size);
+  for (int call = 0; call < num_calls; call++)
+  {
+    std::vector<NAM_SAMPLE> x(input.begin() + call * call_size, input.begin() + (call + 1) * call_size);
+    const auto expected = process_dsp(consecutive, x, max_buffer);
+    NAM_SAMPLE* in_ptr = x.data();
+    NAM_SAMPLE* out_ptr = actual.data();
+    const std::string test_name = "A2FastModel<" + std::to_string(channels) + ">::process oversized";
+    allocation_tracking::run_allocation_test_no_allocations(
+      nullptr, [&]() { oversized.process(&in_ptr, &out_ptr, call_size); }, nullptr, test_name.c_str());
+    assert(actual == expected);
+  }
+}
+
+void test_oversized_call_matches_consecutive_calls_lite()
+{
+  test_oversized_call_matches_consecutive_calls(3);
+}
+
+void test_oversized_call_matches_consecutive_calls_full()
+{
+  test_oversized_call_matches_consecutive_calls(8);
 }
 
 } // namespace test_a2_fast

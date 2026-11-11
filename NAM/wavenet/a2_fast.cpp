@@ -154,6 +154,7 @@ private:
   void _head_ring_write(int num_frames);
   void _layer_forward(int layer_idx, const float* cond, int num_frames);
   void _head_forward(float* output, int num_frames);
+  void _process_in_chunks(NAM_SAMPLE** input, NAM_SAMPLE** output, int num_frames);
 
   // Compile-time-specialized per-layer kernel. KernelSize is lifted to a
   // template parameter so clang can fully unroll the tap loop and schedule
@@ -733,7 +734,10 @@ template <int Channels>
 void A2FastModel<Channels>::process(NAM_SAMPLE** input, NAM_SAMPLE** output, int num_frames)
 {
   if (num_frames > GetMaxBufferSize())
-    SetMaxBufferSize(num_frames);
+  {
+    _process_in_chunks(input, output, num_frames);
+    return;
+  }
 
   const NAM_SAMPLE* in0 = input[0];
   NAM_SAMPLE* out0 = output[0];
@@ -761,6 +765,24 @@ void A2FastModel<Channels>::process(NAM_SAMPLE** input, NAM_SAMPLE** output, int
   _head_forward(head_out, num_frames);
   for (int f = 0; f < num_frames; f++)
     out0[f] = static_cast<NAM_SAMPLE>(head_out[f]);
+}
+
+// A call with more frames than the maximum buffer size, as consecutive calls of at most that size. Growing the
+// buffers instead would allocate on the audio thread, and SetMaxBufferSize() resets every history.
+template <int Channels>
+void A2FastModel<Channels>::_process_in_chunks(NAM_SAMPLE** input, NAM_SAMPLE** output, int num_frames)
+{
+  if (GetMaxBufferSize() == 0)
+  {
+    SetMaxBufferSize(num_frames); // Never Reset(): no state to keep, so size for this call
+  }
+  const int max_frames = GetMaxBufferSize();
+  for (int offset = 0; offset < num_frames; offset += max_frames)
+  {
+    NAM_SAMPLE* input_chunk = input[0] + offset;
+    NAM_SAMPLE* output_chunk = output[0] + offset;
+    A2FastModel<Channels>::process(&input_chunk, &output_chunk, std::min(max_frames, num_frames - offset));
+  }
 }
 
 // -----------------------------------------------------------------------------
