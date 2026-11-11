@@ -6,10 +6,13 @@
 
 #include <cstdlib>
 #include <cstring>
-#include <dlfcn.h>
 #include <functional>
 #include <iostream>
 #include <new>
+
+#if NAM_ALLOC_TRACKING_ENABLED
+#include <dlfcn.h>
+#endif
 
 // Allocation tracking globals
 namespace allocation_tracking
@@ -53,6 +56,13 @@ void run_allocation_test(std::function<void()> setup, TestFunc test, std::functi
   if (teardown)
     teardown();
 
+#if !NAM_ALLOC_TRACKING_ENABLED
+  (void)expected_allocations;
+  (void)expected_deallocations;
+  (void)test_name;
+  return;
+#endif
+
   // Assert expected allocations/deallocations
   if (g_allocation_count != expected_allocations || g_deallocation_count != expected_deallocations)
   {
@@ -94,6 +104,11 @@ void run_allocation_test_expect_allocations(std::function<void()> setup, TestFun
   // Run teardown if provided
   if (teardown)
     teardown();
+
+#if !NAM_ALLOC_TRACKING_ENABLED
+  (void)test_name;
+  return;
+#endif
 
   // Assert that allocations occurred (this test verifies our tracking works)
   if (g_allocation_count == 0 && g_deallocation_count == 0)

@@ -6,9 +6,9 @@
 
 #if defined(NAM_ENABLE_A2_FAST)
 
+  #include <cmath>
   #include <algorithm>
   #include <cassert>
-  #include <cmath>
   #include <cstdint>
   #include <iostream>
   #include <memory>
