@@ -17,6 +17,20 @@ namespace test_linear
 namespace
 {
 
+class ProcessCountingLinear : public nam::Linear
+{
+public:
+  using nam::Linear::Linear;
+
+  void process(NAM_SAMPLE** input, NAM_SAMPLE** output, const int num_frames) override
+  {
+    ++process_calls;
+    nam::Linear::process(input, output, num_frames);
+  }
+
+  int process_calls = 0;
+};
+
 std::vector<NAM_SAMPLE> process_model(nam::Linear& model, const std::vector<NAM_SAMPLE>& input,
                                       const std::vector<int>& chunk_sizes)
 {
@@ -99,6 +113,117 @@ void assert_process_realtime_safe(const int receptive_field, const nam::LinearIm
 }
 
 } // namespace
+
+void test_prewarm_samples_tracks_receptive_field()
+{
+  for (const auto implementation : {nam::LinearImplementation::Direct, nam::LinearImplementation::FFT})
+  {
+    ProcessCountingLinear linear(1, 1, 257, false, make_weights(257, false), 48000.0, implementation);
+    nam::DSP& model = linear;
+    assert(model.GetPrewarmSamples() == 257);
+    for (const double rate : {96000.0, 44100.0, 24000.0, 48000.0})
+    {
+      model.Reset(rate, 127);
+      assert(model.GetPrewarmSamples() == (int)std::ceil(257 * rate / 48000.0));
+      assert(linear.process_calls == 0);
+    }
+
+    nam::Linear unknown(1, 1, 257, false, make_weights(257, false), -1.0, implementation);
+    unknown.Reset(96000.0, 127);
+    assert(unknown.GetPrewarmSamples() == 257);
+  }
+}
+
+void test_prewarm_before_reset()
+{
+  for (const auto implementation : {nam::LinearImplementation::Direct, nam::LinearImplementation::FFT})
+  {
+    const int taps = 1536;
+    const auto weights = make_weights(taps, true);
+    ProcessCountingLinear model(1, 1, taps, true, weights, 48000.0, implementation);
+    nam::DSP& dsp = model;
+    dsp.prewarm();
+    assert(model.GetMaxBufferSize() == NAM_DEFAULT_MAX_BUFFER_SIZE);
+    assert(model.process_calls == 0);
+    std::vector<NAM_SAMPLE> input(taps + 256, 0.0);
+    input[0] = 1.0;
+    const auto output = process_model(model, input, {1, 7, 31});
+    for (size_t i = 0; i < output.size(); ++i)
+      assert_near(output[i], weights.back() + (i < (size_t)taps ? weights[i] : 0.0), 1.0e-6);
+  }
+}
+
+void test_prewarm_clears_convolution_state()
+{
+  for (const auto implementation : {nam::LinearImplementation::Direct, nam::LinearImplementation::FFT})
+    for (const auto shape : {std::pair<int, int>{1, 1}, {2, 2}, {1, 2}, {2, 1}})
+    {
+      const int taps = implementation == nam::LinearImplementation::Direct ? 17 : 4097;
+      const int inputs = shape.first, outputs = shape.second;
+      const int paths = std::max(inputs, outputs);
+      const int kernels = inputs == outputs ? 1 : paths;
+      std::vector<float> weights(taps * kernels, 0.0f);
+      for (int k = 0; k < kernels; ++k)
+      {
+        weights[k * taps] = 0.25f * (k + 1);
+        weights[k * taps + taps / 2] = -0.125f * (k + 1);
+        weights[k * taps + taps - 1] = 0.5f * (k + 1);
+      }
+      for (int ch = 0; ch < (inputs == outputs ? 1 : outputs); ++ch)
+        weights.push_back(0.0625f * (ch + 1));
+      ProcessCountingLinear model(inputs, outputs, taps, true, weights, 48000.0, implementation);
+      model.Reset(48000.0, 257);
+      std::vector<std::vector<NAM_SAMPLE>> input(inputs, std::vector<NAM_SAMPLE>(257));
+      std::vector<std::vector<NAM_SAMPLE>> output(outputs, std::vector<NAM_SAMPLE>(257));
+      std::vector<NAM_SAMPLE*> input_ptrs(inputs), output_ptrs(outputs);
+      for (int ch = 0; ch < inputs; ++ch)
+        input_ptrs[ch] = input[ch].data();
+      for (int ch = 0; ch < outputs; ++ch)
+        output_ptrs[ch] = output[ch].data();
+
+      for (const int dirty_samples : {1733, 8271})
+      {
+        for (int ch = 0; ch < inputs; ++ch)
+          std::fill(input[ch].begin(), input[ch].end(), ch + 1.0);
+        for (int offset = 0; offset < dirty_samples; offset += 257)
+          model.process(input_ptrs.data(), output_ptrs.data(), std::min(257, dirty_samples - offset));
+
+        const int process_calls = model.process_calls;
+        nam::DSP& dsp = model;
+        allocation_tracking::run_allocation_test_no_allocations(
+          nullptr, [&]() { dsp.prewarm(); }, nullptr, "Linear prewarm clears state without allocations");
+        assert(model.process_calls == process_calls);
+        assert(model.GetPrewarmSamples() == taps);
+
+        // A new impulse must reproduce only the original coefficients and bias,
+        // with no old input history, queued FFT work, or overlap-add output.
+        for (int ch = 0; ch < inputs; ++ch)
+        {
+          std::fill(input[ch].begin(), input[ch].end(), 0.0);
+          input[ch][0] = ch + 1.0;
+        }
+        const int chunks[] = {1, 7, 127, 257, 31};
+        for (int offset = 0, chunk = 0; offset < taps + 257; ++chunk)
+        {
+          const int count = std::min(chunks[chunk % 5], taps + 257 - offset);
+          model.process(input_ptrs.data(), output_ptrs.data(), count);
+          for (int ch = 0; ch < outputs; ++ch)
+            for (int i = 0; i < count; ++i)
+            {
+              double expected = 0.0625 * (inputs == outputs ? 1 : ch + 1);
+              for (int path = 0; path < paths; ++path)
+                if ((outputs == 1 ? 0 : path) == ch && offset + i < taps)
+                  expected += (inputs == 1 ? 1.0 : path + 1.0)
+                              * weights[(kernels == 1 ? 0 : path) * taps + offset + i];
+              assert_near(output[ch][i], expected, 1.0e-6);
+            }
+          for (auto& channel : input)
+            channel[0] = 0.0;
+          offset += count;
+        }
+      }
+    }
+}
 
 void test_direct_known_values()
 {

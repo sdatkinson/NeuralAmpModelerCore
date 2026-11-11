@@ -103,6 +103,9 @@ int main()
   test_linear::test_channel_mappings();
   test_linear::test_channel_validation();
   test_linear::test_channel_mapping_in_place();
+  test_linear::test_prewarm_samples_tracks_receptive_field();
+  test_linear::test_prewarm_before_reset();
+  test_linear::test_prewarm_clears_convolution_state();
   test_linear::test_arbitrary_sample_rate_capability();
   test_linear::test_sample_rate_known_values();
   test_linear::test_sample_rate_fractional_and_fft();
