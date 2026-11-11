@@ -1,6 +1,5 @@
 #include <cassert>
 #include <cmath>
-#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <memory>
@@ -9,6 +8,11 @@
 #include <string>
 #include <type_traits>
 #include <vector>
+#include <version>
+
+#if defined(__cpp_lib_filesystem)
+  #include <filesystem>
+#endif
 
 #include "json.hpp"
 
@@ -55,6 +59,7 @@ nam::dspData _GetConfig(const std::string& configStr = basicConfigStr)
 namespace
 {
 
+#if defined(__cpp_lib_filesystem)
 class TemporaryNamFile
 {
 public:
@@ -69,6 +74,7 @@ public:
 
   const std::filesystem::path path;
 };
+#endif
 
 constexpr const char* kConstructorResetArchitecture = "ConstructorResetPrewarmPolicyTest";
 int gConstructorResetConstructCount = 0;
@@ -111,6 +117,7 @@ nlohmann::json build_constructor_reset_config()
 
 } // namespace
 
+#if defined(__cpp_lib_filesystem)
 void test_empty_nam_file_throws_validation_error()
 {
   const TemporaryNamFile file("nam_core_empty_file_test.nam", "");
@@ -144,6 +151,7 @@ void test_malformed_nam_file_throws_validation_error()
     assert(message.find("parse") != std::string::npos);
   }
 }
+#endif
 
 void test_gets_input_level()
 {
@@ -183,6 +191,7 @@ void test_null_output_level()
   assert(!dsp->HasOutputLevel());
 }
 
+#if defined(__cpp_lib_filesystem)
 // Helper function to process buffers through a DSP model
 void process_buffers(nam::DSP* dsp, int num_buffers, int buffer_size)
 {
@@ -259,6 +268,7 @@ void test_load_and_process_nam_files()
     process_buffers(dsp.get(), num_buffers, buffer_size);
   }
 }
+#endif
 
 // Helper function to create a config string with a specific version
 std::string createConfigWithVersion(const std::string& version)

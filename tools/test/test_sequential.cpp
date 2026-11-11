@@ -1,13 +1,17 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
-#include <filesystem>
 #include <fstream>
 #include <functional>
 #include <memory>
 #include <stdexcept>
 #include <string>
 #include <vector>
+#include <version>
+
+#if defined(__cpp_lib_filesystem)
+  #include <filesystem>
+#endif
 
 #include "json.hpp"
 
@@ -20,6 +24,7 @@ namespace test_sequential
 namespace
 {
 
+#if defined(__cpp_lib_filesystem)
 class TemporaryNamFile
 {
 public:
@@ -34,6 +39,7 @@ public:
 
   const std::filesystem::path path;
 };
+#endif
 
 nlohmann::json make_linear_model(const std::vector<float>& weights, const int receptive_field,
                                  const double sample_rate = 48000.0, const int in_channels = 1,
@@ -158,6 +164,7 @@ void test_sequential_loads_canonical_container_envelope()
   assert(dsp->GetExpectedSampleRate() == 48000.0);
 }
 
+#if defined(__cpp_lib_filesystem)
 void test_sequential_loads_from_file_path()
 {
   const auto model = make_sequential_model({make_linear_model({0.5f}, 1), make_linear_model({-2.0f}, 1)});
@@ -168,6 +175,7 @@ void test_sequential_loads_from_file_path()
   assert(dsp != nullptr);
   assert(dsp->GetExpectedSampleRate() == 48000.0);
 }
+#endif
 
 void test_sequential_process_matches_manual_series()
 {

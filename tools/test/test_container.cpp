@@ -7,6 +7,11 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+#include <version>
+
+#if defined(__cpp_lib_filesystem)
+  #include <filesystem>
+#endif
 
 #include "json.hpp"
 
@@ -370,6 +375,7 @@ void test_container_sample_rate_mismatch_throws()
   std::cerr.rdbuf(originalCerr);
 }
 
+#if defined(__cpp_lib_filesystem)
 void test_container_load_from_file()
 {
   std::filesystem::path path("example_models/slimmable_container.nam");
@@ -377,6 +383,7 @@ void test_container_load_from_file()
   assert(dsp != nullptr);
   process_and_verify(dsp.get(), 3, 64);
 }
+#endif
 
 void test_container_default_is_max_size()
 {

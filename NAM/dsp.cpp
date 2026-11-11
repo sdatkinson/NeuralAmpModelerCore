@@ -1,12 +1,16 @@
 #include <algorithm> // std::max_element
 #include <cmath> // pow, tanh, expf
 #include <cstring>
-#include <filesystem>
 #include <fstream>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
+#include <version>
+
+#if defined(__cpp_lib_filesystem)
+  #include <filesystem>
+#endif
 
 #include "dsp.h"
 #define tanh_impl_ std::tanh

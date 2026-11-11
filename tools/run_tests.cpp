@@ -44,8 +44,10 @@
 int main()
 {
   std::cout << "Running tests..." << std::endl;
+#if defined(__cpp_lib_filesystem)
   test_get_dsp_wav::test_formats_and_configuration();
   test_get_dsp_wav::test_invalid_files();
+#endif
   // TODO Automatically loop, catch exceptions, log results
 
   test_activations::TestFastTanh::test_core_function();
@@ -320,8 +322,10 @@ int main()
 
   test_get_dsp::test_gets_input_level();
   test_get_dsp::test_gets_output_level();
+#if defined(__cpp_lib_filesystem)
   test_get_dsp::test_empty_nam_file_throws_validation_error();
   test_get_dsp::test_malformed_nam_file_throws_validation_error();
+#endif
   test_get_dsp::test_null_input_level();
   test_get_dsp::test_null_output_level();
   test_get_dsp::test_version_patch_one_beyond_supported();
@@ -335,12 +339,16 @@ int main()
   test_get_dsp::test_get_dsp_prewarm_option_forces_constructor_reset_prewarm();
   test_get_dsp::test_get_dsp_with_returned_config_constructs_once();
 
+#if defined(__cpp_lib_filesystem)
   test_nam_file::test_accepts_minimum_valid_file();
   test_nam_file::test_rejects_non_object_json();
   test_nam_file::test_rejects_missing_required_keys();
+#endif
 
   // Finally, some end-to-end tests.
+#if defined(__cpp_lib_filesystem)
   test_get_dsp::test_load_and_process_nam_files();
+#endif
 
   // Extensibility: external architecture registration and get_dsp (issue #230)
   test_extensible::run_extensibility_tests();
@@ -355,14 +363,18 @@ int main()
   test_container::test_container_last_max_value_must_cover_one();
   test_container::test_container_unsorted_submodels_throws();
   test_container::test_container_sample_rate_mismatch_throws();
+#if defined(__cpp_lib_filesystem)
   test_container::test_container_load_from_file();
+#endif
   test_container::test_container_default_is_max_size();
   test_container::test_container_reset_only_resets_active_submodel();
   test_container::test_container_switch_resets_before_activation();
 
   // Sequential tests
   test_sequential::test_sequential_loads_canonical_container_envelope();
+#if defined(__cpp_lib_filesystem)
   test_sequential::test_sequential_loads_from_file_path();
+#endif
   test_sequential::test_sequential_process_matches_manual_series();
   test_sequential::test_sequential_process_is_realtime_safe_after_warmup();
   test_sequential::test_sequential_rejects_blocks_larger_than_reset_maximum();
@@ -376,12 +388,15 @@ int main()
   test_sequential::test_sequential_rejects_channel_mismatch();
 
   // Render --slim tests
+#if defined(__cpp_lib_filesystem)
   test_render_slim::test_slim_changes_output();
   test_render_slim::test_slim_rejects_non_slimmable();
   test_render_slim::test_slim_boundary_values();
   test_render_slim::test_slim_applied_before_processing();
+#endif
 
   // SlimmableWavenet tests
+#if defined(__cpp_lib_filesystem)
   test_slimmable_wavenet::test_loads_from_file();
   test_slimmable_wavenet::test_implements_slimmable();
   test_slimmable_wavenet::test_processes_audio();
@@ -390,6 +405,7 @@ int main()
   test_slimmable_wavenet::test_default_is_max_size();
   test_slimmable_wavenet::test_ratio_mapping();
   test_slimmable_wavenet::test_slimmable_breakpoints();
+#endif
   test_slimmable_wavenet::test_from_json();
   test_slimmable_wavenet::test_wavenet_without_slimmable_loads_as_regular();
   test_slimmable_wavenet::test_unsupported_method_throws();

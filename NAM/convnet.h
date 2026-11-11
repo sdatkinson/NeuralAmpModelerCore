@@ -1,11 +1,15 @@
 #pragma once
 
-#include <filesystem>
 #include <iterator>
 #include <memory>
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <version>
+
+#if defined(__cpp_lib_filesystem)
+  #include <filesystem>
+#endif
 
 #include <Eigen/Dense>
 

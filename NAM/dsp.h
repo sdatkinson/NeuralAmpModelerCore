@@ -1,12 +1,16 @@
 #pragma once
 
 #include <atomic>
-#include <filesystem>
 #include <iterator>
 #include <memory>
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <version>
+
+#if defined(__cpp_lib_filesystem)
+  #include <filesystem>
+#endif
 
 #include <Eigen/Dense>
 
@@ -371,12 +375,14 @@ struct dspData
 /// \param version Config version string to verify
 void verify_config_version(const std::string version);
 
+#if defined(__cpp_lib_filesystem)
 /// \brief Legacy loader for directory-style DSPs
 ///
 /// Loads models from a directory structure (older format).
 /// \param dirname Path to the directory containing the model
 /// \return Unique pointer to a DSP object
 std::unique_ptr<DSP> get_dsp_legacy(const std::filesystem::path dirname);
+#endif
 }; // namespace nam
 
 #include "linear.h"

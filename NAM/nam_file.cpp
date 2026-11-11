@@ -4,6 +4,7 @@
 #include <fstream>
 #include <string>
 
+#if defined(__cpp_lib_filesystem)
 namespace nam
 {
 nlohmann::json validate_nam_file(const std::filesystem::path& filename)
@@ -39,3 +40,4 @@ nlohmann::json validate_nam_file(const std::filesystem::path& filename)
   return config;
 }
 } // namespace nam
+#endif
