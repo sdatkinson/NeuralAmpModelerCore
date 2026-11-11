@@ -9,6 +9,7 @@
 #include <unordered_set>
 
 #include "dsp.h"
+#include "threading.h"
 #define tanh_impl_ std::tanh
 // #define tanh_impl_ fast_tanh_
 
@@ -17,7 +18,7 @@ constexpr const long _INPUT_BUFFER_SAFETY_FACTOR = 32;
 namespace
 {
 
-thread_local bool gPrewarmOnResetDefault = true;
+NAM_THREAD_LOCAL bool gPrewarmOnResetDefault = true;
 
 class ScopedDSPPrewarmOnReset
 {
