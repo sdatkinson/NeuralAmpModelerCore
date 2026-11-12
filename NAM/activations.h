@@ -47,8 +47,8 @@ struct ActivationConfig
   // Optional parameters (used by specific activation types)
   std::optional<float> negative_slope; // LeakyReLU, PReLU (single)
   std::optional<std::vector<float>> negative_slopes; // PReLU (per-channel)
-  std::optional<float> min_val; // LeakyHardtanh
-  std::optional<float> max_val; // LeakyHardtanh
+  std::optional<float> min_val; // Hardtanh, LeakyHardtanh
+  std::optional<float> max_val; // Hardtanh, LeakyHardtanh
   std::optional<float> min_slope; // LeakyHardtanh
   std::optional<float> max_slope; // LeakyHardtanh
 
@@ -66,10 +66,15 @@ inline float sigmoid(float x)
   return 1.0f / (1.0f + expf(-x));
 };
 
+inline float hard_tanh(float x, float min_val, float max_val)
+{
+  const float t = x < min_val ? min_val : x;
+  return t > max_val ? max_val : t;
+}
+
 inline float hard_tanh(float x)
 {
-  const float t = x < -1 ? -1 : x;
-  return t > 1 ? 1 : t;
+  return hard_tanh(x, -1.0f, 1.0f);
 }
 
 inline float leaky_hardtanh(float x, float min_val, float max_val, float min_slope, float max_slope)
@@ -194,13 +199,23 @@ public:
 class ActivationHardTanh : public Activation
 {
 public:
+  ActivationHardTanh() = default;
+  ActivationHardTanh(float min_val_, float max_val_)
+  {
+    min_val = min_val_;
+    max_val = max_val_;
+  }
   void apply(float* data, long size) override
   {
     for (long pos = 0; pos < size; pos++)
     {
-      data[pos] = hard_tanh(data[pos]);
+      data[pos] = hard_tanh(data[pos], min_val, max_val);
     }
   }
+
+private:
+  float min_val = -1.0;
+  float max_val = 1.0;
 };
 
 class ActivationLeakyHardTanh : public Activation

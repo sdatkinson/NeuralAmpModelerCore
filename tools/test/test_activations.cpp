@@ -400,6 +400,25 @@ public:
     assert(act != nullptr);
   }
 
+  static void test_hardtanh_config()
+  {
+    // Test Hardtanh with custom bounds
+    nam::activations::ActivationConfig config;
+    config.type = nam::activations::ActivationType::Hardtanh;
+    config.min_val = -0.5f;
+    config.max_val = 2.0f;
+
+    auto act = nam::activations::Activation::get_activation(config);
+    assert(act != nullptr);
+
+    std::vector<float> data = {-3.0f, -0.25f, 1.5f, 5.0f};
+    act->apply(data.data(), (long)data.size());
+    assert(fabs(data[0] - (-0.5f)) < 1e-6);
+    assert(fabs(data[1] - (-0.25f)) < 1e-6);
+    assert(fabs(data[2] - 1.5f) < 1e-6);
+    assert(fabs(data[3] - 2.0f) < 1e-6);
+  }
+
   static void test_softsign_config()
   {
     // Test Softsign configuration
@@ -443,6 +462,45 @@ public:
     assert(config.type == nam::activations::ActivationType::PReLU);
     assert(config.negative_slopes.has_value());
     assert(config.negative_slopes.value().size() == 4);
+  }
+
+  static void test_from_json_hardtanh_bounds()
+  {
+    // The trainer exports torch.nn.Hardtanh with its bounds
+    nlohmann::json j = {{"type", "Hardtanh"}, {"min_val", -2.0f}, {"max_val", 0.5f}};
+    auto config = nam::activations::ActivationConfig::from_json(j);
+    assert(config.type == nam::activations::ActivationType::Hardtanh);
+    assert(config.min_val.has_value() && fabs(config.min_val.value() - (-2.0f)) < 1e-6);
+    assert(config.max_val.has_value() && fabs(config.max_val.value() - 0.5f) < 1e-6);
+
+    auto act = nam::activations::Activation::get_activation(config);
+    assert(act != nullptr);
+    std::vector<float> data = {-3.0f, -1.5f, 0.25f, 1.0f};
+    act->apply(data.data(), (long)data.size());
+    assert(fabs(data[0] - (-2.0f)) < 1e-6);
+    assert(fabs(data[1] - (-1.5f)) < 1e-6);
+    assert(fabs(data[2] - 0.25f) < 1e-6);
+    assert(fabs(data[3] - 0.5f) < 1e-6);
+  }
+
+  static void test_from_json_hardtanh_default()
+  {
+    // Without bounds, Hardtanh clamps to [-1, 1]
+    for (const nlohmann::json& j : {nlohmann::json("Hardtanh"), nlohmann::json({{"type", "Hardtanh"}})})
+    {
+      auto config = nam::activations::ActivationConfig::from_json(j);
+      assert(config.type == nam::activations::ActivationType::Hardtanh);
+      assert(!config.min_val.has_value());
+      assert(!config.max_val.has_value());
+
+      auto act = nam::activations::Activation::get_activation(config);
+      assert(act == nam::activations::Activation::get_activation(std::string("Hardtanh")));
+      std::vector<float> data = {-3.0f, 0.5f, 3.0f};
+      act->apply(data.data(), (long)data.size());
+      assert(fabs(data[0] - (-1.0f)) < 1e-6);
+      assert(fabs(data[1] - 0.5f) < 1e-6);
+      assert(fabs(data[2] - 1.0f) < 1e-6);
+    }
   }
 
   static void test_from_json_softsign_string()
