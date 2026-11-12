@@ -599,6 +599,8 @@ nam::wavenet::WaveNet::WaveNet(const int in_channels,
 : DSP(in_channels, wave_net_output_channels(layer_array_params, with_head, head_params), expected_sample_rate)
 , _condition_dsp(std::move(condition_dsp))
 , _head_scale(head_scale)
+, _chunk_input_ptrs(in_channels)
+, _chunk_output_ptrs(NumOutputChannels())
 {
   // Assert that if there's a condition DSP, its input is compatible with what it'll get from this WaveNet:
   if (this->_condition_dsp != nullptr)
@@ -822,14 +824,8 @@ void nam::wavenet::WaveNet::_set_condition_array(NAM_SAMPLE** input, const int n
   }
 }
 
-void nam::wavenet::WaveNet::process(NAM_SAMPLE** input, NAM_SAMPLE** output, const int num_frames)
+void nam::wavenet::WaveNet::_process_layer_arrays(const int num_frames)
 {
-  assert(num_frames <= mMaxBufferSize);
-  const int out_channels = NumOutputChannels();
-
-  this->_set_condition_array(input, num_frames);
-  this->_process_condition(num_frames);
-
   // Main layer arrays:
   // Layer-to-layer
   for (size_t i = 0; i < this->_layer_arrays.size(); i++)
@@ -851,6 +847,42 @@ void nam::wavenet::WaveNet::process(NAM_SAMPLE** input, NAM_SAMPLE** output, con
       this->_layer_arrays[i].Process(prev_layer_outputs, this->_condition_output, prev_head_outputs, num_frames);
     }
   }
+}
+
+void nam::wavenet::WaveNet::_process_in_chunks(NAM_SAMPLE** input, NAM_SAMPLE** output, const int num_frames)
+{
+  // Advance by the frames actually processed, so offset never passes num_frames (no int overflow near INT_MAX)
+  for (int offset = 0, chunk = 0; offset < num_frames; offset += chunk)
+  {
+    chunk = std::min(mMaxBufferSize, num_frames - offset);
+    for (size_t ch = 0; ch < this->_chunk_input_ptrs.size(); ch++)
+    {
+      this->_chunk_input_ptrs[ch] = input[ch] + offset;
+    }
+    for (size_t ch = 0; ch < this->_chunk_output_ptrs.size(); ch++)
+    {
+      this->_chunk_output_ptrs[ch] = output[ch] + offset;
+    }
+    // Qualified, so that a subclass's override isn't re-entered for every chunk
+    WaveNet::process(this->_chunk_input_ptrs.data(), this->_chunk_output_ptrs.data(), chunk);
+  }
+}
+
+void nam::wavenet::WaveNet::process(NAM_SAMPLE** input, NAM_SAMPLE** output, const int num_frames)
+{
+  // Every buffer holds mMaxBufferSize frames. Growing them here would allocate on the audio thread and discard the
+  // model's state, so a larger call is split instead.
+  if (num_frames > mMaxBufferSize && mMaxBufferSize > 0)
+  {
+    this->_process_in_chunks(input, output, num_frames);
+    return;
+  }
+  assert(num_frames <= mMaxBufferSize);
+  const int out_channels = NumOutputChannels();
+
+  this->_set_condition_array(input, num_frames);
+  this->_process_condition(num_frames);
+  this->_process_layer_arrays(num_frames);
 
   auto& final_head_outputs = this->_layer_arrays.back().GetHeadOutputs();
 
