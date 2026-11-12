@@ -11,6 +11,7 @@
 #include "json.hpp"
 #include "get_dsp.h"
 #include "model_config.h"
+#include "nam_file.h"
 #include "wav.h"
 
 namespace nam
@@ -143,6 +144,12 @@ std::vector<float> GetWeights(nlohmann::json const& j)
 
 void populate_dsp_data(const nlohmann::json& config, dspData& returnedConfig)
 {
+  // The std::filesystem::path overloads validate via validate_nam_file() before getting here, but
+  // the nlohmann::json overloads hand their config straight to this function. Without this, a
+  // well-formed JSON document that simply is not a model reaches operator[] below, which asserts
+  // on a missing key and aborts the process instead of throwing.
+  validate_nam_json(config, "model config");
+
   verify_config_version(config["version"].get<std::string>());
 
   nlohmann::json config_json = config["config"];

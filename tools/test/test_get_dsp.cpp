@@ -145,6 +145,70 @@ void test_malformed_nam_file_throws_validation_error()
   }
 }
 
+// Issue #328: the nlohmann::json overloads of get_dsp() did no validation at all, so a
+// well-formed JSON document that simply is not a model reached operator[] on a const json,
+// which asserts on a missing key and aborts the process rather than throwing.
+namespace
+{
+nlohmann::json minimal_valid_config()
+{
+  return nlohmann::json{{"version", "0.5.4"},
+                        {"architecture", "LSTM"},
+                        {"config", nlohmann::json{{"input_size", 1}, {"hidden_size", 3}, {"num_layers", 1}}},
+                        {"weights", nlohmann::json::array()}};
+}
+
+void assert_json_config_rejected(const nlohmann::json& config, const std::string& expected_detail)
+{
+  try
+  {
+    nam::get_dsp(config);
+    assert(false);
+  }
+  catch (const nam::NamFileValidationError& error)
+  {
+    const std::string message = error.what();
+    assert(message.find(expected_detail) != std::string::npos);
+  }
+}
+} // namespace
+
+void test_json_config_missing_required_key_throws()
+{
+  for (const char* key : {"version", "architecture", "config", "weights"})
+  {
+    nlohmann::json config = minimal_valid_config();
+    config.erase(key);
+    assert_json_config_rejected(config, std::string("missing required key \"") + key + "\"");
+  }
+}
+
+void test_json_config_non_object_throws()
+{
+  assert_json_config_rejected(nlohmann::json::array({1, 2, 3}), "root JSON value must be an object");
+  assert_json_config_rejected(nlohmann::json("not a model"), "root JSON value must be an object");
+}
+
+void test_json_config_non_string_version_throws()
+{
+  nlohmann::json config = minimal_valid_config();
+  config["version"] = 7;
+  assert_json_config_rejected(config, "\"version\" must be a string");
+}
+
+void test_json_config_non_string_architecture_throws()
+{
+  nlohmann::json config = minimal_valid_config();
+  config["architecture"] = nlohmann::json::object();
+  assert_json_config_rejected(config, "\"architecture\" must be a string");
+}
+
+// The exact reproduction from the issue report.
+void test_json_config_unrelated_document_throws()
+{
+  assert_json_config_rejected(nlohmann::json::parse(R"({"hello": "world"})"), "missing required key");
+}
+
 void test_gets_input_level()
 {
   nam::dspData config = _GetConfig();
