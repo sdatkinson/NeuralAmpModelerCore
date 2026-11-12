@@ -26,10 +26,14 @@ public:
 class Version
 {
 public:
+  // Brace-init the members rather than `major(major)`: <sys/types.h> (FreeBSD)
+  // and <sys/sysmacros.h> (glibc) define major() and minor() as function-like
+  // macros that stay macros in C++, and they expand on `major(`, breaking this
+  // header for any consumer that includes them first. `major{` does not expand.
   Version(int major, int minor, int patch)
-  : major(major)
-  , minor(minor)
-  , patch(patch)
+  : major{major}
+  , minor{minor}
+  , patch{patch}
   {
   }
 
