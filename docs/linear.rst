@@ -58,3 +58,81 @@ Both direct and FFT convolution use these rules. Resetting to a new processing
 sample rate independently resamples each response from its original training
 coefficients, leaves biases unchanged, and clears all convolution history.
 Processing uses preallocated state; construction and reset may allocate.
+
+Convolution engines
+-------------------
+
+The optional configuration field ``implementation`` selects how the
+convolution is computed: ``"auto"`` (the default), ``"direct"`` or ``"fft"``.
+Both engines have zero latency and produce the same result up to floating-point
+rounding. ``"auto"`` chooses from the impulse-response length at the processing
+sample rate, so resetting to a new sample rate can change the engine:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Taps
+     - Engine
+     - Partition
+     - Tail partition
+   * - up to 1,024
+     - direct
+     -
+     -
+   * - up to 2,048
+     - FFT
+     - 256
+     -
+   * - up to 8,192
+     - FFT
+     - 512
+     -
+   * - up to 48,000
+     - FFT
+     - 1,024
+     -
+   * - up to 240,000
+     - FFT
+     - 1,024
+     - 8,192
+   * - more
+     - FFT
+     - 1,024
+     - 16,384
+
+**Direct** convolution computes every output sample as a dot product over the
+whole impulse response. Its cost per sample is proportional to the length and
+the same in every callback.
+
+**FFT** convolution splits the impulse response into three parts:
+
+* **Direct head.** The first partition's worth of taps is convolved directly,
+  sample by sample. This is what keeps the latency at zero.
+* **Uniform partitions.** The taps after the head are cut into partitions of
+  the same size ``B``, each convolved with a ``2B``-point real FFT of the
+  input, overlap-added as the output is played. A transform runs once every
+  ``B`` samples. When a block completes, only its forward transform, the first
+  partition's multiplies and the inverse transform run in that callback; the
+  other partitions multiply spectra of blocks that have already arrived, and
+  that work is shared out across the callbacks in between.
+* **Tail tier.** Beyond 48,000 taps, the uniform partitions stop at twice the
+  tail partition size ``T``, and the rest of the impulse response is cut into
+  partitions of ``T`` taps. A tail block's output is first needed ``T`` samples
+  after the block completes, and all of its work is spread across that gap,
+  including its transforms: each ``2T``-point transform is computed as several
+  ``2B``-point transforms plus a combining pass, so no callback runs a large
+  transform. Work is shared out by estimated cost among the callbacks that
+  remain before the result is due; anything left when it is due is done then.
+
+The FFT engine's output does not depend on how the input is divided into
+callbacks. It keeps only the direct head's input history, plus a few
+maximum-size callbacks. The direct engine keeps the whole impulse response's
+input history and copies it back to the start of its buffer every 32
+maximum-size callbacks.
+
+Neither engine allocates while processing callbacks no longer than the
+maximum buffer size given to ``Reset``. A longer callback makes the input
+history grow, which allocates.
+
+``tools/BENCHMARK_LINEAR.md`` records how the table was chosen and how to
+measure it with ``tools/bench_linear``.
