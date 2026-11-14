@@ -7,6 +7,7 @@
 #include <stdexcept>
 #include <vector>
 
+#include "NAM/get_dsp.h"
 #include "NAM/wavenet/model.h"
 
 namespace test_wavenet
@@ -106,7 +107,8 @@ void test_layer1x1_active()
 
 void test_layer1x1_inactive()
 {
-  // Test that when layer1x1 is inactive, residual connection passes through input directly
+  // Test that when layer1x1 is inactive, the activation output is added to the input directly
+  // (residual = x + activation(z), as in the Python model)
   const int conditionSize = 1;
   const int channels = 2;
   const int bottleneck = channels; // Must equal channels when layer1x1 is inactive
@@ -160,12 +162,118 @@ void test_layer1x1_inactive()
   // z = 1 + 1 = 2
   // ReLU(2) = 2
   // layer1x1 is skipped
-  // layer_output = input (identity residual) = 1
-  const float expectedLayerOutput = 1.0f;
+  // layer_output = input + activation output = 1 + 2 = 3
+  const float expectedLayerOutput = 3.0f;
   for (int i = 0; i < numFrames; i++)
   {
     assert(std::abs(layer_output(0, i) - expectedLayerOutput) < 0.01f);
     assert(std::abs(layer_output(1, i) - expectedLayerOutput) < 0.01f);
+  }
+}
+
+void test_layer1x1_inactive_gated()
+{
+  // With gating, _z holds 2*bottleneck rows; only the gated (top) rows may reach the residual.
+  const int conditionSize = 1;
+  const int channels = 2;
+  const int bottleneck = channels;
+  const auto relu = nam::activations::ActivationConfig::simple(nam::activations::ActivationType::ReLU);
+  nam::wavenet::Layer1x1Params layer1x1_params(false, 1);
+  nam::wavenet::Head1x1Params head1x1_params(false, channels, 1);
+  auto layer = make_layer(conditionSize, channels, bottleneck, 1, 1, relu, nam::wavenet::GatingMode::GATED, 1, 1,
+                          layer1x1_params, head1x1_params, relu);
+
+  std::vector<float> weights{
+    // Conv (channels -> 2*bottleneck): identity into the primary rows, nothing into the gate rows
+    1.0f, 0.0f, // out 0
+    0.0f, 1.0f, // out 1
+    0.0f, 0.0f, // out 2 (gate for 0)
+    0.0f, 0.0f, // out 3 (gate for 1)
+    // Conv bias: the gates are constant
+    0.0f, 0.0f, 1.0f, 0.5f,
+    // Input mixin: unused
+    0.0f, 0.0f, 0.0f, 0.0f};
+
+  auto it = weights.begin();
+  layer.set_weights_(it);
+  assert(it == weights.end());
+
+  const int numFrames = 3;
+  layer.SetMaxBufferSize(numFrames);
+
+  Eigen::MatrixXf input(channels, numFrames);
+  Eigen::MatrixXf condition(conditionSize, numFrames);
+  for (int i = 0; i < numFrames; i++)
+  {
+    input(0, i) = 2.0f + i;
+    input(1, i) = 3.0f + i;
+  }
+  condition.setZero();
+
+  layer.Process(input, condition, numFrames);
+
+  auto layer_output = layer.GetOutputNextLayer().leftCols(numFrames);
+
+  // activation = ReLU(input) * ReLU(gate) = input * [1, 0.5]
+  // layer_output = input + activation
+  for (int i = 0; i < numFrames; i++)
+  {
+    assert(std::abs(layer_output(0, i) - 2.0f * input(0, i)) < 1e-5f);
+    assert(std::abs(layer_output(1, i) - 1.5f * input(1, i)) < 1e-5f);
+  }
+}
+
+void test_layer1x1_inactive_full_model()
+{
+  // Two-layer WaveNet loaded from a config with layer1x1 inactive. The second layer only sees the
+  // first layer's activation through the residual path, so the output is checked against a
+  // direct evaluation of the Python model: x_next = x + ReLU(conv(x) + mixin(c)).
+  const float a0 = 0.5f, b0 = 0.25f, m0 = 0.5f; // Layer 0: conv weight, conv bias, input mixin
+  const float a1 = 2.0f, b1 = -0.5f, m1 = 0.25f; // Layer 1
+  const float head_weight = 1.5f;
+  const float head_scale = 0.5f;
+
+  nlohmann::json layer_array;
+  layer_array["input_size"] = 1;
+  layer_array["condition_size"] = 1;
+  layer_array["head_size"] = 1;
+  layer_array["channels"] = 1;
+  layer_array["kernel_size"] = 1;
+  layer_array["dilations"] = {1, 1};
+  layer_array["activation"] = "ReLU";
+  layer_array["head_bias"] = false;
+  layer_array["layer1x1"] = {{"active", false}, {"groups", 1}};
+
+  nlohmann::json j;
+  j["version"] = "0.7.0";
+  j["architecture"] = "WaveNet";
+  j["config"]["layers"] = nlohmann::json::array({layer_array});
+  j["config"]["head_scale"] = head_scale;
+  // rechannel, layer 0 (conv w, conv b, mixin), layer 1 (conv w, conv b, mixin), head rechannel, head scale
+  j["weights"] = {1.0f, a0, b0, m0, a1, b1, m1, head_weight, head_scale};
+  j["sample_rate"] = 48000;
+
+  auto dsp = nam::get_dsp(j);
+  assert(dsp != nullptr);
+
+  const int numFrames = 5;
+  dsp->Reset(48000.0, numFrames);
+
+  std::vector<NAM_SAMPLE> input{-1.0f, -0.25f, 0.0f, 0.5f, 1.0f};
+  std::vector<NAM_SAMPLE> output(numFrames, 0.0f);
+  NAM_SAMPLE* inputPtrs[] = {input.data()};
+  NAM_SAMPLE* outputPtrs[] = {output.data()};
+  dsp->process(inputPtrs, outputPtrs, numFrames);
+
+  auto relu = [](float v) { return v > 0.0f ? v : 0.0f; };
+  for (int i = 0; i < numFrames; i++)
+  {
+    const float x = (float)input[i]; // The condition is the input itself
+    const float act0 = relu(a0 * x + b0 + m0 * x);
+    const float x1 = x + act0; // Residual with layer1x1 inactive
+    const float act1 = relu(a1 * x1 + b1 + m1 * x);
+    const float expected = head_scale * head_weight * (act0 + act1);
+    assert(std::abs((float)output[i] - expected) < 1e-5f);
   }
 }
 
