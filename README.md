@@ -15,6 +15,10 @@ For guidance on building them, have a look at the workflow provided in `.github/
 * [`loadmodel`](https://github.com/sdatkinson/NeuralAmpModelerCore/blob/761fa968766bcf67d3035320c195969d9ba41fa1/tools/CMakeLists.txt#L13), which allows you to test loading a `.nam` file.
 * [`benchmodel`](https://github.com/sdatkinson/NeuralAmpModelerCore/blob/761fa968766bcf67d3035320c195969d9ba41fa1/tools/CMakeLists.txt#L14), which allows you to test how quickly a model runs in real time. _Note: For more granular profiling tools, check out the [`main-profiling`](https://github.com/sdatkinson/NeuralAmpModelerCore/tree/main-profiling) branch.
 
+## Requirements
+
+The CMake build targets C++20 (`CMAKE_CXX_STANDARD 20` in `CMakeLists.txt`; several tool targets also pin `cxx_std_20`). Use a compiler with C++20 support, for example a recent MSVC toolset on Windows. `NAM/wavenet/slimmable.h` falls back to the `std::atomic_*` free functions on standard libraries without `std::atomic<std::shared_ptr<T>>`, but that is a compatibility path rather than the configured build: CI currently builds on Ubuntu with libstdc++ and libc++ only.
+
 ## Sharp edges
 This library uses [Eigen](http://eigen.tuxfamily.org) to do the linear algebra routines that its neural networks require. Since these models hold their parameters as eigen object members, there is a risk with certain compilers and compiler optimizations that their memory is not aligned properly. This can be worked around by providing two preprocessor macros: `EIGEN_MAX_ALIGN_BYTES 0` and `EIGEN_DONT_VECTORIZE`, though this will probably harm performance. See [Structs Having Eigen Members](http://eigen.tuxfamily.org/dox-3.2/group__TopicStructHavingEigenMembers.html) for more information. This is being tracked as [Issue 67](https://github.com/sdatkinson/NeuralAmpModelerCore/issues/67).
 
