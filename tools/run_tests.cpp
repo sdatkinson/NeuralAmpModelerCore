@@ -7,6 +7,7 @@
 #include "test/test_conv1d.cpp"
 #include "test/test_conv_1x1.cpp"
 #include "test/test_convnet.cpp"
+#include "test/test_convnet_realtime_safe.cpp"
 #include "test/test_dsp.cpp"
 #include "test/test_film.cpp"
 #include "test/test_film_realtime_safe.cpp"
@@ -255,6 +256,14 @@ int main()
   test_convnet::test_convnet_different_buffer_sizes();
   test_convnet::test_convnet_prewarm();
   test_convnet::test_convnet_multiple_calls();
+
+  // ConvNet real-time safety tests (issue #350)
+  test_convnet_realtime_safe::test_convnet_process_single_block_realtime_safe();
+  test_convnet_realtime_safe::test_convnet_process_multiple_blocks_realtime_safe();
+  test_convnet_realtime_safe::test_convnet_process_batchnorm_realtime_safe();
+  test_convnet_realtime_safe::test_convnet_process_multichannel_realtime_safe();
+  test_convnet_realtime_safe::test_convnet_process_varying_frames_realtime_safe();
+  test_convnet_realtime_safe::test_convnet_process_consecutive_calls_realtime_safe();
 
   // LSTM tests
   test_lstm::test_lstm_basic();

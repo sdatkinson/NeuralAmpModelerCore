@@ -92,6 +92,10 @@ public:
   /// \return Block reference to the output
   Eigen::Block<Eigen::MatrixXf> GetOutput(const int num_frames);
 
+  /// \brief Get the whole output buffer without copying (issue #350)
+  /// \return Const reference to the output buffer owned by this block
+  const Eigen::MatrixXf& GetOutputBuffer() const { return this->_output; };
+
   /// \brief Get the number of output channels
   /// \return Number of output channels
   long get_out_channels() const;
@@ -156,7 +160,8 @@ public:
 protected:
   std::vector<ConvNetBlock> _blocks;
   std::vector<Eigen::MatrixXf> _block_vals;
-  Eigen::MatrixXf _head_output; // (out_channels, num_frames)
+  Eigen::MatrixXf _input_matrix; // (in_channels, maxBufferSize), reused by the first block (issue #350)
+  Eigen::MatrixXf _head_output; // (out_channels, maxBufferSize)
   _Head _head;
   void _verify_weights(const int channels, const std::vector<int>& dilations, const bool batchnorm,
                        const size_t actual_weights);
