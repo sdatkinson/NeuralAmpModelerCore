@@ -12,12 +12,25 @@
 
 #include "json.hpp"
 
+// FreeBSD's sys/types.h defines major(x) and minor(x) macros. Keep these
+// enabled while including get_dsp.h so this test catches macro expansion in
+// Version's member initializers.
+#define major(x) freebsd_major(x)
+#define minor(x) freebsd_minor(x)
 #include "NAM/get_dsp.h"
+#undef major
+#undef minor
 #include "NAM/registry.h"
 
 namespace test_get_dsp
 {
 static_assert(std::is_base_of_v<std::runtime_error, nam::NamFileValidationError>);
+
+void test_version_constructs_with_freebsd_major_minor_macros()
+{
+  const nam::Version version(1, 2, 3);
+  assert(version.toString() == "1.2.3");
+}
 
 // Config
 const std::string basicConfigStr =
