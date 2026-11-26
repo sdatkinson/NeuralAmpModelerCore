@@ -93,7 +93,8 @@ public:
   /// \param input Input audio buffers. Double pointer where the first pointer indexes channels
   ///              and the second indexes frames: input[channel][frame]
   /// \param output Output audio buffers. Same structure as input.
-  /// \param num_frames Number of frames to process
+  /// \param num_frames Number of frames to process. Must not exceed the
+  ///                   maxBufferSize passed to Reset().
   virtual void process(NAM_SAMPLE** input, NAM_SAMPLE** output, const int num_frames);
   /// \brief Get the sample rate at which the model was trained
   ///
